@@ -1,0 +1,12 @@
+export const COLORS = {
+  PRIMARY: '#4F46E5',
+  SECONDARY: '#7C3AED',
+  SUCCESS: '#10B981',
+  WARNING: '#F59E0B',
+  DANGER: '#EF4444',
+  INFO: '#3B82F6',
+  DARK: '#111827',
+  LIGHT: '#F9FAFB',
+  TEXT: '#374151',
+  MUTED: '#6B7280',
+} as const;
