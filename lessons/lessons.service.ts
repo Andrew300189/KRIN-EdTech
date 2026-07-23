@@ -1,4 +1,4 @@
-import { lessonsApi } from './lessons.api';
+import { lessonsApi } from "./lessons.api";
 
 export async function fetchLessons() {
   return lessonsApi.list();

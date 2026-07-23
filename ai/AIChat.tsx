@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
-import AIMessage from './AIMessage';
+import React, { useState } from "react";
+import AIMessage from "./AIMessage";
 
 export default function AIChat() {
-  const [messages, setMessages] = useState([{ id: '1', role: 'assistant', content: 'Hello! I can help with grammar, writing, and speaking practice.' }]);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState([
+    {
+      id: "1",
+      role: "assistant",
+      content:
+        "Hello! I can help with grammar, writing, and speaking practice.",
+    },
+  ]);
+  const [input, setInput] = useState("");
 
   const sendMessage = () => {
     if (!input.trim()) return;
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: 'user', content: input }]);
-    setInput('');
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content: input },
+    ]);
+    setInput("");
   };
 
   return (
@@ -16,7 +26,11 @@ export default function AIChat() {
       <h3 className="text-xl font-semibold text-gray-900">AI Tutor</h3>
       <div className="mt-4 space-y-3">
         {messages.map((message) => (
-          <AIMessage key={message.id} role={message.role} content={message.content} />
+          <AIMessage
+            key={message.id}
+            role={message.role}
+            content={message.content}
+          />
         ))}
       </div>
       <div className="mt-4 flex gap-2">
@@ -26,7 +40,12 @@ export default function AIChat() {
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
           placeholder="Ask the AI tutor..."
         />
-        <button onClick={sendMessage} className="rounded-lg bg-blue-600 px-4 py-2 text-white">Send</button>
+        <button
+          onClick={sendMessage}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white"
+        >
+          Send
+        </button>
       </div>
     </section>
   );

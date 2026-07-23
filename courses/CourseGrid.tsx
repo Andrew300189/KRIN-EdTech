@@ -1,5 +1,5 @@
-import React from 'react';
-import CourseCard from './CourseCard';
+import React from "react";
+import CourseCard from "./CourseCard";
 
 export interface CourseGridProps {
   courses: Array<{

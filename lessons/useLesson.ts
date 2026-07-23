@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { fetchLessonById } from './lessons.service';
+import { useEffect, useState } from "react";
+import { fetchLessonById } from "./lessons.service";
 
 export default function useLesson(id: string) {
   const [lesson, setLesson] = useState<any>(null);

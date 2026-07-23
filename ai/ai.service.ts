@@ -1,4 +1,4 @@
-import { aiApi } from './ai.api';
+import { aiApi } from "./ai.api";
 
 export async function askAI(prompt: string) {
   return aiApi.chat(prompt);

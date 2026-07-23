@@ -1,4 +1,4 @@
-import { coursesApi } from './courses.api';
+import { coursesApi } from "./courses.api";
 
 export async function fetchCourses() {
   return coursesApi.list();

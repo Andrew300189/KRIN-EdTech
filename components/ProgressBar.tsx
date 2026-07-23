@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 type ProgressBarProps = {
   value: number;
@@ -10,7 +10,10 @@ export default function ProgressBar({ value, max = 100 }: ProgressBarProps) {
 
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-      <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${percent}%` }} />
+      <div
+        className="h-full rounded-full bg-blue-600 transition-all"
+        style={{ width: `${percent}%` }}
+      />
     </div>
   );
 }
