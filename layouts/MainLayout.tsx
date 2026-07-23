@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -11,9 +11,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <h1 className="text-lg font-semibold">KRIN EdTech</h1>
           <nav className="flex gap-4 text-sm text-gray-600">
-            <a href="#" className="hover:text-blue-600">Home</a>
-            <a href="#" className="hover:text-blue-600">Courses</a>
-            <a href="#" className="hover:text-blue-600">About</a>
+            <a href="#" className="hover:text-blue-600">
+              Home
+            </a>
+            <a href="#" className="hover:text-blue-600">
+              Courses
+            </a>
+            <a href="#" className="hover:text-blue-600">
+              About
+            </a>
           </nav>
         </div>
       </header>

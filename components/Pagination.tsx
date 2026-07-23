@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 type PaginationProps = {
   currentPage: number;
@@ -6,7 +6,11 @@ type PaginationProps = {
   onPageChange: (page: number) => void;
 };
 
-export default function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+export default function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: PaginationProps) {
   return (
     <div className="flex items-center gap-2">
       {Array.from({ length: totalPages }, (_, index) => {
@@ -15,7 +19,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
           <button
             key={page}
             onClick={() => onPageChange(page)}
-            className={`rounded-md px-3 py-1 text-sm ${page === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            className={`rounded-md px-3 py-1 text-sm ${page === currentPage ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
           >
             {page}
           </button>

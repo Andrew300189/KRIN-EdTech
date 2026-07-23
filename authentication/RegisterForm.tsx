@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 export default function RegisterForm() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   return (
     <form className="space-y-4">
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Full name</label>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          Full name
+        </label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -17,7 +19,9 @@ export default function RegisterForm() {
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          Email
+        </label>
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -26,7 +30,9 @@ export default function RegisterForm() {
         />
       </div>
       <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          Password
+        </label>
         <input
           type="password"
           value={password}
@@ -35,7 +41,9 @@ export default function RegisterForm() {
           placeholder="••••••••"
         />
       </div>
-      <button className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white">Create account</button>
+      <button className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white">
+        Create account
+      </button>
     </form>
   );
 }

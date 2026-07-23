@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export interface ModuleCardProps {
   title: string;
@@ -6,7 +6,11 @@ export interface ModuleCardProps {
   lessons?: number;
 }
 
-export default function ModuleCard({ title, description, lessons = 4 }: ModuleCardProps) {
+export default function ModuleCard({
+  title,
+  description,
+  lessons = 4,
+}: ModuleCardProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
       <h4 className="font-semibold text-gray-900">{title}</h4>

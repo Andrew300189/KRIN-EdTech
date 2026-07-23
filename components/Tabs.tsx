@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 type TabsProps = {
   items: Array<{ label: string; content: React.ReactNode }>;
@@ -14,7 +14,7 @@ export default function Tabs({ items }: TabsProps) {
           <button
             key={item.label}
             onClick={() => setActive(index)}
-            className={`px-3 py-2 text-sm font-medium ${active === index ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
+            className={`px-3 py-2 text-sm font-medium ${active === index ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"}`}
           >
             {item.label}
           </button>

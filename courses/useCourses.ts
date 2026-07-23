@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { fetchCourses } from './courses.service';
+import { useEffect, useState } from "react";
+import { fetchCourses } from "./courses.service";
 
 export default function useCourses() {
   const [courses, setCourses] = useState<any[]>([]);

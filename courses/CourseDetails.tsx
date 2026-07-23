@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export interface CourseDetailsProps {
   title: string;
@@ -6,7 +6,11 @@ export interface CourseDetailsProps {
   objectives?: string[];
 }
 
-export default function CourseDetails({ title, description, objectives = [] }: CourseDetailsProps) {
+export default function CourseDetails({
+  title,
+  description,
+  objectives = [],
+}: CourseDetailsProps) {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
       <h2 className="text-2xl font-semibold text-gray-900">{title}</h2>

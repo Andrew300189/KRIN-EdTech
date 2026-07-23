@@ -1,7 +1,15 @@
 export interface Lesson {
   id: string;
   title: string;
-  type: 'reading' | 'grammar' | 'vocabulary' | 'listening' | 'speaking' | 'writing' | 'quiz' | 'homework';
+  type:
+    | "reading"
+    | "grammar"
+    | "vocabulary"
+    | "listening"
+    | "speaking"
+    | "writing"
+    | "quiz"
+    | "homework";
   content?: string;
   prompt?: string;
   questions?: string[];

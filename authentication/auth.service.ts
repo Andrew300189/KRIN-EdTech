@@ -1,10 +1,14 @@
-import { authApi } from './auth.api';
+import { authApi } from "./auth.api";
 
 export async function loginUser(email: string, password: string) {
   return authApi.login({ email, password });
 }
 
-export async function registerUser(name: string, email: string, password: string) {
+export async function registerUser(
+  name: string,
+  email: string,
+  password: string,
+) {
   return authApi.register({ name, email, password });
 }
 

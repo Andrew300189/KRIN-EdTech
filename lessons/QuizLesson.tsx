@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export interface QuizLessonProps {
   title: string;
@@ -11,7 +11,10 @@ export default function QuizLesson({ title, questions }: QuizLessonProps) {
       <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
       <div className="mt-4 space-y-3">
         {questions.map((question, index) => (
-          <div key={question} className="rounded-lg bg-gray-50 p-3 text-gray-700">
+          <div
+            key={question}
+            className="rounded-lg bg-gray-50 p-3 text-gray-700"
+          >
             {index + 1}. {question}
           </div>
         ))}

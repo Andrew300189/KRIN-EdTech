@@ -1,6 +1,6 @@
 export interface AIMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
