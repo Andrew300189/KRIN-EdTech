@@ -15,7 +15,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="https://krinedtech.example/" />
     <title>KRIN EdTech - Learn English with AI</title>
-    <link rel="stylesheet" href="../src/styles/main.css" />
+    <link rel="stylesheet" href="src/styles/main.css" />
   </head>
   <body>
     <div class="announcement-bar">
@@ -132,9 +132,7 @@
         <div class="container teacher-entry__grid">
           <div>
             <div class="eyebrow">For educators</div>
-            <h2 class="title">
-              Teacher workspace for classes and private students.
-            </h2>
+            <h2 class="title">Teacher workspace for classes and private students.</h2>
             <p class="subtitle">
               Track progress, assign lessons, and create your own courses with
               AI-assisted content.
@@ -367,113 +365,27 @@
       <section class="section" id="levels">
         <div class="container">
           <div class="eyebrow">CEFR levels</div>
-          <h2 class="title">A1-C2 levels. Open a block to see courses.</h2>
+          <h2 class="title">A1-C2 levels. Click a level to open its courses.</h2>
           <div class="levels-stack">
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>A1</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>A2</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>B1</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>B2</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>C1</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
-            <details class="level-block level-accordion">
-              <summary class="level-head"><h3>C2</h3></summary>
-              <div class="level-courses-grid js-level-courses"></div>
-            </details>
+            <a class="level-block level-link" href="levels/a1.html" aria-label="Open A1 courses">
+              <span class="level-head"><h3>A1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/a2.html" aria-label="Open A2 courses">
+              <span class="level-head"><h3>A2</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/b1.html" aria-label="Open B1 courses">
+              <span class="level-head"><h3>B1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/b2.html" aria-label="Open B2 courses">
+              <span class="level-head"><h3>B2</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/c1.html" aria-label="Open C1 courses">
+              <span class="level-head"><h3>C1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/c2.html" aria-label="Open C2 courses">
+              <span class="level-head"><h3>C2</h3></span>
+            </a>
           </div>
-
-          <template id="allCoursesTemplate">
-            <article class="course-card">
-              <span class="tag">Business</span>
-              <h4>Business English</h4>
-              <p>
-                Negotiation, presentations, emails, and workplace communication.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Travel</span>
-              <h4>Travel English</h4>
-              <p>
-                Useful phrases for airports, hotels, restaurants, and daily
-                travel.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Healthcare</span>
-              <h4>Medical English</h4>
-              <p>Professional vocabulary for doctors, nurses, and clinics.</p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Tech</span>
-              <h4>IT English</h4>
-              <p>
-                Workplace communication for software, product, and engineering
-                teams.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">B1</span>
-              <h4>Intermediate English</h4>
-              <p>
-                Build confidence with everyday communication and practical
-                grammar.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">B2</span>
-              <h4>Upper-Intermediate</h4>
-              <p>Improve fluency, accuracy, and spontaneous speaking.</p>
-            </article>
-            <article class="course-card">
-              <span class="tag">C1</span>
-              <h4>Advanced English</h4>
-              <p>
-                Deepen your language for work, study, and international
-                settings.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Exam Prep</span>
-              <h4>Interview Preparation</h4>
-              <p>
-                Practice common questions and powerful answers for interviews.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Phraseology</span>
-              <h4>Idioms and Phraseology</h4>
-              <p>
-                Learn natural expressions and idioms used in real conversations.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Phrasal Verbs</span>
-              <h4>Phrasal Verbs Mastery</h4>
-              <p>
-                Build confidence with the most common phrasal verbs in context.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Grammar</span>
-              <h4>Irregular Verbs Intensive</h4>
-              <p>
-                Master irregular verb forms for speaking, writing, and exams.
-              </p>
-            </article>
-          </template>
         </div>
       </section>
 
@@ -968,15 +880,8 @@
               </div>
 
               <form class="auth-modal__body" id="loginForm">
-                <div class="auth-mode-badge" id="authModeBadge">
-                  Student mode
-                </div>
-                <input
-                  id="loginRole"
-                  type="hidden"
-                  name="role"
-                  value="student"
-                />
+                <div class="auth-mode-badge" id="authModeBadge">Student mode</div>
+                <input id="loginRole" type="hidden" name="role" value="student" />
                 <div class="auth-field">
                   <label for="loginName">Name</label>
                   <input
@@ -1105,7 +1010,6 @@
         <div>
           <h4>Company</h4>
           <ul>
-            <li><a href="#about">About</a></li>
             <li><a href="#">Careers</a></li>
             <li><a href="#">Press</a></li>
             <li><a href="#">Investors</a></li>
@@ -1187,6 +1091,6 @@
       }
     </script>
 
-    <script src="Main.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>

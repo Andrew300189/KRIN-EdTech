@@ -2,12 +2,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parseRole } from "@/core/utils/role";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const role = parseRole(headers().get("x-user-role"));
+  const role = parseRole((await headers()).get("x-user-role"));
 
   if (role !== "admin") {
     redirect("/dashboard");

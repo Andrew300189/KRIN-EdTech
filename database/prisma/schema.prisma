@@ -14,7 +14,8 @@ model User {
   name      String
   avatar    String?
   role      Role       @default(STUDENT)
-  courses   Course[]
+  authoredCourses Course[] @relation("CourseInstructor")
+  enrolledCourses Course[] @relation("CourseStudents")
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -24,9 +25,9 @@ model Course {
   title     String
   description String
   level     Level      @default(BEGINNER)
-  instructor User
+  instructor User @relation("CourseInstructor", fields: [instructorId], references: [id])
   instructorId String
-  students  User[]
+  students  User[] @relation("CourseStudents")
   lessons   Lesson[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
