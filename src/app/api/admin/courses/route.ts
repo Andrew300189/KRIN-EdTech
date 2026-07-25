@@ -4,7 +4,7 @@ import { hasAnyRole } from "@/core/utils/role";
 import { createCourseForOwner } from "@/modules/courses/service";
 
 export async function POST(request: NextRequest) {
-  const identity = getRequestIdentity(request);
+  const identity = await getRequestIdentity(request);
 
   if (!hasAnyRole(identity.role, ["admin"])) {
     return NextResponse.json(

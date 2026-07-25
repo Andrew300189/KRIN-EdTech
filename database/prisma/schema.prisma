@@ -12,8 +12,22 @@ model User {
   id        String     @id @default(cuid())
   email     String     @unique
   name      String
+  passwordHash String
   avatar    String?
   role      Role       @default(STUDENT)
+  emailVerified Boolean @default(false)
+  emailVerificationToken String?
+  emailVerificationSentAt DateTime?
+  targetLanguage String?
+  learningGoal String?
+  currentLevel Level?
+  dailyIntensityMinutes Int?
+  dailyGoalMinutes Int @default(15)
+  takePlacementTest Boolean @default(false)
+  onboardingCompletedAt DateTime?
+  welcomeBonusPoints Int @default(0)
+  guidedTourCompleted Boolean @default(false)
+  lastLoginAt DateTime?
   authoredCourses Course[] @relation("CourseInstructor")
   enrolledCourses Course[] @relation("CourseStudents")
   createdAt DateTime   @default(now())
