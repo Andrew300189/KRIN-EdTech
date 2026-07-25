@@ -15,7 +15,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="https://krinedtech.example/" />
     <title>KRIN EdTech - Learn English with AI</title>
-    <link rel="stylesheet" href="Main.styles.css" />
+    <link rel="stylesheet" href="../src/styles/main.css" />
   </head>
   <body>
     <div class="announcement-bar">
@@ -28,24 +28,31 @@
     <header>
       <div class="container nav">
         <a class="brand" href="#">
-          <span class="brand-mark">✦</span>
+          <span class="brand-mark">⚜</span>
           <span>KRIN EdTech</span>
         </a>
         <nav class="nav-links">
-          <a href="#home">Home</a>
           <a href="#courses">Courses</a>
           <a href="#ai">AI Tutor</a>
           <a href="#vocabulary">Vocabulary</a>
           <a href="#reading">Reading</a>
+          <a href="#grammar">Grammar</a>
+          <a href="#listening">Listening</a>
+          <a href="#writing">Writing</a>
           <a href="#speaking">Speaking</a>
           <a href="#pricing">Pricing</a>
-          <a href="#blog">Blog</a>
-          <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </nav>
         <div class="nav-actions">
-          <a href="#" class="btn btn-secondary">Log In</a>
-          <a href="#" class="btn btn-primary">Sign Up</a>
+          <a href="#" class="btn btn-secondary" data-open-modal="teacher"
+            >Teacher Sign In</a
+          >
+          <a href="#" class="btn btn-secondary" data-open-modal="login"
+            >Log In</a
+          >
+          <a href="#" class="btn btn-primary" data-open-modal="register"
+            >Sign Up</a
+          >
         </div>
       </div>
     </header>
@@ -63,6 +70,9 @@
             <div class="hero-actions">
               <a href="#placement" class="btn btn-primary">Start Free</a>
               <a href="#demo" class="btn btn-secondary">Watch Demo</a>
+              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
+                >I am a Teacher</a
+              >
             </div>
             <div class="hero-badges">
               <span class="pill">✅ 90+ countries</span>
@@ -115,6 +125,39 @@
             <span>Forbes</span>
             <span>LinkedIn</span>
           </div>
+        </div>
+      </section>
+
+      <section class="section teacher-entry" id="teachers">
+        <div class="container teacher-entry__grid">
+          <div>
+            <div class="eyebrow">For educators</div>
+            <h2 class="title">
+              Teacher workspace for classes and private students.
+            </h2>
+            <p class="subtitle">
+              Track progress, assign lessons, and create your own courses with
+              AI-assisted content.
+            </p>
+            <ul class="teacher-entry__list">
+              <li>Class dashboards and completion analytics</li>
+              <li>Private or public course publishing workflow</li>
+              <li>Speaking and writing feedback at scale</li>
+            </ul>
+            <div class="teacher-entry__actions">
+              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
+                >Open Teacher Login</a
+              >
+            </div>
+          </div>
+          <aside class="teacher-entry__panel" aria-label="Teacher access info">
+            <h3>Teacher access</h3>
+            <p>
+              Use your teacher email and workspace name to access instructor
+              tools.
+            </p>
+            <span class="pill">Role: Teacher</span>
+          </aside>
         </div>
       </section>
 
@@ -321,11 +364,38 @@
         </div>
       </section>
 
-      <section class="section" id="courses">
+      <section class="section" id="levels">
         <div class="container">
-          <div class="eyebrow">Courses</div>
-          <h2 class="title">Specialized English programs for every goal.</h2>
-          <div class="courses-grid">
+          <div class="eyebrow">CEFR levels</div>
+          <h2 class="title">A1-C2 levels. Open a block to see courses.</h2>
+          <div class="levels-stack">
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>A1</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>A2</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>B1</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>B2</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>C1</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+            <details class="level-block level-accordion">
+              <summary class="level-head"><h3>C2</h3></summary>
+              <div class="level-courses-grid js-level-courses"></div>
+            </details>
+          </div>
+
+          <template id="allCoursesTemplate">
             <article class="course-card">
               <span class="tag">Business</span>
               <h4>Business English</h4>
@@ -382,7 +452,28 @@
                 Practice common questions and powerful answers for interviews.
               </p>
             </article>
-          </div>
+            <article class="course-card">
+              <span class="tag">Phraseology</span>
+              <h4>Idioms and Phraseology</h4>
+              <p>
+                Learn natural expressions and idioms used in real conversations.
+              </p>
+            </article>
+            <article class="course-card">
+              <span class="tag">Phrasal Verbs</span>
+              <h4>Phrasal Verbs Mastery</h4>
+              <p>
+                Build confidence with the most common phrasal verbs in context.
+              </p>
+            </article>
+            <article class="course-card">
+              <span class="tag">Grammar</span>
+              <h4>Irregular Verbs Intensive</h4>
+              <p>
+                Master irregular verb forms for speaking, writing, and exams.
+              </p>
+            </article>
+          </template>
         </div>
       </section>
 
@@ -487,7 +578,34 @@
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="grammar">
+        <div class="container">
+          <div class="eyebrow">Grammar</div>
+          <h2 class="title">Build accuracy with practical grammar blocks.</h2>
+          <div class="card-grid">
+            <article class="card">
+              <h3>Core grammar paths</h3>
+              <ul>
+                <li>Tenses in real context</li>
+                <li>Articles and determiners</li>
+                <li>Conditionals and modals</li>
+                <li>Word order and emphasis</li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>Grammar in action</h3>
+              <ul>
+                <li>Micro-drills with feedback</li>
+                <li>Error explanation by AI</li>
+                <li>Personal weak-point review</li>
+                <li>Weekly grammar checkpoints</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="writing">
         <div class="container">
           <div class="eyebrow">Writing</div>
           <h2 class="title">
@@ -516,7 +634,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="listening">
         <div class="container">
           <div class="eyebrow">Listening</div>
           <h2 class="title">Hear real English in context.</h2>
@@ -822,12 +940,167 @@
       <div class="container footer-grid">
         <div>
           <a class="brand" href="#"
-            ><span class="brand-mark">✦</span><span>KRIN EdTech</span></a
+            ><span class="brand-mark">⚜</span><span>KRIN EdTech</span></a
           >
           <p style="margin-top: 0.8rem">
             A modern platform for English learning powered by AI, community, and
             practical communication skills.
           </p>
+
+          <div class="auth-modal" id="authModal" aria-hidden="true">
+            <div class="auth-modal__backdrop" data-close-auth></div>
+            <div
+              class="auth-modal__dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="authModalTitle"
+            >
+              <div class="auth-modal__head">
+                <h3 id="authModalTitle">Log In</h3>
+                <button
+                  type="button"
+                  class="auth-modal__close"
+                  data-close-auth
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form class="auth-modal__body" id="loginForm">
+                <div class="auth-mode-badge" id="authModeBadge">
+                  Student mode
+                </div>
+                <input
+                  id="loginRole"
+                  type="hidden"
+                  name="role"
+                  value="student"
+                />
+                <div class="auth-field">
+                  <label for="loginName">Name</label>
+                  <input
+                    id="loginName"
+                    type="text"
+                    name="name"
+                    placeholder="Your name"
+                    required
+                  />
+                </div>
+                <div class="auth-field">
+                  <label for="loginEmail">Email</label>
+                  <input
+                    id="loginEmail"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div class="auth-field">
+                  <label for="loginPassword">Password</label>
+                  <input
+                    id="loginPassword"
+                    type="password"
+                    name="password"
+                    placeholder="Enter password"
+                    required
+                  />
+                </div>
+                <div class="auth-field" id="teacherWorkspaceField" hidden>
+                  <label for="teacherWorkspace">School or Workspace</label>
+                  <input
+                    id="teacherWorkspace"
+                    type="text"
+                    name="workspace"
+                    placeholder="Ex: KRIN High School"
+                  />
+                </div>
+                <button class="btn btn-primary auth-submit" type="submit">
+                  <span id="loginSubmitLabel">Log In</span>
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-switch-auth="teacher"
+                >
+                  Sign in as Teacher
+                </button>
+              </form>
+
+              <form class="auth-modal__body" id="registerForm" hidden>
+                <div class="auth-row">
+                  <div class="auth-field">
+                    <label for="registerName">Name</label>
+                    <input
+                      id="registerName"
+                      type="text"
+                      name="name"
+                      placeholder="Your name"
+                      required
+                    />
+                  </div>
+                  <div class="auth-field">
+                    <label for="registerSurname">Surname</label>
+                    <input
+                      id="registerSurname"
+                      type="text"
+                      name="surname"
+                      placeholder="Your surname"
+                      required
+                    />
+                  </div>
+                </div>
+                <div class="auth-field">
+                  <label for="registerEmail">Email</label>
+                  <input
+                    id="registerEmail"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div class="auth-row">
+                  <div class="auth-field">
+                    <label for="registerPassword">Password</label>
+                    <input
+                      id="registerPassword"
+                      type="password"
+                      name="password"
+                      placeholder="Create password"
+                      required
+                    />
+                  </div>
+                  <div class="auth-field">
+                    <label for="registerConfirmPassword"
+                      >Confirm password</label
+                    >
+                    <input
+                      id="registerConfirmPassword"
+                      type="password"
+                      name="confirmPassword"
+                      placeholder="Repeat password"
+                      required
+                    />
+                  </div>
+                </div>
+                <p class="auth-error" id="registerError" hidden>
+                  Passwords do not match.
+                </p>
+                <button class="btn btn-primary auth-submit" type="submit">
+                  Sign Up
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-switch-auth="login"
+                >
+                  Already have an account
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
         <div>
           <h4>Company</h4>
@@ -884,6 +1157,16 @@
         preparation courses.
       </p>
     </div>
+
+    <button
+      id="scrollToTopBtn"
+      class="scroll-to-top"
+      type="button"
+      aria-label="Scroll to top"
+      title="Наверх"
+    >
+      ↑
+    </button>
 
     <script type="application/ld+json">
       {

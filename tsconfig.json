@@ -1,0 +1,67 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/core/*": [
+        "./src/core/*"
+      ],
+      "@/modules/*": [
+        "./src/modules/*"
+      ],
+      "@/components/*": [
+        "./src/core/components/*"
+      ],
+      "@/hooks/*": [
+        "./src/core/hooks/*"
+      ],
+      "@/services/*": [
+        "./src/core/services/*"
+      ],
+      "@/utils/*": [
+        "./src/core/utils/*"
+      ],
+      "@/types/*": [
+        "./src/core/types/*"
+      ],
+      "@/constants/*": [
+        "./src/core/constants/*"
+      ],
+      "@/assets/*": [
+        "./src/assets/*"
+      ]
+    },
+    "incremental": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "src/**/*",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

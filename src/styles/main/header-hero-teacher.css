@@ -1,0 +1,240 @@
+.announcement-bar {
+  background: linear-gradient(90deg, #5b6cff, #11b8a0);
+  color: white;
+  text-align: center;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(248, 250, 252, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 0;
+  gap: 1.4rem;
+  width: min(1360px, calc(100% - 2.5rem));
+  margin: 0 auto;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 800;
+  color: var(--dark);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: white;
+  font-size: 1.2rem;
+}
+.nav-links {
+  display: flex;
+  gap: 1.15rem;
+  align-items: center;
+  color: var(--muted);
+  justify-content: center;
+  flex: 1;
+  white-space: nowrap;
+}
+.nav-links a:hover {
+  color: var(--primary);
+}
+.nav-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-shrink: 0;
+}
+
+.hero {
+  padding: 70px 0 40px;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 2rem;
+  align-items: center;
+}
+.hero h1 {
+  font-size: clamp(2.5rem, 4.3vw, 4.3rem);
+  line-height: 1.05;
+  color: var(--dark);
+  margin-bottom: 1rem;
+}
+.hero .subtitle {
+  font-size: 1.08rem;
+  margin-bottom: 1.4rem;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-bottom: 1.4rem;
+}
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.hero-visual {
+  position: relative;
+  min-height: 500px;
+  display: grid;
+  place-items: center;
+}
+.mockup {
+  position: absolute;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: white;
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.24);
+}
+.mockup-phone {
+  width: 170px;
+  height: 300px;
+  right: -24px;
+  top: 90px;
+  padding: 1rem;
+}
+.mockup-laptop {
+  width: 340px;
+  height: 220px;
+  left: 10px;
+  bottom: 34px;
+  padding: 1rem;
+}
+.mockup-card {
+  width: 250px;
+  height: 205px;
+  left: 75px;
+  top: 18px;
+  padding: 1rem;
+  background: white;
+  color: var(--dark);
+}
+.mockup .screen {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  height: 100%;
+  padding: 0.8rem;
+  color: var(--dark);
+}
+.mockup .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+.mini-stat {
+  background: white;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+}
+.pill-row span {
+  background: #e0e7ff;
+  color: var(--primary);
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.trust {
+  padding: 20px 0 10px;
+}
+.trust-strip {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.brand-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+.brand-chips span {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: #f8fafc;
+}
+
+.teacher-entry {
+  padding-top: 24px;
+}
+
+.teacher-entry__grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.teacher-entry__list {
+  margin-top: 0.8rem;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  color: var(--muted);
+}
+
+.teacher-entry__list li::before {
+  content: "•";
+  color: #0f9f8f;
+  font-weight: 700;
+  margin-right: 0.45rem;
+}
+
+.teacher-entry__actions {
+  margin-top: 1rem;
+}
+
+.teacher-entry__panel {
+  background: linear-gradient(145deg, #0f172a, #1f2a44);
+  border-radius: 24px;
+  padding: 1.2rem;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 20px 42px rgba(15, 23, 42, 0.22);
+}
+
+.teacher-entry__panel h3 {
+  font-size: 1.2rem;
+  margin-bottom: 0.55rem;
+  color: #fff;
+}
+
+.teacher-entry__panel .pill {
+  margin-top: 0.8rem;
+  background: rgba(15, 159, 143, 0.2);
+  border: 1px solid rgba(45, 212, 191, 0.45);
+  color: #99f6e4;
+}
