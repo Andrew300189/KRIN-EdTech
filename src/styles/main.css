@@ -1,0 +1,5 @@
+@import "./main/base.css";
+@import "./main/header-hero-teacher.css";
+@import "./main/sections-content.css";
+@import "./main/overlays-auth-scroll.css";
+@import "./main/responsive.css";

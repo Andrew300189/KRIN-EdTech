@@ -12,660 +12,47 @@
       property="og:description"
       content="Grow your English skills with AI-powered lessons, speaking practice, vocabulary, reading, and real-world communication."
     />
-    <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="https://krinedtech.example/" />
     <title>KRIN EdTech - Learn English with AI</title>
-    <style>
-      :root {
-        --primary: #5b6cff;
-        --secondary: #11b8a0;
-        --dark: #0f172a;
-        --text: #334155;
-        --muted: #64748b;
-        --surface: #ffffff;
-        --border: #e2e8f0;
-        --bg: #f8fafc;
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      body {
-        font-family:
-          Inter,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-        color: var(--text);
-        background: var(--bg);
-        line-height: 1.6;
-      }
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
-      img {
-        max-width: 100%;
-        display: block;
-      }
-      .container {
-        width: min(1160px, calc(100% - 2rem));
-        margin: 0 auto;
-      }
-      .section {
-        padding: 80px 0;
-      }
-      .eyebrow {
-        display: inline-block;
-        font-size: 0.86rem;
-        font-weight: 700;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--primary);
-        margin-bottom: 1rem;
-      }
-      .title {
-        font-size: clamp(2rem, 3vw, 2.7rem);
-        line-height: 1.15;
-        color: var(--dark);
-        margin-bottom: 1rem;
-      }
-      .subtitle {
-        font-size: 1.05rem;
-        color: var(--muted);
-        max-width: 650px;
-      }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        border-radius: 999px;
-        padding: 0.95rem 1.3rem;
-        font-weight: 700;
-        border: 1px solid transparent;
-        cursor: pointer;
-        transition:
-          transform 0.2s ease,
-          box-shadow 0.2s ease;
-      }
-      .btn:hover {
-        transform: translateY(-1px);
-      }
-      .btn-primary {
-        background: linear-gradient(135deg, var(--primary), #7c8dff);
-        color: white;
-        box-shadow: 0 15px 30px rgba(91, 108, 255, 0.18);
-      }
-      .btn-secondary {
-        border-color: var(--border);
-        background: white;
-        color: var(--dark);
-      }
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.5rem 0.85rem;
-        background: #eef2ff;
-        color: var(--primary);
-        border-radius: 999px;
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-
-      .announcement-bar {
-        background: linear-gradient(90deg, #5b6cff, #11b8a0);
-        color: white;
-        text-align: center;
-        padding: 0.85rem 1rem;
-        font-weight: 600;
-      }
-      .announcement-bar .btn {
-        margin-left: 1rem;
-        padding: 0.5rem 0.95rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.25);
-      }
-
-      header {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        background: rgba(248, 250, 252, 0.95);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-      }
-      .nav {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem 0;
-        gap: 1rem;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 0.7rem;
-        font-weight: 800;
-        color: var(--dark);
-        font-size: 1.1rem;
-      }
-      .brand-mark {
-        width: 42px;
-        height: 42px;
-        border-radius: 14px;
-        display: grid;
-        place-items: center;
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-        color: white;
-        font-size: 1.2rem;
-      }
-      .nav-links {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        color: var(--muted);
-        flex-wrap: wrap;
-      }
-      .nav-links a:hover {
-        color: var(--primary);
-      }
-      .nav-actions {
-        display: flex;
-        gap: 0.7rem;
-      }
-      .nav-actions .btn-secondary {
-        padding: 0.7rem 1rem;
-      }
-
-      .hero {
-        padding: 70px 0 40px;
-      }
-      .hero-grid {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 2rem;
-        align-items: center;
-      }
-      .hero h1 {
-        font-size: clamp(2.5rem, 4.3vw, 4.3rem);
-        line-height: 1.05;
-        color: var(--dark);
-        margin-bottom: 1rem;
-      }
-      .hero .subtitle {
-        font-size: 1.08rem;
-        margin-bottom: 1.4rem;
-      }
-      .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.9rem;
-        margin-bottom: 1.4rem;
-      }
-      .hero-badges {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-      }
-      .hero-visual {
-        position: relative;
-        min-height: 450px;
-        display: grid;
-        place-items: center;
-      }
-      .mockup {
-        position: absolute;
-        border-radius: 30px;
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        color: white;
-        box-shadow: 0 30px 60px rgba(15, 23, 42, 0.24);
-      }
-      .mockup-phone {
-        width: 170px;
-        height: 300px;
-        right: 0;
-        top: 70px;
-        padding: 1rem;
-      }
-      .mockup-laptop {
-        width: 320px;
-        height: 220px;
-        left: 20px;
-        bottom: 20px;
-        padding: 1rem;
-      }
-      .mockup-card {
-        width: 220px;
-        height: 160px;
-        left: 110px;
-        top: 20px;
-        padding: 1rem;
-        background: white;
-        color: var(--dark);
-      }
-      .mockup .screen {
-        border-radius: 18px;
-        background: linear-gradient(135deg, #eef2ff, #f8fafc);
-        height: 100%;
-        padding: 0.8rem;
-        color: var(--dark);
-      }
-      .mockup .row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.6rem;
-      }
-      .mini-stat {
-        background: white;
-        padding: 0.6rem 0.7rem;
-        border-radius: 10px;
-        font-size: 0.8rem;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-      }
-      .pill-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-        margin-top: 0.6rem;
-      }
-      .pill-row span {
-        background: #e0e7ff;
-        color: var(--primary);
-        padding: 0.3rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.78rem;
-      }
-
-      .trust {
-        padding: 20px 0 10px;
-      }
-      .trust-strip {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 1.2rem 1.4rem;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        color: var(--muted);
-        font-weight: 600;
-      }
-      .brand-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.7rem;
-      }
-      .brand-chips span {
-        border: 1px solid var(--border);
-        padding: 0.45rem 0.7rem;
-        border-radius: 999px;
-        background: #f8fafc;
-      }
-
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1rem;
-      }
-      .stat-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 1.4rem;
-        text-align: center;
-      }
-      .stat-number {
-        font-size: 1.7rem;
-        font-weight: 800;
-        color: var(--dark);
-      }
-      .stat-label {
-        color: var(--muted);
-        margin-top: 0.25rem;
-      }
-
-      .card-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
-      }
-      .card {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 1.3rem;
-        box-shadow: 0 12px 35px rgba(15, 23, 42, 0.04);
-      }
-      .card h3 {
-        color: var(--dark);
-        margin-bottom: 0.8rem;
-        font-size: 1.15rem;
-      }
-      .card ul {
-        list-style: none;
-        display: grid;
-        gap: 0.55rem;
-        color: var(--muted);
-      }
-      .card li::before {
-        content: "•";
-        color: var(--primary);
-        font-weight: 700;
-        margin-right: 0.5rem;
-      }
-      .feature-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1rem;
-      }
-      .feature-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 1.2rem;
-      }
-      .feature-card .icon {
-        font-size: 1.35rem;
-        margin-bottom: 0.5rem;
-      }
-      .feature-card h4 {
-        color: var(--dark);
-        margin-bottom: 0.3rem;
-      }
-      .feature-card p {
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .process-stepper {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 1rem;
-        margin-top: 1.6rem;
-      }
-      .process-step {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 1rem 1.2rem;
-        min-width: 160px;
-        text-align: center;
-      }
-      .process-step .num {
-        color: var(--primary);
-        font-weight: 800;
-        margin-bottom: 0.3rem;
-      }
-      .process-arrow {
-        display: flex;
-        align-items: center;
-        color: var(--primary);
-        font-weight: 700;
-      }
-
-      .split {
-        display: grid;
-        grid-template-columns: 1.05fr 0.95fr;
-        gap: 1.3rem;
-        align-items: center;
-      }
-      .demo-panel {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 1.4rem;
-      }
-      textarea {
-        width: 100%;
-        min-height: 110px;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        padding: 1rem;
-        resize: vertical;
-        font: inherit;
-        margin: 0.75rem 0;
-      }
-      .score {
-        margin-top: 0.8rem;
-        padding: 0.9rem 1rem;
-        border-radius: 14px;
-        background: #f0fdf4;
-        color: #166534;
-        display: none;
-      }
-      .score.show {
-        display: block;
-      }
-
-      .courses-grid,
-      .testimonials-grid,
-      .stories-grid,
-      .pricing-grid,
-      .blog-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 1rem;
-      }
-      .course-card,
-      .testimonial-card,
-      .story-card,
-      .pricing-card,
-      .blog-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 1.2rem;
-      }
-      .course-card h4,
-      .pricing-card h4,
-      .blog-card h4 {
-        color: var(--dark);
-        margin-bottom: 0.45rem;
-      }
-      .tag {
-        display: inline-block;
-        font-size: 0.78rem;
-        background: #eef2ff;
-        color: var(--primary);
-        padding: 0.4rem 0.6rem;
-        border-radius: 999px;
-        margin-bottom: 0.65rem;
-      }
-      .price {
-        font-size: 1.55rem;
-        font-weight: 800;
-        color: var(--dark);
-      }
-      .pricing-card.featured {
-        border-color: var(--primary);
-        box-shadow: 0 20px 45px rgba(91, 108, 255, 0.11);
-      }
-      .faq-list {
-        display: grid;
-        gap: 0.8rem;
-      }
-      .faq-item {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        overflow: hidden;
-      }
-      .faq-question {
-        width: 100%;
-        border: 0;
-        background: transparent;
-        text-align: left;
-        padding: 1rem 1.1rem;
-        font-weight: 700;
-        color: var(--dark);
-        cursor: pointer;
-      }
-      .faq-answer {
-        padding: 0 1.1rem 1rem;
-        color: var(--muted);
-        display: none;
-      }
-      .faq-item.active .faq-answer {
-        display: block;
-      }
-
-      .newsletter {
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        color: white;
-        border-radius: 30px;
-        padding: 2rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-      }
-      .newsletter form {
-        display: flex;
-        gap: 0.7rem;
-        flex-wrap: wrap;
-      }
-      .newsletter input {
-        border-radius: 999px;
-        border: 0;
-        padding: 0.9rem 1rem;
-        min-width: 240px;
-      }
-      .footer {
-        padding: 50px 0 30px;
-        color: var(--muted);
-      }
-      .footer-grid {
-        display: grid;
-        grid-template-columns: 2fr repeat(4, 1fr);
-        gap: 1.2rem;
-      }
-      .footer h4 {
-        color: var(--dark);
-        margin-bottom: 0.7rem;
-      }
-      .footer ul {
-        list-style: none;
-        display: grid;
-        gap: 0.45rem;
-      }
-      .footer-bottom {
-        margin-top: 1.4rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--border);
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 1rem;
-      }
-      .hidden-seo {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-      }
-
-      @media (max-width: 980px) {
-        .hero-grid,
-        .split {
-          grid-template-columns: 1fr;
-        }
-        .feature-grid,
-        .courses-grid,
-        .testimonials-grid,
-        .stories-grid,
-        .pricing-grid,
-        .blog-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        .footer-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-      @media (max-width: 680px) {
-        .nav {
-          flex-wrap: wrap;
-        }
-        .nav-links {
-          display: none;
-        }
-        .stats-grid,
-        .card-grid,
-        .feature-grid,
-        .courses-grid,
-        .testimonials-grid,
-        .stories-grid,
-        .pricing-grid,
-        .blog-grid,
-        .footer-grid {
-          grid-template-columns: 1fr;
-        }
-        .newsletter {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .hero-visual {
-          min-height: 360px;
-        }
-        .mockup-phone {
-          width: 140px;
-          height: 250px;
-          top: 90px;
-        }
-        .mockup-laptop {
-          width: 240px;
-          height: 180px;
-          left: 10px;
-          bottom: 20px;
-        }
-        .mockup-card {
-          width: 170px;
-          height: 130px;
-          left: 70px;
-          top: 25px;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="src/styles/main.css" />
   </head>
   <body>
     <div class="announcement-bar">
       <div class="container">
         🎉 New AI Speaking Coach is now available.
-        <a href="#" class="btn">Learn More</a>
+        <a href="#" class="btn btn-small">Learn More</a>
       </div>
     </div>
 
     <header>
       <div class="container nav">
         <a class="brand" href="#">
-          <span class="brand-mark">✦</span>
+          <span class="brand-mark">⚜</span>
           <span>KRIN EdTech</span>
         </a>
         <nav class="nav-links">
-          <a href="#home">Home</a>
           <a href="#courses">Courses</a>
           <a href="#ai">AI Tutor</a>
           <a href="#vocabulary">Vocabulary</a>
           <a href="#reading">Reading</a>
+          <a href="#grammar">Grammar</a>
+          <a href="#listening">Listening</a>
+          <a href="#writing">Writing</a>
           <a href="#speaking">Speaking</a>
           <a href="#pricing">Pricing</a>
-          <a href="#blog">Blog</a>
-          <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </nav>
         <div class="nav-actions">
-          <a href="#" class="btn btn-secondary">Log In</a>
-          <a href="#" class="btn btn-primary">Sign Up</a>
+          <a href="#" class="btn btn-secondary" data-open-modal="teacher"
+            >Teacher Sign In</a
+          >
+          <a href="#" class="btn btn-secondary" data-open-modal="login"
+            >Log In</a
+          >
+          <a href="#" class="btn btn-primary" data-open-modal="register"
+            >Sign Up</a
+          >
         </div>
       </div>
     </header>
@@ -683,6 +70,9 @@
             <div class="hero-actions">
               <a href="#placement" class="btn btn-primary">Start Free</a>
               <a href="#demo" class="btn btn-secondary">Watch Demo</a>
+              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
+                >I am a Teacher</a
+              >
             </div>
             <div class="hero-badges">
               <span class="pill">✅ 90+ countries</span>
@@ -735,6 +125,37 @@
             <span>Forbes</span>
             <span>LinkedIn</span>
           </div>
+        </div>
+      </section>
+
+      <section class="section teacher-entry" id="teachers">
+        <div class="container teacher-entry__grid">
+          <div>
+            <div class="eyebrow">For educators</div>
+            <h2 class="title">Teacher workspace for classes and private students.</h2>
+            <p class="subtitle">
+              Track progress, assign lessons, and create your own courses with
+              AI-assisted content.
+            </p>
+            <ul class="teacher-entry__list">
+              <li>Class dashboards and completion analytics</li>
+              <li>Private or public course publishing workflow</li>
+              <li>Speaking and writing feedback at scale</li>
+            </ul>
+            <div class="teacher-entry__actions">
+              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
+                >Open Teacher Login</a
+              >
+            </div>
+          </div>
+          <aside class="teacher-entry__panel" aria-label="Teacher access info">
+            <h3>Teacher access</h3>
+            <p>
+              Use your teacher email and workspace name to access instructor
+              tools.
+            </p>
+            <span class="pill">Role: Teacher</span>
+          </aside>
         </div>
       </section>
 
@@ -925,20 +346,10 @@
 
       <section class="section" id="placement">
         <div class="container">
-          <div
-            class="card"
-            style="
-              padding: 2rem;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              gap: 1rem;
-              flex-wrap: wrap;
-            "
-          >
+          <div class="card placement-card">
             <div>
               <div class="eyebrow">Placement test</div>
-              <h2 class="title" style="margin-bottom: 0.5rem">
+              <h2 class="title">
                 Find your current level in just a few minutes.
               </h2>
               <p class="subtitle">
@@ -951,67 +362,29 @@
         </div>
       </section>
 
-      <section class="section" id="courses">
+      <section class="section" id="levels">
         <div class="container">
-          <div class="eyebrow">Courses</div>
-          <h2 class="title">Specialized English programs for every goal.</h2>
-          <div class="courses-grid">
-            <article class="course-card">
-              <span class="tag">Business</span>
-              <h4>Business English</h4>
-              <p>
-                Negotiation, presentations, emails, and workplace communication.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Travel</span>
-              <h4>Travel English</h4>
-              <p>
-                Useful phrases for airports, hotels, restaurants, and daily
-                travel.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Healthcare</span>
-              <h4>Medical English</h4>
-              <p>Professional vocabulary for doctors, nurses, and clinics.</p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Tech</span>
-              <h4>IT English</h4>
-              <p>
-                Workplace communication for software, product, and engineering
-                teams.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">B1</span>
-              <h4>Intermediate English</h4>
-              <p>
-                Build confidence with everyday communication and practical
-                grammar.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">B2</span>
-              <h4>Upper-Intermediate</h4>
-              <p>Improve fluency, accuracy, and spontaneous speaking.</p>
-            </article>
-            <article class="course-card">
-              <span class="tag">C1</span>
-              <h4>Advanced English</h4>
-              <p>
-                Deepen your language for work, study, and international
-                settings.
-              </p>
-            </article>
-            <article class="course-card">
-              <span class="tag">Exam Prep</span>
-              <h4>Interview Preparation</h4>
-              <p>
-                Practice common questions and powerful answers for interviews.
-              </p>
-            </article>
+          <div class="eyebrow">CEFR levels</div>
+          <h2 class="title">A1-C2 levels. Click a level to open its courses.</h2>
+          <div class="levels-stack">
+            <a class="level-block level-link" href="levels/a1.html" aria-label="Open A1 courses">
+              <span class="level-head"><h3>A1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/a2.html" aria-label="Open A2 courses">
+              <span class="level-head"><h3>A2</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/b1.html" aria-label="Open B1 courses">
+              <span class="level-head"><h3>B1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/b2.html" aria-label="Open B2 courses">
+              <span class="level-head"><h3>B2</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/c1.html" aria-label="Open C1 courses">
+              <span class="level-head"><h3>C1</h3></span>
+            </a>
+            <a class="level-block level-link" href="levels/c2.html" aria-label="Open C2 courses">
+              <span class="level-head"><h3>C2</h3></span>
+            </a>
           </div>
         </div>
       </section>
@@ -1117,7 +490,34 @@
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="grammar">
+        <div class="container">
+          <div class="eyebrow">Grammar</div>
+          <h2 class="title">Build accuracy with practical grammar blocks.</h2>
+          <div class="card-grid">
+            <article class="card">
+              <h3>Core grammar paths</h3>
+              <ul>
+                <li>Tenses in real context</li>
+                <li>Articles and determiners</li>
+                <li>Conditionals and modals</li>
+                <li>Word order and emphasis</li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>Grammar in action</h3>
+              <ul>
+                <li>Micro-drills with feedback</li>
+                <li>Error explanation by AI</li>
+                <li>Personal weak-point review</li>
+                <li>Weekly grammar checkpoints</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="writing">
         <div class="container">
           <div class="eyebrow">Writing</div>
           <h2 class="title">
@@ -1146,7 +546,7 @@
         </div>
       </section>
 
-      <section class="section">
+      <section class="section" id="listening">
         <div class="container">
           <div class="eyebrow">Listening</div>
           <h2 class="title">Hear real English in context.</h2>
@@ -1177,7 +577,7 @@
         <div class="container">
           <div class="eyebrow">Dashboard preview</div>
           <h2 class="title">See your growth every day.</h2>
-          <div class="card" style="padding: 1.4rem">
+          <div class="card dashboard-preview">
             <div class="stats-grid">
               <div class="stat-card">
                 <div class="stat-number">84%</div>
@@ -1382,9 +782,7 @@
         <div class="container newsletter">
           <div>
             <div class="eyebrow" style="color: #c7d2fe">Newsletter</div>
-            <h2 class="title" style="font-size: 1.7rem; color: white">
-              Get weekly learning tips.
-            </h2>
+            <h2 class="title">Get weekly learning tips.</h2>
           </div>
           <form>
             <input type="email" placeholder="Enter your email" />
@@ -1454,17 +852,164 @@
       <div class="container footer-grid">
         <div>
           <a class="brand" href="#"
-            ><span class="brand-mark">✦</span><span>KRIN EdTech</span></a
+            ><span class="brand-mark">⚜</span><span>KRIN EdTech</span></a
           >
           <p style="margin-top: 0.8rem">
             A modern platform for English learning powered by AI, community, and
             practical communication skills.
           </p>
+
+          <div class="auth-modal" id="authModal" aria-hidden="true">
+            <div class="auth-modal__backdrop" data-close-auth></div>
+            <div
+              class="auth-modal__dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="authModalTitle"
+            >
+              <div class="auth-modal__head">
+                <h3 id="authModalTitle">Log In</h3>
+                <button
+                  type="button"
+                  class="auth-modal__close"
+                  data-close-auth
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form class="auth-modal__body" id="loginForm">
+                <div class="auth-mode-badge" id="authModeBadge">Student mode</div>
+                <input id="loginRole" type="hidden" name="role" value="student" />
+                <div class="auth-field">
+                  <label for="loginName">Name</label>
+                  <input
+                    id="loginName"
+                    type="text"
+                    name="name"
+                    placeholder="Your name"
+                    required
+                  />
+                </div>
+                <div class="auth-field">
+                  <label for="loginEmail">Email</label>
+                  <input
+                    id="loginEmail"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div class="auth-field">
+                  <label for="loginPassword">Password</label>
+                  <input
+                    id="loginPassword"
+                    type="password"
+                    name="password"
+                    placeholder="Enter password"
+                    required
+                  />
+                </div>
+                <div class="auth-field" id="teacherWorkspaceField" hidden>
+                  <label for="teacherWorkspace">School or Workspace</label>
+                  <input
+                    id="teacherWorkspace"
+                    type="text"
+                    name="workspace"
+                    placeholder="Ex: KRIN High School"
+                  />
+                </div>
+                <button class="btn btn-primary auth-submit" type="submit">
+                  <span id="loginSubmitLabel">Log In</span>
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-switch-auth="teacher"
+                >
+                  Sign in as Teacher
+                </button>
+              </form>
+
+              <form class="auth-modal__body" id="registerForm" hidden>
+                <div class="auth-row">
+                  <div class="auth-field">
+                    <label for="registerName">Name</label>
+                    <input
+                      id="registerName"
+                      type="text"
+                      name="name"
+                      placeholder="Your name"
+                      required
+                    />
+                  </div>
+                  <div class="auth-field">
+                    <label for="registerSurname">Surname</label>
+                    <input
+                      id="registerSurname"
+                      type="text"
+                      name="surname"
+                      placeholder="Your surname"
+                      required
+                    />
+                  </div>
+                </div>
+                <div class="auth-field">
+                  <label for="registerEmail">Email</label>
+                  <input
+                    id="registerEmail"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div class="auth-row">
+                  <div class="auth-field">
+                    <label for="registerPassword">Password</label>
+                    <input
+                      id="registerPassword"
+                      type="password"
+                      name="password"
+                      placeholder="Create password"
+                      required
+                    />
+                  </div>
+                  <div class="auth-field">
+                    <label for="registerConfirmPassword"
+                      >Confirm password</label
+                    >
+                    <input
+                      id="registerConfirmPassword"
+                      type="password"
+                      name="confirmPassword"
+                      placeholder="Repeat password"
+                      required
+                    />
+                  </div>
+                </div>
+                <p class="auth-error" id="registerError" hidden>
+                  Passwords do not match.
+                </p>
+                <button class="btn btn-primary auth-submit" type="submit">
+                  Sign Up
+                </button>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-switch-auth="login"
+                >
+                  Already have an account
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
         <div>
           <h4>Company</h4>
           <ul>
-            <li><a href="#about">About</a></li>
             <li><a href="#">Careers</a></li>
             <li><a href="#">Press</a></li>
             <li><a href="#">Investors</a></li>
@@ -1491,7 +1036,7 @@
       </div>
       <div class="container footer-bottom">
         <span>© 2026 KRIN EdTech. All rights reserved.</span>
-        <div style="display: flex; gap: 1rem; flex-wrap: wrap">
+        <div class="footer-meta">
           <span>🌍 Language</span>
           <span>🇺🇸 English</span>
           <span>🌐 Country</span>
@@ -1512,10 +1057,20 @@
       </p>
       <h2>Course Schema</h2>
       <p>
-        Business English, Travel English, Medical English, IT English and exam
+        Business English, Travel English, Medical English, IT English, and exam
         preparation courses.
       </p>
     </div>
+
+    <button
+      id="scrollToTopBtn"
+      class="scroll-to-top"
+      type="button"
+      aria-label="Scroll to top"
+      title="Наверх"
+    >
+      ↑
+    </button>
 
     <script type="application/ld+json">
       {
@@ -1523,36 +1078,19 @@
         "@type": "Organization",
         "name": "KRIN EdTech",
         "url": "https://krinedtech.example",
-        "sameAs": ["https://www.linkedin.com", "https://www.youtube.com"],
         "description": "AI-powered English learning platform"
       }
     </script>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "KRIN EdTech",
-        "url": "https://krinedtech.example",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": "https://krinedtech.example/search?q={search_term_string}",
-          "query-input": "required name=search_term_string"
-        }
-      }
-    </script>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "ItemList",
-        "itemListElement": [
-          { "@type": "Course", "name": "Business English" },
-          { "@type": "Course", "name": "Travel English" },
-          { "@type": "Course", "name": "Medical English" },
-          { "@type": "Course", "name": "IT English" }
-        ]
+        "url": "https://krinedtech.example"
       }
     </script>
 
-    <script src="index.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>
