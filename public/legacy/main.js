@@ -170,6 +170,9 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         return;
       }
     }
+
+    // Use the full Next.js auth flow instead of legacy no-op submit.
+    window.location.href = "/login";
   });
   registerForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -184,5 +187,8 @@ if (authModal && authModalTitle && loginForm && registerForm) {
     }
 
     if (registerError) registerError.hidden = true;
+
+    // Redirect to the production onboarding Sign Up page.
+    window.location.href = "/register";
   });
 }
