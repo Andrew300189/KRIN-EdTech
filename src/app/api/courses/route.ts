@@ -5,7 +5,7 @@ import { createCourseForOwner, listCoursesForOwner } from "@/modules/courses/ser
 
 export async function GET(request: NextRequest) {
   try {
-    const identity = getRequestIdentity(request);
+    const identity = await getRequestIdentity(request);
 
     if (hasAnyRole(identity.role, ["teacher", "admin"])) {
       const ownerCourses = listCoursesForOwner(identity.userId);
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const identity = getRequestIdentity(request);
+    const identity = await getRequestIdentity(request);
 
     if (!hasAnyRole(identity.role, ["teacher", "admin"])) {
       return NextResponse.json(

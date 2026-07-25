@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Educational platform for language learning",
   "private": true,
+  "prisma": {
+    "schema": "database/prisma/schema.prisma"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

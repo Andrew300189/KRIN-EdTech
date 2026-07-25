@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/auth/login");
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -24,6 +32,7 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/dashboard/courses"
+            id="tour-nav-courses"
             className="block px-4 py-2 rounded hover:bg-gray-100"
           >
             My Courses
@@ -36,12 +45,14 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/dashboard/lessons"
+            id="tour-nav-lessons"
             className="block px-4 py-2 rounded hover:bg-gray-100"
           >
             Lessons
           </Link>
           <Link
             href="/dashboard/vocabulary"
+            id="tour-nav-vocabulary"
             className="block px-4 py-2 rounded hover:bg-gray-100"
           >
             Vocabulary
@@ -60,6 +71,7 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/dashboard/profile"
+            id="tour-nav-profile"
             className="block px-4 py-2 rounded hover:bg-gray-100"
           >
             Profile
@@ -73,7 +85,10 @@ export default function DashboardLayout({
           <div className="px-6 py-4 flex justify-between items-center">
             <h1 className="text-lg font-semibold">Dashboard</h1>
             <div>
-              <button className="text-sm text-gray-600 hover:text-gray-900">
+              <button
+                className="text-sm text-gray-600 hover:text-gray-900"
+                onClick={handleSignOut}
+              >
                 Sign Out
               </button>
             </div>

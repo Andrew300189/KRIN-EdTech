@@ -4,7 +4,7 @@ import { hasAnyRole } from "@/core/utils/role";
 import { createCourseForOwner, listCoursesForOwner } from "@/modules/courses/service";
 
 export async function GET(request: NextRequest) {
-  const identity = getRequestIdentity(request);
+  const identity = await getRequestIdentity(request);
 
   if (!hasAnyRole(identity.role, ["teacher", "admin"])) {
     return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const identity = getRequestIdentity(request);
+  const identity = await getRequestIdentity(request);
 
   if (!hasAnyRole(identity.role, ["teacher", "admin"])) {
     return NextResponse.json(
