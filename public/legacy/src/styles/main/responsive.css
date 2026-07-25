@@ -1,0 +1,202 @@
+@media (max-width: 1100px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 2.4rem;
+  }
+  .hero-visual {
+    min-height: 470px;
+  }
+  .feature-grid,
+  .courses-grid,
+  .testimonials-grid,
+  .stories-grid,
+  .pricing-grid,
+  .blog-grid,
+  .level-courses-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .section {
+    padding: 64px 0;
+  }
+  .nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: min(1160px, calc(100% - 2rem));
+  }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    row-gap: 0.45rem;
+  }
+  .split,
+  .stats-grid,
+  .teacher-entry__grid {
+    grid-template-columns: 1fr;
+  }
+  .feature-grid,
+  .courses-grid,
+  .testimonials-grid,
+  .stories-grid,
+  .pricing-grid,
+  .blog-grid,
+  .card-grid,
+  .footer-grid,
+  .level-courses-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .levels-stack {
+    grid-template-columns: repeat(2, minmax(120px, 170px));
+  }
+  .newsletter {
+    padding: 1.6rem;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .newsletter form {
+    width: 100%;
+  }
+  .newsletter input {
+    width: min(100%, 420px);
+  }
+}
+
+@media (max-width: 680px) {
+  .announcement-bar .container {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: center;
+  }
+  .section {
+    padding: 52px 0;
+  }
+  .hero {
+    padding: 56px 0 32px;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 9vw, 2.8rem);
+  }
+  .title {
+    font-size: clamp(1.65rem, 7.5vw, 2.2rem);
+  }
+  .nav {
+    justify-content: space-between;
+    width: min(1160px, calc(100% - 1.25rem));
+  }
+  .nav-links {
+    display: none;
+  }
+  .nav-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .nav-actions .btn {
+    flex: 1 1 calc(50% - 0.35rem);
+  }
+  .hero-actions {
+    width: 100%;
+  }
+  .hero-actions .btn {
+    flex: 1;
+  }
+  .stats-grid,
+  .card-grid,
+  .feature-grid,
+  .courses-grid,
+  .testimonials-grid,
+  .stories-grid,
+  .pricing-grid,
+  .blog-grid,
+  .footer-grid,
+  .level-courses-grid {
+    grid-template-columns: 1fr;
+  }
+  .levels-stack {
+    grid-template-columns: minmax(130px, 190px);
+  }
+  .process-stepper {
+    justify-content: stretch;
+  }
+  .process-step {
+    width: 100%;
+  }
+  .process-arrow {
+    width: 100%;
+    justify-content: center;
+    transform: rotate(90deg);
+  }
+  .hero-visual {
+    min-height: 390px;
+  }
+  .mockup-phone {
+    width: 145px;
+    height: 250px;
+    right: -12px;
+    top: 105px;
+  }
+  .mockup-laptop {
+    width: 250px;
+    height: 180px;
+    left: 0;
+    bottom: 26px;
+  }
+  .mockup-card {
+    width: 205px;
+    height: 168px;
+    left: 40px;
+    top: 20px;
+  }
+
+  .scroll-to-top {
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    width: min(1160px, calc(100% - 1.25rem));
+  }
+  .auth-modal__dialog {
+    width: min(100%, 350px);
+    max-height: min(92vh, 680px);
+  }
+  .auth-modal__head {
+    padding: 0.85rem 0.9rem 0.65rem;
+  }
+  .auth-modal__body {
+    padding: 0.75rem 0.85rem 0.85rem;
+  }
+  .hero-badges,
+  .pill-row {
+    gap: 0.35rem;
+  }
+  .pill,
+  .pill-row span {
+    font-size: 0.75rem;
+  }
+  .hero-visual {
+    min-height: 340px;
+  }
+  .mockup-phone {
+    width: 128px;
+    height: 220px;
+    right: -10px;
+    top: 96px;
+  }
+  .mockup-laptop {
+    width: 220px;
+    height: 160px;
+    left: -2px;
+    bottom: 22px;
+  }
+  .mockup-card {
+    width: 178px;
+    height: 146px;
+    left: 30px;
+    top: 15px;
+  }
+}

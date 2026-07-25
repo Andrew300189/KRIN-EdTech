@@ -1,0 +1,99 @@
+/* Global CSS variables and base styles */
+@import "../core/styles/variables.css";
+@import "../core/styles/typography.css";
+@import "../core/styles/buttons.css";
+@import "../core/styles/forms.css";
+@import "../core/styles/animations.css";
+@import "../core/styles/utilities.css";
+@import "../core/styles/themes.css";
+
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+/* Tailwind base utilities */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+.scroll-to-top-btn {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: var(--color-primary, #2563eb);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background-color 0.2s ease;
+  z-index: 1000;
+}
+
+.scroll-to-top-btn:hover {
+  background: var(--color-primary-dark, #1d4ed8);
+}
+
+.scroll-to-top-btn:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+}
+
+.scroll-to-top-btn.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .scroll-to-top-btn {
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
