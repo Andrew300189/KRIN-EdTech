@@ -5,84 +5,49 @@ import { hashPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 import { sendWelcomeVerificationEmail } from "@/core/server/email";
 
-type IncomingLevel = "beginner" | "intermediate" | "advanced";
-type IncomingIntensity = "10m" | "30m" | "60m";
-
-function mapLevel(level: IncomingLevel) {
-  if (level === "advanced") return "ADVANCED";
-  if (level === "intermediate") return "INTERMEDIATE";
-  return "BEGINNER";
-}
-
-function mapIntensity(value: IncomingIntensity) {
-  if (value === "60m") return 60;
-  if (value === "30m") return 30;
-  return 10;
-}
-
-function computeWelcomeBonus(intensityMinutes: number) {
-  if (intensityMinutes >= 60) return 120;
-  if (intensityMinutes >= 30) return 90;
-  return 60;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      name,
-      email,
-      password,
-      targetLanguage,
-      learningGoal,
-      currentLevel,
-      dailyIntensity,
-      takePlacementTest,
-    } = body ?? {};
+    const username = String(body?.username ?? "").trim().toLowerCase();
+    const email = String(body?.email ?? "").trim().toLowerCase();
+    const password = String(body?.password ?? "");
 
-    if (!name || !email || !password) {
+    if (!username || !email || !password) {
       return NextResponse.json(
-        { error: "Name, email, and password are required" },
+        { error: "Username, email, and password are required" },
         { status: 400 },
       );
     }
 
-    if (!targetLanguage || !learningGoal || !currentLevel || !dailyIntensity) {
+    if (password.length < 6) {
       return NextResponse.json(
-        {
-          error:
-            "Onboarding fields are required: targetLanguage, learningGoal, currentLevel, dailyIntensity",
-        },
+        { error: "Password should be at least 6 characters" },
         { status: 400 },
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
+    });
+
     if (existing) {
       return NextResponse.json(
-        { error: "User with this email already exists" },
+        { error: "User with this email or username already exists" },
         { status: 409 },
       );
     }
 
-    const intensityMinutes = mapIntensity(dailyIntensity as IncomingIntensity);
     const verificationToken = randomBytes(24).toString("hex");
-    const passwordHash = hashPassword(password);
 
     const user = await prisma.user.create({
       data: {
-        name,
+        username,
         email,
-        passwordHash,
-        targetLanguage,
-        learningGoal,
-        currentLevel: mapLevel(currentLevel as IncomingLevel),
-        dailyIntensityMinutes: intensityMinutes,
-        dailyGoalMinutes: intensityMinutes,
-        takePlacementTest: Boolean(takePlacementTest),
-        onboardingCompletedAt: new Date(),
-        welcomeBonusPoints: computeWelcomeBonus(intensityMinutes),
-        guidedTourCompleted: false,
+        passwordHash: hashPassword(password),
+        name: username,
+        role: "STUDENT",
         emailVerificationToken: verificationToken,
         emailVerificationSentAt: new Date(),
       },
@@ -103,20 +68,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: "User registered successfully. Verification email sent.",
-        verificationSent: true,
+        message: "User registered successfully",
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           name: user.name,
-          targetLanguage: user.targetLanguage,
-          learningGoal: user.learningGoal,
-          currentLevel: user.currentLevel,
-          dailyIntensityMinutes: user.dailyIntensityMinutes,
-          dailyGoalMinutes: user.dailyGoalMinutes,
-          takePlacementTest: user.takePlacementTest,
-          welcomeBonusPoints: user.welcomeBonusPoints,
-          guidedTourCompleted: user.guidedTourCompleted,
         },
       },
       { status: 201 },

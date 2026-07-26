@@ -19,7 +19,8 @@ Authorization: Bearer <token>
 ### Auth
 
 - `POST /auth/login` - User login
-- `POST /auth/register` - User registration
+- `GET /auth/register` - Registration disabled (405)
+- `POST /auth/register` - Registration disabled (405)
 - `POST /auth/logout` - User logout
 - `GET /auth/me` - Get current user
 

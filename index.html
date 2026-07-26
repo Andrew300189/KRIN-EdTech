@@ -44,15 +44,7 @@
           <a href="#contact">Contact</a>
         </nav>
         <div class="nav-actions">
-          <a href="#" class="btn btn-secondary" data-open-modal="teacher"
-            >Teacher Sign In</a
-          >
-          <a href="#" class="btn btn-secondary" data-open-modal="login"
-            >Log In</a
-          >
-          <a href="#" class="btn btn-primary" data-open-modal="register"
-            >Sign Up</a
-          >
+          <a href="#" class="btn btn-primary" data-open-modal="login">Log In</a>
         </div>
       </div>
     </header>
@@ -70,9 +62,6 @@
             <div class="hero-actions">
               <a href="#placement" class="btn btn-primary">Start Free</a>
               <a href="#demo" class="btn btn-secondary">Watch Demo</a>
-              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
-                >I am a Teacher</a
-              >
             </div>
             <div class="hero-badges">
               <span class="pill">✅ 90+ countries</span>
@@ -143,8 +132,8 @@
               <li>Speaking and writing feedback at scale</li>
             </ul>
             <div class="teacher-entry__actions">
-              <a href="#" class="btn btn-teacher" data-open-modal="teacher"
-                >Open Teacher Login</a
+              <a href="#" class="btn btn-primary" data-open-modal="login"
+                >Open Login</a
               >
             </div>
           </div>
@@ -880,17 +869,9 @@
               </div>
 
               <form class="auth-modal__body" id="loginForm">
-                <div class="auth-mode-badge" id="authModeBadge">Student mode</div>
-                <input id="loginRole" type="hidden" name="role" value="student" />
-                <div class="auth-field">
-                  <label for="loginName">Name</label>
-                  <input
-                    id="loginName"
-                    type="text"
-                    name="name"
-                    placeholder="Your name"
-                    required
-                  />
+                <div class="auth-topline">
+                  New here?
+                  <a href="/register" id="joinLink">Join now</a>
                 </div>
                 <div class="auth-field">
                   <label for="loginEmail">Email</label>
@@ -904,106 +885,35 @@
                 </div>
                 <div class="auth-field">
                   <label for="loginPassword">Password</label>
-                  <input
-                    id="loginPassword"
-                    type="password"
-                    name="password"
-                    placeholder="Enter password"
-                    required
-                  />
-                </div>
-                <div class="auth-field" id="teacherWorkspaceField" hidden>
-                  <label for="teacherWorkspace">School or Workspace</label>
-                  <input
-                    id="teacherWorkspace"
-                    type="text"
-                    name="workspace"
-                    placeholder="Ex: KRIN High School"
-                  />
-                </div>
-                <button class="btn btn-primary auth-submit" type="submit">
-                  <span id="loginSubmitLabel">Log In</span>
-                </button>
-                <button
-                  class="btn btn-secondary"
-                  type="button"
-                  data-switch-auth="teacher"
-                >
-                  Sign in as Teacher
-                </button>
-              </form>
-
-              <form class="auth-modal__body" id="registerForm" hidden>
-                <div class="auth-row">
-                  <div class="auth-field">
-                    <label for="registerName">Name</label>
+                  <div class="auth-password-wrap">
                     <input
-                      id="registerName"
-                      type="text"
-                      name="name"
-                      placeholder="Your name"
-                      required
-                    />
-                  </div>
-                  <div class="auth-field">
-                    <label for="registerSurname">Surname</label>
-                    <input
-                      id="registerSurname"
-                      type="text"
-                      name="surname"
-                      placeholder="Your surname"
-                      required
-                    />
-                  </div>
-                </div>
-                <div class="auth-field">
-                  <label for="registerEmail">Email</label>
-                  <input
-                    id="registerEmail"
-                    type="email"
-                    name="email"
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-                <div class="auth-row">
-                  <div class="auth-field">
-                    <label for="registerPassword">Password</label>
-                    <input
-                      id="registerPassword"
+                      id="loginPassword"
                       type="password"
                       name="password"
-                      placeholder="Create password"
+                      placeholder="Enter password"
                       required
                     />
-                  </div>
-                  <div class="auth-field">
-                    <label for="registerConfirmPassword"
-                      >Confirm password</label
+                    <button
+                      type="button"
+                      class="auth-eye"
+                      id="loginPasswordToggle"
+                      aria-label="Show password"
                     >
-                    <input
-                      id="registerConfirmPassword"
-                      type="password"
-                      name="confirmPassword"
-                      placeholder="Repeat password"
-                      required
-                    />
+                      👁
+                    </button>
                   </div>
                 </div>
-                <p class="auth-error" id="registerError" hidden>
-                  Passwords do not match.
-                </p>
+                <a class="auth-link" href="/forgot-password">Forgot your email or password?</a>
                 <button class="btn btn-primary auth-submit" type="submit">
-                  Sign Up
+                  <span id="loginSubmitLabel">Log in</span>
                 </button>
-                <button
-                  class="btn btn-secondary"
-                  type="button"
-                  data-switch-auth="login"
-                >
-                  Already have an account
-                </button>
+                <a href="/api/auth/google/start" class="btn btn-secondary auth-google-btn">Continue with Google</a>
+                <p class="auth-terms">
+                  By logging in, you agree to our
+                  <a href="/terms">Terms of use</a>.
+                </p>
               </form>
+
             </div>
           </div>
         </div>
