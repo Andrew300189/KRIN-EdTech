@@ -4,13 +4,12 @@
 
 ### 🏠 Public Routes (No Authentication Required)
 
-- **`/`** - Home page with sign in/up buttons
+- **`/`** - Home page with sign in button
 - **`/(public)`** - Public route group
 
 ### 🔐 Authentication Routes
 
 - **`/auth/login`** - User login page
-- **`/auth/register`** - User registration page
 - **`/auth/forgot-password`** - Password recovery
 
 **Layout**: Centered form layout with gradient background
@@ -41,12 +40,14 @@
 ### Authentication
 
 - **`POST /api/auth/login`** - Login endpoint
-  - Body: `{ email, password }`
+  - Body: `{ identifier, password }`
   - Returns: `{ token, user }`
 
-- **`POST /api/auth/register`** - Registration endpoint
-  - Body: `{ name, email, password }`
-  - Returns: `{ user }`
+- **`GET /api/auth/register`** - Registration disabled endpoint
+  - Returns: `405 Method Not Allowed`
+
+- **`POST /api/auth/register`** - Registration disabled endpoint
+  - Returns: `405 Method Not Allowed`
 
 ### Courses
 
@@ -77,7 +78,7 @@ src/app/
 │   ├── login/
 │   │   └── page.tsx
 │   ├── register/
-│   │   └── page.tsx
+│   │   └── page.tsx           # Disabled (404)
 │   └── forgot-password/
 │       └── page.tsx
 │
@@ -108,7 +109,7 @@ src/app/
     │   ├── login/
     │   │   └── route.ts
     │   └── register/
-    │       └── route.ts
+  │       └── route.ts       # Disabled (405)
     ├── courses/
     │   └── route.ts
     └── health/

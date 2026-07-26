@@ -64,62 +64,20 @@ if (scrollToTopBtn) {
 const authModal = document.getElementById("authModal");
 const authModalTitle = document.getElementById("authModalTitle");
 const loginForm = document.getElementById("loginForm");
-const registerForm = document.getElementById("registerForm");
-const registerError = document.getElementById("registerError");
-const registerPassword = document.getElementById("registerPassword");
-const registerConfirmPassword = document.getElementById(
-  "registerConfirmPassword",
-);
-const loginRole = document.getElementById("loginRole");
-const authModeBadge = document.getElementById("authModeBadge");
-const teacherWorkspaceField = document.getElementById("teacherWorkspaceField");
-const teacherWorkspaceInput = document.getElementById("teacherWorkspace");
 const loginSubmitLabel = document.getElementById("loginSubmitLabel");
+const loginPasswordInput = document.getElementById("loginPassword");
+const loginPasswordToggle = document.getElementById("loginPasswordToggle");
 const openModalButtons = document.querySelectorAll("[data-open-modal]");
 const closeModalButtons = document.querySelectorAll("[data-close-auth]");
-const switchAuthButtons = document.querySelectorAll("[data-switch-auth]");
-
-if (authModal && authModalTitle && loginForm && registerForm) {
-  const setLoginMode = (mode) => {
-    const isTeacher = mode === "teacher";
-
-    if (loginRole) loginRole.value = isTeacher ? "teacher" : "student";
-
-    if (authModeBadge) {
-      authModeBadge.textContent = isTeacher ? "Teacher mode" : "Student mode";
-    }
-
-    if (teacherWorkspaceField && teacherWorkspaceInput) {
-      teacherWorkspaceField.hidden = !isTeacher;
-      teacherWorkspaceInput.required = isTeacher;
-      if (!isTeacher) teacherWorkspaceInput.value = "";
-    }
-
-    if (loginSubmitLabel) {
-      loginSubmitLabel.textContent = isTeacher
-        ? "Open Teacher Workspace"
-        : "Log In";
-    }
-
-    authModalTitle.textContent = isTeacher ? "Teacher Sign In" : "Log In";
+if (authModal && authModalTitle && loginForm) {
+  const showForm = () => {
+    loginForm.hidden = false;
+    if (loginSubmitLabel) loginSubmitLabel.textContent = "Log in";
+    authModalTitle.textContent = "Log in";
   };
 
-  const showForm = (type) => {
-    const isLogin = type !== "register";
-    loginForm.hidden = !isLogin;
-    registerForm.hidden = isLogin;
-    if (type === "teacher") {
-      setLoginMode("teacher");
-    } else if (isLogin) {
-      setLoginMode("login");
-    } else {
-      authModalTitle.textContent = "Sign Up";
-    }
-    if (registerError) registerError.hidden = true;
-  };
-
-  const openModal = (type) => {
-    showForm(type);
+  const openModal = () => {
+    showForm();
     authModal.classList.add("is-open");
     authModal.setAttribute("aria-hidden", "false");
     document.body.classList.add("modal-open");
@@ -134,18 +92,21 @@ if (authModal && authModalTitle && loginForm && registerForm) {
   openModalButtons.forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();
-      openModal(button.getAttribute("data-open-modal") || "login");
+      openModal();
     });
   });
 
-  switchAuthButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const target = button.getAttribute("data-switch-auth");
-      if (target === "login" || target === "register") {
-        showForm(target);
-      }
+  if (loginPasswordToggle && loginPasswordInput) {
+    loginPasswordToggle.addEventListener("click", () => {
+      const nextType = loginPasswordInput.type === "password" ? "text" : "password";
+      loginPasswordInput.type = nextType;
+      loginPasswordToggle.textContent = nextType === "password" ? "👁" : "🙈";
+      loginPasswordToggle.setAttribute(
+        "aria-label",
+        nextType === "password" ? "Show password" : "Hide password",
+      );
     });
-  });
+  }
 
   closeModalButtons.forEach((button) => {
     button.addEventListener("click", closeModal);
@@ -160,35 +121,6 @@ if (authModal && authModalTitle && loginForm && registerForm) {
   loginForm.addEventListener("submit", (event) => event.preventDefault());
   loginForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (loginRole && loginRole.value === "teacher") {
-      const workspaceValue = teacherWorkspaceInput
-        ? teacherWorkspaceInput.value.trim()
-        : "";
-
-      if (!workspaceValue) {
-        if (teacherWorkspaceInput) teacherWorkspaceInput.focus();
-        return;
-      }
-    }
-
-    // Use the full Next.js auth flow instead of legacy no-op submit.
     window.location.href = "/login";
-  });
-  registerForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const password = registerPassword ? registerPassword.value : "";
-    const confirmPassword = registerConfirmPassword
-      ? registerConfirmPassword.value
-      : "";
-
-    if (password !== confirmPassword) {
-      if (registerError) registerError.hidden = false;
-      return;
-    }
-
-    if (registerError) registerError.hidden = true;
-
-    // Redirect to the production onboarding Sign Up page.
-    window.location.href = "/register";
   });
 }

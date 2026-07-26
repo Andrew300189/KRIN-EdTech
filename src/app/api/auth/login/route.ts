@@ -6,16 +6,25 @@ import { createSession } from "@/core/server/session";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body ?? {};
+    const { identifier, password } = body ?? {};
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: "Username/email and password are required" },
         { status: 400 },
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedIdentifier = String(identifier).trim().toLowerCase();
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedIdentifier },
+          { username: normalizedIdentifier },
+        ],
+      },
+    });
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
@@ -33,6 +42,7 @@ export async function POST(request: NextRequest) {
         message: "Login successful",
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           name: user.name,
           role: user.role.toLowerCase(),
