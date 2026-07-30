@@ -17,6 +17,17 @@ function getErrorMessage(errorCode: string | null) {
   }
 }
 
+function getInfoMessage(reason: string | null) {
+  switch (reason) {
+    case "session_expired":
+      return "Your session has expired. Please sign in again.";
+    case "session_required":
+      return "Please sign in to continue.";
+    default:
+      return "";
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,6 +40,11 @@ export default function LoginPage() {
 
   const externalError = useMemo(
     () => getErrorMessage(searchParams.get("error")),
+    [searchParams],
+  );
+
+  const infoMessage = useMemo(
+    () => getInfoMessage(searchParams.get("reason")),
     [searchParams],
   );
 
@@ -50,7 +66,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard/courses");
+      const nextPath = searchParams.get("next");
+      router.push(nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard");
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -60,7 +77,9 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-4xl font-semibold tracking-tight text-slate-900">Log in</h1>
+      <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
+        Log in
+      </h1>
 
       <p className="mt-6 text-lg text-slate-700">
         New here?{" "}
@@ -70,8 +89,17 @@ export default function LoginPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {infoMessage ? (
+          <p className="rounded-md border border-blue-200 bg-blue-50 p-3 text-base text-blue-700">
+            {infoMessage}
+          </p>
+        ) : null}
+
         <div className="space-y-2">
-          <label htmlFor="identifier" className="text-xl font-medium text-slate-900">
+          <label
+            htmlFor="identifier"
+            className="text-xl font-medium text-slate-900"
+          >
             Email
           </label>
           <input
@@ -86,7 +114,10 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-xl font-medium text-slate-900">
+          <label
+            htmlFor="password"
+            className="text-xl font-medium text-slate-900"
+          >
             Password
           </label>
           <div className="relative">
@@ -110,7 +141,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Link href="/forgot-password" className="inline-block text-base text-primary hover:underline">
+        <Link
+          href="/forgot-password"
+          className="inline-block text-base text-primary hover:underline"
+        >
           Forgot your email or password?
         </Link>
 

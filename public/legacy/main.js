@@ -64,20 +64,61 @@ if (scrollToTopBtn) {
 const authModal = document.getElementById("authModal");
 const authModalTitle = document.getElementById("authModalTitle");
 const loginForm = document.getElementById("loginForm");
+const registerForm = document.getElementById("registerForm");
 const loginSubmitLabel = document.getElementById("loginSubmitLabel");
+const registerSubmitLabel = document.getElementById("registerSubmitLabel");
+const loginEmailInput = document.getElementById("loginEmail");
 const loginPasswordInput = document.getElementById("loginPassword");
 const loginPasswordToggle = document.getElementById("loginPasswordToggle");
+const registerUsernameInput = document.getElementById("registerUsername");
+const registerEmailInput = document.getElementById("registerEmail");
+const registerPasswordInput = document.getElementById("registerPassword");
+const registerConfirmPasswordInput = document.getElementById(
+  "registerConfirmPassword",
+);
 const openModalButtons = document.querySelectorAll("[data-open-modal]");
 const closeModalButtons = document.querySelectorAll("[data-close-auth]");
-if (authModal && authModalTitle && loginForm) {
-  const showForm = () => {
-    loginForm.hidden = false;
+const switchAuthButtons = document.querySelectorAll("[data-switch-auth]");
+if (authModal && authModalTitle && loginForm && registerForm) {
+  let loginError = document.getElementById("loginError");
+  if (!loginError) {
+    loginError = document.createElement("p");
+    loginError.id = "loginError";
+    loginError.className = "auth-link";
+    loginError.style.color = "#dc2626";
+    loginError.style.display = "none";
+    loginForm.appendChild(loginError);
+  }
+
+  let registerError = document.getElementById("registerError");
+  if (!registerError) {
+    registerError = document.createElement("p");
+    registerError.id = "registerError";
+    registerError.className = "auth-link";
+    registerError.style.color = "#dc2626";
+    registerError.style.display = "none";
+    registerForm.appendChild(registerError);
+  }
+
+  const showForm = (mode) => {
+    const showRegister = mode === "register";
+    loginForm.hidden = showRegister;
+    registerForm.hidden = !showRegister;
+    authModalTitle.textContent = showRegister ? "Create account" : "Log in";
     if (loginSubmitLabel) loginSubmitLabel.textContent = "Log in";
-    authModalTitle.textContent = "Log in";
+    if (registerSubmitLabel) registerSubmitLabel.textContent = "Create account";
+    if (loginError) {
+      loginError.textContent = "";
+      loginError.style.display = "none";
+    }
+    if (registerError) {
+      registerError.textContent = "";
+      registerError.style.display = "none";
+    }
   };
 
-  const openModal = () => {
-    showForm();
+  const openModal = (mode = "login") => {
+    showForm(mode);
     authModal.classList.add("is-open");
     authModal.setAttribute("aria-hidden", "false");
     document.body.classList.add("modal-open");
@@ -92,13 +133,24 @@ if (authModal && authModalTitle && loginForm) {
   openModalButtons.forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();
-      openModal();
+      openModal(button.getAttribute("data-open-modal") || "login");
+    });
+  });
+
+  switchAuthButtons.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const mode = button.getAttribute("data-switch-auth");
+      if (mode === "login" || mode === "register") {
+        showForm(mode);
+      }
     });
   });
 
   if (loginPasswordToggle && loginPasswordInput) {
     loginPasswordToggle.addEventListener("click", () => {
-      const nextType = loginPasswordInput.type === "password" ? "text" : "password";
+      const nextType =
+        loginPasswordInput.type === "password" ? "text" : "password";
       loginPasswordInput.type = nextType;
       loginPasswordToggle.textContent = nextType === "password" ? "👁" : "🙈";
       loginPasswordToggle.setAttribute(
@@ -118,9 +170,119 @@ if (authModal && authModalTitle && loginForm) {
     }
   });
 
-  loginForm.addEventListener("submit", (event) => event.preventDefault());
-  loginForm.addEventListener("submit", (event) => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    window.location.href = "/login";
+
+    const identifier = loginEmailInput?.value?.trim() || "";
+    const password = loginPasswordInput?.value || "";
+
+    if (!identifier || !password) return;
+
+    if (loginSubmitLabel) loginSubmitLabel.textContent = "Logging in...";
+    if (loginError) {
+      loginError.textContent = "";
+      loginError.style.display = "none";
+    }
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        if (loginError) {
+          loginError.textContent = payload?.error || "Login failed";
+          loginError.style.display = "block";
+        }
+        return;
+      }
+
+      window.location.href = "/dashboard";
+    } catch {
+      if (loginError) {
+        loginError.textContent = "Network error. Please try again.";
+        loginError.style.display = "block";
+      }
+    } finally {
+      if (loginSubmitLabel) loginSubmitLabel.textContent = "Log in";
+    }
+  });
+
+  registerForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const username = registerUsernameInput?.value?.trim() || "";
+    const email = registerEmailInput?.value?.trim() || "";
+    const password = registerPasswordInput?.value || "";
+    const confirmPassword = registerConfirmPasswordInput?.value || "";
+
+    if (!username || !email || !password || !confirmPassword) return;
+    if (password !== confirmPassword) {
+      if (registerError) {
+        registerError.textContent = "Passwords do not match.";
+        registerError.style.display = "block";
+      }
+      return;
+    }
+
+    if (registerSubmitLabel) registerSubmitLabel.textContent = "Creating...";
+    if (registerError) {
+      registerError.textContent = "";
+      registerError.style.display = "none";
+    }
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        if (registerError) {
+          registerError.textContent = payload?.error || "Registration failed";
+          registerError.style.display = "block";
+        }
+        return;
+      }
+
+      // Fallback for environments where register might not issue a session cookie.
+      const meResponse = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!meResponse.ok) {
+        const loginResponse = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier: email, password }),
+        });
+
+        if (!loginResponse.ok) {
+          const loginPayload = await loginResponse.json().catch(() => null);
+          if (registerError) {
+            registerError.textContent =
+              loginPayload?.error ||
+              "Account created, but auto-login failed. Please log in.";
+            registerError.style.display = "block";
+          }
+          showForm("login");
+          return;
+        }
+      }
+
+      window.location.href = "/dashboard";
+    } catch {
+      if (registerError) {
+        registerError.textContent = "Network error. Please try again.";
+        registerError.style.display = "block";
+      }
+    } finally {
+      if (registerSubmitLabel) registerSubmitLabel.textContent = "Create account";
+    }
   });
 }

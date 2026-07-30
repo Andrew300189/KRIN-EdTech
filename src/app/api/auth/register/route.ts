@@ -5,11 +5,17 @@ import { hashPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 import { sendWelcomeVerificationEmail } from "@/core/server/email";
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const username = String(body?.username ?? "").trim().toLowerCase();
-    const email = String(body?.email ?? "").trim().toLowerCase();
+    const username = String(body?.username ?? "")
+      .trim()
+      .toLowerCase();
+    const email = String(body?.email ?? "")
+      .trim()
+      .toLowerCase();
     const password = String(body?.password ?? "");
 
     if (!username || !email || !password) {
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
       learningGoal: user.learningGoal,
     });
 
-    await createSession(user.id);
+    await createSession(user.id, { headers: request.headers });
 
     return NextResponse.json(
       {
@@ -79,6 +85,9 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

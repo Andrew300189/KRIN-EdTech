@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/core/server/prisma";
 import { createSession } from "@/core/server/session";
 
+export const runtime = "nodejs";
+
 type GoogleTokenResponse = {
   access_token: string;
   id_token?: string;
@@ -16,11 +18,13 @@ type GoogleProfile = {
 };
 
 function sanitizeUsername(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 30) || "user";
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30) || "user"
+  );
 }
 
 async function getUniqueUsername(base: string) {
@@ -28,7 +32,9 @@ async function getUniqueUsername(base: string) {
   let i = 0;
 
   while (true) {
-    const exists = await prisma.user.findUnique({ where: { username: attempt } });
+    const exists = await prisma.user.findUnique({
+      where: { username: attempt },
+    });
     if (!exists) return attempt;
     i += 1;
     attempt = `${base}-${i}`.slice(0, 30);
@@ -41,7 +47,9 @@ export async function GET(request: NextRequest) {
   const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
-    return NextResponse.redirect(new URL("/login?error=google_not_configured", request.url));
+    return NextResponse.redirect(
+      new URL("/login?error=google_not_configured", request.url),
+    );
   }
 
   const url = new URL(request.url);
@@ -50,7 +58,9 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get("krin_google_state")?.value;
 
   if (!code || !state || !cookieState || state !== cookieState) {
-    return NextResponse.redirect(new URL("/login?error=google_state", request.url));
+    return NextResponse.redirect(
+      new URL("/login?error=google_state", request.url),
+    );
   }
 
   try {
@@ -67,17 +77,24 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      return NextResponse.redirect(new URL("/login?error=google_failed", request.url));
+      return NextResponse.redirect(
+        new URL("/login?error=google_failed", request.url),
+      );
     }
 
     const tokenJson = (await tokenRes.json()) as GoogleTokenResponse;
 
-    const profileRes = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
-    });
+    const profileRes = await fetch(
+      "https://openidconnect.googleapis.com/v1/userinfo",
+      {
+        headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+      },
+    );
 
     if (!profileRes.ok) {
-      return NextResponse.redirect(new URL("/login?error=google_failed", request.url));
+      return NextResponse.redirect(
+        new URL("/login?error=google_failed", request.url),
+      );
     }
 
     const profile = (await profileRes.json()) as GoogleProfile;
@@ -86,7 +103,9 @@ export async function GET(request: NextRequest) {
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      const baseUsername = sanitizeUsername(profile.email.split("@")[0] || profile.name);
+      const baseUsername = sanitizeUsername(
+        profile.email.split("@")[0] || profile.name,
+      );
       const username = await getUniqueUsername(baseUsername);
 
       user = await prisma.user.create({
@@ -121,12 +140,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    await createSession(user.id);
+    await createSession(user.id, { headers: request.headers });
 
-    const response = NextResponse.redirect(new URL("/dashboard/courses", request.url));
+    const response = NextResponse.redirect(
+      new URL("/dashboard/courses", request.url),
+    );
     response.cookies.delete("krin_google_state");
     return response;
   } catch {
-    return NextResponse.redirect(new URL("/login?error=google_failed", request.url));
+    return NextResponse.redirect(
+      new URL("/login?error=google_failed", request.url),
+    );
   }
 }

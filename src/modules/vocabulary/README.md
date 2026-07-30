@@ -1,6 +1,7 @@
 # Vocabulary Module
 
 Subdomains:
+
 - collections/
 - training/
 - flashcards/

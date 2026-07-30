@@ -224,6 +224,25 @@ textarea {
   letter-spacing: 0.08em;
 }
 
+.level-block .level-head h3 {
+  font-size: clamp(0.82rem, 1.6vw, 1.1rem);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+}
+
+.grammar-shell .level-head h3 {
+  font-size: clamp(0.88rem, 1.7vw, 1.2rem);
+}
+
+.grammar-nav a {
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.grammar-grid .level-block {
+  min-height: 118px;
+}
+
 .level-accordion .level-courses-grid {
   display: none;
 }

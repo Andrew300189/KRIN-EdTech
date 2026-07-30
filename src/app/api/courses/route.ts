@@ -1,27 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestIdentity } from "@/core/utils/request-auth";
 import { hasAnyRole } from "@/core/utils/role";
-import { createCourseForOwner, listCoursesForOwner } from "@/modules/courses/service";
+import {
+  COURSE_STAGES,
+  DISCOVERY_COURSES,
+  LEARNING_ACADEMIES,
+  createCourseForOwner,
+  listCoursesForOwner,
+} from "@/modules/courses/service";
 
 export async function GET(request: NextRequest) {
   try {
     const identity = await getRequestIdentity(request);
+    if (!identity) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (hasAnyRole(identity.role, ["teacher", "admin"])) {
       const ownerCourses = listCoursesForOwner(identity.userId);
       return NextResponse.json(
-        { success: true, data: ownerCourses },
+        {
+          success: true,
+          data: ownerCourses.length > 0 ? ownerCourses : DISCOVERY_COURSES,
+          catalog: {
+            academies: LEARNING_ACADEMIES,
+            stages: COURSE_STAGES,
+          },
+        },
         { status: 200 },
       );
     }
 
-    const courses = [
-      { id: "1", title: "English Basics", level: "beginner", visibility: "public" },
-      { id: "2", title: "Business English", level: "intermediate", visibility: "public" },
-      { id: "3", title: "Advanced Grammar", level: "advanced", visibility: "public" },
-    ];
-
-    return NextResponse.json({ success: true, data: courses }, { status: 200 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: DISCOVERY_COURSES,
+        catalog: {
+          academies: LEARNING_ACADEMIES,
+          stages: COURSE_STAGES,
+        },
+      },
+      { status: 200 },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: "Internal server error" },
@@ -33,6 +53,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const identity = await getRequestIdentity(request);
+    if (!identity) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     if (!hasAnyRole(identity.role, ["teacher", "admin"])) {
       return NextResponse.json(
@@ -42,7 +65,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, level, visibility, status } = body ?? {};
+    const {
+      title,
+      description,
+      level,
+      academy,
+      path,
+      stage,
+      visibility,
+      status,
+    } = body ?? {};
 
     if (!title || !description || !level) {
       return NextResponse.json(
@@ -55,6 +87,9 @@ export async function POST(request: NextRequest) {
       title,
       description,
       level,
+      academy,
+      path,
+      stage,
       visibility,
       status,
     });

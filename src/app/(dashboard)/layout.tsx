@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardLayout({
   children,
@@ -10,9 +11,39 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const validateSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { method: "GET" });
+        const payload = await response.json();
+
+        if (!cancelled && (!response.ok || !payload?.authenticated)) {
+          await fetch("/api/auth/logout", { method: "POST" });
+          router.replace("/login?reason=session_expired");
+        }
+      } catch {
+        if (!cancelled) {
+          router.replace("/login?reason=session_expired");
+        }
+      }
+    };
+
+    void validateSession();
+    const interval = setInterval(() => {
+      void validateSession();
+    }, 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [router]);
+
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/auth/login");
+    router.push("/");
   };
 
   return (
@@ -20,7 +51,12 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-sm">
         <div className="p-6">
-          <h2 className="text-xl font-bold text-primary">KRIN EdTech</h2>
+          <Link
+            href="/"
+            className="text-xl font-bold text-primary hover:opacity-90"
+          >
+            KRIN EdTech
+          </Link>
         </div>
 
         <nav className="px-4 py-6 space-y-2">

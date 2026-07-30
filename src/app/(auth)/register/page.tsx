@@ -41,11 +41,16 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-      <h1 className="text-4xl font-semibold tracking-tight text-slate-900">Регистрация</h1>
+      <h1 className="text-4xl font-semibold tracking-tight text-slate-900">
+        Регистрация
+      </h1>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <div className="space-y-2">
-          <label htmlFor="username" className="text-xl font-medium text-slate-900">
+          <label
+            htmlFor="username"
+            className="text-xl font-medium text-slate-900"
+          >
             Username
           </label>
           <input
@@ -75,7 +80,10 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-xl font-medium text-slate-900">
+          <label
+            htmlFor="password"
+            className="text-xl font-medium text-slate-900"
+          >
             Пароль
           </label>
           <div className="relative">
@@ -108,7 +116,9 @@ export default function RegisterPage() {
         </button>
 
         {error ? (
-          <p className="rounded-md border border-red-200 bg-red-50 p-3 text-base text-red-700">{error}</p>
+          <p className="rounded-md border border-red-200 bg-red-50 p-3 text-base text-red-700">
+            {error}
+          </p>
         ) : null}
       </form>
 

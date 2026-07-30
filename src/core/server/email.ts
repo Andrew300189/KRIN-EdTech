@@ -6,7 +6,9 @@ export type WelcomeEmailPayload = {
   learningGoal?: string | null;
 };
 
-export async function sendWelcomeVerificationEmail(payload: WelcomeEmailPayload) {
+export async function sendWelcomeVerificationEmail(
+  payload: WelcomeEmailPayload,
+) {
   const provider = process.env.EMAIL_PROVIDER || "log";
 
   if (provider === "log") {

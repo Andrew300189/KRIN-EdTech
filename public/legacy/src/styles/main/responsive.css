@@ -117,6 +117,35 @@
   .levels-stack {
     grid-template-columns: minmax(130px, 190px);
   }
+  .grammar-shell {
+    padding: 0.9rem 0.85rem 1rem !important;
+  }
+  .grammar-nav {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.5rem !important;
+    margin-bottom: 0.7rem !important;
+  }
+  .grammar-nav a {
+    text-align: center;
+    font-size: 0.8rem;
+    line-height: 1.25;
+  }
+  .grammar-shell .grammar-nav a {
+    font-size: 0.74rem;
+  }
+  .grammar-grid.levels-stack {
+    grid-template-columns: repeat(2, minmax(120px, 1fr)) !important;
+    gap: 0.65rem;
+  }
+  .grammar-grid .level-block {
+    min-height: 108px;
+    padding: 0.35rem;
+  }
+  .grammar-grid .level-head h3 {
+    font-size: 0.82rem;
+    line-height: 1.2;
+  }
   .process-stepper {
     justify-content: stretch;
   }
