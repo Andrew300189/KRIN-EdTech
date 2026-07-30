@@ -1,0 +1,9 @@
+export const SESSION_CONFIG = {
+  COOKIE_NAME: "krin_session",
+  ABSOLUTE_TTL_SECONDS: 60 * 60 * 24 * 7,
+  IDLE_TTL_SECONDS: 60 * 60 * 12,
+  RENEW_THRESHOLD_SECONDS: 60 * 15,
+  MAX_ACTIVE_SESSIONS_PER_USER: Number(
+    process.env.MAX_ACTIVE_SESSIONS_PER_USER ?? "1",
+  ),
+} as const;

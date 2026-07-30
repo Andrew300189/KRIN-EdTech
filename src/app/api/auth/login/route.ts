@@ -3,6 +3,8 @@ import { prisma } from "@/core/server/prisma";
 import { verifyPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -26,7 +28,10 @@ export async function POST(request: NextRequest) {
       },
     });
     if (!user || !verifyPassword(password, user.passwordHash)) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 },
+      );
     }
 
     await prisma.user.update({
@@ -34,7 +39,7 @@ export async function POST(request: NextRequest) {
       data: { lastLoginAt: new Date() },
     });
 
-    await createSession(user.id);
+    await createSession(user.id, { headers: request.headers });
 
     return NextResponse.json(
       {
@@ -52,6 +57,9 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

@@ -1,13 +1,24 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import {
+  COURSE_STAGES,
+  LEARNING_ACADEMIES,
+} from "@/modules/courses/constants/learning-paths";
 
 export default function AdminCoursesPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [level, setLevel] = useState("beginner");
+  const [level, setLevel] = useState<string>("beginner");
+  const [academy, setAcademy] = useState<string>(LEARNING_ACADEMIES[0].slug);
+  const [path, setPath] = useState<string>(LEARNING_ACADEMIES[0].paths[0].slug);
+  const [stage, setStage] = useState<string>("all-levels");
   const [result, setResult] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  const activeAcademy =
+    LEARNING_ACADEMIES.find((item) => item.slug === academy) ??
+    LEARNING_ACADEMIES[0];
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -19,10 +30,15 @@ export default function AdminCoursesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-role": "admin",
-          "x-user-id": "admin-panel-user",
         },
-        body: JSON.stringify({ title, description, level }),
+        body: JSON.stringify({
+          title,
+          description,
+          level,
+          academy,
+          path,
+          stage,
+        }),
       });
 
       const payload = await response.json();
@@ -35,6 +51,7 @@ export default function AdminCoursesPage() {
       setTitle("");
       setDescription("");
       setLevel("beginner");
+      setStage("all-levels");
     } catch {
       setResult("Unexpected error while creating course");
     } finally {
@@ -95,6 +112,69 @@ export default function AdminCoursesPage() {
             <option value="beginner">Beginner</option>
             <option value="intermediate">Intermediate</option>
             <option value="advanced">Advanced</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2" htmlFor="academy">
+            Academy
+          </label>
+          <select
+            id="academy"
+            value={academy}
+            onChange={(e) => {
+              const next = e.target.value;
+              setAcademy(next);
+              const nextAcademy = LEARNING_ACADEMIES.find(
+                (item) => item.slug === next,
+              );
+              if (nextAcademy?.paths[0]) {
+                setPath(nextAcademy.paths[0].slug);
+              }
+            }}
+            className="w-full border rounded px-3 py-2"
+          >
+            {LEARNING_ACADEMIES.map((item) => (
+              <option key={item.slug} value={item.slug}>
+                {item.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2" htmlFor="path">
+            Path
+          </label>
+          <select
+            id="path"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            className="w-full border rounded px-3 py-2"
+          >
+            {activeAcademy.paths.map((item) => (
+              <option key={item.slug} value={item.slug}>
+                {item.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2" htmlFor="stage">
+            Stage
+          </label>
+          <select
+            id="stage"
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            className="w-full border rounded px-3 py-2"
+          >
+            {COURSE_STAGES.map((item) => (
+              <option key={item} value={item}>
+                {item.toUpperCase()}
+              </option>
+            ))}
           </select>
         </div>
 

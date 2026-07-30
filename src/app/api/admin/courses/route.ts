@@ -5,6 +5,9 @@ import { createCourseForOwner } from "@/modules/courses/service";
 
 export async function POST(request: NextRequest) {
   const identity = await getRequestIdentity(request);
+  if (!identity) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   if (!hasAnyRole(identity.role, ["admin"])) {
     return NextResponse.json(
@@ -14,7 +17,16 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { title, description, level, visibility, status } = body ?? {};
+  const {
+    title,
+    description,
+    level,
+    academy,
+    path,
+    stage,
+    visibility,
+    status,
+  } = body ?? {};
 
   if (!title || !description || !level) {
     return NextResponse.json(
@@ -27,6 +39,9 @@ export async function POST(request: NextRequest) {
     title,
     description,
     level,
+    academy,
+    path,
+    stage,
     visibility: visibility ?? "public",
     status: status ?? "published",
   });

@@ -1,25 +1,33 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/core/server/auth";
 import { prisma } from "@/core/server/prisma";
-import { getSessionUserId } from "@/core/server/session";
+import { requireAuth } from "@/core/server/session";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
+      return NextResponse.json(
+        { authenticated: false, user: null },
+        { status: 200 },
+      );
     }
 
     return NextResponse.json({ authenticated: true, user }, { status: 200 });
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const userId = await getSessionUserId();
-    if (!userId) {
+    const authenticated = await requireAuth();
+    if (!authenticated) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -27,13 +35,16 @@ export async function POST(request: Request) {
 
     if (typeof body.guidedTourCompleted === "boolean") {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: authenticated.user.id },
         data: { guidedTourCompleted: body.guidedTourCompleted },
       });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

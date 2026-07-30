@@ -1,13 +1,19 @@
-import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { parseRole } from "@/core/utils/role";
+import { requireAuth } from "@/core/server/session";
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const role = parseRole((await headers()).get("x-user-role"));
+  const authenticated = await requireAuth();
+  if (!authenticated) {
+    redirect("/login");
+  }
+
+  const role = parseRole(authenticated.user.role);
 
   if (role !== "admin") {
     redirect("/dashboard");
@@ -18,7 +24,12 @@ export default async function AdminLayout({
       <div className="flex">
         <aside className="w-64 bg-white shadow-sm">
           <div className="p-6">
-            <h2 className="text-xl font-bold text-primary">Admin Panel</h2>
+            <Link
+              href="/admin"
+              className="text-xl font-bold text-primary hover:opacity-90"
+            >
+              Admin Panel
+            </Link>
           </div>
           <nav className="px-4 py-6 space-y-2">
             <a

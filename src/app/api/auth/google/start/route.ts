@@ -1,6 +1,8 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 
 export async function GET(request: Request) {
@@ -8,7 +10,9 @@ export async function GET(request: Request) {
   const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
   if (!clientId || !redirectUri) {
-    return NextResponse.redirect(new URL("/login?error=google_not_configured", request.url));
+    return NextResponse.redirect(
+      new URL("/login?error=google_not_configured", request.url),
+    );
   }
 
   const state = randomBytes(16).toString("hex");
@@ -22,7 +26,9 @@ export async function GET(request: Request) {
     prompt: "select_account",
   });
 
-  const response = NextResponse.redirect(`${GOOGLE_AUTH_URL}?${params.toString()}`);
+  const response = NextResponse.redirect(
+    `${GOOGLE_AUTH_URL}?${params.toString()}`,
+  );
   response.cookies.set("krin_google_state", state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
