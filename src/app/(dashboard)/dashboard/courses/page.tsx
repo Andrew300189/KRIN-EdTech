@@ -1,213 +1,129 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
-type AcademyPath = {
-  slug: string;
-  title: string;
-};
-
-type Academy = {
-  slug: string;
-  title: string;
-  paths: AcademyPath[];
-};
-
-type CourseCardItem = {
+type LearnerCourse = {
   id: string;
+  slug: string;
   title: string;
-  academy: string;
-  path: string;
-  stage: string;
+  description: string;
   level: string;
+  category: string;
+  accessPlan: string;
   progress: number;
+  completedLessons: number;
+  totalLessons: number;
+  source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "INSTRUCTOR" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
+  nextLesson: { slug: string; title: string } | null;
 };
 
-export default function CoursesPage() {
-  const searchParams = useSearchParams();
-  const [courses, setCourses] = useState<CourseCardItem[]>([]);
-  const [academies, setAcademies] = useState<Academy[]>([]);
-  const [stages, setStages] = useState<string[]>([]);
-  const [selectedAcademy, setSelectedAcademy] = useState("all");
-  const [selectedStage, setSelectedStage] = useState("all");
-  const didInitFromQuery = useRef(false);
+const SOURCE_LABEL: Record<LearnerCourse["source"], string> = {
+  ENROLLED: "Enrolled",
+  PURCHASED: "Purchased access",
+  SUBSCRIPTION: "Included in your subscription",
+  IN_PROGRESS: "Started course",
+  INSTRUCTOR: "Instructor course",
+  SELF_ADDED: "Added to your library",
+  TEACHER_ASSIGNED: "Assigned by your teacher",
+  GROUP_ASSIGNED: "Assigned to your group",
+};
 
-  useEffect(() => {
-    async function loadCatalog() {
-      const response = await fetch("/api/courses");
-      const payload = await response.json();
+export default function DashboardCoursesPage() {
+  const [courses, setCourses] = useState<LearnerCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-      if (!response.ok) return;
+  const loadCourses = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-      setCourses(payload.data ?? []);
-      setAcademies(payload.catalog?.academies ?? []);
-      setStages(payload.catalog?.stages ?? []);
+    try {
+      const response = await fetch("/api/dashboard/courses", {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to load your courses.");
+      }
+      setCourses(Array.isArray(payload?.data) ? payload.data : []);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to load your courses.",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    void loadCatalog();
   }, []);
 
   useEffect(() => {
-    if (didInitFromQuery.current || stages.length === 0 || academies.length === 0) {
-      return;
-    }
+    void loadCourses();
+  }, [loadCourses]);
 
-    const academyParam = searchParams.get("academy")?.toLowerCase();
-    if (academyParam && academies.some((academy) => academy.slug === academyParam)) {
-      setSelectedAcademy(academyParam);
-    }
-
-    const stageParam = searchParams.get("stage")?.toLowerCase();
-    if (stageParam && stages.includes(stageParam)) {
-      setSelectedStage(stageParam);
-    }
-
-    didInitFromQuery.current = true;
-  }, [academies, searchParams, stages]);
-
-  const academyTitleMap = useMemo(() => {
-    const map = new Map<string, string>();
-    academies.forEach((academy) => {
-      map.set(academy.slug, academy.title);
-    });
-    return map;
-  }, [academies]);
-
-  const pathTitleMap = useMemo(() => {
-    const map = new Map<string, string>();
-    academies.forEach((academy) => {
-      academy.paths.forEach((path) => {
-        map.set(`${academy.slug}:${path.slug}`, path.title);
-      });
-    });
-    return map;
-  }, [academies]);
-
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course) => {
-      const academyPass =
-        selectedAcademy === "all" || course.academy === selectedAcademy;
-      const stagePass =
-        selectedStage === "all" ||
-        course.stage === selectedStage ||
-        selectedStage === "all-levels";
-      return academyPass && stagePass;
-    });
-  }, [courses, selectedAcademy, selectedStage]);
-
-  const groupedByAcademy = useMemo(() => {
-    return filteredCourses.reduce<Record<string, CourseCardItem[]>>(
-      (acc, course) => {
-        if (!acc[course.academy]) {
-          acc[course.academy] = [];
-        }
-        acc[course.academy].push(course);
-        return acc;
-      },
-      {},
+  if (loading) {
+    return (
+      <section aria-busy="true" className="space-y-4">
+        <div className="h-9 w-44 animate-pulse rounded bg-slate-200" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="h-56 animate-pulse rounded-2xl bg-white shadow-sm" />
+          ))}
+        </div>
+      </section>
     );
-  }, [filteredCourses]);
+  }
+
+  if (error) {
+    return (
+      <section className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900">
+        <h2 className="text-xl font-bold">Courses could not be loaded</h2>
+        <p className="mt-2 text-sm">{error}</p>
+        <button className="mt-4 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800" onClick={() => void loadCourses()} type="button">
+          Try again
+        </button>
+      </section>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold">Learning Paths</h2>
-        <p className="text-gray-600">
-          Explore courses by academy, path, and stage. Build your own
-          personalized route.
-        </p>
-      </div>
+    <section className="space-y-6">
+      <header>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Learning</p>
+        <h2 className="mt-2 text-3xl font-bold">My Courses</h2>
+        <p className="mt-2 text-slate-600">Courses you enrolled in, purchased, started, or can access through an active subscription.</p>
+      </header>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <select
-          className="w-full border rounded px-3 py-2 bg-white"
-          value={selectedAcademy}
-          onChange={(e) => setSelectedAcademy(e.target.value)}
-        >
-          <option value="all">All academies</option>
-          {academies.map((academy) => (
-            <option key={academy.slug} value={academy.slug}>
-              {academy.title}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="w-full border rounded px-3 py-2 bg-white"
-          value={selectedStage}
-          onChange={(e) => setSelectedStage(e.target.value)}
-        >
-          <option value="all">All stages</option>
-          {stages.map((stage) => (
-            <option key={stage} value={stage}>
-              {stage.toUpperCase()}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-6">
-        {Object.keys(groupedByAcademy).length === 0 && (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="text-slate-600">No personal courses are available yet.</p>
-            <Link href="/courses" className="mt-4 inline-block text-sm font-semibold text-blue-700 underline underline-offset-4">
-              Browse the English course catalog
-            </Link>
+      {courses.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+          <h3 className="text-xl font-semibold text-slate-900">No courses in your learning space yet</h3>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600">Browse the catalog to start a free lesson, or visit Academies to explore structured learning paths.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link href="/courses" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">Browse catalog</Link>
+            <Link href="/dashboard/academies" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Explore academies</Link>
           </div>
-        )}
-        {Object.entries(groupedByAcademy).map(
-          ([academySlug, academyCourses]) => (
-            <section key={academySlug} className="space-y-3">
-              <h3 className="text-xl font-semibold">
-                {academyTitleMap.get(academySlug) ?? academySlug}
-              </h3>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {academyCourses.map((course) => (
-                  <div
-                    key={course.id}
-                    className="bg-white p-6 rounded-lg shadow-sm border border-slate-100"
-                  >
-                    <div className="flex justify-between items-start mb-4 gap-3">
-                      <div>
-                        <h4 className="text-lg font-semibold leading-snug">
-                          {course.title}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {pathTitleMap.get(
-                            `${course.academy}:${course.path}`,
-                          ) ?? course.path}
-                        </p>
-                      </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                        {course.stage.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-gray-500 mb-3">{course.level}</p>
-
-                    <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-primary h-full transition-all"
-                        style={{ width: `${course.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">
-                      {course.progress}% complete
-                    </p>
-
-                    <button className="btn btn-primary btn-sm mt-4">
-                      Continue
-                    </button>
-                  </div>
-                ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {courses.map((course) => (
+            <article key={course.id} className="flex min-h-64 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-800">{course.level}</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{course.category}</span>
               </div>
-            </section>
-          ),
-        )}
-      </div>
-    </div>
+              <h3 className="mt-4 text-xl font-bold text-slate-900">{course.title}</h3>
+              <p className="mt-2 flex-1 text-sm text-slate-600">{course.description}</p>
+              <p className="mt-4 text-xs font-medium text-slate-500">{SOURCE_LABEL[course.source]}</p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" aria-label={`${course.progress}% complete`}>
+                <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${course.progress}%` }} />
+              </div>
+              <p className="mt-2 text-sm text-slate-600">{course.progress}% complete · {course.completedLessons}/{course.totalLessons} lessons</p>
+              <Link href={`/courses/${course.slug}`} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                {course.nextLesson ? "Continue course" : "View course"}
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

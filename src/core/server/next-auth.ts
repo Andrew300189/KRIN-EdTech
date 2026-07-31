@@ -5,12 +5,7 @@ import {
   provisionGoogleUser,
 } from "@/core/server/google-user";
 import { clearLegacySession } from "@/core/server/session";
-
-function safeInternalUrl(url: string, baseUrl: string) {
-  const base = new URL(baseUrl);
-  const candidate = new URL(url, base);
-  return candidate.origin === base.origin ? candidate.toString() : base.toString();
-}
+import { getSafeInternalUrl } from "@/core/utils/safe-internal-path";
 
 export const nextAuthOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -61,7 +56,7 @@ export const nextAuthOptions: NextAuthOptions = {
       return session;
     },
     redirect({ url, baseUrl }) {
-      return safeInternalUrl(url, baseUrl);
+      return getSafeInternalUrl(url, baseUrl);
     },
   },
   pages: { signIn: "/login", error: "/auth/error" },

@@ -6,56 +6,59 @@ import {
   verifyPassword,
 } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
+import { authenticateCredentials } from "@/modules/auth/services/credentials-login.service";
+import { getRoleWorkspacePath } from "@/core/utils/workspace-path";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { identifier, password } = body ?? {};
-
-    if (!identifier || !password) {
-      return NextResponse.json(
-        { error: "Username/email and password are required" },
-        { status: 400 },
-      );
-    }
-
-    const normalizedIdentifier = String(identifier).trim().toLowerCase();
-
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: normalizedIdentifier },
-          { username: normalizedIdentifier },
-        ],
-      },
-    });
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 },
-      );
-    }
-
-    if (user.isBlocked || user.deletedAt) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 },
-      );
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        lastLoginAt: new Date(),
-        ...(passwordNeedsRehash(user.passwordHash)
-          ? { passwordHash: hashPassword(password) }
-          : {}),
-      },
+    const result = await authenticateCredentials(body ?? {}, {
+      findByIdentifier: (identifier) =>
+        prisma.user.findFirst({
+          where: { OR: [{ email: identifier }, { username: identifier }] },
+          select: {
+            id: true,
+            passwordHash: true,
+            isBlocked: true,
+            deletedAt: true,
+            username: true,
+            email: true,
+            name: true,
+            role: true,
+            emailVerified: true,
+          },
+        }),
+      verifyPassword,
     });
 
-    await createSession(user.id, { headers: request.headers });
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error:
+            result.reason === "INVALID_INPUT"
+              ? "Email and password are required"
+              : "Invalid credentials",
+        },
+        { status: result.reason === "INVALID_INPUT" ? 400 : 401 },
+      );
+    }
+
+    const user = result.user;
+
+    await Promise.all([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          ...(passwordNeedsRehash(user.passwordHash)
+            ? { passwordHash: hashPassword(typeof body?.password === "string" ? body.password : "") }
+            : {}),
+        },
+      }),
+      createSession(user.id, { headers: request.headers }),
+    ]);
 
     return NextResponse.json(
       {
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role.toLowerCase(),
+          workspacePath: getRoleWorkspacePath(user.role),
           emailVerified: user.emailVerified,
         },
       },

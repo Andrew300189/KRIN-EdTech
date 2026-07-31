@@ -1,0 +1,1 @@
+export default function TeacherReviewsPage() { return <section className="rounded-2xl border bg-white p-8"><h2 className="text-3xl font-bold">Reviews</h2><p className="mt-3 text-slate-600">There are no submissions awaiting review yet.</p></section>; }

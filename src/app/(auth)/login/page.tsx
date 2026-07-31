@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getPostLoginPath } from "@/core/utils/workspace-path";
 
 function getErrorMessage(errorCode: string | null) {
   switch (errorCode) {
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const submittingRef = useRef(false);
 
   const externalError = useMemo(
     () => getErrorMessage(searchParams.get("error")),
@@ -55,8 +57,17 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+
+    if (!identifier.trim() || !password) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    submittingRef.current = true;
     setError("");
     setLoading(true);
+    let shouldResetLoading = true;
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -65,30 +76,46 @@ export default function LoginPage() {
         body: JSON.stringify({ identifier, password }),
       });
 
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(payload.error || "Login failed");
+        setError(payload?.error || "Login failed");
         return;
       }
 
-      const nextPath = searchParams.get("next");
-      router.push(nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard");
+      shouldResetLoading = false;
+      router.replace(getPostLoginPath(payload?.user?.role, searchParams.get("next")));
     } catch {
       setError("Network error. Please try again.");
     } finally {
-      setLoading(false);
+      if (shouldResetLoading) {
+        submittingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
   const handleGoogleSignIn = async () => {
-    const nextPath = searchParams.get("next");
-    const nextUrl = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
+    const nextUrl = searchParams.get("next") ?? "";
     const callbackUrl = `/auth/complete?next=${encodeURIComponent(nextUrl)}`;
     setLoading(true);
+    let shouldResetLoading = true;
     try {
-      await signIn("google", { callbackUrl });
+      const result = await signIn("google", { callbackUrl });
+      if (result?.error) {
+        setError("Google sign-in failed. Please try again.");
+        return;
+      }
+      shouldResetLoading = false;
+    } catch {
+      setError("Google sign-in could not be started. Please try again.");
     } finally {
-      setLoading(false);
+      if (shouldResetLoading) {
+        submittingRef.current = false;
+        setLoading(false);
+      }
     }
   };
 

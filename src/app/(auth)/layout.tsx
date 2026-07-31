@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
+import { getRoleWorkspacePath } from "@/core/utils/workspace-path";
 
 export default async function AuthLayout({
   children,
@@ -8,7 +9,7 @@ export default async function AuthLayout({
 }) {
   const authenticated = await requireAuth();
   if (authenticated) {
-    redirect("/dashboard");
+    redirect(getRoleWorkspacePath(authenticated.user.role));
   }
 
   return (

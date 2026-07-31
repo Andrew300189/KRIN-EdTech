@@ -1,0 +1,1 @@
+export default function TeacherSettingsPage() { return <section className="rounded-2xl border bg-white p-8"><h2 className="text-3xl font-bold">Teacher settings</h2><p className="mt-3 text-slate-600">Your public teaching profile and classroom defaults will be managed here. Platform roles, global content, and billing remain administrator-only.</p></section>; }
