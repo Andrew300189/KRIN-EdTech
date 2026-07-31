@@ -1,5 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers as getRequestHeaders } from "next/headers";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/core/server/prisma";
 import { SESSION_CONFIG } from "@/core/constants/session";
 
@@ -13,7 +15,10 @@ const MAX_ACTIVE_SESSIONS_PER_USER =
 function getSessionSecret() {
   const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
   if (!secret) {
-    // Development fallback keeps auth flow working locally if env is incomplete.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("NEXTAUTH_SECRET or SESSION_SECRET must be set in production");
+    }
+    // Development fallback keeps the local auth flow usable without affecting production.
     return "krin-dev-insecure-session-secret-change-me";
   }
   return secret;
@@ -80,10 +85,43 @@ async function clearAuthCookie() {
   jar.delete(SESSION_COOKIE);
 }
 
+async function clearNextAuthCookies() {
+  const jar = await cookies();
+  for (const cookie of jar.getAll()) {
+    if (
+      cookie.name === "next-auth.session-token" ||
+      cookie.name === "__Secure-next-auth.session-token" ||
+      cookie.name.startsWith("next-auth.session-token.") ||
+      cookie.name.startsWith("__Secure-next-auth.session-token.")
+    ) {
+      jar.delete(cookie.name);
+    }
+  }
+}
+
+async function getNextAuthValidatedSession(
+  requestHeaders?: Headers,
+): Promise<ValidatedSession | null> {
+  try {
+    const headers = requestHeaders ?? (await getRequestHeaders());
+    const token = await getToken({
+      req: { headers } as NextRequest,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+    const userId = typeof token?.sub === "string" ? token.sub : null;
+    return userId ? { userId, sessionId: `nextauth:${userId}` } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createSession(
   userId: string,
   context?: { headers?: Headers },
 ) {
+  // Password login must replace an earlier OAuth session for this browser.
+  await clearNextAuthCookies();
+
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
   const ipAddress = getClientIpFromHeaders(context?.headers);
@@ -147,7 +185,7 @@ export async function createSession(
   });
 }
 
-export async function destroySession() {
+export async function clearLegacySession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
 
@@ -164,6 +202,11 @@ export async function destroySession() {
   jar.delete(SESSION_COOKIE);
 }
 
+export async function destroySession() {
+  await clearLegacySession();
+  await clearNextAuthCookies();
+}
+
 export async function getSessionUserId(): Promise<string | null> {
   const session = await getValidatedSession();
   return session?.userId ?? null;
@@ -174,6 +217,37 @@ export type ValidatedSession = {
   sessionId: string;
 };
 
+export const AUTHENTICATED_USER_SELECT = {
+  id: true,
+  role: true,
+  email: true,
+  name: true,
+  firstName: true,
+  lastName: true,
+  avatar: true,
+  emailVerified: true,
+  interfaceLanguage: true,
+  timeZone: true,
+  country: true,
+  stripeCustomerId: true,
+  subscriptionPlan: true,
+  subscriptionStatus: true,
+  subscriptionCurrentPeriodEnd: true,
+  targetLanguage: true,
+  learningGoal: true,
+  currentLevel: true,
+  dailyIntensityMinutes: true,
+  dailyGoalMinutes: true,
+  takePlacementTest: true,
+  onboardingCompletedAt: true,
+  welcomeBonusPoints: true,
+  guidedTourCompleted: true,
+  createdAt: true,
+  lastLoginAt: true,
+  isBlocked: true,
+  deletedAt: true,
+} as const;
+
 export async function getValidatedSession(
   options?: {
     headers?: Headers;
@@ -181,24 +255,29 @@ export async function getValidatedSession(
     allowCookieMutation?: boolean;
   },
 ): Promise<ValidatedSession | null> {
+  // A freshly completed OAuth flow must win over a stale password-session
+  // cookie that may still be present in the same browser.
+  const nextAuthSession = await getNextAuthValidatedSession(options?.headers);
+  if (nextAuthSession) return nextAuthSession;
+
   const canMutateCookie = options?.allowCookieMutation === true;
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  if (!token) return getNextAuthValidatedSession(options?.headers);
 
   const parsed = parseToken(token);
   if (!parsed) {
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   if (!verifySignature(parsed.payloadBase64, parsed.signature)) {
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   const payload = decodePayload(parsed.payloadBase64);
@@ -206,7 +285,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -215,7 +294,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   const sessionRecord = await prisma.session.findUnique({
@@ -235,7 +314,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   const now = new Date();
@@ -244,7 +323,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession(options?.headers);
   }
 
   if (!sessionRecord.user || sessionRecord.user.deletedAt || sessionRecord.user.isBlocked) {
@@ -252,7 +331,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession();
   }
 
   const incomingUserAgent = stableUserAgent(options?.headers?.get("user-agent"));
@@ -265,7 +344,7 @@ export async function getValidatedSession(
     if (canMutateCookie) {
       await clearAuthCookie();
     }
-    return null;
+    return getNextAuthValidatedSession();
   }
 
   if (options?.touch !== false) {
@@ -298,26 +377,7 @@ export async function requireAuth(options?: { headers?: Headers }) {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: {
-      id: true,
-      role: true,
-      email: true,
-      name: true,
-      emailVerified: true,
-      targetLanguage: true,
-      learningGoal: true,
-      currentLevel: true,
-      dailyIntensityMinutes: true,
-      dailyGoalMinutes: true,
-      takePlacementTest: true,
-      onboardingCompletedAt: true,
-      welcomeBonusPoints: true,
-      guidedTourCompleted: true,
-      createdAt: true,
-      lastLoginAt: true,
-      isBlocked: true,
-      deletedAt: true,
-    },
+    select: AUTHENTICATED_USER_SELECT,
   });
 
   if (!user || user.deletedAt || user.isBlocked) {

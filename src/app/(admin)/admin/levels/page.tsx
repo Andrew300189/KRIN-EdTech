@@ -1,0 +1,6 @@
+import { prisma } from "@/core/server/prisma";
+
+export default async function AdminLevelsPage() {
+  const levels = await prisma.languageLevel.findMany({ orderBy: { order: "asc" }, include: { _count: { select: { courses: true } } } });
+  return <div><h1 className="text-3xl font-bold">Language levels</h1><p className="mt-2 text-gray-600">The required A1–C2 levels are seeded once and can be managed through the protected API.</p><div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-gray-600"><tr><th className="px-4 py-3">Order</th><th className="px-4 py-3">Level</th><th className="px-4 py-3">Description</th><th className="px-4 py-3">Courses</th><th className="px-4 py-3">Published</th></tr></thead><tbody>{levels.map((level) => <tr key={level.id} className="border-t border-gray-100"><td className="px-4 py-3">{level.order}</td><td className="px-4 py-3 font-semibold">{level.code} — {level.title}</td><td className="px-4 py-3 text-gray-600">{level.description}</td><td className="px-4 py-3">{level._count.courses}</td><td className="px-4 py-3">{level.isPublished ? "Yes" : "No"}</td></tr>)}</tbody></table></div></div>;
+}

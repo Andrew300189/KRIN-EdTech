@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { VocabularyReviewPrompt } from "@/modules/vocabulary/components/VocabularyReviewPrompt";
+import { NotificationBell } from "@/modules/communications/components/NotificationBell";
 
 export default function DashboardLayout({
   children,
@@ -10,36 +11,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const validateSession = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
-        const payload = await response.json();
-
-        if (!cancelled && (!response.ok || !payload?.authenticated)) {
-          await fetch("/api/auth/logout", { method: "POST" });
-          router.replace("/login?reason=session_expired");
-        }
-      } catch {
-        if (!cancelled) {
-          router.replace("/login?reason=session_expired");
-        }
-      }
-    };
-
-    void validateSession();
-    const interval = setInterval(() => {
-      void validateSession();
-    }, 60 * 1000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [router]);
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -100,10 +71,22 @@ export default function DashboardLayout({
             AI Tutor
           </Link>
           <Link
-            href="/dashboard/achievements"
+            href="/profile/achievements"
             className="block px-4 py-2 rounded hover:bg-gray-100"
           >
             Achievements
+          </Link>
+          <Link
+            href="/profile/analytics"
+            className="block px-4 py-2 rounded hover:bg-gray-100"
+          >
+            Analytics
+          </Link>
+          <Link
+            href="/profile/rewards"
+            className="block px-4 py-2 rounded hover:bg-gray-100"
+          >
+            Rewards
           </Link>
           <Link
             href="/dashboard/profile"
@@ -112,6 +95,8 @@ export default function DashboardLayout({
           >
             Profile
           </Link>
+          <Link href="/profile/notifications" className="block px-4 py-2 rounded hover:bg-gray-100">Notifications</Link>
+          <Link href="/profile/support" className="block px-4 py-2 rounded hover:bg-gray-100">Support</Link>
         </nav>
       </aside>
 
@@ -120,7 +105,8 @@ export default function DashboardLayout({
         <header className="bg-white shadow-sm border-b">
           <div className="px-6 py-4 flex justify-between items-center">
             <h1 className="text-lg font-semibold">Dashboard</h1>
-            <div>
+            <div className="flex items-center gap-3">
+              <NotificationBell />
               <button
                 className="text-sm text-gray-600 hover:text-gray-900"
                 onClick={handleSignOut}
@@ -133,6 +119,7 @@ export default function DashboardLayout({
 
         <div className="p-6">{children}</div>
       </main>
+      <VocabularyReviewPrompt />
     </div>
   );
 }

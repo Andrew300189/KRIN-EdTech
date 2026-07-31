@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/core/server/prisma";
 import { hashPassword } from "@/core/server/password";
@@ -45,7 +45,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const verificationToken = randomBytes(24).toString("hex");
+    const verificationToken = randomBytes(32).toString("hex");
+    const verificationTokenHash = createHash("sha256")
+      .update(verificationToken)
+      .digest("hex");
 
     const user = await prisma.user.create({
       data: {
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
         passwordHash: hashPassword(password),
         name: username,
         role: "STUDENT",
-        emailVerificationToken: verificationToken,
+        emailVerificationToken: verificationTokenHash,
         emailVerificationSentAt: new Date(),
       },
     });
@@ -62,6 +65,7 @@ export async function POST(request: NextRequest) {
     const verificationUrl = `${new URL(request.url).origin}/verify-email?token=${verificationToken}`;
 
     await sendWelcomeVerificationEmail({
+      userId: user.id,
       name: user.name,
       email: user.email,
       verificationUrl,

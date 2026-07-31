@@ -3,7 +3,6 @@ import { getRequestIdentity } from "@/core/utils/request-auth";
 import { hasAnyRole } from "@/core/utils/role";
 import {
   COURSE_STAGES,
-  DISCOVERY_COURSES,
   LEARNING_ACADEMIES,
   createCourseForOwner,
   listCoursesForOwner,
@@ -17,11 +16,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (hasAnyRole(identity.role, ["teacher", "admin"])) {
-      const ownerCourses = listCoursesForOwner(identity.userId);
+      const ownerCourses = await listCoursesForOwner(identity.userId);
       return NextResponse.json(
         {
           success: true,
-          data: ownerCourses.length > 0 ? ownerCourses : DISCOVERY_COURSES,
+            data: ownerCourses,
           catalog: {
             academies: LEARNING_ACADEMIES,
             stages: COURSE_STAGES,
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        data: DISCOVERY_COURSES,
+        data: [],
         catalog: {
           academies: LEARNING_ACADEMIES,
           stages: COURSE_STAGES,
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const created = createCourseForOwner(identity.userId, {
+    const created = await createCourseForOwner(identity.userId, {
       title,
       description,
       level,

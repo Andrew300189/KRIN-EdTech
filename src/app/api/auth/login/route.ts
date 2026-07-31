@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/core/server/prisma";
-import { verifyPassword } from "@/core/server/password";
+import {
+  hashPassword,
+  passwordNeedsRehash,
+  verifyPassword,
+} from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 
 export const runtime = "nodejs";
@@ -34,9 +38,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (user.isBlocked || user.deletedAt) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 },
+      );
+    }
+
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: {
+        lastLoginAt: new Date(),
+        ...(passwordNeedsRehash(user.passwordHash)
+          ? { passwordHash: hashPassword(password) }
+          : {}),
+      },
     });
 
     await createSession(user.id, { headers: request.headers });

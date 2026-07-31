@@ -34,6 +34,15 @@ KRIN-EdTech/
 
 ```bash
 npm install
+npm run db:generate
+```
+
+Copy `.env.example` to `.env.local`, then set at least `DATABASE_URL` and a
+strong `NEXTAUTH_SECRET`. Apply the committed database migrations once the
+database is available:
+
+```bash
+npm run db:migrate:deploy
 npm run dev
 ```
 
@@ -42,9 +51,28 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Development
 
 - `npm run build` - Build for production
+- `npm run db:generate` - Generate the Prisma client
+- `npm run db:migrate:deploy` - Apply committed Prisma migrations
 - `npm run lint` - Run ESLint
 - `npm run test` - Run tests
 - `npm run test:e2e` - Run E2E tests
+
+## Communications and support
+
+The notification queue is stored in PostgreSQL. In local development set
+`EMAIL_PROVIDER=log`; emails are recorded as delivery attempts and only a safe
+preview is logged. To process queued email and reminder deliveries, call the
+protected worker endpoint from your scheduler:
+
+```bash
+curl -X POST http://localhost:3000/api/communications/worker \
+  -H "Authorization: Bearer $NOTIFICATION_WORKER_SECRET"
+```
+
+For live email with Resend, set `EMAIL_PROVIDER=resend`, `EMAIL_API_KEY`, and a
+verified `EMAIL_FROM_*` sender. Configure SPF, DKIM, and DMARC before treating
+email delivery as production-ready. Web Push subscriptions are stored but need
+a dedicated VAPID transport adapter before live sending is enabled.
 
 ## Project Maintenance
 

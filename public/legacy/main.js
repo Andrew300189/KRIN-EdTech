@@ -70,6 +70,7 @@ const registerSubmitLabel = document.getElementById("registerSubmitLabel");
 const loginEmailInput = document.getElementById("loginEmail");
 const loginPasswordInput = document.getElementById("loginPassword");
 const loginPasswordToggle = document.getElementById("loginPasswordToggle");
+const googleSignInButton = document.getElementById("googleSignInButton");
 const registerUsernameInput = document.getElementById("registerUsername");
 const registerEmailInput = document.getElementById("registerEmail");
 const registerPasswordInput = document.getElementById("registerPassword");
@@ -157,6 +158,53 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         "aria-label",
         nextType === "password" ? "Show password" : "Hide password",
       );
+    });
+  }
+
+  if (googleSignInButton) {
+    googleSignInButton.addEventListener("click", async (event) => {
+      event.preventDefault();
+      googleSignInButton.setAttribute("aria-disabled", "true");
+
+      try {
+        const csrfResponse = await fetch("/api/auth/csrf", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const { csrfToken } = await csrfResponse.json();
+        if (!csrfResponse.ok || typeof csrfToken !== "string") {
+          throw new Error("Unable to prepare Google sign-in.");
+        }
+
+        const callbackUrl = new URL("/auth/complete", window.location.origin);
+        callbackUrl.searchParams.set("next", "/dashboard");
+
+        const form = document.createElement("form");
+        form.method = "post";
+        form.action = "/api/auth/signin/google";
+        form.target = "_top";
+        form.hidden = true;
+
+        for (const [name, value] of Object.entries({
+          csrfToken,
+          callbackUrl: callbackUrl.toString(),
+        })) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+      } catch {
+        if (loginError) {
+          loginError.textContent = "Google sign-in could not be started. Please try again.";
+          loginError.style.display = "block";
+        }
+        googleSignInButton.removeAttribute("aria-disabled");
+      }
     });
   }
 

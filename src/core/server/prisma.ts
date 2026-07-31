@@ -1,12 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma-client-payments-runtime";
 
 declare global {
   // eslint-disable-next-line no-var
-  var __krinPrisma: PrismaClient | undefined;
+  var __krinPrismaSubscriptionSchema: PrismaClient | undefined;
 }
 
 export const prisma =
-  global.__krinPrisma ??
+  global.__krinPrismaSubscriptionSchema ??
   new PrismaClient({
     datasources: {
       db: {
@@ -17,5 +17,5 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  global.__krinPrisma = prisma;
+  global.__krinPrismaSubscriptionSchema = prisma;
 }

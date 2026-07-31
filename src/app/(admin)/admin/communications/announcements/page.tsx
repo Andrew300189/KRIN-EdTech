@@ -1,0 +1,4 @@
+import { prisma } from "@/core/server/prisma";
+import { AnnouncementForm } from "@/modules/communications/components/AnnouncementForm";
+
+export default async function AnnouncementsPage() { const announcements = await prisma.systemAnnouncement.findMany({ orderBy: { createdAt: "desc" }, take: 100 }); return <div><h1 className="text-3xl font-bold">Announcements</h1><p className="mt-2 text-slate-600">Published announcements are converted into idempotent user notifications by the worker.</p><AnnouncementForm /><section className="mt-7 space-y-3">{announcements.map((item) => <article key={item.id} className="rounded-xl border bg-white p-4"><p className="text-xs font-semibold text-blue-700">{item.status}</p><h2 className="mt-1 font-bold">{item.title}</h2><p className="mt-2 text-slate-600">{item.message}</p></article>)}</section></div>; }

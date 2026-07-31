@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 type AcademyPath = {
@@ -148,6 +149,14 @@ export default function CoursesPage() {
       </div>
 
       <div className="space-y-6">
+        {Object.keys(groupedByAcademy).length === 0 && (
+          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+            <p className="text-slate-600">No personal courses are available yet.</p>
+            <Link href="/courses" className="mt-4 inline-block text-sm font-semibold text-blue-700 underline underline-offset-4">
+              Browse the English course catalog
+            </Link>
+          </div>
+        )}
         {Object.entries(groupedByAcademy).map(
           ([academySlug, academyCourses]) => (
             <section key={academySlug} className="space-y-3">

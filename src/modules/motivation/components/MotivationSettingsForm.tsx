@@ -1,0 +1,9 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+
+export function MotivationSettingsForm({ initial }: { initial: { dailyGoalMinutes: number; timeZone: string } }) {
+  const [settings, setSettings] = useState(initial); const [status, setStatus] = useState<string | null>(null);
+  async function save(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setStatus(null); const response = await fetch("/api/profile/motivation/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) }); setStatus(response.ok ? "Settings saved." : "Unable to save settings."); }
+  return <form onSubmit={(event) => void save(event)} className="mt-7 grid gap-5 rounded-2xl border border-slate-200 bg-white p-6 md:grid-cols-2"><label className="text-sm font-semibold">Daily active-learning goal<select value={settings.dailyGoalMinutes} onChange={(event) => setSettings({ ...settings, dailyGoalMinutes: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{[5, 10, 15, 20, 30, 45, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}</select></label><label className="text-sm font-semibold">Time zone<input value={settings.timeZone} onChange={(event) => setSettings({ ...settings, timeZone: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Europe/Kyiv" /></label><p className="text-sm text-slate-600 md:col-span-2">Only server-confirmed active time counts toward your goal and streak.</p><div className="md:col-span-2"><button className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">Save motivation settings</button>{status ? <p role="status" className="mt-3 text-sm text-slate-700">{status}</p> : null}</div></form>;
+}

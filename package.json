@@ -4,14 +4,20 @@
   "description": "Educational platform for language learning",
   "private": true,
   "prisma": {
-    "schema": "database/prisma/schema.prisma"
+    "schema": "database/prisma/schema.prisma",
+    "seed": "node database/prisma/seed.cjs"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "admin:grant": "node database/scripts/grant-admin.cjs",
+    "billing:reconcile": "node database/scripts/reconcile-billing.cjs",
+    "lint": "eslint src tests --ext .js,.jsx,.ts,.tsx",
+    "type-check": "tsc --noEmit --incremental false",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test"
@@ -32,6 +38,7 @@
     "react-markdown": "^9.0.0",
     "recharts": "^2.10.0",
     "sonner": "^1.2.0",
+    "stripe": "^22.4.0",
     "zod": "^3.22.0",
     "zustand": "^4.4.0"
   },
