@@ -1,0 +1,7 @@
+import Link from "next/link";
+import { listAdminTickets } from "@/modules/communications/services/support.service";
+
+export default async function AdminSupportTicketsPage() {
+  const { tickets } = await listAdminTickets();
+  return <div><h1 className="text-3xl font-bold">Support tickets</h1><p className="mt-2 text-slate-600">Private requester messages and operational work queue.</p><div className="mt-7 overflow-hidden rounded-xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="px-4 py-3">Ticket</th><th className="px-4 py-3">Requester</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Updated</th></tr></thead><tbody>{tickets.map((ticket) => <tr key={ticket.id} className="border-t"><td className="px-4 py-3"><Link href={`/admin/support/tickets/${ticket.id}`} className="font-semibold text-blue-700 hover:underline">{ticket.number}</Link><p className="mt-1 text-slate-600">{ticket.subject}</p></td><td className="px-4 py-3">{ticket.user.name}<br /><span className="text-slate-500">{ticket.user.email}</span></td><td className="px-4 py-3">{ticket.status.replace(/_/g, " ")} · {ticket.priority}</td><td className="px-4 py-3">{ticket.lastMessageAt.toLocaleString()}</td></tr>)}{tickets.length === 0 ? <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">No support tickets.</td></tr> : null}</tbody></table></div></div>;
+}

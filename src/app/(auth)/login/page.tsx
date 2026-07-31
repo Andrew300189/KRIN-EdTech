@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function getErrorMessage(errorCode: string | null) {
@@ -12,6 +13,10 @@ function getErrorMessage(errorCode: string | null) {
       return "Google sign-in failed. Please try again.";
     case "google_state":
       return "Google sign-in security check failed. Please retry.";
+    case "OAuthSignin":
+    case "OAuthCallback":
+    case "AccessDenied":
+      return "Google sign-in failed. Please try again.";
     default:
       return "";
   }
@@ -70,6 +75,18 @@ export default function LoginPage() {
       router.push(nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard");
     } catch {
       setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    const nextPath = searchParams.get("next");
+    const nextUrl = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+    const callbackUrl = `/auth/complete?next=${encodeURIComponent(nextUrl)}`;
+    setLoading(true);
+    try {
+      await signIn("google", { callbackUrl });
     } finally {
       setLoading(false);
     }
@@ -156,13 +173,15 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Log in"}
         </button>
 
-        <a
-          href="/api/auth/google/start"
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-3 text-base font-semibold text-slate-800 hover:bg-slate-50"
+          disabled={loading}
         >
           <span aria-hidden>G</span>
           <span>Continue with Google</span>
-        </a>
+        </button>
 
         <p className="text-sm text-slate-500">
           By logging in, you agree to our{" "}

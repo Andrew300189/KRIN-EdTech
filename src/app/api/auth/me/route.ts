@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/core/server/auth";
 import { prisma } from "@/core/server/prisma";
 import { requireAuth } from "@/core/server/session";
+import { refreshSubscriptionAccessCookie } from "@/modules/payments/services/subscription-cookie";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ export async function GET() {
         { status: 200 },
       );
     }
+
+    await refreshSubscriptionAccessCookie(user);
 
     return NextResponse.json({ authenticated: true, user }, { status: 200 });
   } catch {

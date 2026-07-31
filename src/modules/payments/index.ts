@@ -1,2 +1,2 @@
-// Payments module
-// Add components, services, types, and hooks here as you develop the module
+export * from "./constants/plans";
+export { hasFeatureAccess, hasCourseEntitlement, expireEntitlements } from "./services/entitlement.service";

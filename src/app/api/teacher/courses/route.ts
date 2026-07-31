@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const courses = listCoursesForOwner(identity.userId);
+  const courses = await listCoursesForOwner(identity.userId);
   return NextResponse.json(
     {
       success: true,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const created = createCourseForOwner(identity.userId, {
+  const created = await createCourseForOwner(identity.userId, {
     title,
     description,
     level,

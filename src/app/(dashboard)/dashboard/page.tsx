@@ -11,11 +11,11 @@ type TourStep = {
 };
 
 type OnboardingProfile = {
-  name?: string;
-  dailyGoalMinutes?: number;
-  welcomeBonusPoints?: number;
-  guidedTourCompleted?: boolean;
-  takePlacementTest?: boolean;
+  name?: string | null;
+  dailyGoalMinutes?: number | null;
+  welcomeBonusPoints?: number | null;
+  guidedTourCompleted?: boolean | null;
+  takePlacementTest?: boolean | null;
 };
 
 const tourSteps: TourStep[] = [
@@ -49,21 +49,25 @@ export default function DashboardHomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     const load = async () => {
-      setLoading(true);
       try {
         const response = await fetch("/api/auth/me", { method: "GET" });
         const payload = await response.json();
-        if (response.ok && payload?.authenticated && payload?.user) {
+        if (active && response.ok && payload?.authenticated && payload?.user) {
           setProfile(payload.user);
           setShowTour(!payload.user.guidedTourCompleted);
         }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     void load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -85,13 +89,11 @@ export default function DashboardHomePage() {
     () => profile.dailyGoalMinutes ?? 15,
     [profile.dailyGoalMinutes],
   );
-
   const bonusPoints = useMemo(
     () => profile.welcomeBonusPoints ?? 60,
     [profile.welcomeBonusPoints],
   );
-
-  const userName = profile.name?.trim() || "Learner";
+  const userName = profile.name?.trim();
   const currentStep = tourSteps[tourIndex];
 
   const nextTourStep = () => {
@@ -118,14 +120,14 @@ export default function DashboardHomePage() {
           Welcome aboard
         </p>
         <h1 className="text-3xl font-bold mt-2">
-          Hi, {userName}. Let us start your first learning win.
+          {userName ? `Hi, ${userName}.` : "Welcome."} Let us start your first learning win.
         </h1>
         <p className="mt-3 text-gray-700 max-w-2xl">
           Your path is ready. Start your first lesson or take a quick level test
           to personalize recommendations.
         </p>
         <div className="mt-6 flex flex-wrap gap-3" id="tour-first-action">
-          <Link href="/dashboard/lessons" className="btn btn-primary">
+          <Link href="/courses" className="btn btn-primary">
             Start First Lesson
           </Link>
           <Link href="/dashboard/ai-tutor" className="btn btn-secondary">

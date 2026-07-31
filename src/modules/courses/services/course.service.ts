@@ -1,58 +1,86 @@
 import type {
-  CourseLevel,
   CreateTeacherCourseInput,
   TeacherCourse,
 } from "@/core/types/course";
-import {
-  getDefaultAcademy,
-  getDefaultPathSlugForAcademy,
-  isAcademySlug,
-  isCourseStage,
-} from "@/modules/courses/constants/learning-paths";
+import { prisma } from "@/core/server/prisma";
+import { createCourse } from "@/modules/courses/services/content.service";
 
-const inMemoryCourses: TeacherCourse[] = [];
-
-const toIsoNow = () => new Date().toISOString();
-
-const safeLevel = (level: string): CourseLevel => {
-  if (level === "advanced" || level === "intermediate") return level;
-  return "beginner";
-};
-
-const safeAcademy = (academy?: string) => {
-  if (academy && isAcademySlug(academy)) return academy;
-  return getDefaultAcademy().slug;
-};
-
-const safeStage = (stage?: string) => {
-  if (stage && isCourseStage(stage)) return stage;
-  return "all-levels" as const;
-};
-
-export function listCoursesForOwner(ownerId: string): TeacherCourse[] {
-  return inMemoryCourses.filter((course) => course.ownerId === ownerId);
+function toCefrLevel(level: CreateTeacherCourseInput["level"]) {
+  if (level === "beginner") return "A1" as const;
+  if (level === "intermediate") return "B1" as const;
+  return "C1" as const;
 }
 
-export function createCourseForOwner(
+function mapTeacherCourse(course: {
+  id: string;
+  title: string;
+  shortDescription: string;
+  legacyLevel: "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+  academySlug: string;
+  pathSlug: string;
+  stageSlug: string;
+  isPublished: boolean;
+  instructorId: string;
+  createdAt: Date;
+}): TeacherCourse {
+  const level = course.legacyLevel === "BEGINNER"
+    ? "beginner"
+    : course.legacyLevel === "INTERMEDIATE"
+      ? "intermediate"
+      : "advanced";
+  return {
+    id: course.id,
+    title: course.title,
+    description: course.shortDescription,
+    level,
+    academy: course.academySlug as TeacherCourse["academy"],
+    path: course.pathSlug,
+    stage: course.stageSlug as TeacherCourse["stage"],
+    visibility: "public",
+    status: course.isPublished ? "published" : "draft",
+    ownerId: course.instructorId,
+    createdAt: course.createdAt.toISOString(),
+  };
+}
+
+export async function listCoursesForOwner(ownerId: string): Promise<TeacherCourse[]> {
+  const courses = await prisma.course.findMany({
+    where: { instructorId: ownerId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      shortDescription: true,
+      legacyLevel: true,
+      academySlug: true,
+      pathSlug: true,
+      stageSlug: true,
+      isPublished: true,
+      instructorId: true,
+      createdAt: true,
+    },
+  });
+  return courses.map(mapTeacherCourse);
+}
+
+export async function createCourseForOwner(
   ownerId: string,
   input: CreateTeacherCourseInput,
-): TeacherCourse {
-  const academy = safeAcademy(input.academy);
-
-  const created: TeacherCourse = {
-    id: `course_${Math.random().toString(36).slice(2, 10)}`,
-    title: input.title.trim(),
-    description: input.description.trim(),
-    level: safeLevel(input.level),
-    academy,
-    path: (input.path || getDefaultPathSlugForAcademy(academy)).trim(),
-    stage: safeStage(input.stage),
-    visibility: input.visibility ?? "private",
-    status: input.status ?? "draft",
-    ownerId,
-    createdAt: toIsoNow(),
-  };
-
-  inMemoryCourses.push(created);
-  return created;
+): Promise<TeacherCourse> {
+  const created = await createCourse(ownerId, {
+    levelCode: toCefrLevel(input.level),
+    categorySlug: "general-english",
+    title: input.title,
+    shortDescription: input.description,
+    language: "en",
+    estimatedDuration: 0,
+    isPublished: input.status === "published",
+    isFeatured: false,
+    firstFreeLessonCount: 0,
+    accessPlan: "FREE",
+    priceCurrency: "USD",
+    learningOutcomes: [],
+    prerequisites: [],
+  });
+  return mapTeacherCourse(created);
 }
