@@ -44,6 +44,23 @@ model User {
   welcomeBonusPoints           Int                         @default(0)
   guidedTourCompleted          Boolean                     @default(false)
   lastLoginAt                  DateTime?
+  teacherProfile               TeacherProfile?
+  ownedLearningGroups          LearningGroup[]            @relation("LearningGroupOwner")
+  groupTeachingMemberships     GroupTeacher[]             @relation("GroupTeacherUser")
+  groupStudentMemberships      GroupStudent[]             @relation("GroupStudentUser")
+  sentGroupInvitations         GroupInvitation[]          @relation("GroupInvitationInviter")
+  invitationStudentRecords     GroupInvitation[]          @relation("GroupInvitationStudent")
+  studentCourses               StudentCourse[]
+  assignedCoursesAsTeacher     StudentCourseAssignment[]  @relation("StudentCourseAssignmentTeacher")
+  assignedCoursesAsStudent     StudentCourseAssignment[]  @relation("StudentCourseAssignmentStudent")
+  groupCourseAssignments       GroupCourseAssignment[]    @relation("GroupCourseAssignmentAssigner")
+  authoredAssignments          Assignment[]               @relation("AssignmentTeacher")
+  assignedAssignments          Assignment[]               @relation("AssignmentStudent")
+  assignmentSubmissions        AssignmentSubmission[]     @relation("AssignmentSubmissionStudent")
+  reviewedAssignmentSubmissions AssignmentSubmission[]    @relation("AssignmentSubmissionReviewer")
+  teacherNotesWritten          TeacherStudentNote[]       @relation("TeacherStudentNoteTeacher")
+  teacherNotesReceived         TeacherStudentNote[]       @relation("TeacherStudentNoteStudent")
+  reviewMaterials              AssignmentReviewMaterial[] @relation("AssignmentReviewMaterialAuthor")
   authoredCourses              Course[]                    @relation("CourseInstructor")
   enrolledCourses              Course[]                    @relation("CourseStudents")
   sessions                     Session[]
@@ -156,6 +173,10 @@ model Course {
   instructor           User               @relation("CourseInstructor", fields: [instructorId], references: [id])
   instructorId         String
   students             User[]             @relation("CourseStudents")
+  groupAssignments     GroupCourseAssignment[]
+  studentAssignments   StudentCourseAssignment[]
+  studentCourses       StudentCourse[]
+  assignments          Assignment[]
   modules              CourseModule[]
   learningActivities   LearningActivity[]
   learningSessions     LearningSession[]
@@ -215,6 +236,7 @@ model Lesson {
   vocabularySessions VocabularyTrainingSession[] @relation("WarmUpLesson")
   learningActivities LearningActivity[]
   learningSessions   LearningSession[]
+  assignments        Assignment[]
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
 
@@ -1658,6 +1680,257 @@ model PromotionRedemption {
   @@index([promotionId, userId])
 }
 
+model TeacherProfile {
+  id              String               @id @default(cuid())
+  userId          String               @unique
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName     String?
+  bio             String?
+  specialization  String?
+  languages       String[]             @default([])
+  experienceYears Int?
+  status          TeacherProfileStatus @default(PENDING)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([status])
+}
+
+model LearningGroup {
+  id                    String              @id @default(cuid())
+  name                  String
+  description           String?
+  teacherId             String
+  teacher               User                @relation("LearningGroupOwner", fields: [teacherId], references: [id], onDelete: Restrict)
+  status                LearningGroupStatus @default(DRAFT)
+  startDate             DateTime?
+  endDate               DateTime?
+  timeZone              String              @default("UTC")
+  maxStudents           Int?
+  inviteCode            String?             @unique
+  inviteCodeExpiresAt   DateTime?
+  teachers              GroupTeacher[]
+  students              GroupStudent[]
+  invitations           GroupInvitation[]
+  courseAssignments     GroupCourseAssignment[]
+  individualCourseAssignments StudentCourseAssignment[]
+  assignments           Assignment[]
+  teacherNotes          TeacherStudentNote[]
+  reviewMaterials       AssignmentReviewMaterial[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([teacherId, status])
+  @@index([status, updatedAt])
+}
+
+model GroupTeacher {
+  id        String            @id @default(cuid())
+  groupId   String
+  group     LearningGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teacherId String
+  teacher   User              @relation("GroupTeacherUser", fields: [teacherId], references: [id], onDelete: Restrict)
+  role      GroupTeacherRole  @default(TEACHER)
+  createdAt DateTime          @default(now())
+
+  @@unique([groupId, teacherId])
+  @@index([teacherId, groupId])
+}
+
+model GroupStudent {
+  id          String             @id @default(cuid())
+  groupId     String
+  group       LearningGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User               @relation("GroupStudentUser", fields: [studentId], references: [id], onDelete: Restrict)
+  status      GroupStudentStatus @default(INVITED)
+  joinedAt    DateTime?
+  removedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([groupId, studentId])
+  @@index([groupId, status])
+  @@index([studentId, status])
+}
+
+model GroupInvitation {
+  id          String                @id @default(cuid())
+  groupId     String
+  group       LearningGroup         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  email       String
+  studentId   String?
+  student     User?                 @relation("GroupInvitationStudent", fields: [studentId], references: [id], onDelete: SetNull)
+  tokenHash   String                @unique
+  status      GroupInvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  invitedById String
+  invitedBy   User                  @relation("GroupInvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([groupId, status])
+  @@index([email, status])
+}
+
+model GroupCourseAssignment {
+  id           String                     @id @default(cuid())
+  groupId      String
+  group        LearningGroup              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course                     @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  assignedById String
+  assignedBy   User                       @relation("GroupCourseAssignmentAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
+  status       CourseAssignmentStatus     @default(DRAFT)
+  startsAt     DateTime?
+  deadlineAt   DateTime?
+  order        Int                        @default(0)
+  required     Boolean                    @default(true)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  @@unique([groupId, courseId])
+  @@index([groupId, status])
+}
+
+model StudentCourseAssignment {
+  id           String                     @id @default(cuid())
+  studentId    String
+  student      User                       @relation("StudentCourseAssignmentStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId    String
+  teacher      User                       @relation("StudentCourseAssignmentTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  groupId      String?
+  group        LearningGroup?             @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  courseId     String
+  course       Course                     @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  status       CourseAssignmentStatus     @default(ACTIVE)
+  startsAt     DateTime?
+  deadlineAt   DateTime?
+  reason       String?
+  idempotencyKey String                   @unique
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  @@index([studentId, status])
+  @@index([groupId, status])
+}
+
+model StudentCourse {
+  id          String              @id @default(cuid())
+  studentId   String
+  student     User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course              @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  sourceType  StudentCourseSource
+  sourceId    String?
+  sourceKey   String              @unique
+  status      StudentCourseStatus @default(ACTIVE)
+  addedAt     DateTime            @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([studentId, status])
+  @@index([studentId, courseId])
+}
+
+model Assignment {
+  id              String           @id @default(cuid())
+  teacherId       String
+  teacher         User             @relation("AssignmentTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  groupId         String?
+  group           LearningGroup?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  studentId       String?
+  student         User?            @relation("AssignmentStudent", fields: [studentId], references: [id], onDelete: SetNull)
+  courseId        String?
+  course          Course?          @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lessonId        String?
+  lesson          Lesson?          @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  type            AssignmentType
+  status          AssignmentStatus @default(DRAFT)
+  startsAt        DateTime?
+  dueAt           DateTime?
+  maxScore        Int              @default(100)
+  attemptsAllowed Int              @default(1)
+  submissions     AssignmentSubmission[]
+  reviewMaterials AssignmentReviewMaterial[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([groupId, dueAt])
+  @@index([studentId, dueAt])
+  @@index([teacherId, status])
+}
+
+model AssignmentSubmission {
+  id           String                   @id @default(cuid())
+  assignmentId String
+  assignment   Assignment               @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      User                     @relation("AssignmentSubmissionStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  status       AssignmentSubmissionStatus @default(NOT_STARTED)
+  content      Json?
+  submittedAt  DateTime?
+  score        Int?
+  autoScore    Int?
+  teacherScore Int?
+  feedback     String?
+  reviewedById String?
+  reviewedBy   User?                    @relation("AssignmentSubmissionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId, status])
+  @@index([studentId, status])
+}
+
+model TeacherStudentNote {
+  id         String         @id @default(cuid())
+  teacherId  String
+  teacher    User           @relation("TeacherStudentNoteTeacher", fields: [teacherId], references: [id], onDelete: Restrict)
+  studentId  String
+  student    User           @relation("TeacherStudentNoteStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId    String?
+  group      LearningGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  content    String
+  visibility TeacherNoteVisibility @default(PRIVATE)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([teacherId, studentId, createdAt])
+  @@index([studentId, visibility])
+}
+
+model AssignmentReviewMaterial {
+  id          String         @id @default(cuid())
+  assignmentId String?
+  assignment  Assignment?    @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  groupId     String?
+  group       LearningGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  videoUrl    String?
+  storageKey  String?
+  codeExample String?
+  content     String?
+  visibleFrom DateTime?
+  createdById String
+  createdBy   User           @relation("AssignmentReviewMaterialAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([assignmentId, visibleFrom])
+  @@index([groupId, visibleFrom])
+}
+
 model Session {
   id             String    @id @default(cuid())
   userId         String
@@ -1673,6 +1946,98 @@ model Session {
 
   @@index([userId, isRevoked, expiresAt])
   @@index([expiresAt])
+}
+
+enum TeacherProfileStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum LearningGroupStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum GroupTeacherRole {
+  OWNER
+  TEACHER
+  ASSISTANT
+}
+
+enum GroupStudentStatus {
+  INVITED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  REMOVED
+}
+
+enum GroupInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELED
+}
+
+enum CourseAssignmentStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELED
+}
+
+enum StudentCourseSource {
+  SELF_ADDED
+  PURCHASED
+  SUBSCRIPTION
+  TEACHER_ASSIGNED
+  GROUP_ASSIGNED
+  ADMIN_GRANTED
+  FREE_ENROLLMENT
+}
+
+enum StudentCourseStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum AssignmentType {
+  LESSON
+  EXERCISE_SET
+  WRITTEN
+  FILE_UPLOAD
+  VOCABULARY
+  CUSTOM
+}
+
+enum AssignmentStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum AssignmentSubmissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  LATE
+  UNDER_REVIEW
+  NEEDS_REVISION
+  GRADED
+  RETURNED
+}
+
+enum TeacherNoteVisibility {
+  PRIVATE
+  VISIBLE_TO_STUDENT
+  VISIBLE_TO_TEACHERS
 }
 
 enum Role {
@@ -1722,6 +2087,16 @@ enum NotificationType {
   REFUND_FAILED
   COURSE_ACCESS_GRANTED
   COURSE_ACCESS_REVOKED
+  STUDENT_INVITED_TO_GROUP
+  STUDENT_JOINED_GROUP
+  COURSE_ASSIGNED
+  ASSIGNMENT_ASSIGNED
+  ASSIGNMENT_DEADLINE_CHANGED
+  ASSIGNMENT_SUBMITTED
+  ASSIGNMENT_GRADED
+  ASSIGNMENT_NEEDS_REVISION
+  TEACHER_MESSAGE
+  GROUP_ANNOUNCEMENT
   SUPPORT_TICKET_CREATED
   SUPPORT_TICKET_REPLIED
   SUPPORT_TICKET_STATUS_CHANGED

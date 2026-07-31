@@ -1,0 +1,1 @@
+export default function TeacherAnalyticsPage() { return <section className="rounded-2xl border bg-white p-8"><h2 className="text-3xl font-bold">Analytics</h2><p className="mt-3 text-slate-600">Group analytics will appear after learners start studying. The overview intentionally shows only aggregates, not private data from unrelated users.</p></section>; }

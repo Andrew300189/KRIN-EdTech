@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -12,9 +12,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
     setError("");
     setLoading(true);
 
@@ -31,10 +35,15 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push("/dashboard/courses");
+      router.replace(
+        payload.autoLogin === false
+          ? "/login?registered=1"
+          : "/dashboard/courses",
+      );
     } catch {
       setError("Network error. Please try again.");
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };

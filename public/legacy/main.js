@@ -81,6 +81,43 @@ const openModalButtons = document.querySelectorAll("[data-open-modal]");
 const closeModalButtons = document.querySelectorAll("[data-close-auth]");
 const switchAuthButtons = document.querySelectorAll("[data-switch-auth]");
 if (authModal && authModalTitle && loginForm && registerForm) {
+  let loginInFlight = false;
+  let registerInFlight = false;
+  const loginSubmitButton = loginForm.querySelector('button[type="submit"]');
+  const registerSubmitButton = registerForm.querySelector('button[type="submit"]');
+
+  const setLoginBusy = (busy) => {
+    loginInFlight = busy;
+    if (loginSubmitButton) loginSubmitButton.disabled = busy;
+    if (loginSubmitLabel) loginSubmitLabel.textContent = busy ? "Logging in..." : "Log in";
+    if (googleSignInButton) {
+      googleSignInButton.toggleAttribute("aria-disabled", busy);
+      googleSignInButton.setAttribute("aria-busy", String(busy));
+    }
+  };
+
+  const setRegisterBusy = (busy) => {
+    registerInFlight = busy;
+    if (registerSubmitButton) registerSubmitButton.disabled = busy;
+    if (registerSubmitLabel) {
+      registerSubmitLabel.textContent = busy ? "Creating..." : "Create account";
+    }
+  };
+
+  // The public landing is rendered inside a same-origin iframe. A successful
+  // login must therefore navigate the top-level application, not only iframe.
+  const workspacePathForRole = (role) => {
+    const normalized = String(role || "").toLowerCase();
+    if (normalized === "teacher" || normalized === "instructor") return "/teacher";
+    if (["content_manager", "admin", "super_admin"].includes(normalized)) return "/admin";
+    return "/student";
+  };
+
+  const openDashboard = (path = "/student") => {
+    const target = window.top && window.top !== window ? window.top : window;
+    target.location.assign(path);
+  };
+
   let loginError = document.getElementById("loginError");
   if (!loginError) {
     loginError = document.createElement("p");
@@ -164,7 +201,8 @@ if (authModal && authModalTitle && loginForm && registerForm) {
   if (googleSignInButton) {
     googleSignInButton.addEventListener("click", async (event) => {
       event.preventDefault();
-      googleSignInButton.setAttribute("aria-disabled", "true");
+      if (loginInFlight) return;
+      setLoginBusy(true);
 
       try {
         const csrfResponse = await fetch("/api/auth/csrf", {
@@ -203,7 +241,7 @@ if (authModal && authModalTitle && loginForm && registerForm) {
           loginError.textContent = "Google sign-in could not be started. Please try again.";
           loginError.style.display = "block";
         }
-        googleSignInButton.removeAttribute("aria-disabled");
+        setLoginBusy(false);
       }
     });
   }
@@ -220,26 +258,29 @@ if (authModal && authModalTitle && loginForm && registerForm) {
 
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (loginInFlight) return;
 
     const identifier = loginEmailInput?.value?.trim() || "";
     const password = loginPasswordInput?.value || "";
 
     if (!identifier || !password) return;
 
-    if (loginSubmitLabel) loginSubmitLabel.textContent = "Logging in...";
+    setLoginBusy(true);
     if (loginError) {
       loginError.textContent = "";
       loginError.style.display = "none";
     }
 
+    let redirectStarted = false;
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ identifier, password }),
       });
 
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
         if (loginError) {
           loginError.textContent = payload?.error || "Login failed";
@@ -248,19 +289,21 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         return;
       }
 
-      window.location.href = "/dashboard";
+      redirectStarted = true;
+      openDashboard(workspacePathForRole(payload?.user?.role));
     } catch {
       if (loginError) {
         loginError.textContent = "Network error. Please try again.";
         loginError.style.display = "block";
       }
     } finally {
-      if (loginSubmitLabel) loginSubmitLabel.textContent = "Log in";
+      if (!redirectStarted) setLoginBusy(false);
     }
   });
 
   registerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (registerInFlight) return;
 
     const username = registerUsernameInput?.value?.trim() || "";
     const email = registerEmailInput?.value?.trim() || "";
@@ -276,7 +319,7 @@ if (authModal && authModalTitle && loginForm && registerForm) {
       return;
     }
 
-    if (registerSubmitLabel) registerSubmitLabel.textContent = "Creating...";
+    setRegisterBusy(true);
     if (registerError) {
       registerError.textContent = "";
       registerError.style.display = "none";
@@ -289,7 +332,7 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         body: JSON.stringify({ username, email, password }),
       });
 
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
         if (registerError) {
           registerError.textContent = payload?.error || "Registration failed";
@@ -323,14 +366,14 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         }
       }
 
-      window.location.href = "/dashboard";
+      openDashboard();
     } catch {
       if (registerError) {
         registerError.textContent = "Network error. Please try again.";
         registerError.style.display = "block";
       }
     } finally {
-      if (registerSubmitLabel) registerSubmitLabel.textContent = "Create account";
+      setRegisterBusy(false);
     }
   });
 }

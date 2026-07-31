@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { SESSION_CONFIG } from "@/core/constants/session";
 
-const AUTH_ONLY_PATHS = ["/dashboard", "/admin"];
+const AUTH_ONLY_PATHS = ["/dashboard", "/student", "/teacher", "/admin"];
 const GUEST_ONLY_PATHS = ["/login", "/register"];
 const PREMIUM_COURSE_LEVELS = new Set(["b2", "c1", "c2"]);
 const SUBSCRIPTION_ACCESS_COOKIE = "krin_subscription_access";
@@ -110,7 +110,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (matchesPath(pathname, GUEST_ONLY_PATHS) && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/student", request.url));
   }
 
   return NextResponse.next();

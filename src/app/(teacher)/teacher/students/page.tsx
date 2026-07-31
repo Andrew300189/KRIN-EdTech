@@ -1,0 +1,1 @@
+export default function TeacherStudentsPage() { return <section className="rounded-2xl border bg-white p-8"><h2 className="text-3xl font-bold">Students</h2><p className="mt-3 text-slate-600">Open a group to see only its linked learners. Student details are never loaded outside a shared group.</p></section>; }

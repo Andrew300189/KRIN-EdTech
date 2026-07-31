@@ -1,0 +1,1 @@
+export default function TeacherAssignmentsPage() { return <section className="rounded-2xl border bg-white p-8"><h2 className="text-3xl font-bold">Assignments</h2><p className="mt-3 text-slate-600">Create assignments through the teacher API for a group or an individual linked learner. Published work creates one submission record per recipient.</p></section>; }
