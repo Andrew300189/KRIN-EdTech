@@ -1,48 +1,54 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  getDevelopmentErrorId,
+  getPublicAuthErrorPath,
+  getPublicAuthErrorMessage,
+  type PublicAuthErrorCode,
+} from "@/core/server/auth-error";
 
-const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
-  AccessDenied: {
-    title: "Google sign-in was not allowed",
-    description:
-      "Use a Google account with a verified email address that is not linked to another account.",
-  },
-  OAuthSignin: {
-    title: "Google sign-in could not be started",
-    description: "Please try again. If the problem continues, contact support.",
-  },
-  OAuthCallback: {
-    title: "Google sign-in could not be completed",
-    description: "The connection was interrupted or expired. Please start again.",
-  },
-  Configuration: {
-    title: "Google sign-in is temporarily unavailable",
-    description: "The sign-in service is not configured correctly. Please try again later.",
-  },
-};
+function getPublicErrorCode(error: string | undefined): PublicAuthErrorCode {
+  if (error === "cms_access_denied") return "cms_access_denied";
+  // NextAuth error names intentionally collapse into one public response.
+  // This prevents provider, configuration, and callback internals from being
+  // disclosed in the browser.
+  return "google_sign_in_failed";
+}
 
 export default async function AuthErrorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; errorId?: string }>;
 }) {
-  const { error } = await searchParams;
-  const knownMessage = error ? ERROR_MESSAGES[error] : undefined;
-  const message = knownMessage ?? {
-    title: "We could not sign you in",
-    description: "Please return to the login page and try again.",
-  };
+  const { error, errorId: incomingErrorId } = await searchParams;
+  const isPublicErrorCode =
+    error === "google_sign_in_failed" || error === "cms_access_denied";
+  if (error && !isPublicErrorCode) {
+    // Replace the provider's raw callback/configuration identifier in the
+    // browser URL before rendering any page content.
+    redirect(getPublicAuthErrorPath("google_sign_in_failed"));
+  }
+
+  const code = getPublicErrorCode(error);
+  const errorId = getDevelopmentErrorId(incomingErrorId);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl items-center px-6">
       <section className="w-full rounded-xl border border-red-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold text-red-700">Authentication error</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900">{message.title}</h1>
-        <p className="mt-4 text-slate-600">{message.description}</p>
+        <p className="text-sm font-semibold text-red-700">Ошибка авторизации</p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-900">
+          {getPublicAuthErrorMessage(code)}
+        </h1>
+        {errorId ? (
+          <p className="mt-4 text-sm text-slate-500">
+            Error ID: <code>{errorId}</code>
+          </p>
+        ) : null}
         <Link
           className="mt-7 inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white hover:brightness-95"
           href="/login"
         >
-          Back to login
+          Вернуться ко входу
         </Link>
       </section>
     </main>

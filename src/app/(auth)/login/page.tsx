@@ -4,23 +4,13 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getPostLoginPath } from "@/core/utils/workspace-path";
 
 function getErrorMessage(errorCode: string | null) {
-  switch (errorCode) {
-    case "google_not_configured":
-      return "Google sign-in is not configured yet.";
-    case "google_failed":
-      return "Google sign-in failed. Please try again.";
-    case "google_state":
-      return "Google sign-in security check failed. Please retry.";
-    case "OAuthSignin":
-    case "OAuthCallback":
-    case "AccessDenied":
-      return "Google sign-in failed. Please try again.";
-    default:
-      return "";
+  if (errorCode === "cms_access_denied") {
+    return "Не удалось подтвердить права владельца.";
   }
+
+  return errorCode ? "Не удалось войти через Google. Попробуйте ещё раз." : "";
 }
 
 function getInfoMessage(reason: string | null) {
@@ -34,6 +24,39 @@ function getInfoMessage(reason: string | null) {
   }
 }
 
+function getServerDestination(payload: unknown): string | null {
+  const candidate = payload && typeof payload === "object"
+    ? (payload as { user?: { workspacePath?: unknown } }).user?.workspacePath
+    : null;
+
+  const isWorkspacePath = typeof candidate === "string" && (
+    candidate === "/cms" ||
+    candidate.startsWith("/cms/") ||
+    candidate === "/teacher" ||
+    candidate.startsWith("/teacher/") ||
+    candidate === "/student" ||
+    candidate.startsWith("/student/")
+  );
+
+  return isWorkspacePath &&
+    candidate.startsWith("/") &&
+    !candidate.startsWith("//") &&
+    !candidate.includes("\\")
+    ? candidate
+    : null;
+}
+
+function getRequestedPostAuthPath(searchParams: URLSearchParams) {
+  return searchParams.get("next") ?? searchParams.get("callbackUrl") ?? "";
+}
+
+function getDevelopmentErrorId(value: unknown) {
+  if (process.env.NODE_ENV !== "development" || typeof value !== "string") return "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : "";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,6 +65,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errorId, setErrorId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const submittingRef = useRef(false);
 
@@ -55,17 +79,23 @@ export default function LoginPage() {
     [searchParams],
   );
 
+  const externalErrorId = useMemo(
+    () => getDevelopmentErrorId(searchParams.get("errorId")),
+    [searchParams],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingRef.current) return;
 
     if (!identifier.trim() || !password) {
-      setError("Email and password are required.");
+      setError("Введите email и пароль.");
       return;
     }
 
     submittingRef.current = true;
     setError("");
+    setErrorId("");
     setLoading(true);
     let shouldResetLoading = true;
 
@@ -73,19 +103,36 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({
+          email: identifier,
+          password,
+          next: getRequestedPostAuthPath(searchParams),
+        }),
       });
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(payload?.error || "Login failed");
+        setError(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Не удалось выполнить вход. Попробуйте ещё раз.",
+        );
+        setErrorId(getDevelopmentErrorId(payload?.errorId));
+        return;
+      }
+
+      const destination = getServerDestination(payload);
+      if (!destination) {
+        setError("Не удалось подтвердить права владельца.");
         return;
       }
 
       shouldResetLoading = false;
-      router.replace(getPostLoginPath(payload?.user?.role, searchParams.get("next")));
+      // The authenticated destination is selected by the server. This is the
+      // only credentials-login navigation in the React form.
+      router.replace(destination);
     } catch {
-      setError("Network error. Please try again.");
+      setError("Не удалось выполнить вход. Попробуйте ещё раз.");
     } finally {
       if (shouldResetLoading) {
         submittingRef.current = false;
@@ -98,19 +145,19 @@ export default function LoginPage() {
     if (submittingRef.current) return;
 
     submittingRef.current = true;
-    const nextUrl = searchParams.get("next") ?? "";
+    const nextUrl = getRequestedPostAuthPath(searchParams);
     const callbackUrl = `/auth/complete?next=${encodeURIComponent(nextUrl)}`;
     setLoading(true);
     let shouldResetLoading = true;
     try {
       const result = await signIn("google", { callbackUrl });
       if (result?.error) {
-        setError("Google sign-in failed. Please try again.");
+        setError("Не удалось войти через Google. Попробуйте ещё раз.");
         return;
       }
       shouldResetLoading = false;
     } catch {
-      setError("Google sign-in could not be started. Please try again.");
+      setError("Не удалось войти через Google. Попробуйте ещё раз.");
     } finally {
       if (shouldResetLoading) {
         submittingRef.current = false;
@@ -219,9 +266,14 @@ export default function LoginPage() {
         </p>
 
         {error || externalError ? (
-          <p className="rounded-md border border-red-200 bg-red-50 p-3 text-base text-red-700">
-            {error || externalError}
-          </p>
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-base text-red-700">
+            <p>{error || externalError}</p>
+            {errorId || externalErrorId ? (
+              <p className="mt-2 text-xs text-red-600">
+                Error ID: <code>{errorId || externalErrorId}</code>
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </form>
     </div>

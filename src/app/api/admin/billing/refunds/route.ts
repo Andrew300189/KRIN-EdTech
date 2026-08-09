@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { createRefund } from "@/modules/payments/services/payment.service";
 
 const schema = z.object({ paymentId: z.string().cuid(), reason: z.string().trim().max(500).optional() });
 export async function POST(request: NextRequest) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const value = schema.safeParse(await request.json().catch(() => null));
   if (!value.success) return NextResponse.json({ error: "Invalid refund request." }, { status: 400 });

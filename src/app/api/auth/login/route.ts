@@ -6,18 +6,22 @@ import {
   verifyPassword,
 } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
-import { authenticateCredentials } from "@/modules/auth/services/credentials-login.service";
-import { getRoleWorkspacePath } from "@/core/utils/workspace-path";
+import { logAuthDiagnostic } from "@/core/server/auth-diagnostics";
+import { createPublicAuthFailure } from "@/core/server/auth-error";
+import { isPlatformOwner } from "@/core/server/platform-owner";
+import { authorizeCredentials } from "@/modules/auth/services/credentials-login.service";
+import { getPostLoginPath } from "@/core/utils/workspace-path";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
+    logAuthDiagnostic({ event: "auth_provider", provider: "credentials" });
     const body = await request.json();
-    const result = await authenticateCredentials(body ?? {}, {
-      findByIdentifier: (identifier) =>
-        prisma.user.findFirst({
-          where: { OR: [{ email: identifier }, { username: identifier }] },
+    const result = await authorizeCredentials(body ?? {}, {
+      findByEmail: (email) =>
+        prisma.user.findUnique({
+          where: { email },
           select: {
             id: true,
             passwordHash: true,
@@ -35,17 +39,16 @@ export async function POST(request: NextRequest) {
 
     if (!result.ok) {
       return NextResponse.json(
-        {
-          error:
-            result.reason === "INVALID_INPUT"
-              ? "Email and password are required"
-              : "Invalid credentials",
-        },
-        { status: result.reason === "INVALID_INPUT" ? 400 : 401 },
+        createPublicAuthFailure("invalid_credentials"),
+        { status: 401 },
       );
     }
 
     const user = result.user;
+    logAuthDiagnostic({
+      event: "normalized_email_match_owner",
+      matchesOwner: isPlatformOwner(user.email),
+    });
 
     await Promise.all([
       prisma.user.update({
@@ -60,6 +63,15 @@ export async function POST(request: NextRequest) {
       createSession(user.id, { headers: request.headers }),
     ]);
 
+    const destination = getPostLoginPath(
+      user.email,
+      user.role,
+      typeof body?.next === "string" ? body.next : undefined,
+    );
+    logAuthDiagnostic({ event: "auth_success", provider: "credentials" });
+    logAuthDiagnostic({ event: "session_has_email", hasEmail: Boolean(user.email) });
+    logAuthDiagnostic({ event: "post_auth_destination", destination });
+
     return NextResponse.json(
       {
         success: true,
@@ -70,7 +82,7 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role.toLowerCase(),
-          workspacePath: getRoleWorkspacePath(user.role),
+          workspacePath: destination,
           emailVerified: user.emailVerified,
         },
       },
@@ -78,7 +90,7 @@ export async function POST(request: NextRequest) {
     );
   } catch {
     return NextResponse.json(
-      { error: "Internal server error" },
+      createPublicAuthFailure("auth_unavailable"),
       { status: 500 },
     );
   }

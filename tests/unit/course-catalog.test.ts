@@ -1,44 +1,84 @@
-import { getCategory } from "@/modules/courses/utils/get-category";
+import { courseCatalog } from "@/modules/courses/data/course-catalog";
 import { getLevel } from "@/modules/courses/utils/get-level";
-import { getSubtopic, getTopic } from "@/modules/courses/utils/get-topics";
+import { getSection } from "@/modules/courses/utils/get-section";
+import { getTopic } from "@/modules/courses/utils/get-topics";
 
-describe("course catalog selectors", () => {
-  it("keeps A1 grammar isolated from A2-C2", () => {
-    const grammar = getCategory("a1", "grammar");
-    expect(grammar?.topics.some((topic) => topic.id.startsWith("a2-"))).toBe(false);
-    expect(grammar?.topics.some((topic) => topic.title === "Present Simple")).toBe(true);
+describe("course catalogue selectors", () => {
+  it("keeps all A1 Pronouns topics in the supplied order", () => {
+    const pronouns = getSection("a1", "pronouns");
+    expect(pronouns?.topics).toHaveLength(6);
+    expect(pronouns?.topics.map((topic) => topic.title)).toEqual([
+      "Personal pronouns",
+      "Possessive pronouns",
+      "Possessive with ‘s",
+      "Object pronouns",
+      "Demonstrative pronouns",
+      "Pronouns: something, anything",
+    ]);
   });
 
-  it("keeps A2 grammar isolated from other levels", () => {
-    const grammar = getCategory("a2", "grammar");
-    expect(grammar?.topics.every((topic) => topic.id.startsWith("a2-grammar-"))).toBe(true);
-    expect(grammar?.topics.some((topic) => topic.title === "Past Simple of To Be")).toBe(false);
+  it("does not truncate A1 Present tenses or Modal verbs", () => {
+    expect(getSection("a1", "present-tenses")?.topics).toHaveLength(11);
+    expect(getSection("a1", "modal-verbs")?.topics).toHaveLength(10);
   });
 
-  it("returns only B1 vocabulary", () => {
-    const vocabulary = getCategory("b1", "vocabulary");
-    expect(vocabulary?.topics.map((topic) => topic.title)).toContain("Work");
-    expect(vocabulary?.topics.map((topic) => topic.title)).not.toContain("Finance");
+  it("keeps each level isolated", () => {
+    const a1Vocabulary = getSection("a1", "vocabulary");
+    const a2Vocabulary = getSection("a2", "vocabulary");
+    const b1Vocabulary = getSection("b1", "vocabulary");
+    expect(a1Vocabulary?.topics.some((topic) => topic.id.startsWith("a2-"))).toBe(false);
+    expect(a2Vocabulary?.topics.some((topic) => topic.id.startsWith("a1-"))).toBe(false);
+    expect(b1Vocabulary?.topics.map((topic) => topic.title)).toContain("jobs");
+    expect(b1Vocabulary?.topics.map((topic) => topic.title)).not.toContain("Idioms and fixed phrases about housing, holidays, music, pets, human qualities, work, feelings, finances, etc.");
   });
 
-  it("returns null for a missing level or category instead of a fallback catalog", () => {
+  it("uses different IDs for an equal title at different levels", () => {
+    const a1Topic = getTopic("a1", "present-tenses", "present-simple-for-habits-and-daily-routines");
+    const a2Topic = getTopic("a2", "present-tenses", "present-simple-for-habits-and-daily-routines");
+    expect(a1Topic?.id).toBe("a1-present-tenses-present-simple-for-habits-and-daily-routines");
+    expect(a2Topic?.id).toBe("a2-present-tenses-present-simple-for-habits-and-daily-routines");
+    expect(a1Topic?.id).not.toBe(a2Topic?.id);
+  });
+
+  it("never returns another level as a fallback for an invalid level, section or topic", () => {
     expect(getLevel("z9")).toBeNull();
-    expect(getCategory("a1", "idioms")).toBeNull();
+    expect(getSection("a1", "modal-verbs")).not.toBeNull();
+    expect(getSection("a1", "conjunctions")).toBeNull();
+    expect(getTopic("a1", "pronouns", "personal-pronouns")).not.toBeNull();
+    expect(getTopic("a1", "pronouns", "future-perfect")).toBeNull();
+    expect(getTopic("a1", "future-tenses", "personal-pronouns")).toBeNull();
   });
 
-  it("uses distinct IDs for equal topic titles at different levels", () => {
-    expect(getTopic("a1", "grammar", "present-simple")?.id).not.toBe(getTopic("a2", "grammar", "present-simple")?.id);
+  it("keeps the provided section order and leaves C2 empty", () => {
+    expect(courseCatalog.A1.sections.map((section) => section.title)).toEqual([
+      "Adjectives and adverbs",
+      "Articles and quantifiers",
+      "Conditionals",
+      "Future tenses",
+      "Gerund and infinitive",
+      "Past tenses",
+      "Modal verbs",
+      "Prepositions",
+      "Pronouns",
+      "Present tenses",
+      "Questions",
+      "Vocabulary",
+    ]);
+    expect(courseCatalog.A2.sections).toHaveLength(13);
+    expect(courseCatalog.B1.sections).toHaveLength(12);
+    expect(courseCatalog.B2.sections).toHaveLength(11);
+    expect(courseCatalog.C1.sections).toHaveLength(4);
+    expect(courseCatalog.C2.sections).toEqual([]);
   });
 
-  it("does not substitute content for C2 or missing subtopics", () => {
-    expect(getLevel("c2")?.categories).toEqual([]);
-    expect(getSubtopic("a1", "grammar", "present-simple", "missing")).toBeNull();
-  });
-
-  it("marks only the configured advanced levels as Premium", () => {
-    expect(getLevel("a1")?.access).toBe("free");
-    expect(getLevel("b1")?.access).toBe("free");
-    expect(getLevel("b2")?.access).toBe("premium");
-    expect(getLevel("c1")?.access).toBe("premium");
+  it("keeps stable sequential order values without duplicate IDs inside a section", () => {
+    for (const level of Object.values(courseCatalog)) {
+      expect(level.sections.map((section) => section.order)).toEqual(level.sections.map((_, index) => index + 1));
+      for (const section of level.sections) {
+        expect(section.topics.map((topic) => topic.order)).toEqual(section.topics.map((_, index) => index + 1));
+        expect(new Set(section.topics.map((topic) => topic.id)).size).toBe(section.topics.length);
+        expect(new Set(section.topics.map((topic) => topic.slug)).size).toBe(section.topics.length);
+      }
+    }
   });
 });

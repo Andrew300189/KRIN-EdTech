@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { createVocabularyWord, listVocabularyWordsForAdmin } from "@/modules/vocabulary/services/vocabulary.service";
 
 export async function GET(request: NextRequest) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   return NextResponse.json({ data: await listVocabularyWordsForAdmin(request.nextUrl.searchParams.get("q") ?? undefined) });
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     const word = await createVocabularyWord(guard.user.id, await request.json());

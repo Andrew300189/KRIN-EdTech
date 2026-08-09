@@ -46,6 +46,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -131,6 +137,37 @@ export default function ProfilePage() {
       setError(cause instanceof Error ? cause.message : "Unable to save profile changes.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPasswordSaving(true);
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    try {
+      const response = await fetch("/api/profile/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          password: newPassword,
+          passwordConfirmation,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to update password.");
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setPasswordConfirmation("");
+      setPasswordSuccess(payload?.message || "Password updated.");
+    } catch (cause) {
+      setPasswordError(cause instanceof Error ? cause.message : "Unable to update password.");
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -318,6 +355,65 @@ export default function ProfilePage() {
           type="submit"
         >
           {saving ? "Saving…" : "Save changes"}
+        </button>
+      </form>
+
+      <form
+        className="space-y-5 rounded-xl bg-white p-6 shadow-sm"
+        onSubmit={handlePasswordSubmit}
+      >
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">Password</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Create a password for email sign-in or replace your current one. If you signed in with Google, you can set your first password without an existing password.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <label className="font-medium text-slate-900" htmlFor="currentPassword">Current password</label>
+          <input
+            autoComplete="current-password"
+            className="form-control w-full"
+            id="currentPassword"
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            type="password"
+            value={currentPassword}
+          />
+          <p className="text-xs text-slate-500">Required when you signed in with email and password.</p>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="font-medium text-slate-900" htmlFor="newPassword">New password</label>
+            <input
+              autoComplete="new-password"
+              className="form-control w-full"
+              id="newPassword"
+              minLength={8}
+              maxLength={128}
+              onChange={(event) => setNewPassword(event.target.value)}
+              required
+              type="password"
+              value={newPassword}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="font-medium text-slate-900" htmlFor="passwordConfirmation">Confirm new password</label>
+            <input
+              autoComplete="new-password"
+              className="form-control w-full"
+              id="passwordConfirmation"
+              minLength={8}
+              maxLength={128}
+              onChange={(event) => setPasswordConfirmation(event.target.value)}
+              required
+              type="password"
+              value={passwordConfirmation}
+            />
+          </div>
+        </div>
+        {passwordError ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{passwordError}</p> : null}
+        {passwordSuccess ? <p className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">{passwordSuccess}</p> : null}
+        <button className="btn btn-primary rounded-full px-6 py-3 disabled:cursor-not-allowed disabled:opacity-60" disabled={passwordSaving} type="submit">
+          {passwordSaving ? "Updating…" : "Save password"}
         </button>
       </form>
     </div>

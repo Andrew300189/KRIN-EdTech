@@ -3,11 +3,14 @@ export type JsonObject = Record<string, unknown>;
 export type LessonExercise = {
   id: string;
   type: string;
+  engineKey: string;
+  variantKey: string | null;
   instruction: string;
   question: string;
   content: unknown;
   explanation: string | null;
   hint: string | null;
+  hintsEnabled: boolean;
   basePoints: number;
   allowInstantCheck: boolean;
 };

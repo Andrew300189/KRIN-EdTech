@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/core/server/prisma";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { createLessonBlockSchema } from "@/modules/courses/schemas/content.schemas";
 import { createLessonBlock } from "@/modules/courses/services/content.service";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const lesson = await prisma.lesson.findUnique({
     where: { id: (await params).lessonId },
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     const input = createLessonBlockSchema.parse(await request.json());

@@ -30,20 +30,49 @@ export function getSafeInternalPath(
 export function getSafeInternalUrl(
   value: string | null | undefined,
   baseUrl: string,
+  fallback = DEFAULT_AUTHENTICATED_PATH,
 ) {
   const base = new URL(baseUrl);
+  const safeFallback = getSafeInternalPath(fallback);
+  const fallbackUrl = new URL(safeFallback, base).toString();
 
   try {
-    const candidate = new URL(value ?? DEFAULT_AUTHENTICATED_PATH, base);
-    if (candidate.origin !== base.origin) return base.toString();
+    const candidate = new URL(value ?? safeFallback, base);
+    if (candidate.origin !== base.origin) return fallbackUrl;
 
     return new URL(
       getSafeInternalPath(
         `${candidate.pathname}${candidate.search}${candidate.hash}`,
+        safeFallback,
       ),
       base,
     ).toString();
   } catch {
-    return base.toString();
+    return fallbackUrl;
   }
+}
+
+/**
+ * Restricts the final NextAuth redirect to a safe internal destination.
+ * The completion page runs the owner-first resolver after a session exists,
+ * which avoids routing a platform owner through a generic dashboard.
+ */
+export function getSafePostAuthRedirectUrl(
+  value: string | null | undefined,
+  baseUrl: string,
+) {
+  const completionUrl = getSafeInternalUrl("/auth/complete", baseUrl);
+  const resolvedUrl = getSafeInternalUrl(value, baseUrl, "/auth/complete");
+  const candidate = new URL(resolvedUrl);
+
+  if (
+    candidate.pathname === "/" ||
+    candidate.pathname === "/login" ||
+    candidate.pathname === "/register" ||
+    candidate.pathname.startsWith("/api/auth/")
+  ) {
+    return completionUrl;
+  }
+
+  return resolvedUrl;
 }

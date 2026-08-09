@@ -1,0 +1,40 @@
+name: Search Analytics Ops
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  retention-cleanup:
+    name: Weekly retention cleanup
+    runs-on: ubuntu-latest
+    if: ${{ secrets.PROD_DATABASE_URL != '' }}
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      DIRECT_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run search:analytics:cleanup:dry
+      - run: npm run search:analytics:cleanup
+
+  admin-search-e2e:
+    name: Admin search analytics e2e
+    runs-on: ubuntu-latest
+    if: ${{ secrets.E2E_ADMIN_EMAIL != '' && secrets.E2E_ADMIN_PASSWORD != '' }}
+    env:
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run test:e2e -- tests/e2e/search-admin-analytics.spec.ts

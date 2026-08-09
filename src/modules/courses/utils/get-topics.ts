@@ -1,10 +1,11 @@
-import type { CourseSubtopic, CourseTopic } from "@/modules/courses/types/course-catalog.types";
-import { getCategory } from "./get-category";
+import type { CourseTopic } from "@/modules/courses/types/course-catalog.types";
+import { getSection } from "./get-section";
 
-export function getTopic(level: string, category: string, topic: string): CourseTopic | null {
-  return getCategory(level, category)?.topics.find((item) => item.slug === topic) ?? null;
-}
-
-export function getSubtopic(level: string, category: string, topic: string, subtopic: string): CourseSubtopic | null {
-  return getTopic(level, category, topic)?.subtopics.find((item) => item.slug === subtopic) ?? null;
+/**
+ * A topic lookup is always scoped by both its level and section.  There is no
+ * fallback catalogue, so an invalid URL can never surface another level's
+ * content.
+ */
+export function getTopic(level: string, section: string, topic: string): CourseTopic | null {
+  return getSection(level, section)?.topics.find((item) => item.slug === topic) ?? null;
 }

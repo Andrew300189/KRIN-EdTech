@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type TeacherCourse = {
   id: string;
@@ -38,7 +38,7 @@ export default function TeacherCoursesPage() {
   const [courses, setCourses] = useState<TeacherCourse[]>([]);
   const [result, setResult] = useState("");
 
-  async function loadCourses() {
+  const loadCourses = useCallback(async () => {
     const response = await fetch("/api/teacher/courses");
 
     const payload = await response.json();
@@ -48,15 +48,15 @@ export default function TeacherCoursesPage() {
       setStages(payload.catalog?.stages ?? []);
 
       const firstAcademy = payload.catalog?.academies?.[0];
-      if (firstAcademy && !academy) {
-        setAcademy(firstAcademy.slug);
+      if (firstAcademy) {
+        setAcademy((current) => current || firstAcademy.slug);
       }
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadCourses();
-  }, []);
+  }, [loadCourses]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,9 +84,10 @@ export default function TeacherCoursesPage() {
     await loadCourses();
   }
 
-  const currentAcademy =
-    academies.find((item) => item.slug === academy) ?? academies[0];
-  const availablePaths = currentAcademy?.paths ?? [];
+  const availablePaths = useMemo(
+    () => (academies.find((item) => item.slug === academy) ?? academies[0])?.paths ?? [],
+    [academies, academy],
+  );
 
   useEffect(() => {
     if (availablePaths.length === 0) return;

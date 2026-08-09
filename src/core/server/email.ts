@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { notificationService } from "@/modules/communications/services/notification.service";
 
 export type WelcomeEmailPayload = {
@@ -7,6 +8,13 @@ export type WelcomeEmailPayload = {
   verificationUrl: string;
   targetLanguage?: string | null;
   learningGoal?: string | null;
+};
+
+export type PasswordResetEmailPayload = {
+  userId: string;
+  name: string;
+  email: string;
+  resetUrl: string;
 };
 
 export async function sendWelcomeVerificationEmail(
@@ -29,6 +37,31 @@ export async function sendWelcomeVerificationEmail(
       subject: `Verify your KRIN email, ${payload.name}`,
       text: `Welcome to KRIN, ${payload.name}. Verify your email address: ${payload.verificationUrl}`,
       html: `<p>Welcome to KRIN, ${safeName}.</p><p><a href="${payload.verificationUrl}">Verify your email address</a></p>`,
+      category: "security",
+    },
+  });
+}
+
+export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload) {
+  const safeName = payload.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const resetRequestKey = createHash("sha256").update(payload.resetUrl).digest("hex");
+  await notificationService.sendEphemeralEmail({
+    userId: payload.userId,
+    type: "PASSWORD_RESET",
+    // The raw reset credential is deliberately never persisted in a
+    // notification or idempotency record.
+    idempotencyKey: `password-reset:${payload.userId}:${resetRequestKey}`,
+    title: "Reset your password",
+    message: "Use the secure link sent to your email to reset your password.",
+    entityType: "User",
+    entityId: payload.userId,
+    actionUrl: "/forgot-password",
+    payload: { userName: payload.name },
+    email: {
+      to: payload.email,
+      subject: "Reset your KRIN password",
+      text: `Hello ${payload.name}. Reset your KRIN password: ${payload.resetUrl}\n\nThis link expires in one hour. If you did not request it, you can ignore this email.`,
+      html: `<p>Hello ${safeName}.</p><p><a href="${payload.resetUrl}">Reset your KRIN password</a></p><p>This link expires in one hour. If you did not request it, you can ignore this email.</p>`,
       category: "security",
     },
   });

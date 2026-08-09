@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { addVocabularyWordDetail } from "@/modules/vocabulary/services/vocabulary.service";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ wordId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     const body = await request.json() as { kind?: "meaning" | "example" | "collocation" | "relation" };

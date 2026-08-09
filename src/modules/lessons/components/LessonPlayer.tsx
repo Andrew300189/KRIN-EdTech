@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LessonVocabularyPanel } from "@/modules/vocabulary/components/LessonVocabularyPanel";
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
@@ -9,6 +10,7 @@ import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asStringArray, type LessonBlock } from "./lesson-content";
 
 type StoredProgress = {
+  status: "STARTED" | "COMPLETED";
   completedBlocks: unknown;
   currentBlockId: string | null;
   completionPercent: number;
@@ -43,12 +45,15 @@ type Props = {
   vocabulary?: LessonWord[];
   warmUpSessionId?: string | null;
   warmUpRequired?: boolean;
+  autoUnlockNextLesson?: boolean;
 };
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
+  autoUnlockNextLesson = true,
 }: Props) {
+  const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(blocks[0]?.id ?? null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -131,6 +136,11 @@ export function LessonPlayer({
     }
     if (complete && learningSessionId.current) {
       void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
+    }
+    // The route still performs the server-side prerequisite and subscription
+    // check. Navigation only happens after progress was durably saved.
+    if (complete && payload.data.status === "COMPLETED" && autoUnlockNextLesson && nextLesson) {
+      router.push(`/courses/${courseSlug}/lessons/${nextLesson.slug}`);
     }
   }
 

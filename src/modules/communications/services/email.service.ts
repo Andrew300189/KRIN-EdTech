@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "crypto";
+import { normalizeEmail } from "@/core/server/platform-owner";
 import { prisma } from "@/core/server/prisma";
 
 export type SendEmailInput = { to: string; subject: string; text: string; html?: string | null; category?: "default" | "support" | "billing" | "security"; replyTo?: string | null };
@@ -40,7 +41,7 @@ function provider(): EmailProvider {
 }
 
 export function emailHash(email: string) {
-  return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+  return createHash("sha256").update(normalizeEmail(email)).digest("hex");
 }
 
 export async function isSuppressed(email: string) {

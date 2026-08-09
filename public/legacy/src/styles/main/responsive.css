@@ -93,6 +93,18 @@
     width: 100%;
     flex-wrap: wrap;
   }
+  .nav-search {
+    flex: 1 1 100%;
+    order: 1;
+  }
+  .nav-search input {
+    width: 100%;
+  }
+  .nav-actions .btn-primary {
+    order: 2;
+    flex: 1 1 100%;
+    justify-content: center;
+  }
   .nav-actions .btn {
     flex: 1 1 calc(50% - 0.35rem);
   }

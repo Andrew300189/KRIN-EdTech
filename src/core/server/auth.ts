@@ -11,7 +11,7 @@ export async function getCurrentUser() {
   // verified path used by /auth/complete, so this covers a NextAuth request
   // even if a legacy application-session cookie is present or expired.
   const session = await getServerSession(nextAuthOptions);
-  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const userId = session?.user.id;
   if (!userId) return null;
 
   const user = await prisma.user.findUnique({

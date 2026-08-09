@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/core/server/prisma";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const orderId = (await params).orderId;
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { user: { select: { id: true, email: true, name: true } }, items: { include: { product: true, productPrice: true } }, payments: { include: { events: true, refunds: true } }, entitlements: true, purchases: true } });

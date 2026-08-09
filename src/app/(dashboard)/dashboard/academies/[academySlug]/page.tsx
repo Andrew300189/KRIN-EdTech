@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAcademyBySlug } from "@/modules/courses/constants/learning-paths";
+import { listPublishedAcademyCourses } from "@/modules/courses/services/content.service";
 
 export default async function AcademyDetailsPage({ params }: { params: Promise<{ academySlug: string }> }) {
-  const academy = getAcademyBySlug((await params).academySlug);
+  const academySlug = (await params).academySlug;
+  const academy = getAcademyBySlug(academySlug);
   if (!academy) notFound();
+  const courses = await listPublishedAcademyCourses(academySlug);
 
   return (
     <section>
@@ -20,6 +23,7 @@ export default async function AcademyDetailsPage({ params }: { params: Promise<{
           </article>
         ))}
       </div>
+      {courses.length ? <section className="mt-10"><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Available in this academy</p><h3 className="mt-2 text-2xl font-bold text-slate-950">Published courses</h3><div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{courses.map((course) => <Link key={course.id} href={`/courses/${course.slug}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"><p className="text-xs font-semibold text-blue-700">{course.level.code} · {course.category.title}</p><h4 className="mt-2 text-lg font-bold text-slate-950">{course.title}</h4><p className="mt-2 text-sm text-slate-600">{course.shortDescription}</p></Link>)}</div></section> : null}
     </section>
   );
 }

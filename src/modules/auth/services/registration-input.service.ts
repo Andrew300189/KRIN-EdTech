@@ -1,3 +1,5 @@
+import { normalizeEmail } from "@/core/server/platform-owner";
+
 export type RegistrationInput = {
   username: string;
   email: string;
@@ -20,9 +22,7 @@ export function validateRegistrationInput(
   const username = typeof values.username === "string"
     ? values.username.trim().toLowerCase()
     : "";
-  const email = typeof values.email === "string"
-    ? values.email.trim().toLowerCase()
-    : "";
+  const email = normalizeEmail(typeof values.email === "string" ? values.email : undefined);
   const password = typeof values.password === "string" ? values.password : "";
 
   if (!username || !email || !password) {
