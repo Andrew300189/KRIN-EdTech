@@ -17,3 +17,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to create assignment." }, { status: 400 });
   }
 }
+
+export async function GET(request: NextRequest) {
+  const guard = await requirePermission("teacher:assignments", request);
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+  const { listTeacherAssignments } = await import("@/modules/teaching/services/teaching.service");
+  return NextResponse.json({ data: await listTeacherAssignments(guard.user.id) });
+}

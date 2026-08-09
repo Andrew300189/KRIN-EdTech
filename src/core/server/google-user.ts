@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import type { PrismaClient, User } from "@/generated/prisma-client-payments-runtime";
 import { hashPassword } from "@/core/server/password";
+import { normalizeEmail } from "@/core/server/platform-owner";
 import { prisma } from "@/core/server/prisma";
 
 export const GOOGLE_PROVIDER = "google";
@@ -65,7 +66,9 @@ export function getVerifiedGoogleIdentity(
   fallbackAvatar?: string | null,
 ): GoogleIdentity | null {
   const providerAccountId = profile?.sub?.trim();
-  const email = profile?.email?.trim().toLowerCase();
+  // Keep the identity that reaches Prisma and NextAuth in the same canonical
+  // form used by all owner-access checks.
+  const email = normalizeEmail(profile?.email);
 
   if (!providerAccountId || !email || profile?.email_verified !== true) {
     return null;
@@ -127,12 +130,20 @@ export async function provisionGoogleUser(
   name: string | null | undefined,
   store: GoogleUserStore = prisma.user,
 ): Promise<ProvisionedGoogleUser | null> {
+  // Keep this function safe even if a future server caller constructs an
+  // identity directly instead of going through getVerifiedGoogleIdentity.
+  const normalizedIdentity = {
+    ...identity,
+    email: normalizeEmail(identity.email),
+  };
+  if (!normalizedIdentity.email) return null;
+
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const providerUser = await store.findUnique({
       where: {
         provider_providerAccountId: {
-          provider: identity.provider,
-          providerAccountId: identity.providerAccountId,
+          provider: normalizedIdentity.provider,
+          providerAccountId: normalizedIdentity.providerAccountId,
         },
       },
     });
@@ -140,9 +151,9 @@ export async function provisionGoogleUser(
     if (providerUser) {
       if (providerUser.isBlocked || providerUser.deletedAt) return null;
 
-      if (providerUser.email !== identity.email) {
+      if (providerUser.email !== normalizedIdentity.email) {
         const emailOwner = await store.findUnique({
-          where: { email: identity.email },
+          where: { email: normalizedIdentity.email },
           select: { id: true },
         });
         if (emailOwner && emailOwner.id !== providerUser.id) return null;
@@ -151,47 +162,49 @@ export async function provisionGoogleUser(
       const updatedUser = await store.update({
         where: { id: providerUser.id },
         data: {
-          ...profileUpdateData(identity, name, providerUser),
-          email: identity.email,
+          ...profileUpdateData(normalizedIdentity, name, providerUser),
+          email: normalizedIdentity.email,
         },
       });
       return { id: updatedUser.id, role: updatedUser.role, isNewUser: false };
     }
 
-    const emailUser = await store.findUnique({ where: { email: identity.email } });
+    const emailUser = await store.findUnique({ where: { email: normalizedIdentity.email } });
     if (emailUser) {
       if (emailUser.isBlocked || emailUser.deletedAt) return null;
       if (
         emailUser.providerAccountId &&
-        (emailUser.provider !== identity.provider ||
-          emailUser.providerAccountId !== identity.providerAccountId)
+        (emailUser.provider !== normalizedIdentity.provider ||
+          emailUser.providerAccountId !== normalizedIdentity.providerAccountId)
       ) {
         return null;
       }
 
       const updatedUser = await store.update({
         where: { id: emailUser.id },
-        data: profileUpdateData(identity, name, emailUser),
+        // profileUpdateData has no passwordHash field, so a credentials
+        // password and all unrelated learner data remain intact.
+        data: profileUpdateData(normalizedIdentity, name, emailUser),
       });
       return { id: updatedUser.id, role: updatedUser.role, isNewUser: false };
     }
 
     try {
-      const username = await createUniqueUsername(store, identity.email, name);
+      const username = await createUniqueUsername(store, normalizedIdentity.email, name);
       const [fallbackFirstName, fallbackLastName] = nameParts(name);
-      const firstName = identity.firstName ?? fallbackFirstName ?? username;
-      const lastName = identity.lastName ?? fallbackLastName;
+      const firstName = normalizedIdentity.firstName ?? fallbackFirstName ?? username;
+      const lastName = normalizedIdentity.lastName ?? fallbackLastName;
       const newUser = await store.create({
         data: {
-          email: identity.email,
+          email: normalizedIdentity.email,
           username,
           name: name?.trim() || `${firstName} ${lastName ?? ""}`.trim(),
           firstName,
           lastName,
           passwordHash: hashPassword(randomBytes(48).toString("base64url")),
-          avatar: identity.avatar,
-          provider: identity.provider,
-          providerAccountId: identity.providerAccountId,
+          avatar: normalizedIdentity.avatar,
+          provider: normalizedIdentity.provider,
+          providerAccountId: normalizedIdentity.providerAccountId,
           emailVerified: true,
           role: "STUDENT",
           lastLoginAt: new Date(),

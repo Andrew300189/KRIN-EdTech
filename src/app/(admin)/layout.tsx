@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { hasAnyRole, parseRole } from "@/core/utils/role";
 import { requireAuth } from "@/core/server/session";
+import { isPlatformOwner } from "@/core/server/platform-owner";
+import { resolveDashboardByRole } from "@/core/utils/workspace-path";
 
 export default async function AdminLayout({
   children,
@@ -10,13 +11,11 @@ export default async function AdminLayout({
 }) {
   const authenticated = await requireAuth();
   if (!authenticated) {
-    redirect("/login");
+    redirect("/login?callbackUrl=/cms");
   }
 
-  const role = parseRole(authenticated.user.role);
-
-  if (!hasAnyRole(role, ["content_manager"])) {
-    redirect("/dashboard");
+  if (!isPlatformOwner(authenticated.user.email)) {
+    redirect(resolveDashboardByRole(authenticated.user.role));
   }
 
   return (

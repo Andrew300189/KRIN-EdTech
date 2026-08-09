@@ -1,14 +1,22 @@
 import { z } from "zod";
+import { isExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const cefrLevelSchema = z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]);
 export const subscriptionPlanSchema = z.enum(["FREE", "PREMIUM", "CORPORATE"]);
+export const courseAccessModeSchema = z.enum(["FREE", "SUBSCRIPTION", "ONE_TIME_PURCHASE", "TEACHER_ASSIGNMENT", "HIDDEN"]);
+export const courseTypeSchema = z.enum(["STANDARD", "INTENSIVE", "EXAM_PREP", "PROFESSIONAL", "SPECIALIZATION", "SKILL"]);
 export const lessonTypeSchema = z.enum([
+  "THEORY",
+  "PRACTICE",
   "READING",
   "LISTENING",
   "SPEAKING",
   "WRITING",
+  "TEST",
+  "PROJECT",
+  "MIXED",
   "GRAMMAR",
   "VOCABULARY",
 ]);
@@ -94,6 +102,16 @@ export const createCourseSchema = z.object({
   difficulty: z.string().trim().max(80).optional(),
   isPublished: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
+  courseType: courseTypeSchema.default("STANDARD"),
+  accessMode: courseAccessModeSchema.default("FREE"),
+  isVisibleInCatalog: z.boolean().default(true),
+  isVisibleInSearch: z.boolean().default(true),
+  isVisibleOnHomepage: z.boolean().default(false),
+  isVisibleInRecommendations: z.boolean().default(false),
+  isVisibleInLevelBlock: z.boolean().default(true),
+  isVisibleInAcademy: z.boolean().default(true),
+  isVisibleInStudentDashboard: z.boolean().default(true),
+  instructorId: z.string().cuid().optional(),
   firstFreeLessonCount: z.number().int().min(0).max(1000).default(0),
   accessPlan: subscriptionPlanSchema.default("FREE"),
   priceAmount: z.number().int().min(0).max(100000000).optional(),
@@ -121,8 +139,17 @@ export const createModuleSchema = z.object({
   title: z.string().trim().min(2).max(160),
   description: z.string().trim().max(2000).optional(),
   order: z.number().int().min(1).max(10000).optional(),
+  isRequired: z.boolean().default(true),
+  requiresSequentialCompletion: z.boolean().default(false),
+  unlockAfterModuleId: z.string().cuid().nullable().optional(),
+  requiredCompletionPercent: z.number().int().min(1).max(100).default(100),
   isPublished: z.boolean().default(false),
 });
+
+export const updateModuleSchema = createModuleSchema
+  .omit({ order: true, isPublished: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, "At least one module field is required.");
 
 export const createLessonSchema = z.object({
   title: z.string().trim().min(2).max(160),
@@ -135,9 +162,17 @@ export const createLessonSchema = z.object({
   motivationalQuote: z.string().trim().max(1000).optional(),
   learningObjectives: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
   previewText: z.string().trim().max(2000).optional(),
+  prerequisiteLessonId: z.string().cuid().nullable().optional(),
+  requiredPrerequisiteCompletion: z.number().int().min(1).max(100).default(100),
+  autoUnlockNextLesson: z.boolean().default(true),
   isPublished: z.boolean().default(false),
   isFree: z.boolean().default(false),
 });
+
+export const updateLessonSchema = createLessonSchema
+  .omit({ order: true, isPublished: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, "At least one lesson field is required.");
 
 export const createLessonBlockSchema = z.object({
   type: lessonBlockTypeSchema,
@@ -150,6 +185,8 @@ export const createLessonBlockSchema = z.object({
 
 export const createExerciseSchema = z.object({
   type: exerciseTypeSchema,
+  engineKey: z.string().trim().refine(isExerciseEngineKey, "Unsupported exercise engine").optional(),
+  variantKey: z.string().trim().regex(slugPattern).max(120).optional(),
   instruction: z.string().trim().min(1).max(2000),
   question: z.string().trim().min(1).max(5000),
   content: jsonValueSchema.optional(),
@@ -157,6 +194,7 @@ export const createExerciseSchema = z.object({
   alternativeAnswers: z.array(jsonValueSchema).max(50).optional(),
   explanation: z.string().trim().max(5000).optional(),
   hint: z.string().trim().max(2000).optional(),
+  hintsEnabled: z.boolean().default(true),
   difficulty: z.number().int().min(1).max(10).default(1),
   basePoints: z.number().int().min(0).max(1000).default(1),
   timeLimitSeconds: z.number().int().min(1).max(86400).optional(),
@@ -165,6 +203,15 @@ export const createExerciseSchema = z.object({
   allowExtraExercise: z.boolean().default(false),
   order: z.number().int().min(1).max(10000).optional(),
 });
+
+export const updateExerciseSchema = createExerciseSchema
+  .omit({ order: true })
+  .partial()
+  .extend({
+    // `null` intentionally clears a previously configured limit in the CMS editor.
+    timeLimitSeconds: z.number().int().min(1).max(86400).nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "At least one exercise field is required.");
 
 export const submitExerciseSchema = z.object({
   answer: jsonValueSchema,
@@ -217,6 +264,9 @@ export const addUserWordSchema = z.union([
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type CreateCourseCategoryInput = z.infer<typeof createCourseCategorySchema>;
 export type CreateModuleInput = z.infer<typeof createModuleSchema>;
+export type UpdateModuleInput = z.infer<typeof updateModuleSchema>;
 export type CreateLessonInput = z.infer<typeof createLessonSchema>;
+export type UpdateLessonInput = z.infer<typeof updateLessonSchema>;
 export type CreateLessonBlockInput = z.infer<typeof createLessonBlockSchema>;
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
+export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;

@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { Prisma, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
+import { Prisma, type CourseAccessMode, type CourseType, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import {
   addUserWordSchema,
@@ -9,6 +9,7 @@ import {
   type CreateLessonBlockInput,
   type CreateLessonInput,
   type CreateModuleInput,
+  type UpdateModuleInput,
   createGrammarTopicSchema,
   createWordSchema,
   type JsonValue,
@@ -22,6 +23,10 @@ import { canAccessLesson } from "@/modules/courses/services/lesson-access.servic
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
+import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
+import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
+import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
+import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 
 function slugify(value: string) {
   return value
@@ -78,7 +83,61 @@ export async function listPublishedLanguageLevels() {
   return prisma.languageLevel.findMany({
     where: { isPublished: true },
     orderBy: { order: "asc" },
-    include: { _count: { select: { courses: { where: { isPublished: true, category: { isPublished: true } } } } } },
+    include: { _count: { select: { courses: { where: { isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, isVisibleInLevelBlock: true, category: { isPublished: true } } } } } },
+  });
+}
+
+/** Owner-selected curriculum entries rendered below the legacy landing content. */
+export async function listHomepageCurriculumNodes() {
+  return prisma.curriculumNode.findMany({
+    where: { contentStatus: "PUBLISHED", showOnHomepage: true, level: { isPublished: true } },
+    orderBy: [{ level: { order: "asc" } }, { order: "asc" }],
+    take: 12,
+    select: {
+      id: true,
+      type: true,
+      slug: true,
+      title: true,
+      description: true,
+      level: { select: { code: true, title: true } },
+      parent: {
+        select: {
+          type: true,
+          slug: true,
+          parent: { select: { type: true, slug: true } },
+        },
+      },
+    },
+  });
+}
+
+/** Courses explicitly selected by the owner for the homepage feature area. */
+export async function listHomepageCourses() {
+  return prisma.course.findMany({
+    where: { isPublished: true, isTemplate: false, isVisibleOnHomepage: true, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
+    orderBy: [{ isFeatured: "desc" }, { order: "asc" }, { createdAt: "desc" }],
+    take: 6,
+    select: { id: true, slug: true, title: true, shortDescription: true, coverImage: true, accessPlan: true, level: { select: { code: true } }, category: { select: { title: true } } },
+  });
+}
+
+/** Discovery-only recommendations; entitlement checks still happen at lesson access time. */
+export async function listStudentDashboardRecommendations() {
+  return prisma.course.findMany({
+    where: { isPublished: true, isTemplate: false, isVisibleInStudentDashboard: true, isVisibleInRecommendations: true, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
+    orderBy: [{ isFeatured: "desc" }, { updatedAt: "desc" }],
+    take: 3,
+    select: { id: true, slug: true, title: true, shortDescription: true, accessPlan: true, level: { select: { code: true } } },
+  });
+}
+
+/** Visible courses for a legacy academy path, managed by the canonical Course row. */
+export async function listPublishedAcademyCourses(academySlug: string) {
+  return prisma.course.findMany({
+    where: { isPublished: true, isTemplate: false, isVisibleInAcademy: true, accessMode: { not: "HIDDEN" }, academySlug, level: { isPublished: true }, category: { isPublished: true } },
+    orderBy: [{ isFeatured: "desc" }, { order: "asc" }],
+    take: 24,
+    select: { id: true, slug: true, title: true, shortDescription: true, accessPlan: true, level: { select: { code: true } }, category: { select: { title: true } } },
   });
 }
 
@@ -87,8 +146,8 @@ export async function getPublishedLevelWithCourses(code: string) {
     where: { code: code.toUpperCase() as never, isPublished: true },
     include: {
       courses: {
-        where: { isPublished: true, category: { isPublished: true } },
-        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+        where: { isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, isVisibleInLevelBlock: true, category: { isPublished: true } },
+        orderBy: [{ isFeatured: "desc" }, { order: "asc" }, { createdAt: "desc" }],
         select: {
           slug: true,
           title: true,
@@ -105,6 +164,98 @@ export async function getPublishedLevelWithCourses(code: string) {
   });
 }
 
+type PublishedCurriculumPageInput = {
+  levelCode: string;
+  sectionSlug: string;
+  topicSlug?: string;
+  subtopicSlug?: string;
+};
+
+/**
+ * Resolves a public curriculum path and its exact descendant course scope.
+ * It intentionally never falls back to the level catalogue: an invalid topic
+ * URL is a 404, and a valid topic only receives its own linked courses.
+ */
+async function getPublishedCurriculumPage(input: PublishedCurriculumPageInput) {
+  const level = await prisma.languageLevel.findFirst({
+    where: { code: input.levelCode.toUpperCase() as never, isPublished: true },
+    select: { id: true, code: true, title: true, description: true },
+  });
+  if (!level) return null;
+
+  const nodes = await prisma.curriculumNode.findMany({
+    where: { levelId: level.id, contentStatus: "PUBLISHED" },
+    orderBy: [{ order: "asc" }, { title: "asc" }],
+    select: { id: true, parentId: true, type: true, slug: true, title: true, description: true, order: true },
+  });
+  const section = nodes.find((node) => node.type === "SECTION" && !node.parentId && node.slug === input.sectionSlug);
+  if (!section) return null;
+
+  let target = section;
+  if (input.topicSlug) {
+    const topic = nodes.find((node) => node.type === "TOPIC" && node.parentId === section.id && node.slug === input.topicSlug);
+    if (!topic) return null;
+    target = topic;
+  }
+  if (input.subtopicSlug) {
+    if (!input.topicSlug) return null;
+    const subtopic = nodes.find((node) => node.type === "SUBTOPIC" && node.parentId === target.id && node.slug === input.subtopicSlug);
+    if (!subtopic) return null;
+    target = subtopic;
+  }
+
+  const descendantIds = collectCurriculumDescendantIds(nodes, target.id);
+  const courses = await prisma.course.findMany({
+    where: {
+      levelId: level.id,
+      isPublished: true,
+      isTemplate: false,
+      accessMode: { not: "HIDDEN" },
+      category: { isPublished: true },
+      curriculumLinks: { some: { nodeId: { in: descendantIds } } },
+    },
+    orderBy: [{ isFeatured: "desc" }, { order: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      shortDescription: true,
+      lessonCount: true,
+      estimatedDuration: true,
+      accessPlan: true,
+      category: { select: { title: true } },
+    },
+  });
+
+  const ancestors = [section];
+  if (target.type === "TOPIC") ancestors.push(target);
+  if (target.type === "SUBTOPIC") {
+    const topic = nodes.find((node) => node.id === target.parentId);
+    if (!topic || topic.type !== "TOPIC") return null;
+    ancestors.push(topic, target);
+  }
+
+  return {
+    level,
+    node: target,
+    breadcrumbs: ancestors,
+    childNodes: nodes.filter((node) => node.parentId === target.id),
+    courses,
+  };
+}
+
+export async function getPublishedCurriculumSectionPage(levelCode: string, sectionSlug: string) {
+  return getPublishedCurriculumPage({ levelCode, sectionSlug });
+}
+
+export async function getPublishedCurriculumTopicPage(levelCode: string, sectionSlug: string, topicSlug: string) {
+  return getPublishedCurriculumPage({ levelCode, sectionSlug, topicSlug });
+}
+
+export async function getPublishedCurriculumSubtopicPage(levelCode: string, sectionSlug: string, topicSlug: string, subtopicSlug: string) {
+  return getPublishedCurriculumPage({ levelCode, sectionSlug, topicSlug, subtopicSlug });
+}
+
 export type CourseCatalogFilters = {
   query?: string;
   levelCode?: string;
@@ -119,6 +270,9 @@ function publishedCourseWhere(filters: CourseCatalogFilters): Prisma.CourseWhere
   const query = filters.query?.trim();
   return {
     isPublished: true,
+    isTemplate: false,
+    accessMode: { not: "HIDDEN" },
+    isVisibleInCatalog: true,
     level: { isPublished: true, ...(filters.levelCode ? { code: filters.levelCode.toUpperCase() as never } : {}) },
     ...(filters.categorySlug ? { category: { slug: filters.categorySlug, isPublished: true } } : { category: { isPublished: true } }),
     ...(filters.accessPlan ? { accessPlan: filters.accessPlan } : {}),
@@ -127,6 +281,7 @@ function publishedCourseWhere(filters: CourseCatalogFilters): Prisma.CourseWhere
         { title: { contains: query, mode: "insensitive" } },
         { shortDescription: { contains: query, mode: "insensitive" } },
         { category: { title: { contains: query, mode: "insensitive" } } },
+        { curriculumLinks: { some: { node: { contentStatus: "PUBLISHED", showInSearch: true, OR: [{ title: { contains: query, mode: "insensitive" } }, { slug: { contains: query, mode: "insensitive" } }, { description: { contains: query, mode: "insensitive" } }] } } } },
       ],
     } : {}),
   };
@@ -137,7 +292,7 @@ export async function listPublishedCourseCategories() {
     where: { isPublished: true },
     orderBy: { order: "asc" },
     include: {
-      _count: { select: { courses: { where: { isPublished: true, level: { isPublished: true } } } } },
+      _count: { select: { courses: { where: { isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, isVisibleInCatalog: true, level: { isPublished: true } } } } },
     },
   });
 }
@@ -163,9 +318,12 @@ export async function createCourseCategory(actorId: string, input: CreateCourseC
       coverImage: nullableText(input.coverImage),
       order,
       isPublished: input.isPublished,
+      contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
+      publishedAt: input.isPublished ? new Date() : null,
     },
   });
   await writeContentAudit(actorId, "CREATE", "CourseCategory", category.id, { slug: category.slug });
+  await recordCmsContentVersion({ actorId, entityType: "COURSE_CATEGORY", entityId: category.id, action: "CREATED", snapshot: category });
   return category;
 }
 
@@ -179,10 +337,11 @@ export async function updateCourseCategory(actorId: string, categoryId: string, 
       ...(input.icon !== undefined ? { icon: nullableText(input.icon) } : {}),
       ...(input.coverImage !== undefined ? { coverImage: nullableText(input.coverImage) } : {}),
       ...(input.order !== undefined ? { order: input.order } : {}),
-      ...(input.isPublished !== undefined ? { isPublished: input.isPublished } : {}),
+      ...(input.isPublished !== undefined ? { isPublished: input.isPublished, contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT", publishedAt: input.isPublished ? new Date() : null, scheduledAt: null, archivedAt: null } : {}),
     },
   });
   await writeContentAudit(actorId, "UPDATE", "CourseCategory", category.id, { slug: category.slug });
+  await recordCmsContentVersion({ actorId, entityType: "COURSE_CATEGORY", entityId: category.id, action: "UPDATED", snapshot: category });
   return category;
 }
 
@@ -191,8 +350,8 @@ export async function getPublishedCourseCategoryBySlug(slug: string) {
     where: { slug, isPublished: true },
     include: {
       courses: {
-        where: { isPublished: true, level: { isPublished: true } },
-        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
+        where: { isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, isVisibleInCatalog: true, level: { isPublished: true } },
+        orderBy: [{ isFeatured: "desc" }, { order: "asc" }, { createdAt: "desc" }],
         include: { level: { select: { code: true, title: true } } },
       },
     },
@@ -204,7 +363,7 @@ export async function listPublishedCourses(filters: CourseCatalogFilters = {}) {
     ? [{ title: "asc" as const }]
     : filters.sort === "duration"
       ? [{ estimatedDuration: "asc" as const }, { title: "asc" as const }]
-      : [{ isFeatured: "desc" as const }, { createdAt: "desc" as const }];
+      : [{ isFeatured: "desc" as const }, { order: "asc" as const }, { createdAt: "desc" as const }];
 
   return prisma.course.findMany({
     where: publishedCourseWhere(filters),
@@ -224,7 +383,7 @@ export async function countPublishedCourses(filters: CourseCatalogFilters = {}) 
 
 export async function getPublishedCourseBySlug(slug: string) {
   return prisma.course.findFirst({
-    where: { slug, isPublished: true, level: { isPublished: true }, category: { isPublished: true } },
+    where: { slug, isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
     include: {
       level: { select: { code: true, title: true } },
       category: { select: { slug: true, title: true, description: true, icon: true } },
@@ -256,7 +415,7 @@ export async function getPublishedModuleById(courseSlug: string, moduleId: strin
     where: {
       id: moduleId,
       isPublished: true,
-      course: { slug: courseSlug, isPublished: true, level: { isPublished: true }, category: { isPublished: true } },
+      course: { slug: courseSlug, isPublished: true, isTemplate: false, level: { isPublished: true }, category: { isPublished: true } },
     },
     include: {
       course: { select: { title: true, slug: true, accessPlan: true } },
@@ -284,7 +443,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
       isPublished: true,
       module: {
         isPublished: true,
-        course: { slug: courseSlug, isPublished: true, level: { isPublished: true }, category: { isPublished: true } },
+        course: { slug: courseSlug, isPublished: true, isTemplate: false, level: { isPublished: true }, category: { isPublished: true } },
       },
     },
     include: {
@@ -299,6 +458,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
         },
       },
       blocks: {
+        where: { contentStatus: "PUBLISHED" },
         orderBy: { order: "asc" },
         select: {
           id: true,
@@ -309,15 +469,19 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
           order: true,
           isRequired: true,
           exercises: {
+            where: { contentStatus: "PUBLISHED" },
             orderBy: { order: "asc" },
             select: {
               id: true,
               type: true,
+              engineKey: true,
+              variantKey: true,
               instruction: true,
               question: true,
               content: true,
               explanation: true,
               hint: true,
+              hintsEnabled: true,
               basePoints: true,
               timeLimitSeconds: true,
               allowInstantCheck: true,
@@ -352,7 +516,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
 
 export async function listManagedCourses() {
   return prisma.course.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ level: { order: "asc" } }, { category: { order: "asc" } }, { order: "asc" }],
     include: {
       level: { select: { code: true, title: true } },
       category: { select: { slug: true, title: true } },
@@ -367,11 +531,16 @@ export async function getManagedCourse(courseId: string) {
     where: { id: courseId },
     include: {
       level: true,
+      category: { select: { slug: true, title: true } },
+      curriculumLinks: {
+        orderBy: [{ relation: "asc" }, { createdAt: "asc" }],
+        include: { node: { select: { id: true, type: true, slug: true, title: true, contentStatus: true } } },
+      },
       modules: {
         orderBy: { order: "asc" },
         include: {
           _count: { select: { lessons: true } },
-          lessons: { orderBy: { order: "asc" }, select: { id: true, title: true, order: true, isPublished: true } },
+          lessons: { orderBy: { order: "asc" }, select: { id: true, title: true, order: true, contentStatus: true } },
         },
       },
     },
@@ -383,6 +552,14 @@ export async function createCourse(ownerId: string, input: CreateCourseInput) {
   if (!level) throw new Error("Language level not found");
   const category = await prisma.courseCategory.findUnique({ where: { slug: input.categorySlug } });
   if (!category) throw new Error("Course category not found");
+  const instructorId = input.instructorId ?? ownerId;
+  const instructor = await prisma.user.findUnique({ where: { id: instructorId }, select: { id: true } });
+  if (!instructor) throw new Error("Course author not found");
+  const lastCourse = await prisma.course.findFirst({
+    where: { levelId: level.id, categoryId: category.id },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
 
   const slug = await nextCourseSlug(input.slug ?? slugify(input.title));
   const course = await prisma.course.create({
@@ -395,11 +572,23 @@ export async function createCourse(ownerId: string, input: CreateCourseInput) {
       fullDescription: nullableText(input.fullDescription),
       coverImage: nullableText(input.coverImage),
       trailerVideoUrl: nullableText(input.trailerVideoUrl),
+      order: (lastCourse?.order ?? 0) + 1,
       language: input.language,
       estimatedDuration: input.estimatedDuration,
       difficulty: nullableText(input.difficulty),
       isPublished: input.isPublished,
+      contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
+      publishedAt: input.isPublished ? new Date() : null,
       isFeatured: input.isFeatured,
+      courseType: input.courseType as CourseType,
+      accessMode: input.accessMode as CourseAccessMode,
+      isVisibleInCatalog: input.isVisibleInCatalog,
+      isVisibleInSearch: input.isVisibleInSearch,
+      isVisibleOnHomepage: input.isVisibleOnHomepage,
+      isVisibleInRecommendations: input.isVisibleInRecommendations,
+      isVisibleInLevelBlock: input.isVisibleInLevelBlock,
+      isVisibleInAcademy: input.isVisibleInAcademy,
+      isVisibleInStudentDashboard: input.isVisibleInStudentDashboard,
       firstFreeLessonCount: input.firstFreeLessonCount,
       accessPlan: input.accessPlan as SubscriptionPlan,
       priceAmount: input.priceAmount,
@@ -407,10 +596,13 @@ export async function createCourse(ownerId: string, input: CreateCourseInput) {
       learningOutcomes: input.learningOutcomes as Prisma.InputJsonValue,
       prerequisites: input.prerequisites as Prisma.InputJsonValue,
       legacyLevel: toLegacyLevel(input.levelCode),
-      instructorId: ownerId,
+      instructorId,
+      createdById: ownerId,
+      updatedById: ownerId,
     },
   });
   await writeContentAudit(ownerId, "CREATE", "Course", course.id, { slug: course.slug });
+  await recordCmsContentVersion({ actorId: ownerId, entityType: "COURSE", entityId: course.id, action: "CREATED", snapshot: course });
   return course;
 }
 
@@ -427,6 +619,10 @@ export async function updateCourse(
     ? (await prisma.courseCategory.findUnique({ where: { slug: input.categorySlug } }))?.id
     : undefined;
   if (input.categorySlug && !categoryId) throw new Error("Course category not found");
+  if (input.instructorId) {
+    const instructor = await prisma.user.findUnique({ where: { id: input.instructorId }, select: { id: true } });
+    if (!instructor) throw new Error("Course author not found");
+  }
 
   const data: Prisma.CourseUpdateInput = {
     ...(levelId ? { level: { connect: { id: levelId } }, legacyLevel: toLegacyLevel(input.levelCode!) } : {}),
@@ -440,8 +636,19 @@ export async function updateCourse(
     ...(input.language ? { language: input.language } : {}),
     ...(input.estimatedDuration !== undefined ? { estimatedDuration: input.estimatedDuration } : {}),
     ...(input.difficulty !== undefined ? { difficulty: nullableText(input.difficulty) } : {}),
-    ...(input.isPublished !== undefined ? { isPublished: input.isPublished } : {}),
+    ...(input.isPublished !== undefined ? { isPublished: input.isPublished, contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT", publishedAt: input.isPublished ? new Date() : null, scheduledAt: null, archivedAt: null } : {}),
     ...(input.isFeatured !== undefined ? { isFeatured: input.isFeatured } : {}),
+    ...(input.courseType ? { courseType: input.courseType as CourseType } : {}),
+    ...(input.accessMode ? { accessMode: input.accessMode as CourseAccessMode } : {}),
+    ...(input.isVisibleInCatalog !== undefined ? { isVisibleInCatalog: input.isVisibleInCatalog } : {}),
+    ...(input.isVisibleInSearch !== undefined ? { isVisibleInSearch: input.isVisibleInSearch } : {}),
+    ...(input.isVisibleOnHomepage !== undefined ? { isVisibleOnHomepage: input.isVisibleOnHomepage } : {}),
+    ...(input.isVisibleInRecommendations !== undefined ? { isVisibleInRecommendations: input.isVisibleInRecommendations } : {}),
+    ...(input.isVisibleInLevelBlock !== undefined ? { isVisibleInLevelBlock: input.isVisibleInLevelBlock } : {}),
+    ...(input.isVisibleInAcademy !== undefined ? { isVisibleInAcademy: input.isVisibleInAcademy } : {}),
+    ...(input.isVisibleInStudentDashboard !== undefined ? { isVisibleInStudentDashboard: input.isVisibleInStudentDashboard } : {}),
+    ...(input.instructorId ? { instructor: { connect: { id: input.instructorId } } } : {}),
+    updatedBy: { connect: { id: actorId } },
     ...(input.firstFreeLessonCount !== undefined ? { firstFreeLessonCount: input.firstFreeLessonCount } : {}),
     ...(input.accessPlan ? { accessPlan: input.accessPlan as SubscriptionPlan } : {}),
     ...(input.priceAmount !== undefined ? { priceAmount: input.priceAmount } : {}),
@@ -451,6 +658,7 @@ export async function updateCourse(
   };
   const course = await prisma.course.update({ where: { id: courseId }, data });
   await writeContentAudit(actorId, "UPDATE", "Course", course.id, { slug: course.slug });
+  await recordCmsContentVersion({ actorId, entityType: "COURSE", entityId: course.id, action: "UPDATED", snapshot: course });
   return course;
 }
 
@@ -464,9 +672,32 @@ export async function createCourseModule(
     input.order,
   );
   const courseModule = await prisma.courseModule.create({
-    data: { courseId, title: input.title, description: nullableText(input.description), order, isPublished: input.isPublished },
+    data: {
+      courseId,
+      title: input.title,
+      description: nullableText(input.description),
+      order,
+      isPublished: input.isPublished,
+      contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
+      publishedAt: input.isPublished ? new Date() : null,
+    },
   });
   await writeContentAudit(actorId, "CREATE", "CourseModule", courseModule.id, { courseId });
+  await recordCmsContentVersion({ actorId, entityType: "COURSE_MODULE", entityId: courseModule.id, action: "CREATED", snapshot: courseModule });
+  return courseModule;
+}
+
+/** Modules are the editable subcourses inside a course. Removal is handled by the CMS archive lifecycle. */
+export async function updateCourseModule(actorId: string, moduleId: string, input: UpdateModuleInput) {
+  const courseModule = await prisma.courseModule.update({
+    where: { id: moduleId },
+    data: {
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: nullableText(input.description) } : {}),
+    },
+  });
+  await writeContentAudit(actorId, "UPDATE", "CourseModule", courseModule.id, { courseId: courseModule.courseId });
+  await recordCmsContentVersion({ actorId, entityType: "COURSE_MODULE", entityId: courseModule.id, action: "UPDATED", snapshot: courseModule });
   return courseModule;
 }
 
@@ -481,6 +712,11 @@ export async function createLesson(
     () => prisma.lesson.findFirst({ where: { moduleId }, orderBy: { order: "desc" }, select: { order: true } }),
     input.order,
   );
+  if (input.prerequisiteLessonId) {
+    const prerequisite = await prisma.lesson.findUnique({ where: { id: input.prerequisiteLessonId }, select: { moduleId: true, order: true } });
+    if (!prerequisite || prerequisite.moduleId !== moduleId) throw new Error("A lesson prerequisite must belong to the same module.");
+    if (prerequisite.order >= order) throw new Error("A lesson must remain after its prerequisite.");
+  }
   const slug = await nextLessonSlug(input.slug ?? slugify(input.title));
   const lesson = await prisma.$transaction(async (tx) => {
     const created = await tx.lesson.create({
@@ -496,7 +732,12 @@ export async function createLesson(
         motivationalQuote: nullableText(input.motivationalQuote),
         learningObjectives: input.learningObjectives as Prisma.InputJsonValue,
         previewText: nullableText(input.previewText),
+        prerequisiteLessonId: input.prerequisiteLessonId ?? null,
+        requiredPrerequisiteCompletion: input.requiredPrerequisiteCompletion,
+        autoUnlockNextLesson: input.autoUnlockNextLesson,
         isPublished: input.isPublished,
+        contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
+        publishedAt: input.isPublished ? new Date() : null,
         isFree: input.isFree,
       },
     });
@@ -504,6 +745,7 @@ export async function createLesson(
     return created;
   });
   await writeContentAudit(actorId, "CREATE", "Lesson", lesson.id, { moduleId });
+  await recordCmsContentVersion({ actorId, entityType: "LESSON", entityId: lesson.id, action: "CREATED", snapshot: lesson });
   return lesson;
 }
 
@@ -528,6 +770,7 @@ export async function createLessonBlock(
     },
   });
   await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId, type: block.type });
+  await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
   return block;
 }
 
@@ -543,10 +786,24 @@ export async function createExercise(
     () => prisma.exercise.findFirst({ where: { lessonBlockId }, orderBy: { order: "desc" }, select: { order: true } }),
     input.order,
   );
+  const engineKey = resolveExerciseEngineKey(input.engineKey, input.type);
+  const variantKey = nullableText(input.variantKey) ?? getDefaultExerciseSubtype(engineKey);
+  const configurationIssues = validateExerciseConfiguration({
+    type: input.type,
+    engineKey,
+    variantKey,
+    instruction: input.instruction,
+    question: input.question,
+    content: input.content,
+    correctAnswer: input.correctAnswer,
+  });
+  if (configurationIssues.length) throw new Error(configurationIssues.join(" "));
   const exercise = await prisma.exercise.create({
     data: {
       lessonBlockId,
       type: input.type,
+      engineKey,
+      variantKey,
       instruction: input.instruction,
       question: input.question,
       content: toPrismaJson(input.content),
@@ -554,6 +811,7 @@ export async function createExercise(
       alternativeAnswers: input.alternativeAnswers ? (input.alternativeAnswers as Prisma.InputJsonValue) : undefined,
       explanation: nullableText(input.explanation),
       hint: nullableText(input.hint),
+      hintsEnabled: input.hintsEnabled,
       difficulty: input.difficulty,
       basePoints: input.basePoints,
       timeLimitSeconds: input.timeLimitSeconds,
@@ -564,6 +822,7 @@ export async function createExercise(
     },
   });
   await writeContentAudit(actorId, "CREATE", "Exercise", exercise.id, { lessonBlockId, type: exercise.type });
+  await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: exercise.id, action: "CREATED", snapshot: exercise });
   return exercise;
 }
 
@@ -581,6 +840,8 @@ export async function createWord(actorId: string, input: unknown) {
       normalizedLemma,
       partOfSpeech: value.partOfSpeech,
       cefrLevel: value.cefrLevel,
+      contentStatus: "PUBLISHED",
+      publishedAt: new Date(),
       britishTranscription: nullableText(value.britishTranscription),
       americanTranscription: nullableText(value.americanTranscription),
       meanings: { create: value.meanings.map((meaning, index) => ({ ...meaning, order: index + 1 })) },
@@ -588,6 +849,7 @@ export async function createWord(actorId: string, input: unknown) {
     include: { meanings: true },
   });
   await writeContentAudit(actorId, "CREATE", "Word", word.id, { lemma: word.lemma });
+  await recordCmsContentVersion({ actorId, entityType: "WORD", entityId: word.id, action: "CREATED", snapshot: word });
   return word;
 }
 
@@ -595,9 +857,10 @@ export async function createGrammarTopic(actorId: string, input: unknown) {
   const value = createGrammarTopicSchema.parse(input);
   const slug = value.slug ?? slugify(value.title);
   const topic = await prisma.grammarTopic.create({
-    data: { ...value, slug },
+    data: { ...value, slug, contentStatus: "PUBLISHED", publishedAt: new Date() },
   });
   await writeContentAudit(actorId, "CREATE", "GrammarTopic", topic.id, { slug: topic.slug });
+  await recordCmsContentVersion({ actorId, entityType: "GRAMMAR_TOPIC", entityId: topic.id, action: "CREATED", snapshot: topic });
   return topic;
 }
 

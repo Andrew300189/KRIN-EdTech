@@ -27,6 +27,7 @@ export type LearnerCourseCard = {
   completedLessons: number;
   totalLessons: number;
   source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "INSTRUCTOR" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
+  canRemove: boolean;
   nextLesson: { slug: string; title: string } | null;
 };
 
@@ -60,26 +61,35 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     accessStartsAt: { lte: now },
     OR: [{ accessEndsAt: null }, { accessEndsAt: { gt: now } }],
   };
-  const accessConditions: Prisma.CourseWhereInput[] = [
+  const libraryAccess: Prisma.CourseWhereInput = { studentCourses: { some: { studentId: userId, status: "ACTIVE" } } };
+  const externalAccessConditions: Prisma.CourseWhereInput[] = [
     { instructorId: userId },
     { students: { some: { id: userId } } },
     { coursePurchases: { some: purchaseAccess } },
     { entitlements: { some: directEntitlement } },
-    { studentCourses: { some: { studentId: userId, status: "ACTIVE" } } },
     { modules: { some: { entitlements: { some: directEntitlement } } } },
     { modules: { some: { lessons: { some: { progress: { some: { userId } } } } } } },
   ];
 
   if (subscriptionPlans.length > 0) {
-    accessConditions.push({ accessPlan: { in: subscriptionPlans } });
+    externalAccessConditions.push({ accessPlan: { in: subscriptionPlans } });
   }
 
   const courses = await prisma.course.findMany({
     where: {
       isPublished: true,
+      isTemplate: false,
       level: { isPublished: true },
       category: { isPublished: true },
-      OR: accessConditions,
+      OR: [
+        libraryAccess,
+        {
+          AND: [
+            { studentCourses: { none: { studentId: userId, status: "ARCHIVED" } } },
+            { OR: externalAccessConditions },
+          ],
+        },
+      ],
     },
     orderBy: [{ updatedAt: "desc" }, { title: "asc" }],
     select: {
@@ -94,11 +104,12 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       students: { where: { id: userId }, select: { id: true } },
       coursePurchases: { where: purchaseAccess, select: { id: true } },
       entitlements: { where: directEntitlement, select: { id: true } },
-      studentCourses: { where: { studentId: userId, status: "ACTIVE" }, select: { sourceType: true } },
+      studentCourses: { where: { studentId: userId, status: "ACTIVE" }, select: { id: true, sourceType: true, sourceId: true } },
       modules: {
         where: { isPublished: true },
         orderBy: { order: "asc" },
         select: {
+          isRequired: true,
           entitlements: { where: directEntitlement, select: { id: true } },
           lessons: {
             where: { isPublished: true },
@@ -118,9 +129,11 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
   });
 
   return courses.map((course) => {
-    const lessons = course.modules.flatMap((module) => module.lessons);
-    const progressEntries = lessons.map((lesson) => lesson.progress[0]);
-    const totalLessons = lessons.length;
+    const lessons = course.modules.flatMap((courseModule) => courseModule.lessons);
+    const requiredModules = course.modules.filter((courseModule) => courseModule.isRequired);
+    const requiredLessons = requiredModules.length ? requiredModules.flatMap((courseModule) => courseModule.lessons) : lessons;
+    const progressEntries = requiredLessons.map((lesson) => lesson.progress[0]);
+    const totalLessons = requiredLessons.length;
     const completedLessons = progressEntries.filter(
       (progress) => progress?.status === "COMPLETED",
     ).length;
@@ -138,7 +151,8 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     const hasModuleEntitlement = course.modules.some(
       (module) => module.entitlements.length > 0,
     );
-    const librarySource = course.studentCourses[0]?.sourceType;
+    const libraryEntry = course.studentCourses[0];
+    const librarySource = libraryEntry?.sourceType;
     const source = course.instructorId === userId
       ? "INSTRUCTOR"
       : librarySource === "GROUP_ASSIGNED"
@@ -167,6 +181,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       completedLessons,
       totalLessons,
       source,
+      canRemove: Boolean(libraryEntry),
       nextLesson: nextLesson
         ? { slug: nextLesson.slug, title: nextLesson.title }
         : null,

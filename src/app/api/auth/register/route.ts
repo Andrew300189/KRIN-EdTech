@@ -4,6 +4,7 @@ import { prisma } from "@/core/server/prisma";
 import { hashPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 import { sendWelcomeVerificationEmail } from "@/core/server/email";
+import { resolvePostAuthDestination } from "@/core/utils/workspace-path";
 import {
   isUniqueConstraintError,
   validateRegistrationInput,
@@ -122,6 +123,8 @@ export async function POST(request: NextRequest) {
           username: user.username,
           email: user.email,
           name: user.name,
+          role: user.role.toLowerCase(),
+          workspacePath: resolvePostAuthDestination(user.email, user.role),
         },
       },
       { status: 201 },

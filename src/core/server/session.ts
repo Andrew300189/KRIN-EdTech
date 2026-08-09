@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies, headers as getRequestHeaders } from "next/headers";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { normalizeEmail } from "@/core/server/platform-owner";
 import { prisma } from "@/core/server/prisma";
 import { SESSION_CONFIG } from "@/core/constants/session";
 
@@ -65,6 +66,8 @@ function decodePayload(payloadBase64: string) {
     return JSON.parse(Buffer.from(payloadBase64, "base64url").toString("utf8")) as {
       userId: string;
       sessionId?: string;
+      email?: string;
+      role?: string;
       nonce: string;
       exp: number;
     };
@@ -104,11 +107,20 @@ async function getNextAuthValidatedSession(
 ): Promise<ValidatedSession | null> {
   try {
     const headers = requestHeaders ?? (await getRequestHeaders());
+    // NextAuth v4's JWT reader uses req.cookies to assemble the session token;
+    // a headers-only request shape silently yields null in Server Components.
+    // Supplying the framework cookie store keeps Google JWT sessions available
+    // to requireAuth(), CMS pages and API routes after OAuth completes.
+    const requestCookies = await cookies();
     const token = await getToken({
-      req: { headers } as NextRequest,
+      req: { headers, cookies: requestCookies } as unknown as NextRequest,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    const userId = typeof token?.sub === "string" ? token.sub : null;
+    const userId = typeof token?.userId === "string"
+      ? token.userId
+      : typeof token?.sub === "string"
+        ? token.sub
+        : null;
     return userId ? { userId, sessionId: `nextauth:${userId}` } : null;
   } catch {
     return null;
@@ -138,6 +150,11 @@ export async function createSession(
     select: { id: true },
   });
 
+  const userClaims = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, role: true },
+  });
+
   if (MAX_ACTIVE_SESSIONS_PER_USER > 0) {
     const activeSessions = await prisma.session.findMany({
       where: {
@@ -165,6 +182,8 @@ export async function createSession(
   const payload = {
     userId,
     sessionId: session.id,
+    email: normalizeEmail(userClaims?.email),
+    role: userClaims?.role?.toLowerCase(),
     nonce: randomBytes(8).toString("hex"),
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
   };

@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { lessonVocabularyLinkSchema } from "@/modules/vocabulary/schemas/vocabulary.schemas";
 import { linkWordToLesson, listLessonVocabulary } from "@/modules/vocabulary/services/vocabulary.service";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   return NextResponse.json({ data: await listLessonVocabulary((await params).lessonId) });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ lessonId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     const value = lessonVocabularyLinkSchema.parse(await request.json());

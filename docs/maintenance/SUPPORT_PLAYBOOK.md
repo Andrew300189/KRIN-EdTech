@@ -69,3 +69,38 @@ Update docs when needed:
 - AI features: `ai/`, `src/modules/ai`
 - Platform/shared: `src/core/`, `components/`, `layouts/`
 - Data/infra: `database/`, CI files
+
+## 8. Search Analytics Operations
+
+Weekly retention policy:
+
+- Workflow: `.github/workflows/search-analytics-ops.yml`
+- Schedule: every Monday at 04:00 UTC
+- Dry-run command: `npm run search:analytics:cleanup:dry`
+- Cleanup command: `npm run search:analytics:cleanup`
+
+Required repository secrets:
+
+- `PROD_DATABASE_URL`: production database URL for retention cleanup
+- `E2E_ADMIN_EMAIL`: admin account for search analytics e2e
+- `E2E_ADMIN_PASSWORD`: admin password for search analytics e2e
+
+Verification routine:
+
+- Confirm workflow run status is `success`
+- Save dry-run output summary (threshold and affected rows)
+- Save cleanup output summary (deleted rows)
+- Attach the run URL to release notes or ops journal
+
+Bootstrap commands (repository admin):
+
+- `gh secret set PROD_DATABASE_URL --body "<production database url>"`
+- `gh secret set E2E_ADMIN_EMAIL --body "<admin email>"`
+- `gh secret set E2E_ADMIN_PASSWORD --body "<admin password>"`
+- `gh workflow run search-analytics-ops.yml`
+- `gh run list --workflow search-analytics-ops.yml -L 1`
+- `gh run view <run-id> --log`
+
+Important:
+
+- The workflow appears in GitHub Actions only after `.github/workflows/search-analytics-ops.yml` is pushed to `main`.

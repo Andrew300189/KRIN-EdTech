@@ -16,11 +16,14 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "admin:grant": "node database/scripts/grant-admin.cjs",
     "billing:reconcile": "node database/scripts/reconcile-billing.cjs",
+    "search:analytics:cleanup": "node database/scripts/cleanup-search-analytics.cjs --days=180",
+    "search:analytics:cleanup:dry": "node database/scripts/cleanup-search-analytics.cjs --days=180 --dry-run",
     "lint": "eslint src tests --ext .js,.jsx,.ts,.tsx",
     "type-check": "tsc --noEmit --incremental false",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:admin-search-analytics": "playwright test tests/e2e/search-admin-analytics.spec.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",

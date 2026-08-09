@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { updateCourseSchema } from "@/modules/courses/schemas/content.schemas";
 import { getManagedCourse, updateCourse } from "@/modules/courses/services/content.service";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const { courseId } = await params;
   const course = await getManagedCourse(courseId);
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     const { courseId } = await params;

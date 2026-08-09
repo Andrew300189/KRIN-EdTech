@@ -38,7 +38,7 @@ export default function RegisterPage() {
       router.replace(
         payload.autoLogin === false
           ? "/login?registered=1"
-          : "/dashboard/courses",
+          : (payload?.user?.workspacePath ?? "/student"),
       );
     } catch {
       setError("Network error. Please try again.");

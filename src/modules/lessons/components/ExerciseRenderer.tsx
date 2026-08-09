@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExercise } from "./lesson-content";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
+import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
 
 type AttemptResult = {
   isCorrect: boolean;
@@ -15,18 +16,17 @@ type AttemptResult = {
   motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean };
 };
 
-const choiceTypes = new Set(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "SYNONYM_SELECTION", "ANTONYM_SELECTION", "PHRASAL_VERB_MEANING", "VERB_PREPOSITION", "TENSE_SELECTION"]);
-const orderedTypes = new Set(["WORD_ORDER", "SENTENCE_ORDER"]);
-
 export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
   const options = useMemo(() => asStringArray(content.options), [content]);
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
   const matchingRight = useMemo(() => asStringArray(content.right), [content]);
-  const isMultipleChoice = exercise.type === "MULTIPLE_CHOICE";
-  const isChoice = choiceTypes.has(exercise.type);
-  const isMatching = exercise.type === "MATCHING";
-  const isOrdered = orderedTypes.has(exercise.type);
+  const engine = getExerciseEngine(exercise.engineKey);
+  const renderer = engine?.renderer;
+  const isMultipleChoice = exercise.engineKey === "multi-choice" || exercise.type === "MULTIPLE_CHOICE";
+  const isChoice = renderer === "choice" || renderer === "audio-choice";
+  const isMatching = renderer === "matching";
+  const isOrdered = renderer === "ordering";
   const [answer, setAnswer] = useState<string | string[] | JsonObject>(isMultipleChoice || isOrdered ? [] : isMatching ? {} : "");
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
       {!isChoice && !isMatching && !isOrdered ? <label className="block"><span className="sr-only">Your answer</span><input value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Type your answer" /></label> : null}
     </div>
     <button type="button" onClick={checkAnswer} disabled={sending} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{sending ? "Checking…" : "Check answer"}</button>
-    {exercise.hint ? <details className="mt-3 text-sm text-slate-600"><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
+    {exercise.hintsEnabled && exercise.hint ? <details className="mt-3 text-sm text-slate-600"><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result ? <div className={`mt-4 rounded-lg p-3 text-sm ${result.isCorrect ? "bg-emerald-50 text-emerald-900" : "bg-rose-50 text-rose-900"}`} role="status"><p className="font-semibold">{result.isCorrect ? `Correct — ${result.scoreAwarded} points` : "Not quite"}</p><p className="mt-1 text-xs">Attempt {result.attemptNumber}</p>{!result.isCorrect && result.correctAnswer !== null ? <p className="mt-1">Correct answer: {displayAnswer(result.correctAnswer)}</p> : null}{result.explanation ? <p className="mt-1">{result.explanation}</p> : null}</div> : null}
   </section>;

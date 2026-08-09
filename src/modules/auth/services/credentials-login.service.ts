@@ -1,34 +1,45 @@
+import { normalizeEmail } from "@/core/server/platform-owner";
+
 export type CredentialsLoginUser = {
   id: string;
+  email: string;
+  name: string;
+  role: string;
   passwordHash: string;
   isBlocked: boolean;
   deletedAt: Date | null;
 };
 
 type CredentialsLoginDependencies<T extends CredentialsLoginUser> = {
-  findByIdentifier(identifier: string): Promise<T | null>;
+  findByEmail(email: string): Promise<T | null>;
   verifyPassword(password: string, passwordHash: string): boolean;
 };
 
 export type CredentialsLoginResult<T extends CredentialsLoginUser> =
-  | { ok: true; user: T; identifier: string }
+  | { ok: true; user: T; email: string }
   | { ok: false; reason: "INVALID_INPUT" | "INVALID_CREDENTIALS" };
 
-/** Keeps the credential decision independent of HTTP/cookies and testable. */
-export async function authenticateCredentials<T extends CredentialsLoginUser>(
-  input: { identifier?: unknown; password?: unknown },
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Server-side equivalent of a NextAuth CredentialsProvider `authorize` callback.
+ * It makes no cookie or redirect decisions, so callers cannot accidentally
+ * send an authenticated owner to a role-based route before server resolution.
+ */
+export async function authorizeCredentials<T extends CredentialsLoginUser>(
+  credentials: { email?: unknown; password?: unknown },
   dependencies: CredentialsLoginDependencies<T>,
 ): Promise<CredentialsLoginResult<T>> {
-  const identifier = typeof input.identifier === "string"
-    ? input.identifier.trim().toLowerCase()
-    : "";
-  const password = typeof input.password === "string" ? input.password : "";
+  const email = normalizeEmail(
+    typeof credentials.email === "string" ? credentials.email : undefined,
+  );
+  const password = typeof credentials.password === "string" ? credentials.password : "";
 
-  if (!identifier || !password) {
+  if (!email || !EMAIL_PATTERN.test(email) || !password) {
     return { ok: false, reason: "INVALID_INPUT" };
   }
 
-  const user = await dependencies.findByIdentifier(identifier);
+  const user = await dependencies.findByEmail(email);
   if (
     !user ||
     !dependencies.verifyPassword(password, user.passwordHash) ||
@@ -38,5 +49,7 @@ export async function authenticateCredentials<T extends CredentialsLoginUser>(
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
-  return { ok: true, user, identifier };
+  // T requires id/email/name/role, which guarantees that the successful
+  // authorization result is suitable for a session without another lookup.
+  return { ok: true, user: { ...user, email }, email };
 }

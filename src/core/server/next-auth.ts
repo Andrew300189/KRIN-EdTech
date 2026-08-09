@@ -4,12 +4,19 @@ import {
   getVerifiedGoogleIdentity,
   provisionGoogleUser,
 } from "@/core/server/google-user";
+import { logAuthDiagnostic } from "@/core/server/auth-diagnostics";
+import { isPlatformOwner, normalizeEmail } from "@/core/server/platform-owner";
 import { clearLegacySession } from "@/core/server/session";
-import { getSafeInternalUrl } from "@/core/utils/safe-internal-path";
+import { getSafePostAuthRedirectUrl } from "@/core/utils/safe-internal-path";
 
 export const nextAuthOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
+  // Keep the callback/session cookies usable on HTTP localhost while
+  // requiring Secure cookies in every production deployment. No `domain`
+  // option is set, so browser cookies remain host-only and cannot be shared
+  // with a different hostname.
+  useSecureCookies: process.env.NODE_ENV === "production",
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -19,6 +26,8 @@ export const nextAuthOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, profile }) {
+      logAuthDiagnostic({ event: "auth_provider", provider: "google" });
+
       const identity = getVerifiedGoogleIdentity(
         profile as Parameters<typeof getVerifiedGoogleIdentity>[0],
         user.image,
@@ -33,30 +42,67 @@ export const nextAuthOptions: NextAuthOptions = {
       await clearLegacySession();
 
       user.id = appUser.id;
-      (user as typeof user & { role?: string; isNewGoogleUser?: boolean }).role = appUser.role;
-      (user as typeof user & { role?: string; isNewGoogleUser?: boolean }).isNewGoogleUser = appUser.isNewUser;
+      // Do not trust the provider's loose user object after verification.
+      // The JWT/session must always contain the verified, normalized address
+      // that provisionGoogleUser used to find or link the application user.
+      user.email = identity.email;
+      user.role = appUser.role;
+      user.isNewGoogleUser = appUser.isNewUser;
+
+      // Owner eligibility is deliberately independent of the database role.
+      // The definitive CMS authorization remains in server route guards, but
+      // a verified owner must never be rejected by the OAuth sign-in callback.
+      const matchesOwner = isPlatformOwner(identity.email);
+      logAuthDiagnostic({ event: "normalized_email_match_owner", matchesOwner });
+      logAuthDiagnostic({
+        event: "auth_success",
+        provider: "google",
+        isNewUser: appUser.isNewUser,
+      });
+
+      if (matchesOwner) return true;
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
+        // `user` is present only for a new sign-in. Reissue all identity
+        // claims from that verified sign-in instead of retaining stale values
+        // from an older token.
+        token.userId = user.id;
         token.sub = user.id;
-        token.role = (user as typeof user & { role?: string }).role ?? "STUDENT";
-        token.isNewGoogleUser = Boolean(
-          (user as typeof user & { isNewGoogleUser?: boolean }).isNewGoogleUser,
-        );
+        // Keep the verified Google address in the signed JWT explicitly.
+        // CMS owner access is email-based and must not depend on a provider
+        // default that can vary between callback/session invocations.
+        const email = normalizeEmail(user.email);
+        if (email) {
+          token.email = email;
+        } else {
+          delete token.email;
+        }
+        token.role = user.role ?? "STUDENT";
+        token.isNewGoogleUser = Boolean(user.isNewGoogleUser);
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.sub) {
-        (session.user as typeof session.user & { id: string; role?: string }).id = token.sub;
-        (session.user as typeof session.user & { id?: string; role?: string }).role = typeof token.role === "string" ? token.role : "STUDENT";
-        (session.user as typeof session.user & { id?: string; isNewGoogleUser?: boolean }).isNewGoogleUser = token.isNewGoogleUser === true;
-      }
+      const userId = typeof token.userId === "string"
+        ? token.userId
+        : typeof token.sub === "string"
+          ? token.sub
+          : null;
+
+      if (!userId) return session;
+
+      session.user.id = userId;
+      session.user.email = typeof token.email === "string"
+        ? normalizeEmail(token.email) || null
+        : null;
+      session.user.role = typeof token.role === "string" ? token.role : "STUDENT";
+      session.user.isNewGoogleUser = token.isNewGoogleUser === true;
       return session;
     },
     redirect({ url, baseUrl }) {
-      return getSafeInternalUrl(url, baseUrl);
+      return getSafePostAuthRedirectUrl(url, baseUrl);
     },
   },
   pages: { signIn: "/login", error: "/auth/error" },

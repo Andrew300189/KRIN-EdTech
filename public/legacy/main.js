@@ -106,16 +106,41 @@ if (authModal && authModalTitle && loginForm && registerForm) {
 
   // The public landing is rendered inside a same-origin iframe. A successful
   // login must therefore navigate the top-level application, not only iframe.
-  const workspacePathForRole = (role) => {
-    const normalized = String(role || "").toLowerCase();
-    if (normalized === "teacher" || normalized === "instructor") return "/teacher";
-    if (["content_manager", "admin", "super_admin"].includes(normalized)) return "/admin";
-    return "/student";
+  const workspacePathFromPayload = (payload) => {
+    const candidate = payload?.user?.workspacePath;
+    const isWorkspacePath = typeof candidate === "string" && (
+      candidate === "/cms" ||
+      candidate.startsWith("/cms/") ||
+      candidate === "/teacher" ||
+      candidate.startsWith("/teacher/") ||
+      candidate === "/student" ||
+      candidate.startsWith("/student/")
+    );
+
+    return isWorkspacePath &&
+      candidate.startsWith("/") &&
+      !candidate.startsWith("//") &&
+      !candidate.includes("\\")
+        ? candidate
+        : null;
   };
 
-  const openDashboard = (path = "/student") => {
+  const publicAuthErrorMessage = (payload, fallback) => {
+    const message = typeof payload?.error === "string" ? payload.error : fallback;
+    const errorId = typeof payload?.errorId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.errorId)
+      ? payload.errorId
+      : "";
+    return errorId ? `${message} (Error ID: ${errorId})` : message;
+  };
+
+  // The public landing is rendered in a same-origin iframe, so a confirmed
+  // destination must navigate the top-level application exactly once.
+  const openServerDestination = (path) => {
+    if (!path) return false;
     const target = window.top && window.top !== window ? window.top : window;
     target.location.assign(path);
+    return true;
   };
 
   let loginError = document.getElementById("loginError");
@@ -215,7 +240,6 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         }
 
         const callbackUrl = new URL("/auth/complete", window.location.origin);
-        callbackUrl.searchParams.set("next", "/dashboard");
 
         const form = document.createElement("form");
         form.method = "post";
@@ -238,7 +262,7 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         form.submit();
       } catch {
         if (loginError) {
-          loginError.textContent = "Google sign-in could not be started. Please try again.";
+          loginError.textContent = "Не удалось войти через Google. Попробуйте ещё раз.";
           loginError.style.display = "block";
         }
         setLoginBusy(false);
@@ -277,23 +301,34 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ email: identifier, password }),
       });
 
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         if (loginError) {
-          loginError.textContent = payload?.error || "Login failed";
+          loginError.textContent = publicAuthErrorMessage(
+            payload,
+            "Не удалось выполнить вход. Попробуйте ещё раз.",
+          );
           loginError.style.display = "block";
         }
         return;
       }
 
-      redirectStarted = true;
-      openDashboard(workspacePathForRole(payload?.user?.role));
+      const destination = workspacePathFromPayload(payload);
+      if (!destination) {
+        if (loginError) {
+          loginError.textContent = "Не удалось подтвердить права владельца.";
+          loginError.style.display = "block";
+        }
+        return;
+      }
+
+      redirectStarted = openServerDestination(destination);
     } catch {
       if (loginError) {
-        loginError.textContent = "Network error. Please try again.";
+        loginError.textContent = "Не удалось выполнить вход. Попробуйте ещё раз.";
         loginError.style.display = "block";
       }
     } finally {
@@ -350,15 +385,17 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         const loginResponse = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifier: email, password }),
+        body: JSON.stringify({ email, password }),
         });
 
         if (!loginResponse.ok) {
           const loginPayload = await loginResponse.json().catch(() => null);
           if (registerError) {
             registerError.textContent =
-              loginPayload?.error ||
-              "Account created, but auto-login failed. Please log in.";
+              publicAuthErrorMessage(
+                loginPayload,
+                "Аккаунт создан, но войти не удалось. Попробуйте ещё раз.",
+              );
             registerError.style.display = "block";
           }
           showForm("login");
@@ -366,7 +403,13 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         }
       }
 
-      openDashboard();
+      const destination = workspacePathFromPayload(payload);
+      if (!openServerDestination(destination)) {
+        if (registerError) {
+          registerError.textContent = "Account created, but no safe destination was returned.";
+          registerError.style.display = "block";
+        }
+      }
     } catch {
       if (registerError) {
         registerError.textContent = "Network error. Please try again.";

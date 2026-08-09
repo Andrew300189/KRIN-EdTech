@@ -32,6 +32,13 @@ Use this checklist before deploying from `main`.
 - [ ] Confirm production health checks
 - [ ] Monitor logs/errors for first 30 minutes
 
+## Search Analytics Retention
+
+- [ ] Dry-run retention cleanup executed (`npm run search:analytics:cleanup:dry`)
+- [ ] Cleanup output reviewed (threshold date, affected rows)
+- [ ] Production retention cleanup scheduled at least weekly (`npm run search:analytics:cleanup`)
+- [ ] Last successful cleanup timestamp logged in release notes or ops journal
+
 ## Rollback Readiness
 
 - [ ] Previous stable version identified

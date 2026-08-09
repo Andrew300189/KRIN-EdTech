@@ -7,13 +7,29 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    console.log({ email });
-    setSubmitted(true);
-    setLoading(false);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(payload?.error || "Unable to start password reset.");
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,7 +39,7 @@ export default function ForgotPasswordPage() {
       {submitted ? (
         <div className="text-center">
           <p className="text-green-600 mb-4">
-            Check your email for password reset instructions.
+            If an active account matches that email, we sent password reset instructions.
           </p>
           <Link href="/auth/login" className="text-primary hover:underline">
             Back to Sign In
@@ -51,6 +67,7 @@ export default function ForgotPasswordPage() {
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
+          {error ? <p className="text-sm text-red-700" role="alert">{error}</p> : null}
         </form>
       )}
 

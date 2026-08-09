@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { requireContentManager } from "@/modules/courses/server/content-access";
+import { requirePlatformOwner } from "@/core/server/platform-owner-guard";
 import { importVocabularyWords } from "@/modules/vocabulary/services/vocabulary.service";
 
 export async function POST(request: NextRequest) {
-  const guard = await requireContentManager(request);
+  const guard = await requirePlatformOwner(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
     return NextResponse.json({ data: await importVocabularyWords(guard.user.id, await request.json()) });

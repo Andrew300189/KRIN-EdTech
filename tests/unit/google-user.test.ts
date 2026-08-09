@@ -8,6 +8,7 @@ type StoredUser = {
   email: string;
   username: string;
   name: string;
+  passwordHash: string;
   firstName: string | null;
   lastName: string | null;
   avatar: string | null;
@@ -26,6 +27,7 @@ function user(overrides: Partial<StoredUser> = {}): StoredUser {
     email: "student@example.com",
     username: "student",
     name: "Student",
+    passwordHash: "credentials-password-hash",
     firstName: null,
     lastName: null,
     avatar: null,
@@ -153,8 +155,16 @@ describe("Google user provisioning", () => {
     expect(records[0].lastLoginAt).toBeInstanceOf(Date);
   });
 
-  it("links a pre-existing email/password user to the verified Google account", async () => {
-    const records = [user()];
+  it("links a pre-existing email/password user without replacing their password or profile", async () => {
+    const records = [
+      user({
+        name: "Existing learner",
+        firstName: "Existing",
+        lastName: "Learner",
+        avatar: "https://images.example/existing-avatar.png",
+        passwordHash: "existing-credentials-password-hash",
+      }),
+    ];
     const store = createStore(records);
 
     const result = await provisionGoogleUser(identity, "Student", store as never);
@@ -165,7 +175,13 @@ describe("Google user provisioning", () => {
       provider: "google",
       providerAccountId: "google-sub-123",
       emailVerified: true,
+      passwordHash: "existing-credentials-password-hash",
+      name: "Existing learner",
+      firstName: "Existing",
+      lastName: "Learner",
+      avatar: "https://images.example/existing-avatar.png",
     });
+    expect(records).toHaveLength(1);
   });
 
   it("refuses to link a Google account that belongs to another application user", async () => {
