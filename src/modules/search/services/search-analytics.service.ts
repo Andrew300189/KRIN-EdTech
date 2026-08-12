@@ -12,7 +12,9 @@ function hashValue(value: string) {
 }
 
 function dayBucketUtc(input = new Date()) {
-  return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));
+  return new Date(
+    Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()),
+  );
 }
 
 function normalizeContext(context: SearchContext) {
@@ -32,13 +34,16 @@ function isMissingRelationError(error: unknown) {
 
 async function hasSearchAnalyticsTables() {
   if (!searchAnalyticsTablesReadyPromise) {
-    searchAnalyticsTablesReadyPromise = prisma.$queryRaw<Array<{ historyTable: string | null; metricTable: string | null }>>(
-      Prisma.sql`
+    searchAnalyticsTablesReadyPromise = prisma
+      .$queryRaw<
+        Array<{ historyTable: string | null; metricTable: string | null }>
+      >(
+        Prisma.sql`
         SELECT
           to_regclass('"SearchHistory"')::text AS "historyTable",
           to_regclass('"SearchQueryMetric"')::text AS "metricTable"
       `,
-    )
+      )
       .then((rows) => Boolean(rows[0]?.historyTable && rows[0]?.metricTable))
       .catch(() => false);
   }
@@ -63,9 +68,10 @@ export async function recordSearchQuery(input: {
   const context = normalizeContext(input.context);
   const day = dayBucketUtc();
 
-  await prisma.$transaction([
-    prisma.$executeRaw(
-      Prisma.sql`
+  await prisma
+    .$transaction([
+      prisma.$executeRaw(
+        Prisma.sql`
         INSERT INTO "SearchHistory" (
           "id", "userId", "eventType", "query", "normalizedQuery", "queryHash", "context",
           "resultCount", "tookMs", "locale", "ipHash", "userAgent", "createdAt"
@@ -76,9 +82,9 @@ export async function recordSearchQuery(input: {
           ${input.ip ? hashValue(input.ip) : null}, ${input.userAgent?.slice(0, 512) ?? null}, NOW()
         )
       `,
-    ),
-    prisma.$executeRaw(
-      Prisma.sql`
+      ),
+      prisma.$executeRaw(
+        Prisma.sql`
         INSERT INTO "SearchQueryMetric" (
           "id", "day", "context", "queryHash", "totalSearches", "noResultSearches", "totalClicks", "lastResultCount", "createdAt", "updatedAt"
         )
@@ -93,11 +99,12 @@ export async function recordSearchQuery(input: {
           "lastResultCount" = ${Math.max(0, Math.floor(input.resultCount))},
           "updatedAt" = NOW()
       `,
-    ),
-  ]).catch((error: unknown) => {
-    if (isMissingRelationError(error)) return;
-    throw error;
-  });
+      ),
+    ])
+    .catch((error: unknown) => {
+      if (isMissingRelationError(error)) return;
+      throw error;
+    });
 }
 
 export async function recordSearchResultClick(input: {
@@ -120,9 +127,10 @@ export async function recordSearchResultClick(input: {
   const context = normalizeContext(input.context);
   const day = dayBucketUtc();
 
-  await prisma.$transaction([
-    prisma.$executeRaw(
-      Prisma.sql`
+  await prisma
+    .$transaction([
+      prisma.$executeRaw(
+        Prisma.sql`
         INSERT INTO "SearchHistory" (
           "id", "userId", "eventType", "query", "normalizedQuery", "queryHash", "context",
           "resultType", "resultId", "resultUrl", "position", "locale", "ipHash", "userAgent", "createdAt"
@@ -133,9 +141,9 @@ export async function recordSearchResultClick(input: {
           ${input.locale ?? null}, ${input.ip ? hashValue(input.ip) : null}, ${input.userAgent?.slice(0, 512) ?? null}, NOW()
         )
       `,
-    ),
-    prisma.$executeRaw(
-      Prisma.sql`
+      ),
+      prisma.$executeRaw(
+        Prisma.sql`
         INSERT INTO "SearchQueryMetric" (
           "id", "day", "context", "queryHash", "totalSearches", "noResultSearches", "totalClicks", "lastResultCount", "createdAt", "updatedAt"
         )
@@ -147,11 +155,12 @@ export async function recordSearchResultClick(input: {
           "totalClicks" = "SearchQueryMetric"."totalClicks" + 1,
           "updatedAt" = NOW()
       `,
-    ),
-  ]).catch((error: unknown) => {
-    if (isMissingRelationError(error)) return;
-    throw error;
-  });
+      ),
+    ])
+    .catch((error: unknown) => {
+      if (isMissingRelationError(error)) return;
+      throw error;
+    });
 }
 
 export async function listUserSearchHistory(input: {
@@ -175,7 +184,9 @@ export async function listUserSearchHistory(input: {
     const conditions: Prisma.Sql[] = [Prisma.sql`"userId" = ${input.userId}`];
 
     if (input.context) {
-      conditions.push(Prisma.sql`"context" = ${normalizeContext(input.context)}`);
+      conditions.push(
+        Prisma.sql`"context" = ${normalizeContext(input.context)}`,
+      );
     }
     if (input.eventType) {
       conditions.push(Prisma.sql`"eventType" = ${input.eventType}`);
@@ -191,18 +202,20 @@ export async function listUserSearchHistory(input: {
       `,
     );
 
-    const rows = await prisma.$queryRaw<Array<{
-      id: string;
-      eventType: SearchHistoryEvent;
-      query: string;
-      context: string;
-      resultCount: number | null;
-      resultType: string | null;
-      resultId: string | null;
-      resultUrl: string | null;
-      position: number | null;
-      createdAt: Date;
-    }>>(
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        eventType: SearchHistoryEvent;
+        query: string;
+        context: string;
+        resultCount: number | null;
+        resultType: string | null;
+        resultId: string | null;
+        resultUrl: string | null;
+        position: number | null;
+        createdAt: Date;
+      }>
+    >(
       Prisma.sql`
         SELECT
           "id",
@@ -245,7 +258,10 @@ export async function listUserSearchHistory(input: {
   }
 }
 
-export async function getSearchAnalyticsSummary(input?: { days?: number; context?: SearchContext }) {
+export async function getSearchAnalyticsSummary(input?: {
+  days?: number;
+  context?: SearchContext;
+}) {
   const days = Math.min(365, Math.max(1, Math.floor(input?.days ?? 30)));
   if (!(await hasSearchAnalyticsTables())) {
     return {
@@ -264,16 +280,22 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
   }
   const start = dayBucketUtc(new Date(Date.now() - (days - 1) * 86_400_000));
   const context = input?.context ? normalizeContext(input.context) : null;
-  const contextWhere = context ? Prisma.sql`AND "context" = ${context}` : Prisma.empty;
-  const historyContextWhere = context ? Prisma.sql`AND "context" = ${context}` : Prisma.empty;
+  const contextWhere = context
+    ? Prisma.sql`AND "context" = ${context}`
+    : Prisma.empty;
+  const historyContextWhere = context
+    ? Prisma.sql`AND "context" = ${context}`
+    : Prisma.empty;
 
   try {
-    const [totalsRow] = await prisma.$queryRaw<Array<{
-    totalSearches: number;
-    noResultSearches: number;
-    totalClicks: number;
-  }>>(
-    Prisma.sql`
+    const [totalsRow] = await prisma.$queryRaw<
+      Array<{
+        totalSearches: number;
+        noResultSearches: number;
+        totalClicks: number;
+      }>
+    >(
+      Prisma.sql`
       SELECT
         COALESCE(SUM("totalSearches"), 0)::int AS "totalSearches",
         COALESCE(SUM("noResultSearches"), 0)::int AS "noResultSearches",
@@ -282,15 +304,17 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
       WHERE "day" >= ${start}
       ${contextWhere}
     `,
-  );
+    );
 
-    const byContext = await prisma.$queryRaw<Array<{
-    context: string;
-    totalSearches: number;
-    noResultSearches: number;
-    totalClicks: number;
-  }>>(
-    Prisma.sql`
+    const byContext = await prisma.$queryRaw<
+      Array<{
+        context: string;
+        totalSearches: number;
+        noResultSearches: number;
+        totalClicks: number;
+      }>
+    >(
+      Prisma.sql`
       SELECT
         "context",
         COALESCE(SUM("totalSearches"), 0)::int AS "totalSearches",
@@ -302,15 +326,17 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
       GROUP BY "context"
       ORDER BY "totalSearches" DESC
     `,
-  );
+    );
 
-    const daily = await prisma.$queryRaw<Array<{
-    day: Date;
-    totalSearches: number;
-    totalClicks: number;
-    noResultSearches: number;
-  }>>(
-    Prisma.sql`
+    const daily = await prisma.$queryRaw<
+      Array<{
+        day: Date;
+        totalSearches: number;
+        totalClicks: number;
+        noResultSearches: number;
+      }>
+    >(
+      Prisma.sql`
       SELECT
         "day",
         COALESCE(SUM("totalSearches"), 0)::int AS "totalSearches",
@@ -322,15 +348,17 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
       GROUP BY "day"
       ORDER BY "day" ASC
     `,
-  );
+    );
 
-    const topQueries = await prisma.$queryRaw<Array<{
-    queryHash: string;
-    searches: number;
-    clicks: number;
-    noResults: number;
-  }>>(
-    Prisma.sql`
+    const topQueries = await prisma.$queryRaw<
+      Array<{
+        queryHash: string;
+        searches: number;
+        clicks: number;
+        noResults: number;
+      }>
+    >(
+      Prisma.sql`
       SELECT
         "queryHash",
         COALESCE(SUM("totalSearches"), 0)::int AS searches,
@@ -343,13 +371,15 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
       ORDER BY searches DESC, clicks DESC
       LIMIT 10
     `,
-  );
+    );
 
-    const topQueryTexts = await prisma.$queryRaw<Array<{
-      queryHash: string;
-      normalizedQuery: string;
-      samples: number;
-    }>>(
+    const topQueryTexts = await prisma.$queryRaw<
+      Array<{
+        queryHash: string;
+        normalizedQuery: string;
+        samples: number;
+      }>
+    >(
       Prisma.sql`
         SELECT
           "queryHash",
@@ -364,11 +394,17 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
       `,
     );
 
-    const queryByHash = new Map<string, { normalizedQuery: string; samples: number }>();
+    const queryByHash = new Map<
+      string,
+      { normalizedQuery: string; samples: number }
+    >();
     for (const row of topQueryTexts) {
       const current = queryByHash.get(row.queryHash);
       if (!current || row.samples > current.samples) {
-        queryByHash.set(row.queryHash, { normalizedQuery: row.normalizedQuery, samples: row.samples });
+        queryByHash.set(row.queryHash, {
+          normalizedQuery: row.normalizedQuery,
+          samples: row.samples,
+        });
       }
     }
 
@@ -382,19 +418,30 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
         totalSearches,
         totalClicks,
         noResultSearches,
-        clickThroughRate: totalSearches ? Math.round((totalClicks / totalSearches) * 1000) / 10 : 0,
-        noResultRate: totalSearches ? Math.round((noResultSearches / totalSearches) * 1000) / 10 : 0,
+        clickThroughRate: totalSearches
+          ? Math.round((totalClicks / totalSearches) * 1000) / 10
+          : 0,
+        noResultRate: totalSearches
+          ? Math.round((noResultSearches / totalSearches) * 1000) / 10
+          : 0,
       },
       byContext: byContext.map((row) => ({
         ...row,
-        clickThroughRate: row.totalSearches ? Math.round((row.totalClicks / row.totalSearches) * 1000) / 10 : 0,
-        noResultRate: row.totalSearches ? Math.round((row.noResultSearches / row.totalSearches) * 1000) / 10 : 0,
+        clickThroughRate: row.totalSearches
+          ? Math.round((row.totalClicks / row.totalSearches) * 1000) / 10
+          : 0,
+        noResultRate: row.totalSearches
+          ? Math.round((row.noResultSearches / row.totalSearches) * 1000) / 10
+          : 0,
       })),
       daily,
       topQueries: topQueries.map((row) => {
         const bestQuery = queryByHash.get(row.queryHash);
         // K-anonymity style guard: do not show raw query text for sparse queries.
-        const query = bestQuery && bestQuery.samples >= 3 ? bestQuery.normalizedQuery : null;
+        const query =
+          bestQuery && bestQuery.samples >= 3
+            ? bestQuery.normalizedQuery
+            : null;
         return {
           ...row,
           query,
@@ -422,7 +469,10 @@ export async function getSearchAnalyticsSummary(input?: { days?: number; context
   }
 }
 
-export async function getSearchAnalyticsExport(input?: { days?: number; context?: SearchContext }) {
+export async function getSearchAnalyticsExport(input?: {
+  days?: number;
+  context?: SearchContext;
+}) {
   const summary = await getSearchAnalyticsSummary(input);
   return {
     generatedAt: new Date().toISOString(),
@@ -434,8 +484,14 @@ export async function getSearchAnalyticsExport(input?: { days?: number; context?
   };
 }
 
-export async function cleanupSearchHistory(input?: { retentionDays?: number; dryRun?: boolean }) {
-  const retentionDays = Math.min(1095, Math.max(30, Math.floor(input?.retentionDays ?? 180)));
+export async function cleanupSearchHistory(input?: {
+  retentionDays?: number;
+  dryRun?: boolean;
+}) {
+  const retentionDays = Math.min(
+    1095,
+    Math.max(30, Math.floor(input?.retentionDays ?? 180)),
+  );
   const dryRun = input?.dryRun ?? false;
 
   if (!(await hasSearchAnalyticsTables())) {

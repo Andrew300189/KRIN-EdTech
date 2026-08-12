@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
   try {
     const guard = await requirePlatformOwner(request);
     if (!guard.ok) {
-      return NextResponse.json({ error: guard.error }, { status: guard.status });
+      return NextResponse.json(
+        { error: guard.error },
+        { status: guard.status },
+      );
     }
 
     const body = await request.json().catch(() => ({}));
@@ -26,6 +29,9 @@ export async function POST(request: NextRequest) {
     const result = await cleanupSearchHistory(parsed.data);
     return NextResponse.json({ data: result });
   } catch {
-    return NextResponse.json({ error: "Unable to cleanup search analytics" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to cleanup search analytics" },
+      { status: 500 },
+    );
   }
 }

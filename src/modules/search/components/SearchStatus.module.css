@@ -1,0 +1,3 @@
+.message { padding: 15px 16px; color: #475569; font-size: .86rem; line-height: 1.5; }
+.error { color: #b42318; }
+.retry { padding: 0; color: inherit; background: transparent; font-weight: 800; text-decoration: underline; }

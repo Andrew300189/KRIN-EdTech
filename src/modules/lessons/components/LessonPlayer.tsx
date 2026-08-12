@@ -8,6 +8,7 @@ import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/Vocabu
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asStringArray, type LessonBlock } from "./lesson-content";
+import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 
 type StoredProgress = {
   status: "STARTED" | "COMPLETED";
@@ -16,7 +17,10 @@ type StoredProgress = {
   completionPercent: number;
   score: number;
   grade: number | null;
+  hintsUsed: number;
+  solutionsOpened: number;
   activeSeconds: number;
+  totalSeconds: number;
   motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean } | null;
 };
 
@@ -46,12 +50,14 @@ type Props = {
   warmUpSessionId?: string | null;
   warmUpRequired?: boolean;
   autoUnlockNextLesson?: boolean;
+  isFirstCourseLesson?: boolean;
 };
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
   autoUnlockNextLesson = true,
+  isFirstCourseLesson = false,
 }: Props) {
   const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
@@ -65,11 +71,57 @@ export function LessonPlayer({
   const lastSavedSeconds = useRef(0);
   const learningSessionId = useRef<string | null>(null);
   const interactionCount = useRef(0);
+  const hasGuestPreviewRef = useRef(false);
+  const previewCompleteReported = useRef(false);
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
   const previousLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null;
   const nextLesson = currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
   const objectiveItems = asStringArray(objectives);
   const progressPercent = useMemo(() => blocks.length ? Math.round((completedBlocks.length / blocks.length) * 100) : 0, [blocks.length, completedBlocks.length]);
+
+  const guestPreviewKey = `krin:lesson-preview:${lessonId}`;
+
+  useEffect(() => {
+    if (canSaveProgress) {
+      if (isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_START");
+      return;
+    }
+    reportFunnelEvent("PREVIEW_LESSON_START");
+  }, [canSaveProgress, isFirstCourseLesson]);
+
+  useEffect(() => {
+    if (!canSaveProgress) return;
+    try {
+      const raw = window.localStorage.getItem(guestPreviewKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { completedBlocks?: unknown; currentBlockId?: unknown; activeSeconds?: unknown };
+      const restoredBlocks = asStringArray(saved.completedBlocks);
+      const restoredCurrentBlock = typeof saved.currentBlockId === "string" ? saved.currentBlockId : blocks[0]?.id ?? null;
+      const restoredSeconds = typeof saved.activeSeconds === "number" && Number.isFinite(saved.activeSeconds) ? Math.max(0, Math.floor(saved.activeSeconds)) : 0;
+      hasGuestPreviewRef.current = true;
+      setCompletedBlocks(restoredBlocks);
+      setCurrentBlockId(restoredCurrentBlock);
+      setElapsedSeconds(restoredSeconds);
+      void fetch(`/api/learning/lessons/${lessonId}/progress`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completedBlockIds: restoredBlocks, currentBlockId: restoredCurrentBlock, activeSeconds: restoredSeconds, complete: false }),
+      }).then((response) => {
+        if (response.ok) window.localStorage.removeItem(guestPreviewKey);
+      }).catch(() => undefined);
+    } catch {
+      window.localStorage.removeItem(guestPreviewKey);
+    }
+  }, [blocks, canSaveProgress, guestPreviewKey, lessonId]);
+
+  useEffect(() => {
+    if (canSaveProgress) return;
+    try {
+      window.localStorage.setItem(guestPreviewKey, JSON.stringify({ completedBlocks, currentBlockId, activeSeconds: elapsedSeconds }));
+    } catch {
+      // Storage is optional; the lesson remains usable in private browsing.
+    }
+  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey]);
 
   useEffect(() => {
     if (!canSaveProgress) return;
@@ -77,7 +129,7 @@ export function LessonPlayer({
     void fetch(`/api/learning/lessons/${lessonId}/progress`)
       .then(async (response) => response.ok ? response.json() : null)
       .then((payload: { data?: StoredProgress | null } | null) => {
-        if (!live || !payload?.data) return;
+        if (!live || !payload?.data || hasGuestPreviewRef.current) return;
         const saved = payload.data;
         setStoredProgress(saved);
         setCompletedBlocks(asStringArray(saved.completedBlocks));
@@ -111,7 +163,11 @@ export function LessonPlayer({
   }, [canSaveProgress, lessonId]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setElapsedSeconds((value) => value + 1), 1000);
+    // This is an informative display clock only. Server-side heartbeats remain
+    // the source of truth for saved active time and pause while hidden.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") setElapsedSeconds((value) => value + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -137,6 +193,9 @@ export function LessonPlayer({
     if (complete && learningSessionId.current) {
       void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
     }
+    if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) {
+      reportFunnelEvent("FIRST_LESSON_COMPLETE");
+    }
     // The route still performs the server-side prerequisite and subscription
     // check. Navigation only happens after progress was durably saved.
     if (complete && payload.data.status === "COMPLETED" && autoUnlockNextLesson && nextLesson) {
@@ -153,7 +212,14 @@ export function LessonPlayer({
 
   function toggleBlock(blockId: string) {
     setCurrentBlockId(blockId);
-    setCompletedBlocks((current) => current.includes(blockId) ? current.filter((id) => id !== blockId) : [...current, blockId]);
+    setCompletedBlocks((current) => {
+      const next = current.includes(blockId) ? current.filter((id) => id !== blockId) : [...current, blockId];
+      if (!canSaveProgress && !previewCompleteReported.current && blocks.length > 0 && next.length === blocks.length) {
+        previewCompleteReported.current = true;
+        reportFunnelEvent("PREVIEW_LESSON_COMPLETE");
+      }
+      return next;
+    });
   }
 
   async function skipWarmUp() {
@@ -202,7 +268,7 @@ export function LessonPlayer({
         </>
       )}
       {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}
-      {!canSaveProgress ? <p className="mt-4 text-sm text-slate-600">Sign in to save progress and submit exercises.</p> : null}
+      {!canSaveProgress ? <p className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real public lesson. Answers can be checked now; create an account after exploring to save this lesson and continue from the same place. <Link className="font-semibold underline" href={`/register?next=${encodeURIComponent(`/courses/${courseSlug}/lessons/${currentSlug}`)}`}>Create an account</Link> or <Link className="font-semibold underline" href={`/login?next=${encodeURIComponent(`/courses/${courseSlug}/lessons/${currentSlug}`)}`}>sign in</Link>.</p> : null}
     </main>
   );
 }

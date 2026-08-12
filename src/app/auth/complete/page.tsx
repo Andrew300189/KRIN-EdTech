@@ -6,9 +6,17 @@ import { getPublicAuthErrorPath } from "@/core/server/auth-error";
 import { isPlatformOwner, normalizeEmail } from "@/core/server/platform-owner";
 import { requireAuth } from "@/core/server/session";
 import { getPostLoginPath } from "@/core/utils/workspace-path";
+import { recordFunnelEvent } from "@/modules/analytics/services/funnel.service";
 
-export default async function AuthCompletePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const [session, params] = await Promise.all([getServerSession(nextAuthOptions), searchParams]);
+export default async function AuthCompletePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const [session, params] = await Promise.all([
+    getServerSession(nextAuthOptions),
+    searchParams,
+  ]);
   if (!session?.user) redirect(getPublicAuthErrorPath("google_sign_in_failed"));
 
   const userId = session.user.id;
@@ -31,20 +39,38 @@ export default async function AuthCompletePage({ searchParams }: { searchParams:
     redirect(getPublicAuthErrorPath("auth_unavailable"));
   }
 
+  const authenticated = await requireAuth();
+  if (!authenticated) redirect(getPublicAuthErrorPath("google_sign_in_failed"));
+
   if (destination === "/cms" || destination.startsWith("/cms/")) {
-    const authenticated = await requireAuth();
     let confirmedOwner = false;
-    if (authenticated) {
-      try {
-        confirmedOwner = isPlatformOwner(authenticated.user.email);
-      } catch {
-        confirmedOwner = false;
-      }
+    try {
+      confirmedOwner = isPlatformOwner(authenticated.user.email);
+    } catch {
+      confirmedOwner = false;
     }
 
     if (!confirmedOwner) {
       redirect(getPublicAuthErrorPath("cms_access_denied"));
     }
+  }
+
+  if (
+    session.user.isNewGoogleUser &&
+    !authenticated.user.onboardingCompletedAt &&
+    !(destination === "/cms" || destination.startsWith("/cms/"))
+  ) {
+    destination = `/onboarding?next=${encodeURIComponent(destination)}`;
+  }
+
+  if (session.user.isNewGoogleUser) {
+    void recordFunnelEvent({
+      eventId: `signup-complete:${authenticated.user.id}`,
+      eventType: "SIGNUP_COMPLETE",
+      pagePath: "/auth/complete",
+      userId: authenticated.user.id,
+      result: "SUCCEEDED",
+    }).catch(() => undefined);
   }
 
   logAuthDiagnostic({ event: "post_auth_destination", destination });

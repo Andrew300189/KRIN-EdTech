@@ -1,4 +1,9 @@
-export const SEARCH_CONTEXTS = ["PUBLIC", "STUDENT", "TEACHER", "ADMIN"] as const;
+export const SEARCH_CONTEXTS = [
+  "PUBLIC",
+  "STUDENT",
+  "TEACHER",
+  "ADMIN",
+] as const;
 export type SearchContext = (typeof SEARCH_CONTEXTS)[number];
 
 export const SEARCH_RESULT_TYPES = [

@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 function parseContext(value: string | null): SearchContext | undefined {
   if (!value) return undefined;
-  if (SEARCH_CONTEXTS.includes(value as SearchContext)) return value as SearchContext;
+  if (SEARCH_CONTEXTS.includes(value as SearchContext))
+    return value as SearchContext;
   return undefined;
 }
 
@@ -45,6 +46,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch {
-    return NextResponse.json({ error: "Unable to read search history" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to read search history" },
+      { status: 500 },
+    );
   }
 }

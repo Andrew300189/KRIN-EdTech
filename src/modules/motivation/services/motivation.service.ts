@@ -315,7 +315,13 @@ export async function listUserAchievements(userId: string, filter = "ALL") {
 export async function updateMotivationSettings(userId: string, input: unknown) {
   const value = motivationSettingsSchema.parse(input);
   const timeZone = safeTimeZone(value.timeZone);
-  return prisma.user.update({ where: { id: userId }, data: { dailyGoalMinutes: value.dailyGoalMinutes, timeZone }, select: { dailyGoalMinutes: true, timeZone: true } });
+  return prisma.user.update({ where: { id: userId }, data: { dailyGoalMinutes: value.dailyGoalMinutes, timeZone, ...(value.showInLeaderboard === undefined ? {} : { showInLeaderboard: value.showInLeaderboard }) }, select: { dailyGoalMinutes: true, timeZone: true, showInLeaderboard: true } });
+}
+
+/** Public ranking only contains opted-in learner display data; never emails. */
+export async function listPublicLeaderboard(limit = 20) {
+  const rows = await prisma.userLevel.findMany({ where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null } }, orderBy: [{ lifetimeExperience: "desc" }, { level: "desc" }, { updatedAt: "asc" }], take: Math.min(Math.max(limit, 1), 50), select: { level: true, lifetimeExperience: true, user: { select: { name: true } } } });
+  return rows.map((row, index) => ({ rank: index + 1, displayName: row.user.name.trim().split(/\s+/)[0] || "Learner", level: row.level, experience: row.lifetimeExperience }));
 }
 
 export async function listRewardRules() { return prisma.rewardRule.findMany({ orderBy: { eventType: "asc" } }); }

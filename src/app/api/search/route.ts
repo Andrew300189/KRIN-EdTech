@@ -13,22 +13,36 @@ import {
   type SearchResultType,
 } from "@/modules/search/types";
 import { normalizeSearchQuery } from "@/modules/search/utils/normalize-query";
-import { SearchService, toSearchPrincipal } from "@/modules/search/services/search.service";
+import {
+  SearchService,
+  toSearchPrincipal,
+} from "@/modules/search/services/search.service";
 import { recordSearchQuery } from "@/modules/search/services/search-analytics.service";
 
 export const runtime = "nodejs";
 
-const SORT_OPTIONS = new Set<SearchSort>(["relevance", "title", "newest", "recent_activity"]);
+const SORT_OPTIONS = new Set<SearchSort>([
+  "relevance",
+  "title",
+  "newest",
+  "recent_activity",
+]);
 
 function parseContext(value: string | null): SearchContext {
-  if (value && SEARCH_CONTEXTS.includes(value as SearchContext)) return value as SearchContext;
+  if (value && SEARCH_CONTEXTS.includes(value as SearchContext))
+    return value as SearchContext;
   return "PUBLIC";
 }
 
 function parseTypes(value: string | null): SearchResultType[] | undefined {
   if (!value) return undefined;
-  const types = value.split(",").map((item) => item.trim()).filter(Boolean);
-  const filtered = types.filter((item): item is SearchResultType => SEARCH_RESULT_TYPES.includes(item as SearchResultType));
+  const types = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const filtered = types.filter((item): item is SearchResultType =>
+    SEARCH_RESULT_TYPES.includes(item as SearchResultType),
+  );
   return filtered.length ? filtered : undefined;
 }
 
@@ -46,7 +60,9 @@ function parseCursor(value: string | null) {
 
 function parseSort(value: string | null): SearchSort {
   if (!value) return "relevance";
-  return SORT_OPTIONS.has(value as SearchSort) ? (value as SearchSort) : "relevance";
+  return SORT_OPTIONS.has(value as SearchSort)
+    ? (value as SearchSort)
+    : "relevance";
 }
 
 function baseRateLimitKey(request: NextRequest, userId: string | null) {
@@ -55,20 +71,36 @@ function baseRateLimitKey(request: NextRequest, userId: string | null) {
 }
 
 function clientIp(request: NextRequest) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const forwarded = request.headers
+    .get("x-forwarded-for")
+    ?.split(",")[0]
+    ?.trim();
   return forwarded || request.headers.get("x-real-ip") || "anonymous";
 }
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
-    const query = normalizeSearchQuery(request.nextUrl.searchParams.get("q") ?? "");
+    const query = normalizeSearchQuery(
+      request.nextUrl.searchParams.get("q") ?? "",
+    );
     const context = parseContext(request.nextUrl.searchParams.get("context"));
-    console.info("search_requested", { query: query.toLocaleLowerCase("en"), context, userId: user?.id ?? null });
+    console.info("search_requested", {
+      query: query.toLocaleLowerCase("en"),
+      context,
+      userId: user?.id ?? null,
+    });
 
-    const rate = consumeRateLimit(baseRateLimitKey(request, user?.id ?? null), user ? 120 : 80, 60_000);
+    const rate = consumeRateLimit(
+      baseRateLimitKey(request, user?.id ?? null),
+      user ? 120 : 80,
+      60_000,
+    );
     if (!rate.allowed) {
-      return NextResponse.json({ error: "Too many requests", retryAfter: rate.retryAfterSeconds }, { status: 429 });
+      return NextResponse.json(
+        { error: "Too many requests", retryAfter: rate.retryAfterSeconds },
+        { status: 429 },
+      );
     }
 
     if (query.length > MAX_QUERY_LENGTH) {
@@ -101,7 +133,11 @@ export async function GET(request: NextRequest) {
 
     const startedAt = Date.now();
     const response = await SearchService.searchAll({
-      principal: toSearchPrincipal({ userId: user?.id, role: user?.role, locale: user?.interfaceLanguage }),
+      principal: toSearchPrincipal({
+        userId: user?.id,
+        role: user?.role,
+        locale: user?.interfaceLanguage,
+      }),
       query,
       requestedContext: context,
       filters,
@@ -144,6 +180,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
   } catch {
     console.error("search_failed");
-    return NextResponse.json({ error: "Unable to perform search" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to perform search" },
+      { status: 500 },
+    );
   }
 }

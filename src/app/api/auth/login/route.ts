@@ -38,10 +38,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) {
-      return NextResponse.json(
-        createPublicAuthFailure("invalid_credentials"),
-        { status: 401 },
-      );
+      return NextResponse.json(createPublicAuthFailure("invalid_credentials"), {
+        status: 401,
+      });
     }
 
     const user = result.user;
@@ -56,7 +55,11 @@ export async function POST(request: NextRequest) {
         data: {
           lastLoginAt: new Date(),
           ...(passwordNeedsRehash(user.passwordHash)
-            ? { passwordHash: hashPassword(typeof body?.password === "string" ? body.password : "") }
+            ? {
+                passwordHash: hashPassword(
+                  typeof body?.password === "string" ? body.password : "",
+                ),
+              }
             : {}),
         },
       }),
@@ -69,7 +72,10 @@ export async function POST(request: NextRequest) {
       typeof body?.next === "string" ? body.next : undefined,
     );
     logAuthDiagnostic({ event: "auth_success", provider: "credentials" });
-    logAuthDiagnostic({ event: "session_has_email", hasEmail: Boolean(user.email) });
+    logAuthDiagnostic({
+      event: "session_has_email",
+      hasEmail: Boolean(user.email),
+    });
     logAuthDiagnostic({ event: "post_auth_destination", destination });
 
     return NextResponse.json(
@@ -89,9 +95,8 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
   } catch {
-    return NextResponse.json(
-      createPublicAuthFailure("auth_unavailable"),
-      { status: 500 },
-    );
+    return NextResponse.json(createPublicAuthFailure("auth_unavailable"), {
+      status: 500,
+    });
   }
 }

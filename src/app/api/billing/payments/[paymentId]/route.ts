@@ -24,7 +24,7 @@ export async function GET(
       status: true,
       createdAt: true,
       paidAt: true,
-      order: { select: { number: true, status: true, items: { select: { titleSnapshot: true, quantity: true, totalAmount: true } } } },
+      order: { select: { number: true, status: true, items: { select: { titleSnapshot: true, quantity: true, totalAmount: true, product: { select: { course: { select: { slug: true } } } } } } } },
     },
   });
   if (!payment) return NextResponse.json({ error: "Payment not found." }, { status: 404 });

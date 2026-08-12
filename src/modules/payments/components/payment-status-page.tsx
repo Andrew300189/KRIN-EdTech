@@ -12,6 +12,7 @@ type Payment = {
   amount: number;
   currency: string;
   status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "CANCELED" | "REFUNDED" | "EXPIRED";
+  order?: { number: string; status: string; items: Array<{ titleSnapshot: string; quantity: number; totalAmount: number; product: { course: { slug: string } | null } }> } | null;
 };
 
 const messages = {
@@ -69,6 +70,7 @@ export function PaymentStatusPage({ state }: { state: keyof typeof messages }) {
   }, [paymentId, router, state]);
 
   const message = messages[state];
+  const purchasedCourse = payment?.order?.items.find((item) => item.product.course)?.product.course ?? null;
   return <main className="mx-auto max-w-xl px-6 py-20">
     <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
       <h1 className="text-2xl font-bold text-slate-900">{message.title}</h1>
@@ -78,9 +80,10 @@ export function PaymentStatusPage({ state }: { state: keyof typeof messages }) {
         <div><dt className="text-slate-500">Status</dt><dd>{payment.status}</dd></div>
         <div><dt className="text-slate-500">Plan</dt><dd>{payment.plan}</dd></div>
         <div><dt className="text-slate-500">Period</dt><dd>{payment.billingPeriod.toLowerCase()}</dd></div>
+        {payment.order ? <div><dt className="text-slate-500">Order</dt><dd>{payment.order.number}</dd></div> : null}
       </dl> : null}
       {error ? <p className="mt-5 text-sm text-red-700" role="alert">{error}</p> : null}
-      <Link className="btn btn-primary mt-8 inline-flex" href="/dashboard/billing">Back to billing</Link>
+      {state === "success" && purchasedCourse ? <Link className="btn btn-primary mt-8 inline-flex" href={`/courses/${purchasedCourse.slug}`}>Open purchased course</Link> : <Link className="btn btn-primary mt-8 inline-flex" href="/dashboard/billing">Back to billing</Link>}
     </section>
   </main>;
 }

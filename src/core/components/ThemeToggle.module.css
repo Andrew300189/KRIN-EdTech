@@ -1,0 +1,35 @@
+.button {
+  display: inline-grid;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--primary-hover);
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.sunIcon,
+.moonIcon {
+  grid-area: 1 / 1;
+}
+
+.sunIcon { display: none; }
+.moonIcon { display: block; }
+
+:global(html[data-theme="dark"]) .sunIcon { display: block; }
+:global(html[data-theme="dark"]) .moonIcon { display: none; }

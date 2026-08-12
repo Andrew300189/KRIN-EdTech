@@ -1,15 +1,80 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
-import { getPublishedCourseBySlug, getPublishedLevelWithCourses, listLessonProgressByLessonIds } from "@/modules/courses/services/content.service";
+import { getPublishedCourseBySlug, getPublishedCurriculumLevelPage, getPublishedLevelWithCourses, listLessonProgressByLessonIds } from "@/modules/courses/services/content.service";
+import { PublicCurriculumLayout } from "@/modules/courses/components/PublicCurriculumLayout";
+import curriculumStyles from "@/modules/courses/components/PublicCurriculumCards.module.css";
+
+const CEFR_LEVEL_CODES = new Set(["A1", "A2", "B1", "B2", "C1", "C2"]);
+const isCefrLevelCode = (value: string) => CEFR_LEVEL_CODES.has(value.toUpperCase());
 
 function strings(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ level: string }> }): Promise<Metadata> {
+  const levelSlug = (await params).level;
+  const page = isCefrLevelCode(levelSlug) ? await getPublishedCurriculumLevelPage(levelSlug) : null;
+  if (isCefrLevelCode(levelSlug) && !page) notFound();
+  const level = page ? { level: page.level.code, title: page.level.title, description: page.level.description } : null;
+  if (!level) return { title: "Course" };
+
+  const canonical = `/courses/${level.level.toLowerCase()}`;
+  const description = `${level.level} English curriculum: ${level.description}`;
+  return {
+    title: `${level.level} English — ${level.title}`,
+    description,
+    alternates: { canonical },
+    openGraph: { title: `${level.level} English — ${level.title}`, description, url: canonical },
+  };
+}
+
 export default async function CourseOrLevelPage({ params }: { params: Promise<{ level: string }> }) {
   const { level: slug } = await params;
+  const page = isCefrLevelCode(slug) ? await getPublishedCurriculumLevelPage(slug) : null;
+  const curriculumLevel = page ? {
+    level: page.level.code,
+    title: page.level.title,
+    description: page.level.description,
+    sections: page.sections.map((section) => ({ ...section, topics: section.children.map((topic) => ({ ...topic, example: undefined as string | undefined })) })),
+  } : null;
+
+  // CEFR codes are reserved public curriculum routes.  They intentionally use
+  // the typed per-level catalogue and never fall through to another level or a
+  // course slug when the database has not been seeded with a matching level yet.
+  if (curriculumLevel) {
+    const levelHref = `/courses/${curriculumLevel.level.toLowerCase()}`;
+    return (
+      <PublicCurriculumLayout
+        breadcrumbs={[{ label: "Courses", href: "/courses" }, { label: curriculumLevel.level }]}
+        eyebrow={`${curriculumLevel.level} · ${curriculumLevel.title}`}
+        title={`${curriculumLevel.level} — ${curriculumLevel.title}`}
+        description={curriculumLevel.description}
+      >
+        {curriculumLevel.sections.length ? (
+          <section className={curriculumStyles.grid} aria-label={`${curriculumLevel.level} curriculum sections`}>
+            {curriculumLevel.sections.map((section) => (
+              <Link key={section.id} href={`${levelHref}/${section.slug}`} className={curriculumStyles.card} aria-label={`Open ${section.title} for ${curriculumLevel.level}`}>
+                <p className={curriculumStyles.meta}>{curriculumLevel.level} · {section.topics.length} {section.topics.length === 1 ? "topic" : "topics"}</p>
+                <h2>{section.title}</h2>
+                {section.description ? <p className={curriculumStyles.description}>{section.description}</p> : null}
+                <p className={curriculumStyles.examples}>{section.topics.slice(0, 3).map((topic) => topic.title).join(" · ")}</p>
+                <span className={curriculumStyles.cta}>Open section <span aria-hidden="true">→</span></span>
+              </Link>
+            ))}
+          </section>
+        ) : <p className={curriculumStyles.empty}>This level is ready for structure, but its topics are still being prepared. Content from another level is never used as a fallback.</p>}
+      </PublicCurriculumLayout>
+    );
+  }
+
+  // A CEFR URL is never treated as a legacy course identifier. When an owner
+  // unpublishes a level the public route becomes a true 404, rather than
+  // leaking a different level or a similarly named course.
+  if (isCefrLevelCode(slug)) notFound();
+
   const dbLevel = await getPublishedLevelWithCourses(slug);
   if (dbLevel) return <main className="mx-auto max-w-6xl px-6 py-12"><Link href="/courses" className="text-sm font-semibold text-blue-700 hover:underline">← All courses</Link><header className="mt-5"><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">CEFR level</p><h1 className="mt-2 text-4xl font-bold text-slate-900">{dbLevel.code} — {dbLevel.title}</h1>{dbLevel.description ? <p className="mt-3 max-w-3xl text-slate-600">{dbLevel.description}</p> : null}</header>{dbLevel.courses.length === 0 ? <p className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-slate-600">Published courses for this level are being prepared.</p> : <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-label={`${dbLevel.code} courses`}>{dbLevel.courses.map((course) => <article key={course.slug} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex gap-2 text-xs font-semibold"><span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">{course.category.title}</span><span className="rounded-full bg-amber-50 px-3 py-1 text-amber-800">{course.accessPlan === "FREE" ? "Free" : course.accessPlan === "PREMIUM" ? "Premium" : "Corporate"}</span></div><h2 className="mt-4 text-xl font-bold text-slate-900">{course.title}</h2><p className="mt-3 flex-1 text-sm text-slate-600">{course.shortDescription}</p><p className="mt-5 text-sm text-slate-500">{course.lessonCount} lessons · {course.estimatedDuration || "—"} min</p><Link href={`/courses/${course.slug}`} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">View course</Link></article>)}</section>}</main>;
 

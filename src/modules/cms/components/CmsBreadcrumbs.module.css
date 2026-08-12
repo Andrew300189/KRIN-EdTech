@@ -1,0 +1,9 @@
+.breadcrumbs { border-bottom: 1px solid #e4e8f0; background: #fff; }
+.list { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; width: min(100%, 88rem); min-height: 2.35rem; margin: 0 auto; padding: 0.45rem 1rem; color: #738096; font-size: 0.76rem; font-weight: 620; list-style: none; }
+.item { display: inline-flex; min-width: 0; align-items: center; gap: 0.3rem; }
+.separator { color: #a1adbf; }
+.link { overflow: hidden; max-width: 12rem; border-radius: 0.35rem; color: #60708a; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.link:hover { color: #174298; text-decoration: underline; }
+.current { overflow: hidden; max-width: 12rem; color: #26364e; text-overflow: ellipsis; white-space: nowrap; }
+.link:focus-visible { outline: 3px solid #82a9ff; outline-offset: 2px; }
+@media (min-width: 640px) { .list { padding-inline: 1.5rem; } }

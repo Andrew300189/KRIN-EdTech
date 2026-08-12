@@ -29,20 +29,32 @@ describe("cms owner access", () => {
   it.each(["STUDENT", "TEACHER", "INSTRUCTOR"])(
     "routes the owner to /cms before the %s role dashboard",
     (role) => {
-      expect(resolvePostAuthDestination("andreykosir@gmail.com", role)).toBe("/cms");
+      expect(resolvePostAuthDestination("andreykosir@gmail.com", role)).toBe(
+        "/cms",
+      );
       expect(getUserWorkspacePath("andreykosir@gmail.com", role)).toBe("/cms");
-      expect(getPostLoginPath("andreykosir@gmail.com", role, "/teacher")).toBe("/cms");
-      expect(getPostLoginPath("andreykosir@gmail.com", role, "/student/courses")).toBe("/cms");
+      expect(getPostLoginPath("andreykosir@gmail.com", role, "/teacher")).toBe(
+        "/cms",
+      );
+      expect(
+        getPostLoginPath("andreykosir@gmail.com", role, "/student/courses"),
+      ).toBe("/cms");
     },
   );
 
   it("preserves a safe CMS callback for the owner", () => {
-    expect(getPostLoginPath("andreykosir@gmail.com", "TEACHER", "/cms/users")).toBe("/cms/users");
+    expect(
+      getPostLoginPath("andreykosir@gmail.com", "TEACHER", "/cms/users"),
+    ).toBe("/cms/users");
   });
 
   it("resolves teacher and student only after checking the owner email", () => {
-    expect(resolvePostAuthDestination("teacher@example.com", "INSTRUCTOR")).toBe("/teacher");
-    expect(resolvePostAuthDestination("student@example.com", "STUDENT")).toBe("/student");
+    expect(
+      resolvePostAuthDestination("teacher@example.com", "INSTRUCTOR"),
+    ).toBe("/teacher");
+    expect(resolvePostAuthDestination("student@example.com", "STUDENT")).toBe(
+      "/student",
+    );
   });
 
   it("keeps an owner-only CMS guard from redirecting non-owners back to CMS", () => {

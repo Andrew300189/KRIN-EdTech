@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 function parseContext(value: string | null): SearchContext | undefined {
   if (!value) return undefined;
-  if (SEARCH_CONTEXTS.includes(value as SearchContext)) return value as SearchContext;
+  if (SEARCH_CONTEXTS.includes(value as SearchContext))
+    return value as SearchContext;
   return undefined;
 }
 
@@ -21,7 +22,10 @@ export async function GET(request: NextRequest) {
   try {
     const guard = await requirePlatformOwner(request);
     if (!guard.ok) {
-      return NextResponse.json({ error: guard.error }, { status: guard.status });
+      return NextResponse.json(
+        { error: guard.error },
+        { status: guard.status },
+      );
     }
 
     const summary = await getSearchAnalyticsSummary({
@@ -31,6 +35,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: summary });
   } catch {
-    return NextResponse.json({ error: "Unable to read search analytics" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to read search analytics" },
+      { status: 500 },
+    );
   }
 }

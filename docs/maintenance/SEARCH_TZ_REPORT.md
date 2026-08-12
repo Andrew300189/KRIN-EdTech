@@ -12,6 +12,7 @@ Status: done
 - One shared reusable UI search component used in multiple layouts/pages.
 
 Key files:
+
 - src/modules/search/services/search.service.ts
 - src/app/api/search/route.ts
 - src/modules/search/components/GlobalSearch.tsx
@@ -27,6 +28,7 @@ Status: done
 - Help articles use locale fallback: requested locale + en.
 
 Key files:
+
 - src/modules/search/services/search.service.ts
 - tests/integration/search-visibility.test.ts
 
@@ -40,6 +42,7 @@ Status: done
 - Keyboard support including Ctrl/Cmd+K for workspace contexts.
 
 Key files:
+
 - src/app/page.tsx
 - src/modules/search/components/GlobalSearch.tsx
 - src/modules/search/components/SearchResultsPage.tsx
@@ -55,6 +58,7 @@ Status: done
 - Query filters (types, level, category), sort options, cursor pagination.
 
 Key files:
+
 - src/app/search/page.tsx
 - src/app/(student)/student/search/page.tsx
 - src/app/(teacher)/teacher/search/page.tsx
@@ -67,6 +71,7 @@ Status: done
 - Added global search indexes and optional pg_trgm acceleration.
 
 Key files:
+
 - database/prisma/migrations/20260801120000_add_global_search_indexes/migration.sql
 
 ## 6. Security and rate limiting
@@ -78,6 +83,7 @@ Status: done
 - Privacy-safe hashing for IP and query metrics.
 
 Key files:
+
 - src/app/api/search/route.ts
 - src/app/api/search/click/route.ts
 - src/modules/search/services/search-analytics.service.ts
@@ -92,6 +98,7 @@ Status: done
 - Query text exposure in top queries protected by low-frequency hiding.
 
 Key files:
+
 - database/prisma/migrations/20260801183000_add_search_history_metrics/migration.sql
 - src/app/api/profile/search/history/route.ts
 - src/app/profile/search-history/page.tsx
@@ -107,6 +114,7 @@ Status: done (with environment-based skips where expected)
 - E2E search flows for public/student/teacher added and stabilized.
 
 Key files:
+
 - tests/unit/search-api.test.ts
 - tests/unit/search-click-api.test.ts
 - tests/unit/search-service-context.test.ts
@@ -133,6 +141,7 @@ Key files:
 - The analytics service includes a safe fallback for environments where search analytics tables are not yet present.
 
 Required commands:
+
 - npm run db:migrate:deploy
 - RUN_DB_INTEGRATION_TESTS=1 npm run test -- tests/integration/search-visibility.test.ts
 - npm run test:e2e
@@ -146,6 +155,7 @@ Required commands:
 - Trend charts for daily search CTR/no-result rate: done.
 
 Key files:
+
 - src/app/api/admin/analytics/search/export/route.ts
 - src/app/api/admin/analytics/search/cleanup/route.ts
 - src/modules/search/components/AdminSearchAnalyticsTools.tsx

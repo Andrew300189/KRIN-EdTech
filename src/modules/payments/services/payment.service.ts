@@ -5,6 +5,7 @@ import { getPaymentProvider } from "@/modules/payments/services/payment-provider
 import { grantEntitlementsForOrder, revokeOrderEntitlements } from "@/modules/payments/services/entitlement.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import type { CheckoutResult, PaymentProviderName, VerifiedPaymentEvent } from "@/modules/payments/types/payment-provider.types";
+import { recordFunnelEvent } from "@/modules/analytics/services/funnel.service";
 
 type PurchaseUser = { id: string; email: string; name: string; stripeCustomerId: string | null };
 type Tx = Prisma.TransactionClient;
@@ -116,8 +117,20 @@ export async function processVerifiedPaymentEvent(event: VerifiedPaymentEvent) {
   });
   if (result.processed && "orderId" in result && result.orderId) {
     try {
-      const order = await prisma.order.findUnique({ where: { id: result.orderId }, include: { user: { select: { name: true } }, items: { select: { titleSnapshot: true }, take: 1 } } });
+      const order = await prisma.order.findUnique({ where: { id: result.orderId }, include: { user: { select: { name: true } }, items: { select: { titleSnapshot: true, product: { select: { courseId: true } } }, take: 1 } } });
       if (order) {
+        const eventType = event.status === "SUCCEEDED" ? "PURCHASE_COMPLETE" : event.status === "FAILED" ? "CHECKOUT_ERROR" : null;
+        if (eventType) {
+          await recordFunnelEvent({
+            eventId: `${eventType.toLowerCase()}:${event.provider}:${event.eventId}`,
+            eventType,
+            pagePath: event.status === "SUCCEEDED" ? "/payment/success" : "/payment/failed",
+            userId: order.userId,
+            courseId: order.items[0]?.product.courseId ?? null,
+            currency: order.currency,
+            result: event.status === "SUCCEEDED" ? "SUCCEEDED" : "FAILED",
+          });
+        }
         const amount = new Intl.NumberFormat("en", { style: "currency", currency: order.currency }).format(order.totalAmount / 100);
         const eventKey = `billing-notification:${event.provider}:${event.eventId}`;
         if (event.status === "SUCCEEDED") {

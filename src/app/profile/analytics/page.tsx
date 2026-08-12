@@ -3,9 +3,128 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
 import { getUserAnalytics } from "@/modules/motivation/services/motivation.service";
 
-export default async function ProfileAnalyticsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
-  const authenticated = await requireAuth(); if (!authenticated) redirect("/login?next=/profile/analytics");
-  const requested = Number((await searchParams).days ?? 30); const days = [7, 30, 90, 365].includes(requested) ? requested : 30;
-  const data = await getUserAnalytics(authenticated.user.id, days); const max = Math.max(1, ...data.daily.map((day) => day.activeSeconds));
-  return <main className="mx-auto max-w-6xl px-6 py-12"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Learning analytics</p><h1 className="mt-2 text-4xl font-bold text-slate-900">Your progress</h1></div><div className="flex flex-wrap gap-2">{[7, 30, 90, 365].map((period) => <Link key={period} href={`/profile/analytics?days=${period}`} className={`rounded-lg px-3 py-2 text-sm font-semibold ${period === days ? "bg-blue-700 text-white" : "border border-slate-300 text-slate-700"}`}>{period === 365 ? "Year" : `${period} days`}</Link>)}<Link href="/profile/search-history" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Search history</Link></div></header><section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Active time</p><p className="text-2xl font-bold">{Math.round(data.total.activeSeconds / 60)} min</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Accuracy</p><p className="text-2xl font-bold">{data.total.accuracy}%</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Current streak</p><p className="text-2xl font-bold">{data.streak.currentStreak} days</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Coins / level</p><p className="text-2xl font-bold">{data.wallet.balance} · {data.level.level}</p></div></section><section className="mt-8 rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Activity calendar</h2><div className="mt-5 flex h-40 items-end gap-1 overflow-x-auto">{data.daily.map((day) => <div key={day.date} className="flex min-w-5 flex-1 flex-col items-center" title={`${day.date}: ${Math.round(day.activeSeconds / 60)} min, ${day.lessonsCompleted} lessons`}><div className="w-full rounded-t bg-blue-600" style={{ height: `${Math.max(4, Math.round((day.activeSeconds / max) * 120))}px`, opacity: day.activeSeconds ? 1 : 0.15 }} /><span className="mt-2 text-[10px] text-slate-500">{day.date.slice(5)}</span></div>)}</div></section><section className="mt-8 grid gap-4 md:grid-cols-3"><div className="rounded-xl border bg-white p-5"><h2 className="font-bold">Learning</h2><p className="mt-3 text-sm">Lessons completed: {data.total.lessonsCompleted}</p><p className="mt-2 text-sm">Courses completed: {data.total.completedCourses}</p><p className="mt-2 text-sm">Open mistakes: {data.total.mistakes}</p></div><div className="rounded-xl border bg-white p-5"><h2 className="font-bold">Practice</h2><p className="mt-3 text-sm">Exercises: {data.total.exercisesCompleted}</p><p className="mt-2 text-sm">Vocabulary reviews: {data.total.vocabularyReviews}</p><p className="mt-2 text-sm">XP this period: {data.total.experienceEarned}</p></div><div className="rounded-xl border bg-white p-5"><h2 className="font-bold">Achievements</h2><p className="mt-3 text-sm">Unlocked: {data.achievements}</p><p className="mt-2 text-sm">Best streak: {data.streak.longestStreak} days</p><Link href="/profile/achievements" className="mt-4 inline-block text-sm font-semibold text-blue-700 hover:underline">View achievements</Link></div></section></main>;
+export default async function ProfileAnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ days?: string }>;
+}) {
+  const authenticated = await requireAuth();
+  if (!authenticated) redirect("/login?next=/profile/analytics");
+  const requested = Number((await searchParams).days ?? 30);
+  const days = [7, 30, 90, 365].includes(requested) ? requested : 30;
+  const data = await getUserAnalytics(authenticated.user.id, days);
+  const max = Math.max(1, ...data.daily.map((day) => day.activeSeconds));
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-12">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
+            Learning analytics
+          </p>
+          <h1 className="mt-2 text-4xl font-bold text-slate-900">
+            Your progress
+          </h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[7, 30, 90, 365].map((period) => (
+            <Link
+              key={period}
+              href={`/profile/analytics?days=${period}`}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold ${period === days ? "bg-blue-700 text-white" : "border border-slate-300 text-slate-700"}`}
+            >
+              {period === 365 ? "Year" : `${period} days`}
+            </Link>
+          ))}
+          <Link
+            href="/profile/search-history"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            Search history
+          </Link>
+        </div>
+      </header>
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-slate-600">Active time</p>
+          <p className="text-2xl font-bold">
+            {Math.round(data.total.activeSeconds / 60)} min
+          </p>
+        </div>
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-slate-600">Accuracy</p>
+          <p className="text-2xl font-bold">{data.total.accuracy}%</p>
+        </div>
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-slate-600">Current streak</p>
+          <p className="text-2xl font-bold">{data.streak.currentStreak} days</p>
+        </div>
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-slate-600">Coins / level</p>
+          <p className="text-2xl font-bold">
+            {data.wallet.balance} · {data.level.level}
+          </p>
+        </div>
+      </section>
+      <section className="mt-8 rounded-2xl border bg-white p-6">
+        <h2 className="text-xl font-bold">Activity calendar</h2>
+        <div className="mt-5 flex h-40 items-end gap-1 overflow-x-auto">
+          {data.daily.map((day) => (
+            <div
+              key={day.date}
+              className="flex min-w-5 flex-1 flex-col items-center"
+              title={`${day.date}: ${Math.round(day.activeSeconds / 60)} min, ${day.lessonsCompleted} lessons`}
+            >
+              <div
+                className="w-full rounded-t bg-blue-600"
+                style={{
+                  height: `${Math.max(4, Math.round((day.activeSeconds / max) * 120))}px`,
+                  opacity: day.activeSeconds ? 1 : 0.15,
+                }}
+              />
+              <span className="mt-2 text-[10px] text-slate-500">
+                {day.date.slice(5)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border bg-white p-5">
+          <h2 className="font-bold">Learning</h2>
+          <p className="mt-3 text-sm">
+            Lessons completed: {data.total.lessonsCompleted}
+          </p>
+          <p className="mt-2 text-sm">
+            Courses completed: {data.total.completedCourses}
+          </p>
+          <p className="mt-2 text-sm">Open mistakes: {data.total.mistakes}</p>
+        </div>
+        <div className="rounded-xl border bg-white p-5">
+          <h2 className="font-bold">Practice</h2>
+          <p className="mt-3 text-sm">
+            Exercises: {data.total.exercisesCompleted}
+          </p>
+          <p className="mt-2 text-sm">
+            Vocabulary reviews: {data.total.vocabularyReviews}
+          </p>
+          <p className="mt-2 text-sm">
+            XP this period: {data.total.experienceEarned}
+          </p>
+        </div>
+        <div className="rounded-xl border bg-white p-5">
+          <h2 className="font-bold">Achievements</h2>
+          <p className="mt-3 text-sm">Unlocked: {data.achievements}</p>
+          <p className="mt-2 text-sm">
+            Best streak: {data.streak.longestStreak} days
+          </p>
+          <Link
+            href="/profile/achievements"
+            className="mt-4 inline-block text-sm font-semibold text-blue-700 hover:underline"
+          >
+            View achievements
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
 }

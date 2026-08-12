@@ -1,0 +1,39 @@
+.workspace { min-height: 100vh; background: var(--surface-subtle, #f7f8fb); color: var(--ink, #10213d); }
+.desktopSidebar { display: none; }
+.sidebar { display: flex; height: 100%; width: min(21rem, 88vw); flex-direction: column; background: #fff; outline: none; }
+.brandBlock { border-bottom: 1px solid #e4e8f0; padding: 1.25rem 1.35rem 1.15rem; }
+.brandRow, .headerRow, .headerTitle, .headerActions { display: flex; align-items: center; }
+.brandRow, .headerRow { justify-content: space-between; gap: 1rem; }
+.brandLink { color: #163f96; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; text-decoration: none; }
+.brandLink:hover { color: #0d2c6c; }
+.workspaceName { margin: 0.35rem 0 0; color: #667085; font-size: 0.85rem; line-height: 1.4; }
+.closeButton, .menuButton { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid #d5dce8; border-radius: 0.7rem; background: #fff; color: #334155; cursor: pointer; }
+.closeButton svg, .menuButton svg { width: 1.15rem; height: 1.15rem; }
+.closeButton:hover, .menuButton:hover { border-color: #aebedb; background: #f4f7fc; color: #133e95; }
+.navigation { display: grid; flex: 1; gap: 0.25rem; overflow-y: auto; padding: 0.85rem; }
+.navigationLink, .homeLink, .cmsLink, .signOutButton { border-radius: 0.7rem; font-size: 0.9rem; font-weight: 650; text-decoration: none; }
+.navigationLink { display: block; padding: 0.7rem 0.85rem; color: #445166; }
+.navigationLink:hover { background: #f2f5fa; color: #10213d; }
+.navigationLinkActive { background: #e8f0ff; color: #0e3d96; font-weight: 750; }
+.sidebarFooter { border-top: 1px solid #e4e8f0; padding: 0.85rem; }
+.homeLink { display: flex; align-items: center; gap: 0.5rem; padding: 0.72rem 0.85rem; color: #445166; }
+.homeLink:hover { background: #f2f5fa; color: #10213d; }
+.mobileMenu { position: fixed; inset: 0; z-index: 60; }
+.menuBackdrop { position: absolute; inset: 0; border: 0; background: rgb(16 33 61 / 52%); cursor: default; }
+.mobileDrawer { position: relative; height: 100%; width: min(21rem, 88vw); box-shadow: 1.25rem 0 3rem rgb(15 32 58 / 22%); }
+.main { min-width: 0; }
+.header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #e4e8f0; background: rgb(255 255 255 / 96%); padding: 0.85rem 1rem; backdrop-filter: blur(12px); }
+.headerTitle { min-width: 0; gap: 0.7rem; }
+.headerTitle h1 { overflow: hidden; margin: 0; color: #10213d; font-size: clamp(1rem, 3.7vw, 1.2rem); font-weight: 800; letter-spacing: -0.02em; text-overflow: ellipsis; white-space: nowrap; }
+.menuButton { flex: none; }
+.headerActions { flex: none; gap: 0.4rem; }
+.cmsLink, .signOutButton { min-height: 2.5rem; padding: 0.56rem 0.72rem; border: 1px solid transparent; background: transparent; color: #526176; cursor: pointer; }
+.cmsLink { border-color: #d5dce8; color: #254a97; }
+.cmsLink:hover, .signOutButton:hover:not(:disabled) { background: #f2f5fa; color: #10213d; }
+.signOutButton:disabled { cursor: wait; opacity: 0.65; }
+.search { margin-top: 0.75rem; max-width: 46rem; }
+.content { width: min(100%, 88rem); margin: 0 auto; padding: 1.25rem 1rem 2.5rem; }
+.brandLink:focus-visible, .closeButton:focus-visible, .menuButton:focus-visible, .navigationLink:focus-visible, .homeLink:focus-visible, .cmsLink:focus-visible, .signOutButton:focus-visible { outline: 3px solid #82a9ff; outline-offset: 2px; }
+@media (min-width: 640px) { .header { padding: 0.9rem 1.5rem; } .content { padding: 1.75rem 1.5rem 3rem; } }
+@media (min-width: 1024px) { .workspace { display: flex; } .desktopSidebar { position: sticky; top: 0; display: block; flex: 0 0 17.5rem; height: 100vh; border-right: 1px solid #e4e8f0; } .sidebar { width: 100%; } .main { flex: 1 1 auto; } .menuButton { display: none; } .header { padding: 1rem 2rem; } .content { padding: 2rem; } }
+@media (prefers-reduced-motion: no-preference) { .navigationLink, .homeLink, .cmsLink, .signOutButton, .closeButton, .menuButton { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } }

@@ -1,7 +1,7 @@
 import { prisma } from "@/core/server/prisma";
 import { hasAnyRole, parseRole } from "@/core/utils/role";
 import { hasPremiumSubscriptionAccess } from "@/modules/payments/services/subscription-access";
-import { hasCourseEntitlement } from "@/modules/payments/services/entitlement.service";
+import { entitlementAllowsLesson, hasLessonEntitlement, listActiveLessonEntitlements } from "@/modules/payments/services/entitlement.service";
 
 export type LessonAccessReason = "AVAILABLE" | "AUTH_REQUIRED" | "PREMIUM_REQUIRED" | "SEQUENCE_LOCKED" | "PREREQUISITE_LOCKED" | "UNPUBLISHED" | "NOT_FOUND";
 export type LessonAccessResult = { allowed: boolean; reason: LessonAccessReason; lessonId?: string; courseSlug?: string };
@@ -15,6 +15,84 @@ export function determineLessonAccess(user: AccessUser | null, rule: AccessRule)
   if (!user) return { allowed: false, reason: "AUTH_REQUIRED" };
   if (hasAnyRole(parseRole(user.role), ["content_manager"]) || hasPremiumSubscriptionAccess(user)) return { allowed: true, reason: "AVAILABLE" };
   return { allowed: false, reason: "PREMIUM_REQUIRED" };
+}
+
+/**
+ * Resolves the complete lesson outline for one course in a bounded number of
+ * queries. Public course pages use this instead of running `canAccessLesson`
+ * once per card, which prevents an N+1 query pattern as programmes grow.
+ */
+export async function listCourseLessonAccess(userId: string | null, courseId: string): Promise<Array<[string, LessonAccessResult]>> {
+  const course = await prisma.course.findFirst({
+    where: { id: courseId, isPublished: true, isTemplate: false, level: { isPublished: true }, category: { isPublished: true } },
+    select: {
+      id: true,
+      slug: true,
+      accessPlan: true,
+      firstFreeLessonCount: true,
+      modules: {
+        where: { isPublished: true },
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          order: true,
+          requiresSequentialCompletion: true,
+          unlockAfterModuleId: true,
+          requiredCompletionPercent: true,
+          lessons: {
+            where: { isPublished: true },
+            orderBy: { order: "asc" },
+            select: { id: true, isFree: true, prerequisiteLessonId: true, requiredPrerequisiteCompletion: true },
+          },
+        },
+      },
+    },
+  });
+  if (!course) return [];
+
+  const lessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
+  const [user, entitlements, progress] = await Promise.all([
+    userId ? prisma.user.findUnique({ where: { id: userId }, select: { role: true, subscriptionPlan: true, subscriptionStatus: true, subscriptionCurrentPeriodEnd: true } }) : null,
+    userId ? listActiveLessonEntitlements(userId, course.id) : [],
+    userId ? prisma.lessonProgress.findMany({ where: { userId, lessonId: { in: lessonIds } }, select: { lessonId: true, status: true, completionPercent: true } }) : [],
+  ]);
+  const progressByLesson = new Map(progress.map((item) => [item.lessonId, item]));
+  const orderedLessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
+  const privileged = hasAnyRole(parseRole(user?.role), ["content_manager"]);
+  const results: Array<[string, LessonAccessResult]> = [];
+
+  for (const courseModule of course.modules) {
+    const prerequisites = modulePrerequisites(courseModule, course.modules);
+    const prerequisiteModulesComplete = prerequisites.every((requiredModule) => {
+      if (!requiredModule.lessons.length) return false;
+      const completed = requiredModule.lessons.filter((lesson) => progressByLesson.get(lesson.id)?.status === "COMPLETED").length;
+      return Math.round((completed / requiredModule.lessons.length) * 100) >= courseModule.requiredCompletionPercent;
+    });
+
+    for (const lesson of courseModule.lessons) {
+      let access = determineLessonAccess(user, {
+        courseAccessPlan: course.accessPlan,
+        firstFreeLessonCount: course.firstFreeLessonCount,
+        lessonIsFree: lesson.isFree,
+        lessonPosition: Math.max(0, orderedLessonIds.indexOf(lesson.id)),
+      });
+      if (!access.allowed && entitlementAllowsLesson(entitlements, { courseId: course.id, moduleId: courseModule.id, lessonOrder: Math.max(0, orderedLessonIds.indexOf(lesson.id)) + 1 })) access = { allowed: true, reason: "AVAILABLE" };
+      if (access.allowed && prerequisites.length > 0 && !privileged) {
+        access = !userId
+          ? { allowed: false, reason: "AUTH_REQUIRED" }
+          : prerequisiteModulesComplete
+            ? access
+            : { allowed: false, reason: "SEQUENCE_LOCKED" };
+      }
+      if (access.allowed && lesson.prerequisiteLessonId && !privileged) {
+        const prerequisite = progressByLesson.get(lesson.prerequisiteLessonId);
+        if (!userId) access = { allowed: false, reason: "AUTH_REQUIRED" };
+        else if (prerequisite?.status !== "COMPLETED" || prerequisite.completionPercent < lesson.requiredPrerequisiteCompletion) access = { allowed: false, reason: "PREREQUISITE_LOCKED" };
+      }
+      results.push([lesson.id, { ...access, lessonId: lesson.id, courseSlug: course.slug }]);
+    }
+  }
+  return results;
 }
 
 type PublishedCourseModule = { id: string; order: number; lessons: Array<{ id: string }> };
@@ -88,7 +166,7 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
   const lessonPosition = orderedLessonIds.indexOf(lesson.id);
   const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { role: true, subscriptionPlan: true, subscriptionStatus: true, subscriptionCurrentPeriodEnd: true } }) : null;
   let access = determineLessonAccess(user, { courseAccessPlan: course.accessPlan, firstFreeLessonCount: course.firstFreeLessonCount, lessonIsFree: lesson.isFree, lessonPosition: Math.max(0, lessonPosition) });
-  if (!access.allowed && userId && await hasCourseEntitlement(userId, course.id)) access = { allowed: true, reason: "AVAILABLE" };
+  if (!access.allowed && userId && await hasLessonEntitlement(userId, { courseId: course.id, moduleId: module.id, lessonOrder: Math.max(0, lessonPosition) + 1 })) access = { allowed: true, reason: "AVAILABLE" };
   if (!access.allowed) return { ...access, lessonId, courseSlug: course.slug };
 
   const prerequisites = modulePrerequisites(module, course.modules);

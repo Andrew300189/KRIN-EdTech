@@ -84,12 +84,15 @@ if (authModal && authModalTitle && loginForm && registerForm) {
   let loginInFlight = false;
   let registerInFlight = false;
   const loginSubmitButton = loginForm.querySelector('button[type="submit"]');
-  const registerSubmitButton = registerForm.querySelector('button[type="submit"]');
+  const registerSubmitButton = registerForm.querySelector(
+    'button[type="submit"]',
+  );
 
   const setLoginBusy = (busy) => {
     loginInFlight = busy;
     if (loginSubmitButton) loginSubmitButton.disabled = busy;
-    if (loginSubmitLabel) loginSubmitLabel.textContent = busy ? "Logging in..." : "Log in";
+    if (loginSubmitLabel)
+      loginSubmitLabel.textContent = busy ? "Logging in..." : "Log in";
     if (googleSignInButton) {
       googleSignInButton.toggleAttribute("aria-disabled", busy);
       googleSignInButton.setAttribute("aria-busy", String(busy));
@@ -108,29 +111,33 @@ if (authModal && authModalTitle && loginForm && registerForm) {
   // login must therefore navigate the top-level application, not only iframe.
   const workspacePathFromPayload = (payload) => {
     const candidate = payload?.user?.workspacePath;
-    const isWorkspacePath = typeof candidate === "string" && (
-      candidate === "/cms" ||
-      candidate.startsWith("/cms/") ||
-      candidate === "/teacher" ||
-      candidate.startsWith("/teacher/") ||
-      candidate === "/student" ||
-      candidate.startsWith("/student/")
-    );
+    const isWorkspacePath =
+      typeof candidate === "string" &&
+      (candidate === "/cms" ||
+        candidate.startsWith("/cms/") ||
+        candidate === "/teacher" ||
+        candidate.startsWith("/teacher/") ||
+        candidate === "/student" ||
+        candidate.startsWith("/student/"));
 
     return isWorkspacePath &&
       candidate.startsWith("/") &&
       !candidate.startsWith("//") &&
       !candidate.includes("\\")
-        ? candidate
-        : null;
+      ? candidate
+      : null;
   };
 
   const publicAuthErrorMessage = (payload, fallback) => {
-    const message = typeof payload?.error === "string" ? payload.error : fallback;
-    const errorId = typeof payload?.errorId === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.errorId)
-      ? payload.errorId
-      : "";
+    const message =
+      typeof payload?.error === "string" ? payload.error : fallback;
+    const errorId =
+      typeof payload?.errorId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        payload.errorId,
+      )
+        ? payload.errorId
+        : "";
     return errorId ? `${message} (Error ID: ${errorId})` : message;
   };
 
@@ -262,7 +269,8 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         form.submit();
       } catch {
         if (loginError) {
-          loginError.textContent = "Не удалось войти через Google. Попробуйте ещё раз.";
+          loginError.textContent =
+            "Не удалось войти через Google. Попробуйте ещё раз.";
           loginError.style.display = "block";
         }
         setLoginBusy(false);
@@ -328,7 +336,8 @@ if (authModal && authModalTitle && loginForm && registerForm) {
       redirectStarted = openServerDestination(destination);
     } catch {
       if (loginError) {
-        loginError.textContent = "Не удалось выполнить вход. Попробуйте ещё раз.";
+        loginError.textContent =
+          "Не удалось выполнить вход. Попробуйте ещё раз.";
         loginError.style.display = "block";
       }
     } finally {
@@ -385,17 +394,16 @@ if (authModal && authModalTitle && loginForm && registerForm) {
         const loginResponse = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password }),
         });
 
         if (!loginResponse.ok) {
           const loginPayload = await loginResponse.json().catch(() => null);
           if (registerError) {
-            registerError.textContent =
-              publicAuthErrorMessage(
-                loginPayload,
-                "Аккаунт создан, но войти не удалось. Попробуйте ещё раз.",
-              );
+            registerError.textContent = publicAuthErrorMessage(
+              loginPayload,
+              "Аккаунт создан, но войти не удалось. Попробуйте ещё раз.",
+            );
             registerError.style.display = "block";
           }
           showForm("login");
@@ -406,7 +414,8 @@ if (authModal && authModalTitle && loginForm && registerForm) {
       const destination = workspacePathFromPayload(payload);
       if (!openServerDestination(destination)) {
         if (registerError) {
-          registerError.textContent = "Account created, but no safe destination was returned.";
+          registerError.textContent =
+            "Account created, but no safe destination was returned.";
           registerError.style.display = "block";
         }
       }

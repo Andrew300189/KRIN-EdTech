@@ -1,4 +1,4 @@
-import { determineReviewQuality, isEligibleForMastery, scheduleNextWordReview } from "@/modules/vocabulary/services/review-scheduler";
+import { determineReviewQuality, isEligibleForMastery, scheduleNextReview, scheduleNextWordReview } from "@/modules/vocabulary/services/review-scheduler";
 
 const now = new Date("2026-07-30T10:00:00.000Z");
 const state = { easeFactor: 2.5, intervalDays: 7, repetitions: 4, lapses: 0, masteryLevel: 50 };
@@ -28,5 +28,13 @@ describe("vocabulary spaced repetition scheduler", () => {
     expect(determineReviewQuality(true, "TEXT_INPUT", 3)).toBe("EASY");
     expect(determineReviewQuality(true, "TEXT_INPUT", 20)).toBe("HARD");
     expect(determineReviewQuality(true, "TEXT_INPUT", 8)).toBe("GOOD");
+  });
+
+  it("accounts for confidence, difficulty, prior mistakes and the previous review date without rewarding an error", () => {
+    const easy = scheduleNextReview({ state, isCorrect: true, exerciseType: "TEXT_INPUT", responseTimeSeconds: 3, confidence: 3, difficulty: 1, previousErrors: 0, lastReviewedAt: now }, now);
+    const difficult = scheduleNextReview({ state, isCorrect: true, exerciseType: "TEXT_INPUT", responseTimeSeconds: 3, confidence: 1, difficulty: 9, previousErrors: 5, lastReviewedAt: new Date("2026-07-01T10:00:00.000Z") }, now);
+    const incorrect = scheduleNextReview({ state, isCorrect: false, exerciseType: "TEXT_INPUT", responseTimeSeconds: 1, confidence: 3, difficulty: 1 }, now);
+    expect(difficult.intervalDays).toBeLessThan(easy.intervalDays);
+    expect(incorrect).toMatchObject({ status: "LEARNING", intervalDays: 0, repetitions: 0 });
   });
 });

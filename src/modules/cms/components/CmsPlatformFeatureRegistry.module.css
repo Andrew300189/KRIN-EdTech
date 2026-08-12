@@ -1,0 +1,37 @@
+.registry { display: grid; gap: 1.25rem; }
+.summary { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.summary article { display: flex; min-height: 5.7rem; flex-direction: column; justify-content: space-between; padding: 1rem; border: 1px solid var(--border, #dce4f0); border-radius: var(--radius-lg, 1rem); background: var(--surface, #fff); }
+.summary span { color: var(--text-secondary, #526176); font-size: 0.82rem; font-weight: 700; }
+.summary strong { color: var(--text-primary, #10213d); font-size: 1.8rem; letter-spacing: -0.05em; }
+.controls { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--border, #dce4f0); border-radius: var(--radius-lg, 1rem); background: var(--surface, #fff); }
+.searchLabel { display: grid; gap: 0.4rem; color: var(--text-primary, #10213d); font-size: 0.85rem; font-weight: 750; }
+.searchLabel input { width: min(100%, 32rem); min-height: 2.7rem; padding: 0.55rem 0.7rem; border: 1px solid var(--border-strong, #b9c5d8); border-radius: var(--radius-md, 0.625rem); background: var(--surface-elevated, #fff); color: var(--text-primary, #10213d); }
+.filterGroup { min-width: 0; border: 0; }
+.filterGroup legend { color: var(--text-secondary, #526176); font-size: 0.8rem; font-weight: 750; }
+.filterGroup > div { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.5rem; }
+.filterGroup button, .empty button { min-height: 2.35rem; padding: 0.45rem 0.65rem; border: 1px solid var(--border-strong, #b9c5d8); border-radius: 999px; background: var(--surface, #fff); color: var(--text-secondary, #526176); font-size: 0.82rem; font-weight: 720; }
+.filterGroup button[aria-pressed="true"] { border-color: var(--primary, #2349b3); background: color-mix(in srgb, var(--primary, #2349b3) 12%, var(--surface, #fff)); color: var(--primary, #2349b3); }
+.filterGroup button:hover, .empty button:hover { border-color: var(--primary, #2349b3); color: var(--primary, #2349b3); }
+.resultCount { margin: 0; color: var(--text-muted, #667085); font-size: 0.86rem; }
+.list { display: grid; gap: 0.9rem; }
+.feature { padding: clamp(1rem, 3vw, 1.35rem); border: 1px solid var(--border, #dce4f0); border-radius: var(--radius-lg, 1rem); background: var(--surface, #fff); }
+.featureTop { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.8rem; }
+.area { margin: 0; color: var(--primary, #2349b3); font-size: 0.73rem; font-weight: 780; letter-spacing: 0.06em; text-transform: uppercase; }
+.feature h2 { margin: 0.35rem 0 0; color: var(--text-primary, #10213d); font-size: 1.12rem; letter-spacing: -0.02em; }
+.status { flex: none; padding: 0.3rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 780; }
+.statusWORKING { background: #e5f7ee; color: #11633d; }
+.statusPARTIAL { background: #fff5d8; color: #805a08; }
+.statusINTERNAL { background: #eaf0ff; color: #224a9e; }
+.statusBLOCKED { background: #fcebed; color: #a42740; }
+.description { max-width: 67rem; margin: 0.75rem 0 0; color: var(--text-secondary, #526176); line-height: 1.6; }
+.meta { display: grid; gap: 0.7rem 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); margin: 1rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border, #dce4f0); }
+.meta div { min-width: 0; }
+.meta dt { color: var(--text-muted, #667085); font-size: 0.72rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; }
+.meta dd { margin: 0.2rem 0 0; overflow-wrap: anywhere; color: var(--text-primary, #10213d); font-size: 0.82rem; line-height: 1.45; }
+.note { margin: 1rem 0 0; padding: 0.65rem 0.75rem; border-left: 3px solid var(--info, #54a6ff); background: color-mix(in srgb, var(--info, #54a6ff) 8%, var(--surface, #fff)); color: var(--text-secondary, #526176); font-size: 0.84rem; line-height: 1.5; }
+.empty { padding: 2rem 1rem; border: 1px dashed var(--border-strong, #b9c5d8); border-radius: var(--radius-lg, 1rem); background: var(--surface, #fff); text-align: center; }
+.empty h2 { margin: 0; color: var(--text-primary, #10213d); font-size: 1.1rem; }
+.empty p { margin: 0.5rem auto 0; color: var(--text-secondary, #526176); }
+.empty button { margin-top: 1rem; }
+.searchLabel input:focus-visible, .filterGroup button:focus-visible, .empty button:focus-visible { outline: 3px solid var(--focus-ring, #82a9ff); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .filterGroup button, .empty button { transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; } }

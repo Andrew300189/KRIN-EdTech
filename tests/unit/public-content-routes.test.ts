@@ -8,7 +8,7 @@ describe("public content routes", () => {
   const level = { code: "A1" };
 
   it("uses one canonical public route for every published course", () => {
-    expect(getPublicCourseHref("present-simple-basics")).toBe("/courses/catalog/present-simple-basics");
+    expect(getPublicCourseHref("present-simple-basics")).toBe("/courses/present-simple-basics");
   });
 
   it("builds a precise section, topic and subtopic path", () => {
@@ -16,9 +16,9 @@ describe("public content routes", () => {
     const topic = { type: "TOPIC" as const, slug: "pronouns", level, parent: { type: "SECTION" as const, slug: "grammar", parent: null } };
     const subtopic = { type: "SUBTOPIC" as const, slug: "personal-pronouns", level, parent: { type: "TOPIC" as const, slug: "pronouns", parent: { type: "SECTION" as const, slug: "grammar" } } };
 
-    expect(getPublicCurriculumHref(section)).toBe("/levels/a1/sections/grammar");
-    expect(getPublicCurriculumHref(topic)).toBe("/levels/a1/sections/grammar/pronouns");
-    expect(getPublicCurriculumHref(subtopic)).toBe("/levels/a1/sections/grammar/pronouns/personal-pronouns");
+    expect(getPublicCurriculumHref(section)).toBe("/courses/a1/grammar");
+    expect(getPublicCurriculumHref(topic)).toBe("/courses/a1/grammar/pronouns");
+    expect(getPublicCurriculumHref(subtopic)).toBe("/courses/a1/grammar/pronouns/personal-pronouns");
   });
 
   it("does not return an unrelated fallback route for a malformed curriculum path", () => {

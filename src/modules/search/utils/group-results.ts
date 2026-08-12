@@ -1,4 +1,9 @@
-import type { SearchContext, SearchGroup, SearchResult, SearchResultType } from "@/modules/search/types";
+import type {
+  SearchContext,
+  SearchGroup,
+  SearchResult,
+  SearchResultType,
+} from "@/modules/search/types";
 
 const GROUP_LABELS: Record<SearchContext, Record<string, string>> = {
   PUBLIC: {
@@ -39,9 +44,15 @@ const GROUP_LABELS: Record<SearchContext, Record<string, string>> = {
   },
 };
 
-function keyByType(type: SearchResultType, result: SearchResult, context: SearchContext) {
+function keyByType(
+  type: SearchResultType,
+  result: SearchResult,
+  context: SearchContext,
+) {
   if (type === "COURSE") {
-    return context === "STUDENT" && result.badge === "My course" ? "my_courses" : "courses";
+    return context === "STUDENT" && result.badge === "My course"
+      ? "my_courses"
+      : "courses";
   }
   if (type === "CATEGORY") return "courses";
   if (type === "ACADEMY") return "academies";
@@ -58,7 +69,11 @@ function keyByType(type: SearchResultType, result: SearchResult, context: Search
   return "other";
 }
 
-export function groupResults(items: SearchResult[], context: SearchContext, perGroup = 5): SearchGroup[] {
+export function groupResults(
+  items: SearchResult[],
+  context: SearchContext,
+  perGroup = 5,
+): SearchGroup[] {
   const grouped = new Map<string, SearchResult[]>();
   for (const item of items) {
     const key = keyByType(item.type, item, context);

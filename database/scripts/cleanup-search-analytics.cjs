@@ -5,7 +5,9 @@
     node database/scripts/cleanup-search-analytics.cjs --days=180
 */
 
-const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime");
+const {
+  PrismaClient,
+} = require("../../src/generated/prisma-client-payments-runtime");
 
 const prisma = new PrismaClient({
   datasources: {
@@ -19,7 +21,9 @@ function parseArgs(argv) {
   const daysArg = argv.find((arg) => arg.startsWith("--days="));
   const dryRun = argv.includes("--dry-run");
   const daysRaw = daysArg ? Number(daysArg.split("=")[1]) : 180;
-  const retentionDays = Number.isFinite(daysRaw) ? Math.max(30, Math.min(1095, Math.floor(daysRaw))) : 180;
+  const retentionDays = Number.isFinite(daysRaw)
+    ? Math.max(30, Math.min(1095, Math.floor(daysRaw)))
+    : 180;
   return { retentionDays, dryRun };
 }
 
@@ -36,19 +40,31 @@ async function main() {
   const { retentionDays, dryRun } = parseArgs(process.argv.slice(2));
 
   if (!(await hasTables())) {
-    console.log(JSON.stringify({
-      generatedAt: new Date().toISOString(),
-      retentionDays,
-      dryRun,
-      deletedHistoryRows: 0,
-      deletedMetricRows: 0,
-      note: "Search analytics tables are not present in this database.",
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          retentionDays,
+          dryRun,
+          deletedHistoryRows: 0,
+          deletedMetricRows: 0,
+          note: "Search analytics tables are not present in this database.",
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
   const threshold = new Date(Date.now() - retentionDays * 86_400_000);
-  const thresholdDay = new Date(Date.UTC(threshold.getUTCFullYear(), threshold.getUTCMonth(), threshold.getUTCDate()));
+  const thresholdDay = new Date(
+    Date.UTC(
+      threshold.getUTCFullYear(),
+      threshold.getUTCMonth(),
+      threshold.getUTCDate(),
+    ),
+  );
 
   const [historyCountRows, metricCountRows] = await Promise.all([
     prisma.$queryRaw`
@@ -79,15 +95,21 @@ async function main() {
     ]);
   }
 
-  console.log(JSON.stringify({
-    generatedAt: new Date().toISOString(),
-    retentionDays,
-    dryRun,
-    threshold: threshold.toISOString(),
-    thresholdDay: thresholdDay.toISOString().slice(0, 10),
-    deletedHistoryRows,
-    deletedMetricRows,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        retentionDays,
+        dryRun,
+        threshold: threshold.toISOString(),
+        thresholdDay: thresholdDay.toISOString().slice(0, 10),
+        deletedHistoryRows,
+        deletedMetricRows,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 main()

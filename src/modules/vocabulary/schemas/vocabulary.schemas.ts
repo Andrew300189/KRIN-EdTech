@@ -74,7 +74,13 @@ export const addCustomDictionaryWordSchema = z.object({ term: z.string().trim().
 export const vocabularyQuerySchema = z.object({ q: z.string().trim().max(160).optional(), status: z.union([z.literal("ALL"), userWordStatus, z.literal("CUSTOM"), z.literal("DIFFICULT")]).default("ALL"), cefrLevel: cefrLevel.optional(), partOfSpeech: wordPartOfSpeech.optional(), courseSlug: z.string().trim().max(160).optional(), sort: z.enum(["next_review", "newest", "mastery", "alphabetical"]).default("next_review"), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(50).default(20) });
 export const updateDictionaryWordSchema = z.object({ kind: z.enum(["GLOBAL", "CUSTOM"]), action: z.enum(["ARCHIVE", "RESTORE", "SUSPEND", "DIFFICULT", "NOT_DIFFICULT"]) });
 export const createTrainingSessionSchema = z.object({ source: sessionSource.default("DAILY_REVIEW"), userWordIds: z.array(z.string().cuid()).max(50).optional(), userCustomWordIds: z.array(z.string().cuid()).max(50).optional(), lessonId: z.string().cuid().optional() });
-export const submitVocabularyAnswerSchema = z.object({ submittedAnswer: jsonValue, responseTimeSeconds: z.number().int().min(0).max(3600).optional() });
+export const submitVocabularyAnswerSchema = z.object({
+  submittedAnswer: jsonValue,
+  responseTimeSeconds: z.number().int().min(0).max(3600).optional(),
+  // The value is a learner signal, not a correctness claim. The server still
+  // calculates correctness from the stored answer key.
+  confidence: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+});
 export const updateVocabularySettingsSchema = z.object({ dailyGoal: z.number().int().min(1).max(100).optional(), maxSessionSize: z.number().int().min(1).max(50).optional(), showTranscription: z.boolean().optional(), autoplayAudio: z.boolean().optional(), pronunciationVariant: z.enum(["BRITISH", "AMERICAN", "BOTH"]).optional(), includeDifficultWords: z.boolean().optional(), dailyReminderEnabled: z.boolean().optional(), translationLanguage: z.string().trim().min(2).max(10).optional() });
 const vocabularyImportRowSchema = z.object({
   lemma: z.string().trim().min(1).max(160),

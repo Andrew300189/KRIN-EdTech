@@ -1,8 +1,13 @@
 import { randomUUID } from "crypto";
 import { prisma } from "@/core/server/prisma";
-import { SearchService, toSearchPrincipal } from "@/modules/search/services/search.service";
+import {
+  SearchService,
+  toSearchPrincipal,
+} from "@/modules/search/services/search.service";
 
-const RUN_DB_INTEGRATION = process.env.RUN_DB_INTEGRATION_TESTS === "1" && Boolean(process.env.DATABASE_URL);
+const RUN_DB_INTEGRATION =
+  process.env.RUN_DB_INTEGRATION_TESTS === "1" &&
+  Boolean(process.env.DATABASE_URL);
 const describeDb = RUN_DB_INTEGRATION ? describe : describe.skip;
 
 describeDb("search visibility integration", () => {
@@ -44,10 +49,44 @@ describeDb("search visibility integration", () => {
   beforeAll(async () => {
     await prisma.user.createMany({
       data: [
-        { id: users.teacherA, email: `teacher-a-${suffix}@example.com`, username: `teacher-a-${suffix}`, name: `Teacher A ${suffix}`, passwordHash: "x", role: "INSTRUCTOR", emailVerified: true },
-        { id: users.teacherB, email: `teacher-b-${suffix}@example.com`, username: `teacher-b-${suffix}`, name: `Teacher B ${suffix}`, passwordHash: "x", role: "INSTRUCTOR", emailVerified: true },
-        { id: users.studentA, email: `student-a-${suffix}@example.com`, username: `student-a-${suffix}`, name: `Student Alpha ${suffix}`, passwordHash: "x", role: "STUDENT", emailVerified: true, interfaceLanguage: "uk" },
-        { id: users.studentB, email: `student-b-${suffix}@example.com`, username: `student-b-${suffix}`, name: `Student Beta ${suffix}`, passwordHash: "x", role: "STUDENT", emailVerified: true, interfaceLanguage: "ru" },
+        {
+          id: users.teacherA,
+          email: `teacher-a-${suffix}@example.com`,
+          username: `teacher-a-${suffix}`,
+          name: `Teacher A ${suffix}`,
+          passwordHash: "x",
+          role: "INSTRUCTOR",
+          emailVerified: true,
+        },
+        {
+          id: users.teacherB,
+          email: `teacher-b-${suffix}@example.com`,
+          username: `teacher-b-${suffix}`,
+          name: `Teacher B ${suffix}`,
+          passwordHash: "x",
+          role: "INSTRUCTOR",
+          emailVerified: true,
+        },
+        {
+          id: users.studentA,
+          email: `student-a-${suffix}@example.com`,
+          username: `student-a-${suffix}`,
+          name: `Student Alpha ${suffix}`,
+          passwordHash: "x",
+          role: "STUDENT",
+          emailVerified: true,
+          interfaceLanguage: "uk",
+        },
+        {
+          id: users.studentB,
+          email: `student-b-${suffix}@example.com`,
+          username: `student-b-${suffix}`,
+          name: `Student Beta ${suffix}`,
+          passwordHash: "x",
+          role: "STUDENT",
+          emailVerified: true,
+          interfaceLanguage: "ru",
+        },
       ],
     });
 
@@ -56,7 +95,9 @@ describeDb("search visibility integration", () => {
       select: { id: true },
     });
     if (!baseLevel) {
-      throw new Error("Expected seeded A1 language level for integration tests");
+      throw new Error(
+        "Expected seeded A1 language level for integration tests",
+      );
     }
     levelId = baseLevel.id;
 
@@ -229,8 +270,18 @@ describeDb("search visibility integration", () => {
 
     await prisma.groupStudent.createMany({
       data: [
-        { id: ids.groupStudentA, groupId: ids.groupA, studentId: users.studentA, status: "ACTIVE" },
-        { id: ids.groupStudentB, groupId: ids.groupB, studentId: users.studentB, status: "ACTIVE" },
+        {
+          id: ids.groupStudentA,
+          groupId: ids.groupA,
+          studentId: users.studentA,
+          status: "ACTIVE",
+        },
+        {
+          id: ids.groupStudentB,
+          groupId: ids.groupB,
+          studentId: users.studentB,
+          status: "ACTIVE",
+        },
       ],
     });
 
@@ -257,26 +308,54 @@ describeDb("search visibility integration", () => {
 
     await prisma.assignmentSubmission.createMany({
       data: [
-        { id: ids.submissionA, assignmentId: ids.assignmentA, studentId: users.studentA, status: "SUBMITTED" },
-        { id: ids.submissionB, assignmentId: ids.assignmentB, studentId: users.studentB, status: "SUBMITTED" },
+        {
+          id: ids.submissionA,
+          assignmentId: ids.assignmentA,
+          studentId: users.studentA,
+          status: "SUBMITTED",
+        },
+        {
+          id: ids.submissionB,
+          assignmentId: ids.assignmentB,
+          studentId: users.studentB,
+          status: "SUBMITTED",
+        },
       ],
     });
   }, 60_000);
 
   afterAll(async () => {
-    await prisma.assignmentSubmission.deleteMany({ where: { id: { in: [ids.submissionA, ids.submissionB] } } });
-    await prisma.assignment.deleteMany({ where: { id: { in: [ids.assignmentA, ids.assignmentB] } } });
-    await prisma.groupStudent.deleteMany({ where: { id: { in: [ids.groupStudentA, ids.groupStudentB] } } });
-    await prisma.learningGroup.deleteMany({ where: { id: { in: [ids.groupA, ids.groupB] } } });
-    await prisma.userWord.deleteMany({ where: { id: { in: [ids.userWordA, ids.userWordB] } } });
-    await prisma.studentCourse.deleteMany({ where: { id: { in: [ids.studentCourseA, ids.studentCourseB] } } });
-    await prisma.helpArticle.deleteMany({ where: { id: { in: [ids.articleEn, ids.articleUk, ids.articleRu] } } });
+    await prisma.assignmentSubmission.deleteMany({
+      where: { id: { in: [ids.submissionA, ids.submissionB] } },
+    });
+    await prisma.assignment.deleteMany({
+      where: { id: { in: [ids.assignmentA, ids.assignmentB] } },
+    });
+    await prisma.groupStudent.deleteMany({
+      where: { id: { in: [ids.groupStudentA, ids.groupStudentB] } },
+    });
+    await prisma.learningGroup.deleteMany({
+      where: { id: { in: [ids.groupA, ids.groupB] } },
+    });
+    await prisma.userWord.deleteMany({
+      where: { id: { in: [ids.userWordA, ids.userWordB] } },
+    });
+    await prisma.studentCourse.deleteMany({
+      where: { id: { in: [ids.studentCourseA, ids.studentCourseB] } },
+    });
+    await prisma.helpArticle.deleteMany({
+      where: { id: { in: [ids.articleEn, ids.articleUk, ids.articleRu] } },
+    });
     await prisma.helpCategory.deleteMany({ where: { id: ids.helpCategory } });
     await prisma.lesson.deleteMany({ where: { id: ids.lessonPub } });
     await prisma.courseModule.deleteMany({ where: { id: ids.modulePub } });
-    await prisma.course.deleteMany({ where: { id: { in: [ids.pubCourse, ids.draftCourse] } } });
+    await prisma.course.deleteMany({
+      where: { id: { in: [ids.pubCourse, ids.draftCourse] } },
+    });
     await prisma.courseCategory.deleteMany({ where: { id: ids.category } });
-    await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
+    await prisma.user.deleteMany({
+      where: { id: { in: Object.values(users) } },
+    });
   }, 60_000);
 
   it("PUBLIC search returns published content only", async () => {
@@ -308,7 +387,11 @@ describeDb("search visibility integration", () => {
 
   it("STUDENT search returns only own private entities", async () => {
     const response = await SearchService.searchAll({
-      principal: toSearchPrincipal({ userId: users.studentA, role: "student", locale: "uk" }),
+      principal: toSearchPrincipal({
+        userId: users.studentA,
+        role: "student",
+        locale: "uk",
+      }),
       query: suffix,
       requestedContext: "STUDENT",
       filters: { types: ["USER_WORD"] },
@@ -321,7 +404,11 @@ describeDb("search visibility integration", () => {
 
   it("TEACHER search returns only linked students and assignments", async () => {
     const response = await SearchService.searchAll({
-      principal: toSearchPrincipal({ userId: users.teacherA, role: "teacher", locale: "en" }),
+      principal: toSearchPrincipal({
+        userId: users.teacherA,
+        role: "teacher",
+        locale: "en",
+      }),
       query: suffix,
       requestedContext: "TEACHER",
       filters: { types: ["STUDENT", "ASSIGNMENT"] },

@@ -5,6 +5,7 @@ import { requireAuth } from "@/core/server/session";
 import { resolveDashboardByRole } from "@/core/utils/workspace-path";
 import { CmsNavigation } from "@/modules/cms/components/CmsNavigation";
 import { CmsBreadcrumbs } from "@/modules/cms/components/CmsBreadcrumbs";
+import styles from "./CmsLayout.module.css";
 
 /**
  * Server-side CMS boundary. Middleware is an early routing optimization; this
@@ -26,5 +27,5 @@ export default async function CmsLayout({
   }
 
   logAuthDiagnostic({ event: "cms_guard_result", result: "allowed" });
-  return <div className="min-h-screen bg-slate-50"><CmsNavigation /><CmsBreadcrumbs /><main className="mx-auto max-w-7xl px-6 py-8">{children}</main></div>;
+  return <div className={styles.layout}><CmsNavigation /><CmsBreadcrumbs /><main className={styles.main}>{children}</main></div>;
 }

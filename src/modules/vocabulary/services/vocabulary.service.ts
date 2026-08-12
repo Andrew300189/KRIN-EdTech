@@ -5,7 +5,7 @@ import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { recordVocabularyReview, recordWordAdded } from "@/modules/motivation/services/motivation.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
-import { determineReviewQuality, isEligibleForMastery, scheduleNextWordReview } from "@/modules/vocabulary/services/review-scheduler";
+import { determineReviewQuality, isEligibleForMastery, scheduleNextReview } from "@/modules/vocabulary/services/review-scheduler";
 import {
   addCustomDictionaryWordSchema,
   addVocabularyCollocationSchema,
@@ -399,10 +399,19 @@ export async function submitVocabularyAnswer(userId: string, sessionItemId: stri
     const answerKey = asRecord(item.answerKey);
     const acceptedAnswers = stringArray(answerKey.acceptedAnswers);
     const isCorrect = answerMatches(value.submittedAnswer, acceptedAnswers[0] ?? "", acceptedAnswers.slice(1), { ignorePunctuation: true, ignoreExtraSpaces: true });
-    const quality = determineReviewQuality(isCorrect, item.exerciseType, value.responseTimeSeconds);
     const previousState = item.userWord ? item.userWord : item.userCustomWord;
     if (!previousState) throw new Error("Vocabulary item is no longer available");
-    const scheduled = scheduleNextWordReview(previousState, quality);
+    const quality = determineReviewQuality(isCorrect, item.exerciseType, value.responseTimeSeconds);
+    const scheduled = scheduleNextReview({
+      state: previousState,
+      isCorrect,
+      exerciseType: item.exerciseType,
+      responseTimeSeconds: value.responseTimeSeconds,
+      confidence: value.confidence,
+      difficulty: item.userWord?.isDifficult || item.userCustomWord?.isDifficult ? 7 : 1,
+      previousErrors: previousState.incorrectCount,
+      lastReviewedAt: previousState.lastReviewedAt,
+    });
     const priorCorrect = await tx.wordReviewAttempt.findMany({ where: item.userWordId ? { userWordId: item.userWordId } : { userCustomWordId: item.userCustomWordId! }, orderBy: { reviewedAt: "desc" }, take: 2, select: { isCorrect: true } });
     const becomesMastered = isEligibleForMastery(scheduled, priorCorrect.length === 2 && priorCorrect.every((attempt) => attempt.isCorrect), isCorrect);
     const status: "MASTERED" | "LEARNING" | "REVIEW" = becomesMastered ? "MASTERED" : scheduled.status;

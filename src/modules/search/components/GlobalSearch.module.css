@@ -1,0 +1,28 @@
+.desktopOnly { display: block; }
+.mobileOnly { display: none; }
+.lgDesktopOnly { display: none; }
+.lgMobileOnly { display: block; }
+.root { position: relative; width: 100%; }
+.control { display: flex; min-height: 48px; align-items: center; gap: 9px; padding: 5px 6px 5px 15px; border: 1px solid #cbd5e1; border-radius: 14px; background: #fff; box-shadow: 0 8px 20px rgba(30, 41, 59, 0.07); transition: border-color 160ms ease, box-shadow 160ms ease; }
+.control:focus-within { border-color: #818cf8; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 8px 20px rgba(30, 41, 59, 0.07); }
+.prefix { flex: 0 0 auto; color: #64748b; font-size: 0.72rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.input { width: 100%; min-width: 0; padding: 7px 0; border: 0; outline: 0; color: #0f172a; background: transparent; font-size: .93rem; }
+.input::placeholder { color: #94a3b8; }
+.clearButton { flex: 0 0 auto; padding: 7px 5px; border: 0; border-radius: 7px; color: #64748b; background: transparent; font-size: .76rem; font-weight: 750; }
+.clearButton:hover { color: #1e293b; background: #f1f5f9; }
+.submitButton { min-height: 36px; flex: 0 0 auto; padding: 7px 12px; border-radius: 9px; color: #fff; background: #4f46e5; font-size: .78rem; font-weight: 800; transition: background-color 160ms ease; }
+.submitButton:hover { background: #4338ca; }
+.resultsPanel { position: absolute; z-index: 60; top: calc(100% + 8px); right: 0; left: 0; max-height: min(70vh, 610px); overflow: auto; border: 1px solid #dbe2ee; border-radius: 15px; background: #fff; box-shadow: 0 22px 46px rgba(15, 23, 42, 0.2); }
+.allResults { padding: 8px; border-top: 1px solid #e2e8f0; }
+.allResultsLink { display: block; padding: 10px 12px; border-radius: 9px; color: #4338ca; font-size: .87rem; font-weight: 800; }
+.allResultsLink:hover { background: #eef2ff; }
+.compact .control { min-height: 40px; padding: 3px 4px 3px 11px; border-radius: 10px; }
+.compact .prefix { font-size: .62rem; }
+.compact .input { padding: 5px 0; font-size: .78rem; }
+.compact .submitButton { min-height: 30px; padding: 5px 8px; font-size: .68rem; }
+.compact .clearButton { font-size: .68rem; }
+.mobileTrigger { min-height: 40px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 9px; color: #334155; background: #fff; font-size: .86rem; font-weight: 750; }
+.mobileTrigger:hover { border-color: #a5b4fc; background: #eef2ff; }
+@media (max-width: 767px) { .desktopOnly { display: none; } .mobileOnly { display: block; } }
+@media (min-width: 1024px) { .lgDesktopOnly { display: block; } .lgMobileOnly { display: none; } }
+@media (prefers-reduced-motion: reduce) { .control, .submitButton { transition: none; } }

@@ -1,25 +1,76 @@
 :root {
-  --color-primary: #4f46e5;
-  --color-primary-dark: #3730a3;
-  --color-secondary: #7c3aed;
-  --color-accent: #22c55e;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
+  /* Default product theme: calm, accessible deep navy. */
+  color-scheme: dark;
+
+  --background: #0b1020;
+  --surface: #121a2b;
+  --surface-secondary: #172238;
+  --surface-elevated: #1b2942;
+  --surface-interactive: #202f50;
+  --surface-subtle: #0f1729;
+  --border: #293750;
+  --border-strong: #405270;
+  --text-primary: #f7f9fc;
+  --text-secondary: #bcc6d6;
+  --text-muted: #8997ab;
+  --primary: #7567f8;
+  --primary-hover: #887bff;
+  --primary-active: #6254e8;
+  --primary-contrast: #ffffff;
+  --success: #32c98b;
+  --warning: #f2b84b;
+  --danger: #f0697e;
+  --info: #54a6ff;
+  --focus-ring: #a49aff;
+  --overlay: rgb(2 6 23 / 72%);
+  --skeleton: #24334d;
+
+  /* Compatibility aliases for legacy screens during their gradual migration. */
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-hover);
+  --color-secondary: var(--primary);
+  --color-accent: var(--primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-bg: var(--background);
+  --color-surface: var(--surface);
+  --color-text: var(--text-primary);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border);
+
+  --container-public: 82.5rem;
+  --container-content: 75rem;
+  --container-reading: 45rem;
+  --container-workspace: 88rem;
+  --container-learning: 96rem;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-sans);
+  --text-display: clamp(2.5rem, 5vw, 4.25rem);
+  --text-h1: clamp(2rem, 4vw, 3.25rem);
+  --text-h2: clamp(1.6rem, 3vw, 2.5rem);
+  --text-h3: clamp(1.25rem, 2vw, 1.75rem);
+  --text-h4: 1.125rem;
+  --text-body-large: 1.125rem;
+  --text-body-lg: var(--text-body-large);
+  --text-body: 1rem;
+  --text-body-small: 0.875rem;
+  --text-body-sm: var(--text-body-small);
+  --text-label: 0.8125rem;
+  --text-caption: 0.75rem;
+  --text-code: 0.875rem;
 
   --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
+  --radius-md: 0.625rem;
   --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 10px 25px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 20px 45px rgba(15, 23, 42, 0.12);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 16%);
+  --shadow-md: 0 8px 20px rgb(0 0 0 / 22%);
+  --shadow-lg: 0 16px 36px rgb(0 0 0 / 32%);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -28,4 +79,39 @@
   --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+}
+
+/* Light is a deliberate alternative, not a colour inversion. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f7f9ff;
+  --surface: #ffffff;
+  --surface-secondary: #f1f5f9;
+  --surface-elevated: #ffffff;
+  --surface-interactive: #eef4ff;
+  --surface-subtle: #f7f8fb;
+  --border: #dbe3ef;
+  --border-strong: #b9c5d8;
+  --text-primary: #14213d;
+  --text-secondary: #526176;
+  --text-muted: #64748b;
+  --primary: #5c51de;
+  --primary-hover: #4f46c5;
+  --primary-active: #3f38a8;
+  --primary-contrast: #ffffff;
+  --success: #167452;
+  --warning: #9a6200;
+  --danger: #be3b50;
+  --info: #1f61a8;
+  --focus-ring: #7369ef;
+  --overlay: rgb(15 23 42 / 58%);
+  --skeleton: #e7edf5;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 6%);
+  --shadow-md: 0 8px 20px rgb(15 23 42 / 8%);
+  --shadow-lg: 0 16px 36px rgb(15 23 42 / 10%);
 }

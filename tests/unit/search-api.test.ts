@@ -19,7 +19,10 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/api/search/route";
 import { getCurrentUser } from "@/core/server/auth";
 import { consumeRateLimit } from "@/core/server/rate-limit";
-import { SearchService, toSearchPrincipal } from "@/modules/search/services/search.service";
+import {
+  SearchService,
+  toSearchPrincipal,
+} from "@/modules/search/services/search.service";
 import { recordSearchQuery } from "@/modules/search/services/search-analytics.service";
 
 const mockedUser = jest.mocked(getCurrentUser);
@@ -39,7 +42,9 @@ describe("api search route", () => {
   it("returns guidance for short query", async () => {
     mockedUser.mockResolvedValue(null as never);
 
-    const request = new NextRequest("http://localhost:3000/api/search?q=a&context=PUBLIC");
+    const request = new NextRequest(
+      "http://localhost:3000/api/search?q=a&context=PUBLIC",
+    );
     const response = await GET(request);
     const payload = await response.json();
 
@@ -53,7 +58,9 @@ describe("api search route", () => {
     mockedUser.mockResolvedValue(null as never);
     mockedRate.mockReturnValue({ allowed: false, retryAfterSeconds: 10 });
 
-    const request = new NextRequest("http://localhost:3000/api/search?q=english");
+    const request = new NextRequest(
+      "http://localhost:3000/api/search?q=english",
+    );
     const response = await GET(request);
 
     expect(response.status).toBe(429);
@@ -77,26 +84,32 @@ describe("api search route", () => {
       nextCursor: null,
     } as never);
 
-    const request = new NextRequest("http://localhost:3000/api/search?q= english  &context=TEACHER&limit=25&cursor=5&sort=title&types=COURSE,LESSON&level=B1&category=business");
+    const request = new NextRequest(
+      "http://localhost:3000/api/search?q= english  &context=TEACHER&limit=25&cursor=5&sort=title&types=COURSE,LESSON&level=B1&category=business",
+    );
     const response = await GET(request);
 
     expect(response.status).toBe(200);
-    expect(mockedSearch).toHaveBeenCalledWith(expect.objectContaining({
-      query: "english",
-      requestedContext: "TEACHER",
-      limit: 25,
-      cursor: 5,
-      sort: "title",
-      filters: expect.objectContaining({
-        level: "B1",
-        category: "business",
-        types: ["COURSE", "LESSON"],
+    expect(mockedSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "english",
+        requestedContext: "TEACHER",
+        limit: 25,
+        cursor: 5,
+        sort: "title",
+        filters: expect.objectContaining({
+          level: "B1",
+          category: "business",
+          types: ["COURSE", "LESSON"],
+        }),
       }),
-    }));
-    expect(mockedRecordSearchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      query: "english",
-      context: "TEACHER",
-      resultCount: 0,
-    }));
+    );
+    expect(mockedRecordSearchQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "english",
+        context: "TEACHER",
+        resultCount: 0,
+      }),
+    );
   });
 });

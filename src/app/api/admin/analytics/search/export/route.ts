@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 function parseContext(value: string | null): SearchContext | undefined {
   if (!value) return undefined;
-  if (SEARCH_CONTEXTS.includes(value as SearchContext)) return value as SearchContext;
+  if (SEARCH_CONTEXTS.includes(value as SearchContext))
+    return value as SearchContext;
   return undefined;
 }
 
@@ -29,7 +30,10 @@ export async function GET(request: NextRequest) {
   try {
     const guard = await requirePlatformOwner(request);
     if (!guard.ok) {
-      return NextResponse.json({ error: guard.error }, { status: guard.status });
+      return NextResponse.json(
+        { error: guard.error },
+        { status: guard.status },
+      );
     }
 
     const dataset = await getSearchAnalyticsExport({
@@ -38,68 +42,88 @@ export async function GET(request: NextRequest) {
     });
 
     const lines: string[] = [];
-    lines.push("section,context,day,queryHash,query,searches,clicks,noResults,ctr,noResultRate,samples");
+    lines.push(
+      "section,context,day,queryHash,query,searches,clicks,noResults,ctr,noResultRate,samples",
+    );
 
-    lines.push([
-      "totals",
-      "ALL",
-      "",
-      "",
-      "",
-      dataset.totals.totalSearches,
-      dataset.totals.totalClicks,
-      dataset.totals.noResultSearches,
-      dataset.totals.clickThroughRate,
-      dataset.totals.noResultRate,
-      "",
-    ].map(csvCell).join(","));
+    lines.push(
+      [
+        "totals",
+        "ALL",
+        "",
+        "",
+        "",
+        dataset.totals.totalSearches,
+        dataset.totals.totalClicks,
+        dataset.totals.noResultSearches,
+        dataset.totals.clickThroughRate,
+        dataset.totals.noResultRate,
+        "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
 
     for (const row of dataset.byContext) {
-      lines.push([
-        "context",
-        row.context,
-        "",
-        "",
-        "",
-        row.totalSearches,
-        row.totalClicks,
-        row.noResultSearches,
-        row.clickThroughRate,
-        row.noResultRate,
-        "",
-      ].map(csvCell).join(","));
+      lines.push(
+        [
+          "context",
+          row.context,
+          "",
+          "",
+          "",
+          row.totalSearches,
+          row.totalClicks,
+          row.noResultSearches,
+          row.clickThroughRate,
+          row.noResultRate,
+          "",
+        ]
+          .map(csvCell)
+          .join(","),
+      );
     }
 
     for (const row of dataset.daily) {
-      lines.push([
-        "daily",
-        "ALL",
-        row.day instanceof Date ? row.day.toISOString().slice(0, 10) : String(row.day),
-        "",
-        "",
-        row.totalSearches,
-        row.totalClicks,
-        row.noResultSearches,
-        "",
-        "",
-        "",
-      ].map(csvCell).join(","));
+      lines.push(
+        [
+          "daily",
+          "ALL",
+          row.day instanceof Date
+            ? row.day.toISOString().slice(0, 10)
+            : String(row.day),
+          "",
+          "",
+          row.totalSearches,
+          row.totalClicks,
+          row.noResultSearches,
+          "",
+          "",
+          "",
+        ]
+          .map(csvCell)
+          .join(","),
+      );
     }
 
     for (const row of dataset.topQueries) {
-      lines.push([
-        "top_query",
-        "ALL",
-        "",
-        row.queryHash,
-        row.query ?? "",
-        row.searches,
-        row.clicks,
-        row.noResults,
-        "",
-        "",
-        row.sampleCount ?? 0,
-      ].map(csvCell).join(","));
+      lines.push(
+        [
+          "top_query",
+          "ALL",
+          "",
+          row.queryHash,
+          row.query ?? "",
+          row.searches,
+          row.clicks,
+          row.noResults,
+          "",
+          "",
+          row.sampleCount ?? 0,
+        ]
+          .map(csvCell)
+          .join(","),
+      );
     }
 
     const filename = `search-analytics-${dataset.periodDays}d-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -112,6 +136,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch {
-    return NextResponse.json({ error: "Unable to export search analytics" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to export search analytics" },
+      { status: 500 },
+    );
   }
 }

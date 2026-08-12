@@ -1,0 +1,41 @@
+.page { min-height: 100vh; padding: 60px 0 82px; background: #f7f9ff; color: #18263f; }
+.shell { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+.header { max-width: 790px; }
+.eyebrow { margin: 0; color: #5148db; font-size: .76rem; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+.header h1 { margin: 10px 0 0; font-size: clamp(2.35rem, 5.3vw, 4rem); line-height: 1.08; letter-spacing: -.06em; }
+.header > p:not(.eyebrow) { margin: 16px 0 0; color: #607089; line-height: 1.67; }
+.notice { margin-top: 18px !important; padding: 13px 15px; border-left: 3px solid #8078ed; background: #f1f0ff; color: #515378 !important; font-size: .9rem; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 17px; margin-top: 37px; }
+.card { display: flex; min-height: 410px; flex-direction: column; padding: 22px; border: 1px solid #dce3ef; border-radius: 17px; background: #fff; box-shadow: 0 13px 27px rgba(28,40,80,.07); }
+.type { margin: 0; color: #554bd3; font-size: .72rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.card h2 { margin: 10px 0 0; font-size: 1.32rem; line-height: 1.18; letter-spacing: -.03em; }
+.description { min-height: 45px; margin: 10px 0 0; color: #66758b; font-size: .88rem; line-height: 1.55; }
+.prices { display: grid; gap: 9px; margin-top: 19px; }
+.priceOption { display: block; padding: 12px; border: 1px solid #dde3ee; border-radius: 10px; color: inherit; transition: border-color 160ms ease, background 160ms ease; }
+.priceOption:hover { border-color: #938ced; background: #fafaff; }
+.priceOption:focus-visible, .cta:focus-visible, .secondary:focus-visible { outline: 3px solid rgba(79,70,229,.35); outline-offset: 3px; }
+.priceTop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.priceTop strong { font-size: 1.08rem; letter-spacing: -.03em; }
+.priceTop span { color: #53647c; font-size: .75rem; font-weight: 800; }
+.priceOption small { display: block; margin-top: 5px; color: #66768d; font-size: .76rem; }
+.facts { display: grid; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; color: #596a82; font-size: .78rem; line-height: 1.48; }
+.facts li { display: flex; gap: 7px; }
+.facts li::before { content: "✓"; color: #237956; font-weight: 900; }
+.trial { margin: 14px 0 0; color: #217958; font-size: .8rem; font-weight: 800; }
+.cta, .secondary { display: inline-flex; min-height: 45px; align-items: center; justify-content: center; padding: 11px 14px; border-radius: 9px; font-size: .87rem; font-weight: 850; text-align: center; }
+.cta { margin-top: auto; padding-top: 11px; background: #4f46e5; color: #fff; box-shadow: 0 9px 18px rgba(79,70,229,.19); }
+.cta:hover { background: #4338ca; }
+.section { margin-top: 56px; }
+.section h2 { margin: 0; font-size: 1.67rem; letter-spacing: -.04em; }
+.factsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+.factsGrid article { padding: 19px; border: 1px solid #dfe5ef; border-radius: 14px; background: #fff; }
+.factsGrid h3 { margin: 0; font-size: 1rem; }
+.factsGrid p { margin: 8px 0 0; color: #64748b; font-size: .85rem; line-height: 1.57; }
+.empty { margin-top: 28px; padding: 30px; border: 1px dashed #bdc8d9; border-radius: 15px; background: #fff; color: #65758b; }
+.footerCta { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 55px; padding: 28px; border-radius: 18px; background: #24205b; color: #fff; }
+.footerCta h2 { margin: 0; font-size: 1.55rem; letter-spacing: -.04em; }
+.footerCta p { margin: 8px 0 0; color: #cecef2; font-size: .88rem; }
+.footerCta .secondary { flex: 0 0 auto; border: 1px solid rgba(255,255,255,.45); color: #fff; }
+.footerCta .secondary:hover { background: rgba(255,255,255,.09); }
+@media (max-width: 900px) { .grid, .factsGrid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .page { padding-top: 40px; } .shell { width: min(100% - 28px, 1120px); } .grid, .factsGrid { grid-template-columns: 1fr; } .footerCta { display: block; } .footerCta .secondary { margin-top: 17px; } }

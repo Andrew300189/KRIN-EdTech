@@ -17,7 +17,9 @@ function getSessionSecret() {
   const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("NEXTAUTH_SECRET or SESSION_SECRET must be set in production");
+      throw new Error(
+        "NEXTAUTH_SECRET or SESSION_SECRET must be set in production",
+      );
     }
     // Development fallback keeps the local auth flow usable without affecting production.
     return "krin-dev-insecure-session-secret-change-me";
@@ -63,7 +65,9 @@ function verifySignature(payloadBase64: string, signature: string) {
 
 function decodePayload(payloadBase64: string) {
   try {
-    return JSON.parse(Buffer.from(payloadBase64, "base64url").toString("utf8")) as {
+    return JSON.parse(
+      Buffer.from(payloadBase64, "base64url").toString("utf8"),
+    ) as {
       userId: string;
       sessionId?: string;
       email?: string;
@@ -116,11 +120,12 @@ async function getNextAuthValidatedSession(
       req: { headers, cookies: requestCookies } as unknown as NextRequest,
       secret: process.env.NEXTAUTH_SECRET,
     });
-    const userId = typeof token?.userId === "string"
-      ? token.userId
-      : typeof token?.sub === "string"
-        ? token.sub
-        : null;
+    const userId =
+      typeof token?.userId === "string"
+        ? token.userId
+        : typeof token?.sub === "string"
+          ? token.sub
+          : null;
     return userId ? { userId, sessionId: `nextauth:${userId}` } : null;
   } catch {
     return null;
@@ -257,6 +262,7 @@ export const AUTHENTICATED_USER_SELECT = {
   currentLevel: true,
   dailyIntensityMinutes: true,
   dailyGoalMinutes: true,
+  showInLeaderboard: true,
   takePlacementTest: true,
   onboardingCompletedAt: true,
   welcomeBonusPoints: true,
@@ -267,13 +273,11 @@ export const AUTHENTICATED_USER_SELECT = {
   deletedAt: true,
 } as const;
 
-export async function getValidatedSession(
-  options?: {
-    headers?: Headers;
-    touch?: boolean;
-    allowCookieMutation?: boolean;
-  },
-): Promise<ValidatedSession | null> {
+export async function getValidatedSession(options?: {
+  headers?: Headers;
+  touch?: boolean;
+  allowCookieMutation?: boolean;
+}): Promise<ValidatedSession | null> {
   // A freshly completed OAuth flow must win over a stale password-session
   // cookie that may still be present in the same browser.
   const nextAuthSession = await getNextAuthValidatedSession(options?.headers);
@@ -345,7 +349,11 @@ export async function getValidatedSession(
     return getNextAuthValidatedSession(options?.headers);
   }
 
-  if (!sessionRecord.user || sessionRecord.user.deletedAt || sessionRecord.user.isBlocked) {
+  if (
+    !sessionRecord.user ||
+    sessionRecord.user.deletedAt ||
+    sessionRecord.user.isBlocked
+  ) {
     await revokeSessionRecord(sessionRecord.id, "user_inactive");
     if (canMutateCookie) {
       await clearAuthCookie();
@@ -353,7 +361,9 @@ export async function getValidatedSession(
     return getNextAuthValidatedSession();
   }
 
-  const incomingUserAgent = stableUserAgent(options?.headers?.get("user-agent"));
+  const incomingUserAgent = stableUserAgent(
+    options?.headers?.get("user-agent"),
+  );
   if (
     sessionRecord.userAgent &&
     incomingUserAgent !== "unknown" &&
