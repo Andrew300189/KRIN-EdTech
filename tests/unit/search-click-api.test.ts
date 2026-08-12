@@ -33,7 +33,14 @@ describe("api search click route", () => {
 
     const request = new NextRequest("http://localhost:3000/api/search/click", {
       method: "POST",
-      body: JSON.stringify({ query: "english", context: "PUBLIC", resultType: "COURSE", resultId: "c1", resultUrl: "/courses/demo", position: 0 }),
+      body: JSON.stringify({
+        query: "english",
+        context: "PUBLIC",
+        resultType: "COURSE",
+        resultId: "c1",
+        resultUrl: "/courses/demo",
+        position: 0,
+      }),
       headers: { "Content-Type": "application/json" },
     });
 
@@ -57,7 +64,10 @@ describe("api search click route", () => {
   });
 
   it("persists click event", async () => {
-    mockedUser.mockResolvedValue({ id: "u1", interfaceLanguage: "en" } as never);
+    mockedUser.mockResolvedValue({
+      id: "u1",
+      interfaceLanguage: "en",
+    } as never);
 
     const request = new NextRequest("http://localhost:3000/api/search/click", {
       method: "POST",
@@ -75,15 +85,17 @@ describe("api search click route", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(204);
-    expect(mockedRecordClick).toHaveBeenCalledWith(expect.objectContaining({
-      query: "english",
-      context: "TEACHER",
-      resultType: "ASSIGNMENT",
-      resultId: "a1",
-      resultUrl: "/teacher/assignments",
-      position: 4,
-      userId: "u1",
-      locale: "en",
-    }));
+    expect(mockedRecordClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: "english",
+        context: "TEACHER",
+        resultType: "ASSIGNMENT",
+        resultId: "a1",
+        resultUrl: "/teacher/assignments",
+        position: 4,
+        userId: "u1",
+        locale: "en",
+      }),
+    );
   });
 });

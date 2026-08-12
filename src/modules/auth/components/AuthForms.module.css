@@ -1,0 +1,103 @@
+.passwordField { position: relative; }
+.topIntro {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.1rem;
+}
+.newHere {
+  margin: 0;
+  font-size: 0.96rem;
+  color: #334155;
+}
+.newHereLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #4f46e5;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.newHereLink:hover {
+  color: #3730a3;
+}
+.googleButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 50px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.googleButton:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.14);
+  transform: translateY(-1px);
+}
+.googleButton:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.25);
+  outline-offset: 2px;
+}
+.googleButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+.googleMark {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+.forgotLink {
+  display: inline-block;
+  margin-top: 0.1rem;
+  color: #4f46e5;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.forgotLink:hover {
+  color: #3730a3;
+}
+.termsText {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  z-index: 1;
+  min-width: 44px;
+  min-height: 36px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: .875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.passwordToggle:hover { color: var(--text-primary); background: var(--surface-interactive); }
+.passwordToggle:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.passwordToggle:disabled { cursor: not-allowed; opacity: .5; }

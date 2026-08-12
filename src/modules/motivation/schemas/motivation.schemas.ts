@@ -13,6 +13,7 @@ export const heartbeatSchema = z.object({
 export const motivationSettingsSchema = z.object({
   dailyGoalMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(20), z.literal(30), z.literal(45), z.literal(60)]),
   timeZone: z.string().trim().min(1).max(100),
+  showInLeaderboard: z.boolean().optional(),
 });
 
 export const rewardRuleSchema = z.object({

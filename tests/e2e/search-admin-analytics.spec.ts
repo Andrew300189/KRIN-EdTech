@@ -16,8 +16,12 @@ test("admin can use search analytics tools", async ({ page }) => {
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(page).toHaveURL(/\/admin\/analytics$/);
-  await expect(page.getByRole("heading", { name: "Platform analytics" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Search analytics (30 days)" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Platform analytics" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Search analytics (30 days)" }),
+  ).toBeVisible();
   await expect(page.getByText("Search analytics tools")).toBeVisible();
 
   const exportDaysInput = page.getByLabel("Export period in days");
@@ -26,7 +30,10 @@ test("admin can use search analytics tools", async ({ page }) => {
   await exportContext.selectOption("PUBLIC");
 
   const exportLink = page.getByRole("link", { name: "Download CSV" });
-  await expect(exportLink).toHaveAttribute("href", /\/api\/admin\/analytics\/search\/export\?days=14&context=PUBLIC/);
+  await expect(exportLink).toHaveAttribute(
+    "href",
+    /\/api\/admin\/analytics\/search\/export\?days=14&context=PUBLIC/,
+  );
 
   const dryRunToggle = page.getByLabel("Dry run only");
   await expect(dryRunToggle).toBeChecked();

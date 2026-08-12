@@ -38,6 +38,16 @@ describe("public auth errors", () => {
     );
   });
 
+  it("does not attach a development error ID to an expected invalid-password response", () => {
+    process.env.NODE_ENV = "development";
+    const failure = createPublicAuthFailure("invalid_credentials");
+
+    expect(failure).toEqual({
+      error: getPublicAuthErrorMessage("invalid_credentials"),
+    });
+    expect("errorId" in failure).toBe(false);
+  });
+
   it("does not include error IDs in production or trust malformed ones", () => {
     process.env.NODE_ENV = "production";
     const failure = createPublicAuthFailure("invalid_credentials");

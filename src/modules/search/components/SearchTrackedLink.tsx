@@ -36,8 +36,13 @@ export function SearchTrackedLink({
           position,
         };
 
-        if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
-          const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        if (
+          typeof navigator !== "undefined" &&
+          typeof navigator.sendBeacon === "function"
+        ) {
+          const body = new Blob([JSON.stringify(payload)], {
+            type: "application/json",
+          });
           navigator.sendBeacon("/api/search/click", body);
           return;
         }

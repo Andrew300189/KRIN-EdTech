@@ -20,26 +20,73 @@ describe("api admin search analytics export route", () => {
     mockedExport.mockResolvedValue({
       generatedAt: "2026-08-01T00:00:00.000Z",
       periodDays: 30,
-      totals: { totalSearches: 10, totalClicks: 4, noResultSearches: 2, clickThroughRate: 40, noResultRate: 20 },
-      byContext: [{ context: "PUBLIC", totalSearches: 7, totalClicks: 3, noResultSearches: 1, clickThroughRate: 42.9, noResultRate: 14.3 }],
-      daily: [{ day: new Date("2026-08-01T00:00:00.000Z"), totalSearches: 10, totalClicks: 4, noResultSearches: 2 }],
-      topQueries: [{ queryHash: "abc", query: "english", searches: 5, clicks: 2, noResults: 1, sampleCount: 4 }],
+      totals: {
+        totalSearches: 10,
+        totalClicks: 4,
+        noResultSearches: 2,
+        clickThroughRate: 40,
+        noResultRate: 20,
+      },
+      byContext: [
+        {
+          context: "PUBLIC",
+          totalSearches: 7,
+          totalClicks: 3,
+          noResultSearches: 1,
+          clickThroughRate: 42.9,
+          noResultRate: 14.3,
+        },
+      ],
+      daily: [
+        {
+          day: new Date("2026-08-01T00:00:00.000Z"),
+          totalSearches: 10,
+          totalClicks: 4,
+          noResultSearches: 2,
+        },
+      ],
+      topQueries: [
+        {
+          queryHash: "abc",
+          query: "english",
+          searches: 5,
+          clicks: 2,
+          noResults: 1,
+          sampleCount: 4,
+        },
+      ],
     });
   });
 
   it("returns 403 when guard fails", async () => {
-    mockedGuard.mockResolvedValue({ ok: false, status: 403, error: "Forbidden" } as never);
+    mockedGuard.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: "Forbidden",
+    } as never);
 
-    const response = await GET(new NextRequest("http://localhost:3000/api/admin/analytics/search/export"));
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/admin/analytics/search/export",
+      ),
+    );
 
     expect(response.status).toBe(403);
     expect(mockedExport).not.toHaveBeenCalled();
   });
 
   it("returns csv payload", async () => {
-    mockedGuard.mockResolvedValue({ ok: true, user: { id: "owner-1" }, role: "student" } as never);
+    mockedGuard.mockResolvedValue({
+      ok: true,
+      user: { id: "owner-1" },
+      role: "student",
+    } as never);
 
-    const response = await GET(new NextRequest("http://localhost:3000/api/admin/analytics/search/export?days=14&context=PUBLIC"));
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/admin/analytics/search/export?days=14&context=PUBLIC",
+      ),
+    );
     const body = await response.text();
 
     expect(response.status).toBe(200);

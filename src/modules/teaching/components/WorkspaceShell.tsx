@@ -2,12 +2,240 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import type { SearchContext } from "@/modules/search/types";
+import styles from "./WorkspaceShell.module.css";
 
-export function WorkspaceShell({ title, navigation, children, searchContext, showCmsLink = false }: { title: string; navigation: { href: string; label: string }[]; children: React.ReactNode; searchContext?: SearchContext; showCmsLink?: boolean }) {
-  const pathname = usePathname(); const router = useRouter(); const [menuOpen, setMenuOpen] = useState(false);
-  const sidebar = <aside className="flex h-full w-72 flex-col bg-white"><div className="border-b border-slate-200 p-6"><Link href="/" onClick={() => setMenuOpen(false)} className="text-xl font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">KRIN EdTech</Link><p className="mt-1 text-sm text-slate-500">{title}</p></div><nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label={`${title} navigation`}>{navigation.map((item) => { const active = pathname === item.href || (item.href !== "/student" && item.href !== "/teacher" && pathname.startsWith(`${item.href}/`)); return <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} aria-current={active ? "page" : undefined} className={`block rounded-xl px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${active ? "bg-blue-50 text-blue-800" : "text-slate-700 hover:bg-slate-100"}`}>{item.label}</Link>; })}</nav><div className="border-t border-slate-200 p-3"><Link href="/" onClick={() => setMenuOpen(false)} className="block rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">← To home</Link></div></aside>;
-  return <div className="min-h-screen bg-slate-50 lg:flex"><div className="hidden border-r border-slate-200 lg:block">{sidebar}</div>{menuOpen ? <div className="fixed inset-0 z-50 lg:hidden"><button type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-slate-950/40"/><div className="relative h-full shadow-xl">{sidebar}</div></div> : null}<main className="min-w-0 flex-1"><header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:px-7"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-3"><button type="button" aria-label="Open navigation" onClick={() => setMenuOpen(true)} className="rounded-lg border border-slate-300 p-2 text-slate-700 lg:hidden">☰</button><h1 className="text-lg font-bold text-slate-950">{title}</h1></div><div className="flex items-center gap-2">{showCmsLink ? <Link href="/cms" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950">CMS</Link> : null}<button type="button" onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.replace("/"); }} className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950">Sign out</button></div></div>{searchContext ? <div className="mt-3 max-w-2xl"><GlobalSearch context={searchContext} placeholder={searchContext === "TEACHER" ? "Search groups, learners, courses and assignments" : "Search courses, topics, lessons and words"}/></div> : null}</header><div className="mx-auto max-w-7xl p-5 md:p-8">{children}</div></main></div>;
+type WorkspaceNavigationItem = {
+  href: string;
+  label: string;
+};
+
+type WorkspaceShellProps = {
+  title: string;
+  navigation: WorkspaceNavigationItem[];
+  children: React.ReactNode;
+  searchContext?: SearchContext;
+  showCmsLink?: boolean;
+};
+
+function MenuIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path
+        d="m6 6 12 12M18 6 6 18"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+export function WorkspaceShell({
+  title,
+  navigation,
+  children,
+  searchContext,
+  showCmsLink = false,
+}: WorkspaceShellProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+
+  const closeMenu = (restoreFocus = false) => {
+    setMenuOpen(false);
+
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => menuButtonRef.current?.focus());
+    }
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => drawerRef.current?.focus());
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu(true);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.replace("/");
+      router.refresh();
+    }
+  };
+
+  const isActive = (href: string) => {
+    if (href === "/student" || href === "/teacher") return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const sidebar = (isMobileDrawer = false) => (
+    <aside
+      ref={isMobileDrawer ? drawerRef : undefined}
+      aria-label={`${title} navigation`}
+      className={styles.sidebar}
+      tabIndex={isMobileDrawer ? -1 : undefined}
+    >
+      <div className={styles.brandBlock}>
+        <div className={styles.brandRow}>
+          <Link
+            href="/"
+            className={styles.brandLink}
+            onClick={() => closeMenu()}
+          >
+            KRIN EdTech
+          </Link>
+          {isMobileDrawer ? (
+            <button
+              className={styles.closeButton}
+              type="button"
+              onClick={() => closeMenu(true)}
+              aria-label="Close navigation"
+            >
+              <CloseIcon />
+            </button>
+          ) : null}
+        </div>
+        <p className={styles.workspaceName}>{title}</p>
+      </div>
+
+      <nav className={styles.navigation} aria-label={`${title} sections`}>
+        {navigation.map((item) => {
+          const active = isActive(item.href);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => closeMenu()}
+              aria-current={active ? "page" : undefined}
+              className={`${styles.navigationLink} ${active ? styles.navigationLinkActive : ""}`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className={styles.sidebarFooter}>
+        <Link href="/" onClick={() => closeMenu()} className={styles.homeLink}>
+          <span aria-hidden="true">←</span>
+          Back to home
+        </Link>
+      </div>
+    </aside>
+  );
+
+  return (
+    <div className={styles.workspace}>
+      <div className={styles.desktopSidebar}>{sidebar()}</div>
+
+      {menuOpen ? (
+        <div
+          className={styles.mobileMenu}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Workspace navigation"
+        >
+          <button
+            className={styles.menuBackdrop}
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => closeMenu(true)}
+          />
+          <div className={styles.mobileDrawer}>{sidebar(true)}</div>
+        </div>
+      ) : null}
+
+      <main className={styles.main}>
+        <header className={styles.header}>
+          <div className={styles.headerRow}>
+            <div className={styles.headerTitle}>
+              <button
+                ref={menuButtonRef}
+                type="button"
+                aria-label="Open navigation"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+                className={styles.menuButton}
+              >
+                <MenuIcon />
+              </button>
+              <h1>{title}</h1>
+            </div>
+
+            <div className={styles.headerActions}>
+              {showCmsLink ? (
+                <Link href="/cms" className={styles.cmsLink}>
+                  CMS
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className={styles.signOutButton}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? "Signing out…" : "Sign out"}
+              </button>
+            </div>
+          </div>
+
+          {searchContext ? (
+            <div className={styles.search}>
+              <GlobalSearch
+                compact
+                context={searchContext}
+                dialogUntil="lg"
+                placeholder={
+                  searchContext === "TEACHER"
+                    ? "Search groups, learners, courses and assignments"
+                    : "Search courses, topics, lessons and words"
+                }
+              />
+            </div>
+          ) : null}
+        </header>
+
+        <div className={styles.content}>{children}</div>
+      </main>
+    </div>
+  );
 }

@@ -1,0 +1,4 @@
+.group { padding: 10px 8px; border-top: 1px solid #eef2f7; }
+.group:first-child { border-top: 0; }
+.heading { padding: 0 9px 5px; color: #64748b; font-size: .68rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.items { display: grid; gap: 2px; }

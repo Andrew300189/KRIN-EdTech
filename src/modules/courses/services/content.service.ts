@@ -16,6 +16,7 @@ import {
   saveLessonProgressSchema,
   saveHomeworkSchema,
   submitExerciseSchema,
+  updateLessonBlockSchema,
 } from "@/modules/courses/schemas/content.schemas";
 import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
@@ -27,6 +28,15 @@ import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/c
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
+
+const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
+type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
+
+/** Converts route/query input to the closed CEFR enum before it reaches Prisma. */
+export function normalizeCefrLevelCode(value: string | undefined | null): CefrLevelCode | null {
+  const normalized = value?.trim().toUpperCase();
+  return CEFR_LEVEL_CODES.includes(normalized as CefrLevelCode) ? normalized as CefrLevelCode : null;
+}
 
 function slugify(value: string) {
   return value
@@ -43,6 +53,14 @@ function nullableText(value: string | undefined) {
   return trimmed ? trimmed : null;
 }
 
+function mistakeTypeForExercise(type: string) {
+  if (type.includes("LISTENING") || type === "DICTATION") return "LISTENING";
+  if (type.includes("TRANSLATION")) return "TRANSLATION";
+  if (type.includes("TENSE") || type === "FILL_IN_THE_BLANK" || type === "ERROR_CORRECTION") return "GRAMMAR";
+  if (type.includes("SYNONYM") || type.includes("ANTONYM") || type.includes("PHRASAL")) return "VOCABULARY";
+  return "EXERCISE";
+}
+
 function toLegacyLevel(code: CreateCourseInput["levelCode"]) {
   if (code === "A1" || code === "A2") return "BEGINNER" as const;
   if (code === "B1" || code === "B2") return "INTERMEDIATE" as const;
@@ -52,6 +70,28 @@ function toLegacyLevel(code: CreateCourseInput["levelCode"]) {
 function toPrismaJson(value: JsonValue | undefined) {
   if (value === undefined) return undefined;
   return value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue);
+}
+
+type ExerciseFeedback = {
+  example: string | null;
+  theoryHref: string | null;
+  errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }>;
+};
+
+/** Content-managed feedback is deliberately constrained before it reaches the client. */
+function getExerciseFeedback(content: Prisma.JsonValue | null): ExerciseFeedback {
+  const record = content && typeof content === "object" && !Array.isArray(content) ? content as Prisma.JsonObject : null;
+  const example = typeof record?.example === "string" ? record.example : null;
+  const candidateHref = typeof record?.theoryHref === "string" ? record.theoryHref : null;
+  const theoryHref = candidateHref && /^\/(?:courses|grammar|levels)(?:\/|$)/.test(candidateHref) ? candidateHref : null;
+  const rawDetails = Array.isArray(record?.errorDetails) ? record.errorDetails : [];
+  const errorDetails = rawDetails.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const detail = entry as Prisma.JsonObject;
+    if (typeof detail.incorrect !== "string" || typeof detail.correction !== "string") return [];
+    return [{ incorrect: detail.incorrect, correction: detail.correction, explanation: typeof detail.explanation === "string" ? detail.explanation : null }];
+  }).slice(0, 20);
+  return { example, theoryHref, errorDetails };
 }
 
 async function nextCourseSlug(candidate: string) {
@@ -142,8 +182,11 @@ export async function listPublishedAcademyCourses(academySlug: string) {
 }
 
 export async function getPublishedLevelWithCourses(code: string) {
+  const levelCode = normalizeCefrLevelCode(code);
+  if (!levelCode) return null;
+
   return prisma.languageLevel.findFirst({
-    where: { code: code.toUpperCase() as never, isPublished: true },
+    where: { code: levelCode, isPublished: true },
     include: {
       courses: {
         where: { isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, isVisibleInLevelBlock: true, category: { isPublished: true } },
@@ -164,6 +207,41 @@ export async function getPublishedLevelWithCourses(code: string) {
   });
 }
 
+/**
+ * Public CEFR navigation is read from the CMS-managed curriculum tree. Unlike
+ * the legacy course catalogue, it deliberately contains no fallback that can
+ * leak sections or topics from another level.
+ */
+export async function getPublishedCurriculumLevelPage(code: string) {
+  const levelCode = normalizeCefrLevelCode(code);
+  if (!levelCode) return null;
+
+  const level = await prisma.languageLevel.findFirst({
+    where: { code: levelCode, isPublished: true },
+    select: { id: true, code: true, title: true, description: true },
+  });
+  if (!level) return null;
+
+  const sections = await prisma.curriculumNode.findMany({
+    where: { levelId: level.id, type: "SECTION", parentId: null, contentStatus: "PUBLISHED" },
+    orderBy: [{ order: "asc" }, { title: "asc" }],
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      order: true,
+      children: {
+        where: { type: "TOPIC", contentStatus: "PUBLISHED" },
+        orderBy: [{ order: "asc" }, { title: "asc" }],
+        select: { id: true, title: true },
+      },
+    },
+  });
+
+  return { level, sections };
+}
+
 type PublishedCurriculumPageInput = {
   levelCode: string;
   sectionSlug: string;
@@ -177,8 +255,11 @@ type PublishedCurriculumPageInput = {
  * URL is a 404, and a valid topic only receives its own linked courses.
  */
 async function getPublishedCurriculumPage(input: PublishedCurriculumPageInput) {
+  const levelCode = normalizeCefrLevelCode(input.levelCode);
+  if (!levelCode) return null;
+
   const level = await prisma.languageLevel.findFirst({
-    where: { code: input.levelCode.toUpperCase() as never, isPublished: true },
+    where: { code: levelCode, isPublished: true },
     select: { id: true, code: true, title: true, description: true },
   });
   if (!level) return null;
@@ -260,6 +341,9 @@ export type CourseCatalogFilters = {
   query?: string;
   levelCode?: string;
   categorySlug?: string;
+  /** A closed, server-owned group of catalogue categories (for a skill collection). */
+  categorySlugs?: readonly string[];
+  courseType?: CourseType;
   accessPlan?: "FREE" | "PREMIUM" | "CORPORATE";
   sort?: "newest" | "title" | "duration";
   page?: number;
@@ -268,13 +352,23 @@ export type CourseCatalogFilters = {
 
 function publishedCourseWhere(filters: CourseCatalogFilters): Prisma.CourseWhereInput {
   const query = filters.query?.trim();
+  const levelCode = normalizeCefrLevelCode(filters.levelCode);
+  const categorySlugs = [...new Set((filters.categorySlugs ?? []).map((slug) => slug.trim()).filter(Boolean))];
+  // An invalid URL filter must produce an empty catalogue, not a Prisma enum
+  // exception and never a broadened all-level fallback.
+  if (filters.levelCode && !levelCode) return { id: { in: [] } };
+
   return {
     isPublished: true,
     isTemplate: false,
     accessMode: { not: "HIDDEN" },
     isVisibleInCatalog: true,
-    level: { isPublished: true, ...(filters.levelCode ? { code: filters.levelCode.toUpperCase() as never } : {}) },
-    ...(filters.categorySlug ? { category: { slug: filters.categorySlug, isPublished: true } } : { category: { isPublished: true } }),
+    level: { isPublished: true, ...(levelCode ? { code: levelCode } : {}) },
+    category: {
+      isPublished: true,
+      ...(categorySlugs.length > 0 ? { slug: { in: categorySlugs } } : filters.categorySlug ? { slug: filters.categorySlug } : {}),
+    },
+    ...(filters.courseType ? { courseType: filters.courseType } : {}),
     ...(filters.accessPlan ? { accessPlan: filters.accessPlan } : {}),
     ...(query ? {
       OR: [
@@ -387,6 +481,41 @@ export async function getPublishedCourseBySlug(slug: string) {
     include: {
       level: { select: { code: true, title: true } },
       category: { select: { slug: true, title: true, description: true, icon: true } },
+      instructor: {
+        select: {
+          name: true,
+          avatar: true,
+          teacherProfile: {
+            select: { displayName: true, bio: true, specialization: true, languages: true, experienceYears: true, status: true },
+          },
+        },
+      },
+      curriculumLinks: {
+        where: { node: { contentStatus: "PUBLISHED", level: { isPublished: true } } },
+        include: {
+          node: {
+            select: {
+              type: true,
+              title: true,
+              description: true,
+              order: true,
+              parent: { select: { type: true, title: true, parent: { select: { type: true, title: true } } } },
+            },
+          },
+        },
+      },
+      commerceProducts: {
+        where: { isActive: true, isPublic: true },
+        include: {
+          plan: { select: { title: true, description: true, trialDays: true } },
+          prices: {
+            where: { isActive: true },
+            select: { id: true, provider: true, currency: true, amount: true, billingPeriod: true },
+            orderBy: [{ provider: "asc" }, { amount: "asc" }],
+          },
+        },
+        orderBy: { title: "asc" },
+      },
       modules: {
         where: { isPublished: true },
         orderBy: { order: "asc" },
@@ -449,7 +578,26 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
     include: {
       module: {
         include: {
-          course: { select: { title: true, slug: true, accessPlan: true } },
+          course: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+              accessPlan: true,
+              modules: {
+                where: { isPublished: true },
+                orderBy: { order: "asc" },
+                select: {
+                  order: true,
+                  lessons: {
+                    where: { isPublished: true },
+                    orderBy: { order: "asc" },
+                    select: { id: true },
+                  },
+                },
+              },
+            },
+          },
           lessons: {
             where: { isPublished: true },
             orderBy: { order: "asc" },
@@ -484,7 +632,9 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
               hintsEnabled: true,
               basePoints: true,
               timeLimitSeconds: true,
+              solutionCost: true,
               allowInstantCheck: true,
+              allowExtraExercise: true,
               order: true,
             },
           },
@@ -774,6 +924,36 @@ export async function createLessonBlock(
   return block;
 }
 
+export async function updateLessonBlock(actorId: string, blockId: string, input: unknown) {
+  const value = updateLessonBlockSchema.parse(input);
+  const block = await prisma.lessonBlock.update({
+    where: { id: blockId },
+    data: {
+      ...(value.title !== undefined ? { title: nullableText(value.title) } : {}),
+      ...(value.content !== undefined ? { content: toPrismaJson(value.content) } : {}),
+      ...(value.settings !== undefined ? { settings: toPrismaJson(value.settings) } : {}),
+      ...(value.isRequired !== undefined ? { isRequired: value.isRequired } : {}),
+    },
+  });
+  await writeContentAudit(actorId, "UPDATE", "LessonBlock", block.id, { lessonId: block.lessonId });
+  await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "UPDATED", snapshot: block });
+  return block;
+}
+
+export async function duplicateLessonBlock(actorId: string, blockId: string) {
+  const source = await prisma.lessonBlock.findUnique({ where: { id: blockId } });
+  if (!source) throw new Error("Lesson block not found");
+  const order = await nextOrder(
+    () => prisma.lessonBlock.findFirst({ where: { lessonId: source.lessonId }, orderBy: { order: "desc" }, select: { order: true } }),
+  );
+  const block = await prisma.lessonBlock.create({
+    data: { lessonId: source.lessonId, type: source.type, title: source.title ? `${source.title} (copy)` : null, content: source.content ?? Prisma.JsonNull, settings: source.settings ?? Prisma.JsonNull, order, isRequired: source.isRequired, contentStatus: "DRAFT" },
+  });
+  await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId: block.lessonId, copiedFrom: source.id });
+  await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
+  return block;
+}
+
 export async function createExercise(
   actorId: string,
   lessonBlockId: string,
@@ -864,6 +1044,44 @@ export async function createGrammarTopic(actorId: string, input: unknown) {
   return topic;
 }
 
+/**
+ * Evaluates an exercise from an actually public/free lesson without creating a
+ * user, attempt, mistake, progress row, or reward. This lets a visitor try
+ * the real exercise UI before registration while keeping learner history tied
+ * only to an authenticated account.
+ */
+export async function evaluatePublicExerciseAttempt(exerciseId: string, input: unknown) {
+  const value = submitExerciseSchema.parse(input);
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      contentStatus: true,
+      correctAnswer: true,
+      alternativeAnswers: true,
+      content: true,
+      explanation: true,
+      hint: true,
+      allowInstantCheck: true,
+      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+    },
+  });
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  const access = await canAccessLesson(null, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("This exercise is available after access is granted.");
+  const isCorrect = answerMatches(value.answer, exercise.correctAnswer, exercise.alternativeAnswers, exercise.content);
+  return {
+    attemptNumber: 0,
+    isCorrect,
+    scoreAwarded: 0,
+    score: 0,
+    explanation: exercise.allowInstantCheck ? exercise.explanation : null,
+    correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
+    hint: exercise.hint,
+    feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+    solution: null,
+  };
+}
+
 export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown) {
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
@@ -884,7 +1102,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
     if (value.idempotencyKey) {
       const existing = await tx.exerciseAttempt.findUnique({
         where: { userId_exerciseId_idempotencyKey: { userId, exerciseId, idempotencyKey: value.idempotencyKey } },
-        select: { id: true, attemptNumber: true, isCorrect: true, scoreAwarded: true, createdAt: true },
+        select: { id: true, attemptNumber: true, isCorrect: true, scoreAwarded: true, solutionOpened: true, createdAt: true },
       });
       if (existing) {
         return {
@@ -896,6 +1114,8 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
           explanation: exercise.allowInstantCheck ? exercise.explanation : null,
           correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
           hint: exercise.hint,
+          feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+          solution: { available: existing.isCorrect === false, cost: exercise.solutionCost, opened: existing.solutionOpened },
         };
       }
     }
@@ -904,9 +1124,15 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
     const previous = await tx.exerciseAttempt.findFirst({
       where: { userId, exerciseId },
       orderBy: { attemptNumber: "desc" },
-      select: { attemptNumber: true },
+      select: { attemptNumber: true, solutionOpened: true },
     });
-    const scoreAwarded = isCorrect ? exercise.basePoints : 0;
+    const openedEarlierSolution = previous?.solutionOpened || Boolean(await tx.exerciseAttempt.findFirst({
+      where: { userId, exerciseId, solutionOpened: true },
+      select: { id: true },
+    }));
+    // A solution remains useful after an error, but it cannot be used to earn
+    // the full score on a later attempt.
+    const scoreAwarded = isCorrect ? (openedEarlierSolution ? Math.floor(exercise.basePoints / 2) : exercise.basePoints) : 0;
     const attempt = await tx.exerciseAttempt.create({
       data: {
         userId,
@@ -937,6 +1163,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
             submittedAnswer: toPrismaJson(value.answer),
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
+            mistakeType: mistakeTypeForExercise(exercise.type),
             occurrenceCount: { increment: 1 },
             lastOccurredAt: new Date(),
           },
@@ -950,6 +1177,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
             submittedAnswer: toPrismaJson(value.answer),
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
+            mistakeType: mistakeTypeForExercise(exercise.type),
           },
         });
       }
@@ -957,7 +1185,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
 
     const attempts = await tx.exerciseAttempt.findMany({
       where: { userId, lessonId: exercise.lessonBlock.lessonId },
-      select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true },
+      select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true, hintUsed: true, solutionOpened: true },
     });
     const result = calculateLessonResult(attempts);
     await tx.lessonProgress.upsert({
@@ -970,12 +1198,16 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
         score: result.score,
         correctAnswers: result.correctAnswers,
         incorrectAnswers: result.incorrectAnswers,
+        hintsUsed: attempts.filter((attempt) => attempt.hintUsed).length,
+        solutionsOpened: attempts.filter((attempt) => attempt.solutionOpened).length,
         lastSeenAt: new Date(),
       },
       update: {
         score: result.score,
         correctAnswers: result.correctAnswers,
         incorrectAnswers: result.incorrectAnswers,
+        hintsUsed: attempts.filter((attempt) => attempt.hintUsed).length,
+        solutionsOpened: attempts.filter((attempt) => attempt.solutionOpened).length,
         lastSeenAt: new Date(),
       },
     });
@@ -1001,8 +1233,102 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       explanation: exercise.allowInstantCheck ? exercise.explanation : null,
       correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
       hint: exercise.hint,
+      feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+      solution: { available: !isCorrect, cost: exercise.solutionCost, opened: false },
       motivationReward,
     };
+  });
+}
+
+/**
+ * Opens an exercise solution once, after the learner has made an attempt. The
+ * wallet debit is recorded with a deterministic key so a double click, retry,
+ * or network replay can never charge the learner twice.
+ */
+export async function openExerciseSolution(userId: string, exerciseId: string) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      id: true,
+      contentStatus: true,
+      solutionCost: true,
+      correctAnswer: true,
+      explanation: true,
+      content: true,
+      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+    },
+  });
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("You cannot access this lesson.");
+
+  const latestAttempt = await prisma.exerciseAttempt.findFirst({
+    where: { userId, exerciseId },
+    orderBy: { attemptNumber: "desc" },
+    select: { id: true, solutionOpened: true },
+  });
+  if (!latestAttempt) throw new Error("Answer this exercise before opening its solution.");
+
+  const idempotencyKey = `exercise-solution:${userId}:${exerciseId}`;
+  const previousCharge = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { balanceAfter: true } });
+  if (previousCharge || latestAttempt.solutionOpened) {
+    if (!latestAttempt.solutionOpened) await prisma.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
+    return { alreadyOpened: true, cost: previousCharge ? exercise.solutionCost : 0, balance: previousCharge?.balanceAfter ?? (await prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} })).balance, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+    const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+    if (wallet.balance < exercise.solutionCost) throw new Error("You do not have enough coins to open this solution.");
+    const balanceAfter = wallet.balance - exercise.solutionCost;
+    if (exercise.solutionCost > 0) {
+      await tx.userWallet.update({ where: { userId }, data: { balance: balanceAfter, lifetimeSpent: { increment: exercise.solutionCost } } });
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          walletId: wallet.id,
+          amount: -exercise.solutionCost,
+          balanceBefore: wallet.balance,
+          balanceAfter,
+          type: "SOLUTION_PURCHASE",
+          sourceType: "EXERCISE_SOLUTION",
+          sourceId: exerciseId,
+          idempotencyKey,
+          localDate: new Date().toISOString().slice(0, 10),
+          description: "Exercise solution",
+        },
+      });
+    }
+      await tx.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
+      return { alreadyOpened: false, cost: exercise.solutionCost, balance: balanceAfter, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+    });
+  } catch (error) {
+    // A concurrent request can lose the unique idempotency-key race only after
+    // its transaction has rolled back. Return the completed first request.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const charge = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { balanceAfter: true } });
+      if (charge) return { alreadyOpened: true, cost: exercise.solutionCost, balance: charge.balanceAfter, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+    }
+    throw error;
+  }
+}
+
+/** Returns one unattempted published exercise from the same lesson block. */
+export async function getExtraPracticeExercise(userId: string, exerciseId: string) {
+  const source = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: { id: true, allowExtraExercise: true, lessonBlockId: true, lessonBlock: { select: { lessonId: true } } },
+  });
+  if (!source || !source.allowExtraExercise) throw new Error("Extra practice is not available for this exercise.");
+  const access = await canAccessLesson(userId, source.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("You cannot access this lesson.");
+  const hasAttempt = await prisma.exerciseAttempt.findFirst({ where: { userId, exerciseId }, select: { id: true } });
+  if (!hasAttempt) throw new Error("Answer this exercise before requesting extra practice.");
+
+  return prisma.exercise.findFirst({
+    where: { id: { not: exerciseId }, lessonBlockId: source.lessonBlockId, contentStatus: "PUBLISHED", attempts: { none: { userId } } },
+    orderBy: [{ difficulty: "asc" }, { order: "asc" }],
+    select: { id: true, type: true, engineKey: true, variantKey: true, instruction: true, question: true, content: true, explanation: true, hint: true, hintsEnabled: true, basePoints: true, timeLimitSeconds: true, solutionCost: true, allowInstantCheck: true, allowExtraExercise: true },
   });
 }
 
@@ -1027,11 +1353,19 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     const allRequiredBlocksComplete = blocks.filter((block) => block.isRequired).every((block) => completed.has(block.id));
     const status = value.complete && allRequiredBlocksComplete ? "COMPLETED" : "STARTED";
     const completionPercent = blocks.length === 0 ? (status === "COMPLETED" ? 100 : 0) : Math.round((completed.size / blocks.length) * 100);
-    const attempts = await tx.exerciseAttempt.findMany({
-      where: { userId, lessonId },
-      select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true },
-    });
+    const [attempts, sessionTime] = await Promise.all([
+      tx.exerciseAttempt.findMany({
+        where: { userId, lessonId },
+        select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true, hintUsed: true, solutionOpened: true },
+      }),
+      tx.learningSession.aggregate({ where: { userId, lessonId }, _sum: { activeSeconds: true } }),
+    ]);
     const result = calculateLessonResult(attempts);
+    const hintsUsed = attempts.filter((attempt) => attempt.hintUsed).length;
+    const solutionsOpened = attempts.filter((attempt) => attempt.solutionOpened).length;
+    // Browser elapsed time is intentionally ignored. Heartbeats are validated
+    // on the server for interaction, replay and excessive gaps.
+    const trustedSeconds = Math.max(0, sessionTime._sum.activeSeconds ?? 0);
     const now = new Date();
     const previousProgress = await tx.lessonProgress.findUnique({ where: { userId_lessonId: { userId, lessonId } }, select: { status: true } });
     const progress = await tx.lessonProgress.upsert({
@@ -1047,8 +1381,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         grade: status === "COMPLETED" ? result.grade : null,
         correctAnswers: result.correctAnswers,
         incorrectAnswers: result.incorrectAnswers,
-        // Active time is now credited only by the server heartbeat mechanism.
-        activeSeconds: 0,
+        hintsUsed,
+        solutionsOpened,
+        activeSeconds: trustedSeconds,
+        totalSeconds: trustedSeconds,
         lastSeenAt: now,
         completedAt: status === "COMPLETED" ? now : null,
       },
@@ -1061,7 +1397,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         grade: status === "COMPLETED" ? result.grade : null,
         correctAnswers: result.correctAnswers,
         incorrectAnswers: result.incorrectAnswers,
-        activeSeconds: { increment: 0 },
+        hintsUsed,
+        solutionsOpened,
+        activeSeconds: trustedSeconds,
+        totalSeconds: trustedSeconds,
         lastSeenAt: now,
         completedAt: status === "COMPLETED" ? now : null,
       },
@@ -1094,7 +1433,10 @@ export async function getLessonProgress(userId: string, lessonId: string) {
       grade: true,
       correctAnswers: true,
       incorrectAnswers: true,
+      hintsUsed: true,
+      solutionsOpened: true,
       activeSeconds: true,
+      totalSeconds: true,
       lastSeenAt: true,
     },
   });

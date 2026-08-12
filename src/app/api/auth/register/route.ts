@@ -4,7 +4,8 @@ import { prisma } from "@/core/server/prisma";
 import { hashPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 import { sendWelcomeVerificationEmail } from "@/core/server/email";
-import { resolvePostAuthDestination } from "@/core/utils/workspace-path";
+import { getPostLoginPath } from "@/core/utils/workspace-path";
+import { recordFunnelEvent } from "@/modules/analytics/services/funnel.service";
 import {
   isUniqueConstraintError,
   validateRegistrationInput,
@@ -12,10 +13,14 @@ import {
 
 export const runtime = "nodejs";
 
-function logRegistrationIssue(step: "session" | "welcome-email" | "registration", error: unknown) {
-  const code = error && typeof error === "object" && "code" in error
-    ? String((error as { code?: unknown }).code ?? "UNKNOWN")
-    : "UNKNOWN";
+function logRegistrationIssue(
+  step: "session" | "welcome-email" | "registration",
+  error: unknown,
+) {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "UNKNOWN")
+      : "UNKNOWN";
   console.error("[auth/register] non-sensitive failure", { step, code });
 }
 
@@ -24,7 +29,10 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid registration request" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid registration request" },
+      { status: 400 },
+    );
   }
 
   const validation = validateRegistrationInput(body);
@@ -45,7 +53,8 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return NextResponse.json(
         {
-          error: "An account with this email or username already exists. Please log in.",
+          error:
+            "An account with this email or username already exists. Please log in.",
           code: "ACCOUNT_EXISTS",
         },
         { status: 409 },
@@ -76,7 +85,8 @@ export async function POST(request: NextRequest) {
       if (isUniqueConstraintError(error)) {
         return NextResponse.json(
           {
-            error: "An account with this email or username already exists. Please log in.",
+            error:
+              "An account with this email or username already exists. Please log in.",
             code: "ACCOUNT_EXISTS",
           },
           { status: 409 },
@@ -111,6 +121,31 @@ export async function POST(request: NextRequest) {
       logRegistrationIssue("welcome-email", error);
     }
 
+    const requestedNext =
+      typeof body === "object" &&
+      body !== null &&
+      "next" in body &&
+      typeof body.next === "string"
+        ? body.next
+        : undefined;
+    const postLoginPath = getPostLoginPath(
+      user.email,
+      user.role,
+      requestedNext,
+    );
+    const workspacePath = postLoginPath.startsWith("/cms")
+      ? postLoginPath
+      : `/onboarding?next=${encodeURIComponent(postLoginPath)}`;
+
+    // Registration has succeeded even if non-essential telemetry is offline.
+    void recordFunnelEvent({
+      eventId: `signup-complete:${user.id}`,
+      eventType: "SIGNUP_COMPLETE",
+      pagePath: "/register",
+      userId: user.id,
+      result: "SUCCEEDED",
+    }).catch(() => undefined);
+
     return NextResponse.json(
       {
         success: true,
@@ -124,7 +159,7 @@ export async function POST(request: NextRequest) {
           email: user.email,
           name: user.name,
           role: user.role.toLowerCase(),
-          workspacePath: resolvePostAuthDestination(user.email, user.role),
+          workspacePath,
         },
       },
       { status: 201 },
@@ -133,7 +168,8 @@ export async function POST(request: NextRequest) {
     if (isUniqueConstraintError(error)) {
       return NextResponse.json(
         {
-          error: "An account with this email or username already exists. Please log in.",
+          error:
+            "An account with this email or username already exists. Please log in.",
           code: "ACCOUNT_EXISTS",
         },
         { status: 409 },
@@ -143,7 +179,8 @@ export async function POST(request: NextRequest) {
     logRegistrationIssue("registration", error);
     return NextResponse.json(
       {
-        error: "We could not complete registration right now. Please try again shortly.",
+        error:
+          "We could not complete registration right now. Please try again shortly.",
         code: "REGISTRATION_UNAVAILABLE",
       },
       { status: 500 },

@@ -1,0 +1,231 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 1rem;
+  background: rgb(2 6 23 / 72%);
+  backdrop-filter: blur(4px);
+}
+
+.content {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: min(100%, 390px);
+  max-height: min(88vh, 680px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 28px 70px rgb(15 23 42 / 28%);
+}
+
+.sizeSmall {
+  width: min(100%, 340px);
+}
+.sizeMedium {
+  width: min(100%, 390px);
+}
+.sizeLarge {
+  width: min(100%, 680px);
+  max-height: min(90vh, 780px);
+}
+.sizeFullscreen {
+  width: min(100%, 1120px);
+  max-height: min(92vh, 900px);
+}
+
+.header {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid #eef2ff;
+}
+
+.heading {
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  color: var(--dark, #0f172a);
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+.description {
+  margin: 0.25rem 0 0;
+  color: #475569;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+.close:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+.close:focus-visible {
+  outline: 2px solid rgb(91 108 255 / 35%);
+  outline-offset: 2px;
+}
+.close:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.15rem 1.2rem;
+  display: grid;
+  gap: 0.95rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem 0.95rem;
+  border-top: 1px solid #eef2ff;
+  background: #fff;
+}
+
+.discardPrompt {
+  margin: 0 0.95rem 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #0f172a;
+}
+.discardPrompt p {
+  margin: 0 0 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.discardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.secondaryAction,
+.dangerAction {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondaryAction {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+}
+.dangerAction {
+  border: 1px solid #ef4444;
+  background: #ef4444;
+  color: #fff;
+}
+.secondaryAction:focus-visible,
+.dangerAction:focus-visible {
+  outline: 2px solid rgb(91 108 255 / 35%);
+  outline-offset: 2px;
+}
+
+.loadingState {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #94a3b8;
+  border-top-color: #5b6cff;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .overlay {
+    align-items: center;
+  }
+  .content,
+  .sizeSmall,
+  .sizeMedium,
+  .sizeLarge,
+  .sizeFullscreen {
+    width: min(100%, 420px);
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+  .header {
+    padding: 1.1rem 1rem 0.9rem;
+  }
+  .body {
+    padding: 1rem 0.95rem 1rem;
+  }
+  .footer {
+    padding: 0.7rem 0.9rem 0.95rem;
+  }
+  .discardPrompt {
+    margin-right: 0.9rem;
+    margin-left: 0.9rem;
+  }
+  .footer > * {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  .close {
+    transition: none;
+  }
+}

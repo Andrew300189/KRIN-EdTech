@@ -21,7 +21,13 @@ const navigation = [
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
-export function DashboardLayoutClient({ children, showCmsLink }: { children: React.ReactNode; showCmsLink: boolean }) {
+export function DashboardLayoutClient({
+  children,
+  showCmsLink,
+}: {
+  children: React.ReactNode;
+  showCmsLink: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -40,7 +46,10 @@ export function DashboardLayoutClient({ children, showCmsLink }: { children: Rea
     <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100">
       <aside className="sticky top-0 h-screen w-64 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/90 px-4 py-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur">
         <div className="px-2 pb-4">
-          <Link href="/" className="text-xl font-bold text-primary hover:opacity-90">
+          <Link
+            href="/"
+            className="text-xl font-bold text-primary hover:opacity-90"
+          >
             KRIN EdTech
           </Link>
         </div>
@@ -63,15 +72,27 @@ export function DashboardLayoutClient({ children, showCmsLink }: { children: Rea
             );
           })}
           <div className="my-3 h-px w-full bg-slate-200" />
-          <Link className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90" href="/profile/notifications">Notifications</Link>
-          <Link className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90" href="/profile/support">Support</Link>
+          <Link
+            className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90"
+            href="/profile/notifications"
+          >
+            Notifications
+          </Link>
+          <Link
+            className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90"
+            href="/profile/support"
+          >
+            Support
+          </Link>
         </nav>
       </aside>
 
       <main className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4">
-            <h1 className="text-base font-semibold text-slate-900 md:text-lg">Dashboard</h1>
+            <h1 className="text-base font-semibold text-slate-900 md:text-lg">
+              Dashboard
+            </h1>
             <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 md:w-auto md:flex-nowrap">
               {showCmsLink ? (
                 <Link
@@ -89,7 +110,13 @@ export function DashboardLayoutClient({ children, showCmsLink }: { children: Rea
                 />
               </div>
               <NotificationBell />
-              <button className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900" onClick={handleSignOut} type="button">Sign Out</button>
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                onClick={handleSignOut}
+                type="button"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </header>

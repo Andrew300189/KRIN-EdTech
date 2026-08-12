@@ -3,10 +3,12 @@ import { requireRole } from "@/core/server/role-guard";
 import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBanner";
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
 import { listTeacherGroups } from "@/modules/teaching/services/teaching.service";
+import styles from "./TeacherHome.module.css";
 
 export default async function TeacherHomePage() {
   const guard = await requireRole(["teacher"]);
   if (!guard.ok) return null;
+
   const [groups, managedSlot] = await Promise.all([
     listTeacherGroups(guard.user.id),
     getPublishedCmsContentSlot("teacher.overview"),
@@ -18,5 +20,26 @@ export default async function TeacherHomePage() {
     ["Awaiting review", 0],
     ["Average progress", "0%"],
   ];
-  return <section className="space-y-6"><CmsManagedSlotBanner slot={managedSlot} /><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Teaching overview</p><h2 className="mt-2 text-3xl font-bold">Your classroom at a glance</h2></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{statistics.map(([label, value]) => <article key={String(label)} className="rounded-xl border bg-white p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p></article>)}</div>{groups.length === 0 ? <div className="rounded-2xl border border-dashed bg-white p-8 text-center"><h3 className="text-xl font-bold">You do not have any groups yet</h3><p className="mt-2 text-slate-600">Create your first group, then add registered learners.</p><Link href="/teacher/groups" className="mt-5 inline-flex rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white">Create a group</Link></div> : null}</section>;
+
+  return (
+    <section className={styles.page}>
+      <CmsManagedSlotBanner slot={managedSlot} />
+      <header className={styles.heading}><p>Teaching overview</p><h2>Your classroom at a glance</h2><span>Keep groups, learners and review work organised from one workspace.</span></header>
+      <section className={styles.statistics} aria-label="Teaching overview">
+        {statistics.map(([label, value]) => <article key={String(label)}><p>{label}</p><strong>{value}</strong></article>)}
+      </section>
+      {groups.length === 0 ? (
+        <section className={styles.emptyState}>
+          <h3>You do not have any groups yet</h3>
+          <p>Create your first group, then add registered learners.</p>
+          <Link href="/teacher/groups">Create a group</Link>
+        </section>
+      ) : (
+        <section className={styles.nextStep}>
+          <div><p>Your next step</p><h3>Review your active groups</h3><span>Open a group to see learner progress and plan assignments.</span></div>
+          <Link href="/teacher/groups">Open groups</Link>
+        </section>
+      )}
+    </section>
+  );
 }

@@ -1,8 +1,13 @@
-import { escapeLike, normalizeSearchQuery } from "@/modules/search/utils/normalize-query";
+import {
+  escapeLike,
+  normalizeSearchQuery,
+} from "@/modules/search/utils/normalize-query";
 
 describe("search query normalization", () => {
   test("trims and collapses spaces", () => {
-    expect(normalizeSearchQuery("   english    for   IT   ")).toBe("english for IT");
+    expect(normalizeSearchQuery("   english    for   IT   ")).toBe(
+      "english for IT",
+    );
   });
 
   test("limits length", () => {

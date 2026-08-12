@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ConfirmDialog } from "@/core/components/ConfirmDialog";
 
 type Provider = "STRIPE" | "LIQPAY";
 type Price = { id: string; provider: Provider; currency: string; amount: number; billingPeriod: string };
@@ -13,6 +15,8 @@ const money = (amount: number, currency: string) => new Intl.NumberFormat(undefi
 function submitHostedForm(form: NonNullable<CheckoutResponse["form"]>) { const element = document.createElement("form"); element.method = "POST"; element.action = form.action; for (const [name, value] of Object.entries(form.fields)) { const field = document.createElement("input"); field.type = "hidden"; field.name = name; field.value = value; element.append(field); } document.body.append(element); element.submit(); }
 
 export default function BillingPage() {
+  const searchParams = useSearchParams();
+  const requestedPriceId = searchParams.get("price");
   const [products, setProducts] = useState<Product[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -21,17 +25,23 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [confirmCancellation, setConfirmCancellation] = useState(false);
 
   const loadBilling = useCallback(async () => {
     setError("");
     try {
-      const [subscriptionResponse, historyResponse, productsResponse] = await Promise.all([fetch("/api/billing/subscription", { cache: "no-store" }), fetch("/api/billing/payments", { cache: "no-store" }), fetch(`/api/billing/products?provider=${provider}`, { cache: "no-store" })]);
+      const [subscriptionResponse, historyResponse, productsResponse] = await Promise.all([fetch("/api/billing/subscription", { cache: "no-store" }), fetch("/api/billing/payments", { cache: "no-store" }), fetch("/api/billing/products", { cache: "no-store" })]);
       const [subscriptionPayload, historyPayload, productPayload] = await Promise.all([subscriptionResponse.json(), historyResponse.json(), productsResponse.json()]);
       if (!subscriptionResponse.ok || !historyResponse.ok || !productsResponse.ok) throw new Error(subscriptionPayload.error || historyPayload.error || productPayload.error || "Unable to load billing.");
       setSubscription(subscriptionPayload); setPayments(historyPayload.payments); setProducts(productPayload.products);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load billing."); } finally { setLoading(false); }
-  }, [provider]);
+  }, []);
   useEffect(() => { void loadBilling(); }, [loadBilling]);
+  useEffect(() => {
+    if (!requestedPriceId) return;
+    const requested = products.flatMap((product) => product.prices).find((price) => price.id === requestedPriceId);
+    if (requested && requested.provider !== provider) setProvider(requested.provider);
+  }, [products, provider, requestedPriceId]);
 
   const available = useMemo(() => products.map((product) => ({ product, price: product.prices.find((price) => price.provider === provider) ?? null })).filter((entry) => entry.price), [products, provider]);
   async function startCheckout(price: Price) {
@@ -46,9 +56,12 @@ export default function BillingPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to start checkout."); setWorking(null); }
   }
 
-  async function requestCancellation() {
+  async function requestCancellation(confirmed = false) {
     if (!subscription?.subscriptionId || subscription.cancelAtPeriodEnd) return;
-    if (!window.confirm("Cancel renewal at the end of the current billing period? Your access will remain active until then.")) return;
+    if (!confirmed) {
+      setConfirmCancellation(true);
+      return;
+    }
     setWorking("cancel-subscription");
     setError("");
     try {
@@ -59,6 +72,7 @@ export default function BillingPage() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Unable to cancel renewal.");
+      setConfirmCancellation(false);
       await loadBilling();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to cancel renewal.");
@@ -75,5 +89,8 @@ export default function BillingPage() {
     {!loading && available.length === 0 ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">No active prices are configured for this provider yet.</p> : null}
     <section className="rounded-xl border border-slate-200 bg-white p-5"><h3 className="font-semibold text-slate-900">Current access</h3><p className="mt-2 text-sm text-slate-600">{subscription?.hasPremiumAccess ? `${subscription.plan} access is active.` : "You currently have Free access."}</p>{subscription?.currentPeriodEnd ? <p className="mt-1 text-sm text-slate-600">Current period ends: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}.</p> : null}{subscription?.subscriptionId && subscription.provider === "STRIPE" ? <div className="mt-4">{subscription.cancelAtPeriodEnd ? <p className="text-sm font-medium text-amber-700">Renewal is cancelled. Access remains available until the end of the current period.</p> : <button type="button" className="btn btn-secondary" disabled={working === "cancel-subscription"} onClick={() => void requestCancellation()}>{working === "cancel-subscription" ? "Cancelling renewal…" : "Cancel renewal"}</button>}</div> : null}</section>
     <section className="rounded-xl border border-slate-200 bg-white p-5"><h3 className="font-semibold text-slate-900">Payment history</h3>{payments.length ? <ul className="mt-3 divide-y divide-slate-100">{payments.map((payment) => <li key={payment.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="font-medium">{payment.order?.items[0]?.titleSnapshot ?? "Platform payment"} · {payment.provider}</span><span>{money(payment.amount, payment.currency)} · {payment.status}</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-600">No payments yet.</p>}</section>
+    <ConfirmDialog open={confirmCancellation} onOpenChange={setConfirmCancellation} title="Cancel renewal?" description="Your subscription stays active until the end of the current billing period." confirmLabel="Cancel renewal" onConfirm={() => void requestCancellation(true)} isProcessing={working === "cancel-subscription"} tone="warning">
+      <p>You will not be charged for the next renewal unless you restart the subscription.</p>
+    </ConfirmDialog>
   </div>;
 }

@@ -9,7 +9,12 @@ export default async function AuthLayout({
 }) {
   const authenticated = await requireAuth();
   if (authenticated) {
-    redirect(resolvePostAuthDestination(authenticated.user.email, authenticated.user.role));
+    redirect(
+      resolvePostAuthDestination(
+        authenticated.user.email,
+        authenticated.user.role,
+      ),
+    );
   }
 
   return (

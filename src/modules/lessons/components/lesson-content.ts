@@ -12,7 +12,10 @@ export type LessonExercise = {
   hint: string | null;
   hintsEnabled: boolean;
   basePoints: number;
+  timeLimitSeconds: number | null;
+  solutionCost: number;
   allowInstantCheck: boolean;
+  allowExtraExercise: boolean;
 };
 
 export type LessonBlock = {

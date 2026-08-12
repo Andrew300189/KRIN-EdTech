@@ -1,4 +1,5 @@
 const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime");
+const { importLegacyCurriculum } = require("../scripts/import-legacy-curriculum.cjs");
 
 const prisma = new PrismaClient();
 
@@ -89,7 +90,7 @@ async function main() {
     levels.map(([code, title, description], index) =>
       prisma.languageLevel.upsert({
         where: { code },
-        update: { title, description, order: index + 1, isPublished: true },
+        update: { title, description, order: index + 1, isPublished: true, contentStatus: "PUBLISHED", publishedAt: new Date(), archivedAt: null },
         create: {
           id: `cefr-${code.toLowerCase()}`,
           code,
@@ -97,10 +98,13 @@ async function main() {
           description,
           order: index + 1,
           isPublished: true,
+          contentStatus: "PUBLISHED",
+          publishedAt: new Date(),
         },
       }),
     ),
   );
+  await importLegacyCurriculum(prisma);
   await Promise.all(
     categories.map(([slug, title, description], index) =>
       prisma.courseCategory.upsert({

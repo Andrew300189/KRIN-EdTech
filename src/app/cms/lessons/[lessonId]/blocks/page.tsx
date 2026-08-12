@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/core/server/prisma";
 import { CmsExerciseBlockOperations } from "@/modules/cms/components/CmsExerciseControls";
 import { CmsLifecycleControls } from "@/modules/cms/components/CmsLifecycleControls";
+import { CmsLessonBlockEditor } from "@/modules/cms/components/CmsLessonBlockEditor";
 import { CmsEmptyState, CmsPageShell } from "@/modules/cms/components/CmsPageShell";
 import { AdminBlockForm, AdminExerciseForm } from "@/modules/courses/components/admin/ContentForms";
+import { CmsLessonGrammarManager } from "@/modules/grammar/components/CmsLessonGrammarManager";
+import { listLessonGrammarTopics } from "@/modules/grammar/services/grammar-cms.service";
 
 export default async function CmsLessonBlocksPage({
   params,
@@ -11,7 +14,7 @@ export default async function CmsLessonBlocksPage({
   params: Promise<{ lessonId: string }>;
 }) {
   const lessonId = (await params).lessonId;
-  const [lesson, targetLessons] = await Promise.all([
+  const [lesson, targetLessons, grammarLinks, grammarTopics] = await Promise.all([
     prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
@@ -35,6 +38,12 @@ export default async function CmsLessonBlocksPage({
         module: { select: { title: true, course: { select: { title: true } } } },
       },
     }),
+    listLessonGrammarTopics(lessonId),
+    prisma.grammarTopic.findMany({
+      where: { archivedAt: null },
+      orderBy: [{ cefrLevel: "asc" }, { order: "asc" }, { title: "asc" }],
+      select: { id: true, title: true, cefrLevel: true },
+    }),
   ]);
 
   if (!lesson) notFound();
@@ -46,6 +55,7 @@ export default async function CmsLessonBlocksPage({
       description="Theory, media and exercises remain drafts until each item is published."
     >
       <AdminBlockForm lessonId={lesson.id} />
+      <CmsLessonGrammarManager lessonId={lesson.id} initial={grammarLinks} topics={grammarTopics} />
 
       {lesson.blocks.length === 0 ? (
         <CmsEmptyState description="Create a theory, material or exercise block for this lesson." />
@@ -68,6 +78,7 @@ export default async function CmsLessonBlocksPage({
                   compact
                 />
               </div>
+              <CmsLessonBlockEditor block={block} orderedBlockIds={lesson.blocks.map((item) => item.id)} />
 
               {block.type === "EXERCISE" ? (
                 <>

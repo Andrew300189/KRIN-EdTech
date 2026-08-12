@@ -1,46 +1,29 @@
-/* Theme support - Light and Dark modes */
+/* Compatibility bridge for legacy Tailwind utility screens while they migrate
+   to semantic tokens. The root HTML attribute controls both themes. */
+:root[data-theme="dark"] .bg-white,
+:root:not([data-theme]) .bg-white { background-color: var(--surface); }
+:root[data-theme="dark"] .bg-slate-50,
+:root:not([data-theme]) .bg-slate-50 { background-color: var(--surface-subtle); }
+:root[data-theme="dark"] .bg-slate-100,
+:root:not([data-theme]) .bg-slate-100 { background-color: var(--surface-secondary); }
+:root[data-theme="dark"] .text-slate-950,
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-slate-800,
+:root:not([data-theme]) .text-slate-950,
+:root:not([data-theme]) .text-slate-900,
+:root:not([data-theme]) .text-slate-800 { color: var(--text-primary); }
+:root[data-theme="dark"] .text-slate-700,
+:root[data-theme="dark"] .text-slate-600,
+:root:not([data-theme]) .text-slate-700,
+:root:not([data-theme]) .text-slate-600 { color: var(--text-secondary); }
+:root[data-theme="dark"] .text-slate-500,
+:root:not([data-theme]) .text-slate-500 { color: var(--text-muted); }
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-slate-200,
+:root[data-theme="dark"] .border-slate-300,
+:root:not([data-theme]) .border-slate-100,
+:root:not([data-theme]) .border-slate-200,
+:root:not([data-theme]) .border-slate-300 { border-color: var(--border); }
 
-/* Light theme (default) */
-:root {
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
-}
-
-/* Dark theme - auto */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f172a;
-    --color-surface: #1e293b;
-    --color-text: #f1f5f9;
-    --color-muted: #94a3b8;
-    --color-border: #334155;
-  }
-}
-
-/* Manual dark theme class */
-.dark {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-text: #f1f5f9;
-  --color-muted: #94a3b8;
-  --color-border: #334155;
-}
-
-.dark .bg-white {
-  background-color: #1e293b;
-}
-.dark .bg-gray-50 {
-  background-color: #0f172a;
-}
-.dark .text-gray-600 {
-  color: #94a3b8;
-}
-.dark .text-gray-900 {
-  color: #f1f5f9;
-}
-.dark .border {
-  border-color: #334155;
-}
+/* Existing manual .dark usage remains equivalent to the default theme. */
+.dark { color-scheme: dark; }

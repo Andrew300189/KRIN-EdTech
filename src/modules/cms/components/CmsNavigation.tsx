@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import styles from "./CmsNavigation.module.css";
 
 const primaryLinks = [
   { href: "/cms", label: "Overview" },
@@ -7,17 +11,21 @@ const primaryLinks = [
   { href: "/cms/exercise-templates", label: "Exercises" },
   { href: "/cms/media", label: "Media library" },
   { href: "/cms/homepage", label: "Homepage" },
+  { href: "/cms/legal", label: "Legal & trust" },
   { href: "/cms/import-export", label: "Import & export" },
   { href: "/cms/audit", label: "Audit history" },
+  { href: "/cms/users", label: "Users" },
 ] as const;
 
 const moreLinks = [
+  { href: "/cms/platform-features", label: "Platform features" },
   { href: "/cms/sections", label: "Sections" },
   { href: "/cms/topics", label: "Topics" },
   { href: "/cms/subtopics", label: "Subtopics" },
   { href: "/cms/modules", label: "Modules" },
   { href: "/cms/lessons", label: "Lessons" },
   { href: "/cms/exercises", label: "Exercises list" },
+  { href: "/cms/grammar", label: "Grammar rules" },
   { href: "/cms/dashboards", label: "Dashboards" },
   { href: "/cms/navigation", label: "Navigation" },
   { href: "/cms/search", label: "Search" },
@@ -27,12 +35,33 @@ const moreLinks = [
 ] as const;
 
 export function CmsNavigation() {
-  return <nav aria-label="CMS navigation" className="border-b border-slate-200 bg-white">
-    <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-5 gap-y-2 px-6 py-4">
-      <Link href="/cms" className="mr-2 text-lg font-bold text-slate-950">KRIN CMS</Link>
-      {primaryLinks.map((link) => <Link key={link.href} href={link.href} className="text-sm font-semibold text-slate-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">{link.label}</Link>)}
-      <details className="relative"><summary className="cursor-pointer text-sm font-semibold text-slate-600 hover:text-blue-700">More</summary><div className="absolute right-0 z-20 mt-2 grid w-52 gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">{moreLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-800">{link.label}</Link>)}</div></details>
-      <Link href="/student" className="ml-auto text-sm font-semibold text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Open learner view</Link>
-    </div>
-  </nav>;
+  const pathname = usePathname();
+  const isActive = (href: string) => href === "/cms" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const moreIsActive = moreLinks.some((link) => isActive(link.href));
+
+  return (
+    <nav aria-label="CMS navigation" className={styles.navigation}>
+      <div className={styles.inner}>
+        <Link href="/cms" className={styles.brand}>
+          KRIN CMS
+        </Link>
+        <div className={styles.links}>
+          {primaryLinks.map((link) => {
+            const active = isActive(link.href);
+            return <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} className={`${styles.link} ${active ? styles.linkActive : ""}`}>{link.label}</Link>;
+          })}
+          <details className={styles.more}>
+            <summary className={`${styles.moreSummary} ${moreIsActive ? styles.linkActive : ""}`}>More</summary>
+            <div className={styles.morePanel}>
+              {moreLinks.map((link) => {
+                const active = isActive(link.href);
+                return <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} className={`${styles.moreLink} ${active ? styles.moreLinkActive : ""}`}>{link.label}</Link>;
+              })}
+            </div>
+          </details>
+        </div>
+        <Link href="/student" className={styles.learnerLink}>Open learner view</Link>
+      </div>
+    </nav>
+  );
 }

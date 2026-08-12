@@ -1,9 +1,15 @@
 import { expect, test } from "playwright/test";
 
-test("student opens global search by Ctrl/Cmd+K and reaches student search page", async ({ page, browserName }) => {
+test("student opens global search by Ctrl/Cmd+K and reaches student search page", async ({
+  page,
+  browserName,
+}) => {
   const email = process.env.E2E_STUDENT_EMAIL;
   const password = process.env.E2E_STUDENT_PASSWORD;
-  test.skip(!email || !password, "Set E2E_STUDENT_EMAIL and E2E_STUDENT_PASSWORD.");
+  test.skip(
+    !email || !password,
+    "Set E2E_STUDENT_EMAIL and E2E_STUDENT_PASSWORD.",
+  );
 
   await page.goto("/login?next=/student");
   await page.getByLabel("Email").fill(email!);

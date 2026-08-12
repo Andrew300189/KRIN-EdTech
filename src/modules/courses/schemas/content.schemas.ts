@@ -183,6 +183,11 @@ export const createLessonBlockSchema = z.object({
   isRequired: z.boolean().default(false),
 });
 
+export const updateLessonBlockSchema = createLessonBlockSchema
+  .omit({ type: true, order: true })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, "At least one lesson block field is required.");
+
 export const createExerciseSchema = z.object({
   type: exerciseTypeSchema,
   engineKey: z.string().trim().refine(isExerciseEngineKey, "Unsupported exercise engine").optional(),

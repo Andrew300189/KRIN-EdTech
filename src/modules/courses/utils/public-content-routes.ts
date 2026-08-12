@@ -11,7 +11,7 @@ type CurriculumNodePath = {
 
 /** The canonical public URL for a CMS-managed course. */
 export function getPublicCourseHref(slug: string) {
-  return `/courses/catalog/${encodeURIComponent(slug)}`;
+  return `/courses/${encodeURIComponent(slug)}`;
 }
 
 /**
@@ -23,12 +23,12 @@ export function getPublicCurriculumHref(node: CurriculumNodePath): string | null
   const level = encodeURIComponent(node.level.code.toLowerCase());
   const nodeSlug = encodeURIComponent(node.slug);
 
-  if (node.type === "SECTION") return `/levels/${level}/sections/${nodeSlug}`;
+  if (node.type === "SECTION") return `/courses/${level}/${nodeSlug}`;
   if (node.type === "TOPIC" && node.parent?.type === "SECTION") {
-    return `/levels/${level}/sections/${encodeURIComponent(node.parent.slug)}/${nodeSlug}`;
+    return `/courses/${level}/${encodeURIComponent(node.parent.slug)}/${nodeSlug}`;
   }
   if (node.type === "SUBTOPIC" && node.parent?.type === "TOPIC" && node.parent.parent?.type === "SECTION") {
-    return `/levels/${level}/sections/${encodeURIComponent(node.parent.parent.slug)}/${encodeURIComponent(node.parent.slug)}/${nodeSlug}`;
+    return `/courses/${level}/${encodeURIComponent(node.parent.parent.slug)}/${encodeURIComponent(node.parent.slug)}/${nodeSlug}`;
   }
   return null;
 }

@@ -26,15 +26,18 @@ export function getPublicAuthErrorMessage(code: PublicAuthErrorCode) {
  * database error detail.
  */
 export function createPublicAuthFailure(code: PublicAuthErrorCode) {
-  const errorId = randomUUID();
+  // Invalid credentials and access denials are expected user-facing states,
+  // not server failures. Do not make them look like an internal exception.
+  const includeErrorId = code === "auth_unavailable" || code === "google_sign_in_failed";
+  const errorId = includeErrorId ? randomUUID() : null;
 
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === "development" && errorId) {
     console.warn("[auth-error]", JSON.stringify({ code, errorId }));
   }
 
   return {
     error: getPublicAuthErrorMessage(code),
-    ...(process.env.NODE_ENV === "development" ? { errorId } : {}),
+    ...(process.env.NODE_ENV === "development" && errorId ? { errorId } : {}),
   };
 }
 

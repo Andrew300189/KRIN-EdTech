@@ -1,0 +1,20 @@
+.page { display: grid; gap: 1.25rem; }
+.heading { padding: clamp(1.35rem, 3.5vw, 2.25rem); border: 1px solid #d5e1f7; border-radius: 1.25rem; background: #f5f8ff; }
+.heading p, .nextStep p { margin: 0; color: #2450a4; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.heading h2, .emptyState h3, .nextStep h3 { margin: 0.4rem 0 0; color: #10213d; font-weight: 820; letter-spacing: -0.035em; }
+.heading h2 { font-size: clamp(1.8rem, 4.5vw, 2.45rem); }
+.heading span, .nextStep span { display: block; max-width: 38rem; margin-top: 0.75rem; color: #526176; line-height: 1.6; }
+.statistics { display: grid; gap: 0.85rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); }
+.statistics article { padding: 1.1rem; border: 1px solid #dde5f0; border-radius: 1rem; background: #fff; }
+.statistics p { margin: 0; color: #667085; font-size: 0.85rem; font-weight: 650; }
+.statistics strong { display: block; margin-top: 0.5rem; color: #10213d; font-size: 1.8rem; letter-spacing: -0.04em; }
+.emptyState, .nextStep { padding: clamp(1.5rem, 4vw, 2.4rem); border: 1px solid #dde5f0; border-radius: 1.1rem; background: #fff; }
+.emptyState { border-style: dashed; text-align: center; }
+.emptyState h3, .nextStep h3 { font-size: 1.3rem; }
+.emptyState p { margin: 0.65rem auto 0; color: #526176; line-height: 1.6; }
+.emptyState a, .nextStep a { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; margin-top: 1.2rem; padding: 0.65rem 0.95rem; border-radius: 0.7rem; background: #2349b3; color: #fff; font-size: 0.92rem; font-weight: 750; text-decoration: none; }
+.emptyState a:hover, .nextStep a:hover { background: #18378e; }
+.nextStep { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1.25rem; }
+.nextStep a { flex: none; }
+.emptyState a:focus-visible, .nextStep a:focus-visible { outline: 3px solid #82a9ff; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .emptyState a, .nextStep a { transition: background-color 150ms ease; } }

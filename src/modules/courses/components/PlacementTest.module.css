@@ -1,0 +1,506 @@
+/* ─── Placement Test – fully scoped styles ─────────────────────────── */
+/* All classes are prefixed "pt" to avoid collisions with global styles. */
+
+.ptWrap {
+  container-type: inline-size;
+  width: 100%;
+}
+
+/* ── Card shell ─────────────────────────────────────────────────────── */
+.ptCard {
+  position: relative;
+  width: 100%;
+  border: 1px solid rgba(186, 193, 221, 0.75);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 54px rgba(27, 42, 86, 0.12);
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.ptHeader {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ptBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #ecebff;
+  color: #4a42bf;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ptBadgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4f46e5;
+  animation: ptPulse 2s ease-in-out infinite;
+}
+
+@keyframes ptPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(0.8); }
+}
+
+.ptCounter {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.ptCounterBold {
+  color: #1e293b;
+  font-weight: 900;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────── */
+.ptProgressTrack {
+  height: 5px;
+  background: #eef2ff;
+}
+
+.ptProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
+  border-radius: 0 999px 999px 0;
+  transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Level strip ─────────────────────────────────────────────────────── */
+.ptLevelStrip {
+  display: flex;
+  gap: 4px;
+  padding: 10px 18px 4px;
+}
+
+.ptLevelPip {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  transition: background 300ms ease;
+}
+
+.ptLevelPipActive {
+  background: linear-gradient(90deg, #312e81 0%, #4f46e5 100%);
+}
+
+.ptLevelPipDone {
+  background: #a5b4fc;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────── */
+.ptBody {
+  padding: 18px 22px 22px;
+}
+
+.ptLevelLabel {
+  margin: 0 0 10px;
+  color: #5148db;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ── Question transition ─────────────────────────────────────────────── */
+.ptQuestion {
+  animation: ptFadeSlide 260ms ease both;
+}
+
+@keyframes ptFadeSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ptQuestionText {
+  margin: 0 0 14px;
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* ── Gap text (fill-in-the-blank rendering) ─────────────────────────── */
+.ptGap {
+  display: inline-block;
+  min-width: 64px;
+  border-bottom: 2px solid #4f46e5;
+  color: #4f46e5;
+  font-weight: 800;
+  text-align: center;
+  padding: 0 4px;
+}
+
+/* ── Options ─────────────────────────────────────────────────────────── */
+.ptOptions {
+  display: grid;
+  gap: 8px;
+}
+
+.ptOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #263650;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  transition:
+    border-color 130ms ease,
+    background 130ms ease,
+    transform 100ms ease,
+    box-shadow 130ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ptOption:hover:not(:disabled) {
+  border-color: #a5b4fc;
+  background: #f8f7ff;
+  transform: translateX(2px);
+}
+
+.ptOption:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 2px;
+}
+
+.ptOptionSelected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #1e293b;
+}
+
+.ptOptionCorrect {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.ptOptionWrong {
+  border-color: #f87171;
+  background: #fff1f2;
+  color: #7f1d1d;
+}
+
+.ptOptionMarker {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-top: 1px;
+  transition: background 130ms ease, color 130ms ease;
+}
+
+.ptOptionSelected .ptOptionMarker {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.ptOptionCorrect .ptOptionMarker {
+  background: #22c55e;
+  color: #fff;
+}
+
+.ptOptionWrong .ptOptionMarker {
+  background: #f87171;
+  color: #fff;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.ptFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 22px 18px;
+}
+
+.ptBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 9px 20px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.ptBtnPrimary {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.32);
+}
+
+.ptBtnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.42);
+}
+
+.ptBtnPrimary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ptBtnGhost {
+  background: transparent;
+  border: 1.5px solid #e2e8f0;
+  color: #475569;
+}
+
+.ptBtnGhost:hover {
+  border-color: #a5b4fc;
+  color: #312e81;
+}
+
+/* ── Intro screen ────────────────────────────────────────────────────── */
+.ptIntro {
+  padding: 28px 24px 26px;
+  text-align: center;
+}
+
+.ptIntroIcon {
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.ptIntroTitle {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.ptIntroDesc {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.ptIntroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.ptIntroChip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* ── Result screen ───────────────────────────────────────────────────── */
+.ptResult {
+  padding: 28px 22px 26px;
+  animation: ptFadeSlide 300ms ease both;
+}
+
+.ptResultHeader {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.ptResultLevel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #312e81 0%, #4f46e5 55%, #2563eb 100%);
+  color: #fff;
+  font-size: 1.7rem;
+  font-weight: 900;
+  margin-bottom: 12px;
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.36);
+}
+
+.ptResultTitle {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
+.ptResultSub {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* ── Score bar ───────────────────────────────────────────────────────── */
+.ptScoreGrid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.ptScoreRow {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ptScoreLabel {
+  font-size: 0.77rem;
+  font-weight: 800;
+  color: #334155;
+  text-align: right;
+}
+
+.ptScoreTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.ptScoreBar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #312e81 0%, #4f46e5 100%);
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ptScoreBarWeak {
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+}
+
+.ptScoreNum {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #475569;
+  text-align: left;
+}
+
+/* ── Tags ────────────────────────────────────────────────────────────── */
+.ptTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.ptTag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.ptTagStrong {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.ptTagWeak {
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #fde68a;
+}
+
+/* ── CTA ─────────────────────────────────────────────────────────────── */
+.ptCta {
+  display: grid;
+  gap: 8px;
+}
+
+.ptCtaBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 120ms ease, box-shadow 140ms ease;
+}
+
+.ptCtaBtnPrimary {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
+}
+
+.ptCtaBtnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.42);
+}
+
+.ptCtaBtnSecondary {
+  background: transparent;
+  border: 1.5px solid #e2e8f0;
+  color: #334155;
+}
+
+.ptCtaBtnSecondary:hover {
+  border-color: #a5b4fc;
+  color: #312e81;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@container (max-width: 480px) {
+  .ptBody { padding: 14px 16px 18px; }
+  .ptFooter { padding: 8px 16px 14px; }
+  .ptHeader { padding: 14px 16px 12px; }
+  .ptLevelStrip { padding: 8px 14px 2px; }
+  .ptIntro { padding: 22px 18px 20px; }
+  .ptResult { padding: 22px 16px 20px; }
+  .ptScoreRow { grid-template-columns: 30px minmax(0, 1fr) 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptQuestion, .ptResult { animation: none; }
+  .ptProgressFill, .ptScoreBar { transition: none; }
+  .ptBadgeDot { animation: none; }
+}

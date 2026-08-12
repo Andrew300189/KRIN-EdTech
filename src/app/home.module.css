@@ -1,0 +1,366 @@
+.page {
+  min-height: 100vh;
+  overflow: hidden;
+  background: #f7f9ff;
+  color: #14213d;
+}
+
+.shell {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 76px;
+}
+
+.brand {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.brand span { color: #5046e5; }
+
+.navLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: #52627b;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.navLinks a:hover { color: #312e81; }
+
+.loginLink {
+  padding: 9px 14px;
+  border: 1px solid #d9def0;
+  border-radius: 10px;
+  color: #1e2a44;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.loginLink:hover { border-color: #8b84ef; background: #fff; }
+
+.hero {
+  position: relative;
+  padding: 68px 0 76px;
+  background:
+    radial-gradient(circle at 85% 22%, rgba(127, 112, 255, 0.20), transparent 25rem),
+    radial-gradient(circle at 5% 75%, rgba(96, 165, 250, 0.13), transparent 24rem),
+    #f7f9ff;
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(350px, 0.95fr);
+  align-items: center;
+  gap: clamp(44px, 7vw, 104px);
+}
+
+.eyebrow {
+  margin: 0;
+  color: #5148db;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  max-width: 680px;
+  margin: 14px 0 0;
+  font-size: clamp(2.65rem, 5vw, 4.55rem);
+  line-height: 1.04;
+  letter-spacing: -0.064em;
+}
+
+.heroCopy {
+  max-width: 570px;
+  margin: 22px 0 0;
+  color: #55657e;
+  font-size: 1.08rem;
+  line-height: 1.72;
+}
+
+.heroSearch { position: relative; z-index: 2; max-width: 570px; margin-top: 24px; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.primaryButton, .secondaryButton {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.primaryButton {
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 13px 26px rgba(79, 70, 229, 0.25);
+}
+
+.primaryButton:hover { transform: translateY(-1px); box-shadow: 0 17px 31px rgba(79, 70, 229, 0.32); }
+
+.secondaryButton { border: 1px solid #d3d9e9; color: #263650; background: rgba(255, 255, 255, 0.76); }
+.secondaryButton:hover { border-color: #8d86eb; transform: translateY(-1px); }
+.primaryButton:focus-visible, .secondaryButton:focus-visible, .loginLink:focus-visible, .navLinks a:focus-visible, .levelChip:focus-visible, .linkArrow:focus-visible { outline: 3px solid rgba(79, 70, 229, 0.36); outline-offset: 3px; }
+
+.levelChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+.levelChip {
+  padding: 7px 11px;
+  border: 1px solid #dbe1f0;
+  border-radius: 9px;
+  background: #fff;
+  color: #33435d;
+  font-size: 0.82rem;
+  font-weight: 750;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.levelChip:hover { border-color: #9189ee; color: #4238c6; }
+
+.heroAside { min-width: 0; }
+
+.exercisePreview {
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(186, 193, 221, 0.8);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.91);
+  box-shadow: 0 25px 55px rgba(27, 42, 86, 0.13);
+}
+
+.exerciseHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.exerciseHeader h2 { margin: 4px 0 0; font-size: 1.38rem; letter-spacing: -0.03em; }
+.engineBadge { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #ecebff; color: #4a42bf; font-size: 0.72rem; font-weight: 800; }
+.exerciseInstruction { margin: 22px 0 0; color: #5c6d87; font-size: 0.95rem; }
+.answerList { display: grid; gap: 10px; margin-top: 18px; }
+.answerOption { display: flex; align-items: center; gap: 11px; width: 100%; padding: 13px 14px; border: 1px solid #dce1ee; border-radius: 12px; background: #fff; color: #263650; text-align: left; font-size: 0.93rem; font-weight: 600; transition: border-color 160ms ease, background 160ms ease; }
+.answerOption:hover { border-color: #8b84ec; background: #fbfbff; }
+.answerOption:focus-visible { outline: 3px solid rgba(79, 70, 229, 0.36); outline-offset: 2px; }
+.answerMarker { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #f0f2f8; color: #66758d; font-size: 0.72rem; font-weight: 800; }
+.correct { border-color: #69bc9e; background: #f0fbf6; }
+.incorrect { border-color: #ef9b9b; background: #fff7f7; }
+.exerciseFeedback { min-height: 1.6rem; margin: 15px 0 0; color: #68768c; font-size: 0.85rem; }
+.correctText { color: #167452; }
+.incorrectText { color: #be3b3b; }
+
+.section { padding: 84px 0; }
+.anchorSection { scroll-margin-top: 92px; }
+.whiteSection { background: #fff; }
+.sectionHeading { max-width: 680px; }
+.sectionHeading h2 { margin: 9px 0 0; font-size: clamp(1.9rem, 3vw, 2.65rem); line-height: 1.14; letter-spacing: -0.048em; }
+.sectionHeading p:not(.eyebrow) { margin: 14px 0 0; color: #60708a; line-height: 1.65; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 32px; }
+.step { padding: 22px; border: 1px solid #e2e6f0; border-radius: 16px; background: #fff; }
+.stepNumber { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: #ecebff; color: #433ac9; font-size: 0.82rem; font-weight: 850; }
+.step h3 { margin: 18px 0 0; font-size: 1.1rem; }
+.step p { margin: 9px 0 0; color: #65748c; font-size: 0.92rem; line-height: 1.58; }
+
+.focusGrid, .levelGrid, .courseGrid, .curriculumGrid { display: grid; gap: 16px; margin-top: 32px; }
+.focusGrid { grid-template-columns: repeat(4, 1fr); }
+.levelGrid { grid-template-columns: repeat(6, 1fr); }
+.courseGrid, .curriculumGrid { grid-template-columns: repeat(3, 1fr); }
+
+.productCollections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 31px; }
+.productCollectionCard { display: flex; min-height: 240px; flex-direction: column; padding: 24px; border: 1px solid #dce2ef; border-radius: 17px; background: linear-gradient(145deg, #fff, #f7f6ff); color: #22314b; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.productCollectionCard:hover { transform: translateY(-3px); border-color: #aaa5ef; box-shadow: 0 17px 31px rgba(27, 42, 86, .1); }
+.collectionLabel { color: #5148db; font-size: .74rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.productCollectionCard h3 { max-width: 400px; margin: 13px 0 0; font-size: 1.35rem; line-height: 1.2; letter-spacing: -.04em; }
+.productCollectionCard p { max-width: 460px; margin: 10px 0 0; color: #65758c; line-height: 1.58; }
+.productCollectionCard:focus-visible { outline: 3px solid rgba(79, 70, 229, .36); outline-offset: 3px; }
+
+.focusCard, .levelCard, .courseCard, .curriculumCard { display: flex; flex-direction: column; border: 1px solid #e0e5f0; border-radius: 16px; background: #fff; transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+.focusCard { min-height: 146px; padding: 19px; }
+.focusCard:hover, .levelCard:hover, .courseCard:hover, .curriculumCard:hover { transform: translateY(-3px); border-color: #aaa5ef; box-shadow: 0 16px 30px rgba(27, 42, 86, 0.08); }
+.focusIcon { font-size: 1.32rem; }
+.focusCard h3, .levelCard h3, .courseCard h3, .curriculumCard h3 { margin: 13px 0 0; font-size: 1.04rem; letter-spacing: -0.02em; }
+.focusCard p, .levelCard p, .courseCard p, .curriculumCard p { margin: 7px 0 0; color: #66758c; font-size: 0.85rem; line-height: 1.52; }
+.linkArrow { display: inline-flex; align-items: center; margin-top: auto; padding-top: 15px; color: #4940d1; font-size: 0.84rem; font-weight: 800; }
+
+.levelCard { min-height: 168px; padding: 18px; }
+.levelCode { color: #4840ca; font-size: 1.6rem; font-weight: 850; letter-spacing: -0.06em; }
+.levelCard h3 { margin-top: 8px; }
+.levelCard p { margin-top: auto; padding-top: 10px; }
+
+.courseCard, .curriculumCard { min-height: 230px; padding: 21px; }
+.metadata { display: flex; flex-wrap: wrap; gap: 7px; }
+.metadata span { padding: 5px 8px; border-radius: 7px; background: #f0f2f8; color: #516078; font-size: 0.72rem; font-weight: 750; }
+.courseCard p, .curriculumCard p { font-size: 0.9rem; }
+.courseDetails { margin-top: 16px !important; color: #4d5e78 !important; font-size: 0.79rem !important; font-weight: 750; }
+
+.structure { display: grid; grid-template-columns: 0.94fr 1.06fr; align-items: center; gap: clamp(34px, 7vw, 90px); }
+.structureList { display: grid; gap: 11px; margin: 27px 0 0; padding: 0; list-style: none; }
+.structureList li { display: flex; gap: 10px; color: #53647c; }
+.structureList strong { color: #273755; }
+.structureList span { display: grid; width: 21px; height: 21px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #eaf8f2; color: #227651; font-size: 0.8rem; font-weight: 800; }
+.structurePanel { padding: 25px; border-radius: 19px; background: #1c2551; color: #fff; box-shadow: 0 20px 48px rgba(22, 32, 74, 0.24); }
+.structurePanel p { margin: 0; color: #bbc6f1; font-size: 0.82rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.1em; }
+.structurePanel h3 { margin: 10px 0 20px; font-size: 1.5rem; letter-spacing: -0.04em; }
+.moduleRow { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid rgba(214, 221, 255, 0.17); color: #e8ebff; font-size: 0.9rem; }
+.moduleRow span { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 7px; background: rgba(161, 154, 255, 0.22); color: #cdcaff; font-size: 0.75rem; font-weight: 800; }
+.structurePanel small { display: block; margin-top: 18px; color: #b8c3ef; font-size: 0.82rem; }
+
+.pricingBand { padding: 31px; border: 1px solid #dfe3f0; border-radius: 20px; background: linear-gradient(115deg, #ffffff, #f4f3ff); }
+.pricingBandInner { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.pricingBand h2 { margin: 8px 0 0; font-size: 1.7rem; letter-spacing: -0.045em; }
+.pricingBand p:not(.eyebrow) { margin: 8px 0 0; color: #64738a; }
+.pricingGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+.pricingCard { display: flex; min-height: 244px; flex-direction: column; padding: 19px; border: 1px solid #dfe3f0; border-radius: 16px; background: #fff; }
+.pricingType { margin: 0; color: #5148db; font-size: .69rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.pricingCard h3 { margin: 11px 0 0; font-size: 1.07rem; letter-spacing: -.025em; }
+.pricingCard > p:not(.pricingType) { margin: 9px 0 0; color: #65758c; font-size: .83rem; line-height: 1.5; }
+.pricingCard strong { display: block; margin-top: auto; padding-top: 18px; font-size: 1.16rem; letter-spacing: -.03em; }
+.pricingCard > span { margin-top: 4px; color: #65758c; font-size: .73rem; font-weight: 750; }
+.pricingCard .linkArrow { margin-top: 13px; padding-top: 0; }
+
+.faq { display: grid; gap: 10px; margin-top: 29px; }
+.faq details { border: 1px solid #e1e6f0; border-radius: 12px; background: #fff; padding: 0 18px; }
+.faq summary { cursor: pointer; padding: 17px 0; color: #273754; font-weight: 750; }
+.faq p { margin: 0 0 17px; color: #63728b; line-height: 1.58; }
+
+.finalCta { padding: 76px 0; background: #24205b; color: #fff; text-align: center; }
+.finalCta h2 { max-width: 670px; margin: 10px auto 0; font-size: clamp(2rem, 4vw, 3.1rem); line-height: 1.1; letter-spacing: -0.055em; }
+.finalCta p { max-width: 590px; margin: 15px auto 0; color: #cac8f3; }
+.finalCta .actions { justify-content: center; }
+.finalCta .secondaryButton { border-color: rgba(255, 255, 255, 0.42); background: transparent; color: #fff; }
+
+.footer { padding: 34px 0; background: #191c2d; color: #c4cbe0; }
+.footerGrid { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 25px; }
+.footer h2 { color: #fff; font-size: 1.06rem; }
+.footer h3 { margin: 0; color: #fff; font-size: 0.88rem; }
+.footer p { margin: 9px 0 0; max-width: 290px; color: #aeb7d2; font-size: 0.82rem; line-height: 1.6; }
+.footer ul { margin: 10px 0 0; padding: 0; list-style: none; }
+.footer li + li { margin-top: 7px; }
+.footer a { color: #c9cdf3; font-size: 0.84rem; }
+.footer a:hover { color: #fff; }
+.footerNote { margin-top: 27px; padding-top: 18px; border-top: 1px solid rgba(203, 210, 237, 0.16); color: #8994b7; font-size: 0.76rem; }
+
+@media (max-width: 950px) {
+  .heroGrid, .structure { grid-template-columns: 1fr; }
+  .hero { padding-top: 45px; }
+  .heroAside { max-width: 630px; }
+  .focusGrid { grid-template-columns: repeat(2, 1fr); }
+  .levelGrid { grid-template-columns: repeat(3, 1fr); }
+  .courseGrid, .curriculumGrid, .productCollections, .pricingGrid { grid-template-columns: repeat(2, 1fr); }
+  .footerGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .shell { width: min(100% - 28px, 1160px); }
+  .nav { min-height: 68px; gap: 12px; }
+  .navLinks { display: none; }
+  .hero { padding: 38px 0 55px; }
+  .heroTitle { font-size: clamp(2.35rem, 12vw, 3.15rem); }
+  .steps, .focusGrid, .levelGrid, .courseGrid, .curriculumGrid, .productCollections, .pricingGrid, .footerGrid { grid-template-columns: 1fr; }
+  .section { padding: 61px 0; }
+  .pricingBand, .exercisePreview { padding: 21px; }
+  .pricingBandInner { align-items: flex-start; flex-direction: column; }
+  .exerciseHeader { display: block; }
+  .engineBadge { display: inline-flex; margin-top: 12px; }
+  .footer { padding-bottom: 29px; }
+}
+
+/* Semantic dark-theme layer. Keep this at the end while legacy selectors are
+   migrated so both dark and light themes resolve from one token set. */
+.page { background: var(--background); color: var(--text-primary); }
+.navLinks, .heroCopy, .sectionHeading p:not(.eyebrow), .step p,
+.focusCard p, .levelCard p, .courseCard p, .curriculumCard p,
+.productCollectionCard p, .pricingBand p:not(.eyebrow), .faq p,
+.exerciseInstruction, .exerciseFeedback { color: var(--text-secondary); }
+.brand span, .eyebrow, .collectionLabel, .linkArrow, .levelCode { color: var(--primary); }
+.navLinks a:hover, .levelChip:hover { color: var(--primary-hover); }
+
+.loginLink, .secondaryButton, .levelChip, .answerOption, .step,
+.focusCard, .levelCard, .courseCard, .curriculumCard, .faq details {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.loginLink:hover, .secondaryButton:hover, .answerOption:hover, .levelChip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-interactive);
+}
+.hero {
+  background:
+    radial-gradient(circle at 85% 22%, rgb(117 103 248 / 16%), transparent 25rem),
+    radial-gradient(circle at 5% 75%, rgb(84 166 255 / 10%), transparent 24rem),
+    var(--background);
+}
+.primaryButton { background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-md); }
+.primaryButton:hover { background: var(--primary-hover); box-shadow: var(--shadow-lg); }
+.primaryButton:active { background: var(--primary-active); }
+.primaryButton:focus-visible, .secondaryButton:focus-visible, .loginLink:focus-visible,
+.navLinks a:focus-visible, .levelChip:focus-visible, .linkArrow:focus-visible,
+.answerOption:focus-visible, .productCollectionCard:focus-visible { outline-color: var(--focus-ring); }
+
+.exercisePreview, .productCollectionCard, .pricingBand {
+  border-color: var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}
+.pricingCard { border-color: var(--border); background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.pricingType { color: var(--primary); }
+.pricingCard > p:not(.pricingType), .pricingCard > span { color: var(--text-secondary); }
+.engineBadge, .stepNumber, .metadata span {
+  background: var(--surface-interactive);
+  color: var(--primary-hover);
+}
+.answerMarker { background: var(--surface-secondary); color: var(--text-muted); }
+.correct { border-color: var(--success); background: rgb(50 201 139 / 12%); }
+.incorrect { border-color: var(--danger); background: rgb(240 105 126 / 11%); }
+.correctText { color: var(--success); }
+.incorrectText { color: var(--danger); }
+
+.whiteSection { background: var(--surface-subtle); }
+.structureList li { color: var(--text-secondary); }
+.structureList strong { color: var(--text-primary); }
+.structureList span { background: rgb(50 201 139 / 14%); color: var(--success); }
+.structurePanel { background: var(--surface-elevated); color: var(--text-primary); box-shadow: var(--shadow-lg); }
+.structurePanel p, .structurePanel small { color: var(--text-secondary); }
+.moduleRow { border-color: var(--border); color: var(--text-primary); }
+.moduleRow span { background: var(--surface-interactive); color: var(--primary-hover); }
+.faq summary { color: var(--text-primary); }
+.finalCta { background: var(--surface-elevated); color: var(--text-primary); }
+.finalCta p { color: var(--text-secondary); }
+.finalCta .secondaryButton { border-color: var(--border-strong); background: var(--surface); color: var(--text-primary); }
+.footer { background: var(--surface-subtle); color: var(--text-secondary); }
+.footer h2, .footer h3 { color: var(--text-primary); }
+.footer p, .footerNote { color: var(--text-muted); }
+.footer a { color: var(--text-secondary); }
+.footer a:hover { color: var(--primary-hover); }
+.footerNote { border-color: var(--border); }
+
+/* Visual feedback comes from colour, border and shadow — cards never jump. */
+.primaryButton, .secondaryButton, .productCollectionCard, .focusCard, .levelCard,
+.courseCard, .curriculumCard { transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease; }
+.primaryButton:hover, .secondaryButton:hover, .productCollectionCard:hover,
+.focusCard:hover, .levelCard:hover, .courseCard:hover, .curriculumCard:hover { transform: none; }
+.productCollectionCard:hover, .focusCard:hover, .levelCard:hover, .courseCard:hover, .curriculumCard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }

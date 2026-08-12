@@ -1,5 +1,5 @@
 import { calculatePromotionDiscount } from "@/modules/payments/services/payment.service";
-import { periodEnd } from "@/modules/payments/services/entitlement.service";
+import { entitlementAllowsLesson, periodEnd } from "@/modules/payments/services/entitlement.service";
 
 describe("commerce billing rules", () => {
   it("calculates fixed and capped percentage discounts in integer minor units", () => {
@@ -18,5 +18,14 @@ describe("commerce billing rules", () => {
     expect(periodEnd(start, "NONE")).toBeNull();
     expect(periodEnd(start, "QUARTER")?.toISOString()).toBe("2026-05-01T12:00:00.000Z");
     expect(periodEnd(start, "YEAR")?.toISOString()).toBe("2027-01-31T12:00:00.000Z");
+  });
+
+  it("allows only the purchased lesson range or purchased module", () => {
+    const courseWidePack = [{ courseId: "course-1", moduleId: null, accessStartLessonOrder: 6, accessEndLessonOrder: 10 }];
+    expect(entitlementAllowsLesson(courseWidePack, { courseId: "course-1", moduleId: "module-1", lessonOrder: 6 })).toBe(true);
+    expect(entitlementAllowsLesson(courseWidePack, { courseId: "course-1", moduleId: "module-1", lessonOrder: 11 })).toBe(false);
+    const moduleOnly = [{ courseId: null, moduleId: "module-2", accessStartLessonOrder: null, accessEndLessonOrder: null }];
+    expect(entitlementAllowsLesson(moduleOnly, { courseId: "course-1", moduleId: "module-2", lessonOrder: 1 })).toBe(true);
+    expect(entitlementAllowsLesson(moduleOnly, { courseId: "course-1", moduleId: "module-1", lessonOrder: 1 })).toBe(false);
   });
 });

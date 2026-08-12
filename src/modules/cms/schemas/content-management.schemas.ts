@@ -17,7 +17,7 @@ const entityTypes = [
 ] as const;
 
 const contentStatuses = ["DRAFT", "REVIEW", "SCHEDULED", "PUBLISHED", "UNPUBLISHED", "ARCHIVED"] as const;
-const contentAreas = ["HOME", "STUDENT_DASHBOARD", "TEACHER_DASHBOARD"] as const;
+const contentAreas = ["HOME", "STUDENT_DASHBOARD", "TEACHER_DASHBOARD", "LEGAL"] as const;
 const mediaKinds = ["IMAGE", "VIDEO", "AUDIO", "DOCUMENT", "OTHER"] as const;
 const curriculumNodeTypes = ["SECTION", "TOPIC", "SUBTOPIC"] as const;
 const curriculumRelations = ["PRIMARY", "RELATED"] as const;

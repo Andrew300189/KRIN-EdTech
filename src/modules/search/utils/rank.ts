@@ -6,7 +6,12 @@ export function calculateSearchRank(input: {
   subtitle?: string | null;
   description?: string | null;
   keywords?: string[];
-  boosts?: { popular?: boolean; mine?: boolean; active?: boolean; inProgress?: boolean };
+  boosts?: {
+    popular?: boolean;
+    mine?: boolean;
+    active?: boolean;
+    inProgress?: boolean;
+  };
 }) {
   const query = input.query.toLocaleLowerCase("en");
   const title = input.title.toLocaleLowerCase("en");
@@ -18,7 +23,11 @@ export function calculateSearchRank(input: {
   if (title.startsWith(query)) score += 70;
   if (title.includes(query)) score += 45;
 
-  if (input.keywords?.some((keyword) => keyword.toLocaleLowerCase("en").includes(query))) {
+  if (
+    input.keywords?.some((keyword) =>
+      keyword.toLocaleLowerCase("en").includes(query),
+    )
+  ) {
     score += 30;
   }
 
@@ -33,7 +42,10 @@ export function calculateSearchRank(input: {
   return score;
 }
 
-export function sortSearchResults(items: SearchResult[], sort: "relevance" | "title" | "newest" | "recent_activity") {
+export function sortSearchResults(
+  items: SearchResult[],
+  sort: "relevance" | "title" | "newest" | "recent_activity",
+) {
   if (sort === "title") {
     return [...items].sort((a, b) => a.title.localeCompare(b.title));
   }
@@ -44,5 +56,7 @@ export function sortSearchResults(items: SearchResult[], sort: "relevance" | "ti
       return bAt - aAt || b.score - a.score;
     });
   }
-  return [...items].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  return [...items].sort(
+    (a, b) => b.score - a.score || a.title.localeCompare(b.title),
+  );
 }

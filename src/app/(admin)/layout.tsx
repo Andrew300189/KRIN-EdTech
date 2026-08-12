@@ -91,11 +91,36 @@ export default async function AdminLayout({
             >
               Analytics
             </Link>
-            <Link href="/admin/billing/orders" className="block px-4 py-2 rounded hover:bg-gray-100">Orders</Link>
-            <Link href="/admin/billing/products" className="block px-4 py-2 rounded hover:bg-gray-100">Products</Link>
-            <Link href="/admin/billing/plans" className="block px-4 py-2 rounded hover:bg-gray-100">Plans</Link>
-            <Link href="/admin/support/tickets" className="block px-4 py-2 rounded hover:bg-gray-100">Support</Link>
-            <Link href="/admin/communications/announcements" className="block px-4 py-2 rounded hover:bg-gray-100">Announcements</Link>
+            <Link
+              href="/admin/billing/orders"
+              className="block px-4 py-2 rounded hover:bg-gray-100"
+            >
+              Orders
+            </Link>
+            <Link
+              href="/admin/billing/products"
+              className="block px-4 py-2 rounded hover:bg-gray-100"
+            >
+              Products
+            </Link>
+            <Link
+              href="/admin/billing/plans"
+              className="block px-4 py-2 rounded hover:bg-gray-100"
+            >
+              Plans
+            </Link>
+            <Link
+              href="/admin/support/tickets"
+              className="block px-4 py-2 rounded hover:bg-gray-100"
+            >
+              Support
+            </Link>
+            <Link
+              href="/admin/communications/announcements"
+              className="block px-4 py-2 rounded hover:bg-gray-100"
+            >
+              Announcements
+            </Link>
           </nav>
         </aside>
 

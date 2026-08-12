@@ -13,7 +13,9 @@ export const PLATFORM_ACCESS_ROLES = {
 export type PlatformAccessRole =
   (typeof PLATFORM_ACCESS_ROLES)[keyof typeof PLATFORM_ACCESS_ROLES];
 
-const APP_ROLE_TO_PLATFORM_ACCESS: Partial<Record<AppRole, readonly PlatformAccessRole[]>> = {
+const APP_ROLE_TO_PLATFORM_ACCESS: Partial<
+  Record<AppRole, readonly PlatformAccessRole[]>
+> = {
   super_admin: [PLATFORM_ACCESS_ROLES.ADMIN],
   admin: [PLATFORM_ACCESS_ROLES.ADMIN],
   content_manager: [PLATFORM_ACCESS_ROLES.CONTENT_MANAGER],

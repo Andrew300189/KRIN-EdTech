@@ -1,0 +1,45 @@
+.page { min-height: 100vh; background: #f7f9ff; color: #18253e; }
+.shell { width: min(1060px, calc(100% - 40px)); margin: 0 auto; }
+.header { padding: 68px 0 33px; }
+.back { color: #4d45d3; font-size: .88rem; font-weight: 750; }
+.back:hover { text-decoration: underline; }
+.eyebrow { margin: 26px 0 0; color: #5148db; font-size: .76rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.header h1 { max-width: 720px; margin: 10px 0 0; font-size: clamp(2.35rem, 5.3vw, 4rem); line-height: 1.08; letter-spacing: -.06em; }
+.header p:not(.eyebrow) { max-width: 680px; margin: 16px 0 0; color: #607089; line-height: 1.68; }
+.disclosure { margin-top: 18px !important; padding: 12px 14px; border-left: 3px solid #8078ed; background: #f1f0ff; color: #4a4d71 !important; font-size: .9rem; }
+.finder { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; padding: 25px; border: 1px solid #dfe4f0; border-radius: 20px; background: #fff; box-shadow: 0 17px 36px rgba(28, 40, 80, .08); }
+.finder label { display: grid; gap: 7px; color: #33425c; font-size: .88rem; font-weight: 750; }
+.finder select { min-height: 46px; width: 100%; padding: 0 12px; border: 1px solid #cfd7e6; border-radius: 10px; background: #fff; color: #1b2941; font: inherit; }
+.finder select:focus-visible { outline: 3px solid rgba(79,70,229,.3); outline-offset: 2px; border-color: #7169e8; }
+.actionRow { display: flex; align-items: end; gap: 13px; }
+.primary, .secondary { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 11px 17px; border-radius: 10px; font-size: .9rem; font-weight: 800; }
+.primary { background: #4f46e5; color: #fff; box-shadow: 0 10px 20px rgba(79,70,229,.2); }
+.primary:hover { background: #4338ca; }
+.secondary { border: 1px solid #cfd7e6; color: #33425c; }
+.secondary:hover { border-color: #8982ed; background: #fafaff; }
+.primary:focus-visible, .secondary:focus-visible, .card:focus-visible { outline: 3px solid rgba(79,70,229,.35); outline-offset: 3px; }
+.results { padding: 54px 0 80px; }
+.resultHeading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.resultHeading h2 { margin: 0; font-size: 1.7rem; letter-spacing: -.04em; }
+.resultHeading p { margin: 0; color: #68778e; font-size: .9rem; }
+.recommendationNote { margin: 13px 0 0; color: #65748b; font-size: .91rem; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 17px; margin-top: 24px; }
+.card { display: flex; min-height: 280px; flex-direction: column; padding: 20px; border: 1px solid #dfe4ef; border-radius: 16px; background: #fff; color: inherit; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.card:hover { transform: translateY(-3px); border-color: #aba6ee; box-shadow: 0 17px 31px rgba(29,42,78,.1); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { padding: 5px 7px; border-radius: 7px; background: #f0f2f8; color: #506078; font-size: .7rem; font-weight: 800; }
+.card h3 { margin: 15px 0 0; font-size: 1.12rem; line-height: 1.22; letter-spacing: -.025em; }
+.card > p { margin: 10px 0 0; color: #66758c; font-size: .89rem; line-height: 1.55; }
+.details { margin: 14px 0 0; color: #475a76; font-size: .79rem; font-weight: 750; }
+.reasons { display: grid; gap: 5px; margin: 14px 0 0; padding: 0; list-style: none; color: #53667f; font-size: .78rem; }
+.reasons li { display: flex; gap: 6px; }
+.reasons li::before { content: "✓"; color: #237b59; font-weight: 900; }
+.cardCta { margin-top: auto; padding-top: 17px; color: #4a42ca; font-size: .84rem; font-weight: 850; }
+.empty { margin-top: 24px; padding: 32px; border: 1px dashed #bfc8d9; border-radius: 16px; background: #fff; color: #64738b; }
+.empty h3 { margin: 0; color: #263752; font-size: 1.1rem; }
+.empty p { margin: 8px 0 0; }
+.empty .secondary { margin-top: 17px; }
+.catalogueLink { display: inline-flex; margin-top: 30px; color: #4a42ca; font-weight: 800; }
+.catalogueLink:hover { text-decoration: underline; }
+@media (max-width: 760px) { .header { padding-top: 43px; } .finder, .grid { grid-template-columns: 1fr; } .actionRow { align-items: stretch; } .actionRow .primary, .actionRow .secondary { flex: 1; } }
+@media (max-width: 480px) { .shell { width: min(100% - 28px, 1060px); } .actionRow { flex-direction: column; } .resultHeading { display: block; } .resultHeading p { margin-top: 8px; } }

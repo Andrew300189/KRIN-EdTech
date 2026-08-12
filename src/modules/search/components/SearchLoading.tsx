@@ -1,3 +1,3 @@
-export function SearchLoading() {
-  return <div className="px-3 py-3 text-sm text-slate-600">Searching...</div>;
-}
+import styles from "./SearchStatus.module.css";
+
+export function SearchLoading() { return <div className={styles.message} role="status">Searching…</div>; }

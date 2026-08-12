@@ -1,0 +1,74 @@
+.page { min-height: 100vh; padding: 54px 0 82px; background: #f7f9ff; color: #192740; }
+.shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+.eyebrow { margin: 0; color: #5148db; font-size: .76rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.header { max-width: 690px; }
+.header h1 { margin: 9px 0 0; font-size: clamp(2.3rem, 5vw, 3.7rem); line-height: 1.08; letter-spacing: -.058em; }
+.header p:not(.eyebrow) { margin: 15px 0 0; color: #60708a; line-height: 1.66; }
+.filters { display: grid; grid-template-columns: 1.7fr repeat(4, 1fr) auto; gap: 11px; align-items: end; margin-top: 34px; padding: 17px; border: 1px solid #dee4ef; border-radius: 17px; background: #fff; box-shadow: 0 13px 26px rgba(28,40,80,.06); }
+.field { display: grid; gap: 6px; color: #41516b; font-size: .76rem; font-weight: 800; }
+.field input, .field select { min-height: 43px; width: 100%; padding: 0 11px; border: 1px solid #cfd8e7; border-radius: 9px; background: #fff; color: #1f2f4a; font: inherit; font-size: .87rem; }
+.field input:focus-visible, .field select:focus-visible { outline: 3px solid rgba(79,70,229,.3); outline-offset: 2px; border-color: #7269e8; }
+.submit, .reset, .pager { display: inline-flex; min-height: 43px; align-items: center; justify-content: center; padding: 9px 13px; border-radius: 9px; font-size: .84rem; font-weight: 800; }
+.submit { background: #4f46e5; color: #fff; white-space: nowrap; }
+.submit:hover { background: #4338ca; }
+.reset { color: #4d45cf; white-space: nowrap; }
+.reset:hover { text-decoration: underline; }
+.submit:focus-visible, .reset:focus-visible, .card:focus-visible, .direction:focus-visible, .pager:focus-visible { outline: 3px solid rgba(79,70,229,.35); outline-offset: 3px; }
+.directions { margin-top: 36px; }
+.directions h2, .catalogueHeading h2 { margin: 0; font-size: 1.45rem; letter-spacing: -.035em; }
+.directionList { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.direction { padding: 9px 12px; border: 1px solid #d9dfec; border-radius: 999px; background: #fff; color: #40516a; font-size: .82rem; font-weight: 750; transition: border-color 160ms ease, background 160ms ease; }
+.direction:hover { border-color: #928bec; background: #f7f6ff; color: #453dc8; }
+.catalogue { margin-top: 45px; }
+.catalogueHeading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.catalogueHeading p { margin: 0; color: #67768e; font-size: .86rem; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 17px; margin-top: 21px; }
+.card { display: flex; min-height: 284px; flex-direction: column; padding: 20px; border: 1px solid #dde4ef; border-radius: 16px; background: #fff; color: inherit; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.card:hover { transform: translateY(-3px); border-color: #aaa4ee; box-shadow: 0 17px 31px rgba(29,42,78,.1); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { padding: 5px 7px; border-radius: 7px; background: #f0f2f8; color: #506078; font-size: .7rem; font-weight: 800; }
+.chips .free { background: #eaf8f1; color: #207252; }
+.chips .premium { background: #fff4dc; color: #8b5b0b; }
+.card h3 { margin: 15px 0 0; font-size: 1.13rem; line-height: 1.24; letter-spacing: -.025em; }
+.description { margin: 10px 0 0; color: #65758c; font-size: .89rem; line-height: 1.55; }
+.details { margin: 15px 0 0; color: #495d78; font-size: .78rem; font-weight: 750; }
+.trial { margin: 8px 0 0; color: #1f7b58; font-size: .77rem; font-weight: 800; }
+.cardCta { margin-top: auto; padding-top: 17px; color: #4d44cc; font-size: .84rem; font-weight: 850; }
+.empty { margin-top: 21px; padding: 33px; border: 1px dashed #bdc8d9; border-radius: 15px; background: #fff; color: #63738b; }
+.empty h3 { margin: 0; color: #263752; font-size: 1.12rem; }
+.empty p { margin: 8px 0 0; }
+.empty .reset { margin-top: 14px; padding: 0; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 29px; }
+.pager { border: 1px solid #cfd8e6; background: #fff; color: #405069; }
+.pager:hover { border-color: #928bec; background: #fafaff; }
+.pagination span { color: #66758b; font-size: .84rem; }
+@media (max-width: 1050px) { .filters { grid-template-columns: repeat(3, 1fr); } .grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 650px) { .page { padding-top: 38px; } .shell { width: min(100% - 28px, 1180px); } .filters, .grid { grid-template-columns: 1fr; } .catalogueHeading { display: block; } .catalogueHeading p { margin-top: 7px; } }
+
+/* Catalog surfaces use semantic tokens, preserving a deliberate light option. */
+.page { background: var(--background); color: var(--text-primary); }
+.eyebrow, .reset, .cardCta { color: var(--primary); }
+.header p:not(.eyebrow), .catalogueHeading p, .description, .empty,
+.pagination span { color: var(--text-secondary); }
+.filters, .card, .direction, .empty, .pager {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.field { color: var(--text-secondary); }
+.field input, .field select { border-color: var(--border); background: var(--surface-secondary); color: var(--text-primary); }
+.field input:focus-visible, .field select:focus-visible { outline-color: var(--focus-ring); border-color: var(--focus-ring); }
+.submit { background: var(--primary); color: var(--primary-contrast); }
+.submit:hover { background: var(--primary-hover); }
+.direction:hover, .pager:hover { border-color: var(--border-strong); background: var(--surface-interactive); color: var(--text-primary); }
+.submit:focus-visible, .reset:focus-visible, .card:focus-visible, .direction:focus-visible, .pager:focus-visible { outline-color: var(--focus-ring); }
+.chips span { background: var(--surface-interactive); color: var(--text-secondary); }
+.chips .free { background: rgb(50 201 139 / 14%); color: var(--success); }
+.chips .premium { background: rgb(242 184 75 / 15%); color: var(--warning); }
+.details { color: var(--text-secondary); }
+.trial { color: var(--success); }
+.empty { border-color: var(--border-strong); }
+.empty h3 { color: var(--text-primary); }
+.card { transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.card:hover { transform: none; border-color: var(--border-strong); box-shadow: var(--shadow-md); }

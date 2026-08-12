@@ -19,7 +19,13 @@ describe("api admin search analytics route", () => {
     jest.resetAllMocks();
     mockedSummary.mockResolvedValue({
       periodDays: 30,
-      totals: { totalSearches: 0, totalClicks: 0, noResultSearches: 0, clickThroughRate: 0, noResultRate: 0 },
+      totals: {
+        totalSearches: 0,
+        totalClicks: 0,
+        noResultSearches: 0,
+        clickThroughRate: 0,
+        noResultRate: 0,
+      },
       byContext: [],
       daily: [],
       topQueries: [],
@@ -27,9 +33,15 @@ describe("api admin search analytics route", () => {
   });
 
   it("returns access error for a non-owner", async () => {
-    mockedGuard.mockResolvedValue({ ok: false, status: 403, error: "Forbidden" } as never);
+    mockedGuard.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: "Forbidden",
+    } as never);
 
-    const request = new NextRequest("http://localhost:3000/api/admin/analytics/search");
+    const request = new NextRequest(
+      "http://localhost:3000/api/admin/analytics/search",
+    );
     const response = await GET(request);
 
     expect(response.status).toBe(403);
@@ -37,12 +49,21 @@ describe("api admin search analytics route", () => {
   });
 
   it("returns search analytics summary", async () => {
-    mockedGuard.mockResolvedValue({ ok: true, user: { id: "owner-1" }, role: "student" } as never);
+    mockedGuard.mockResolvedValue({
+      ok: true,
+      user: { id: "owner-1" },
+      role: "student",
+    } as never);
 
-    const request = new NextRequest("http://localhost:3000/api/admin/analytics/search?days=14&context=TEACHER");
+    const request = new NextRequest(
+      "http://localhost:3000/api/admin/analytics/search?days=14&context=TEACHER",
+    );
     const response = await GET(request);
 
     expect(response.status).toBe(200);
-    expect(mockedSummary).toHaveBeenCalledWith({ days: 14, context: "TEACHER" });
+    expect(mockedSummary).toHaveBeenCalledWith({
+      days: 14,
+      context: "TEACHER",
+    });
   });
 });

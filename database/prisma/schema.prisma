@@ -42,6 +42,9 @@ model User {
   currentLevel                  Level?
   dailyIntensityMinutes         Int?
   dailyGoalMinutes              Int                          @default(15)
+  /// Learners opt in to the public leaderboard. Names, emails and other
+  /// private profile data are never exposed by leaderboard queries.
+  showInLeaderboard             Boolean                      @default(true)
   takePlacementTest             Boolean                      @default(false)
   onboardingCompletedAt         DateTime?
   welcomeBonusPoints            Int                          @default(0)
@@ -109,6 +112,8 @@ model User {
   supportAttachments            SupportAttachment[]          @relation("SupportAttachmentUploader")
   supportRatings                SupportRating[]
   searchHistory                 SearchHistory[]
+  webVitalMetrics               WebVitalMetric[]
+  funnelEvents                  FunnelEvent[]
   helpArticles                  HelpArticle[]                @relation("HelpArticleAuthor")
   announcements                 SystemAnnouncement[]         @relation("AnnouncementAuthor")
   cmsContentVersions            CmsContentVersion[]          @relation("CmsContentVersionActor")
@@ -278,7 +283,10 @@ model CurriculumNode {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  @@unique([levelId, type, slug])
+  /// Slugs are unique only within one parent. This permits an editorially
+  /// correct tree such as `Grammar → Articles` and `Vocabulary → Articles`
+  /// without weakening route resolution, which always scopes by the parent.
+  @@unique([levelId, type, parentId, slug])
   @@index([levelId, parentId, type, order])
   @@index([contentStatus, scheduledAt])
 }
@@ -394,6 +402,7 @@ model Lesson {
   learningActivities LearningActivity[]
   learningSessions   LearningSession[]
   assignments        Assignment[]
+  grammarTopics      LessonGrammarTopic[]
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
 
@@ -436,11 +445,34 @@ model GrammarTopic {
   scheduledAt   DateTime?
   publishedAt   DateTime?
   archivedAt    DateTime?
+  rules         GrammarRule[]
+  lessonLinks   LessonGrammarTopic[]
+  exerciseLinks ExerciseGrammarTopic[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
   @@unique([cefrLevel, slug])
   @@index([cefrLevel, order])
+}
+
+/// An editorially managed rule belongs to a CEFR-scoped grammar topic.  The
+/// structured fields let the CMS safely render explanations without relying
+/// on untrusted HTML.
+model GrammarRule {
+  id             String       @id @default(cuid())
+  grammarTopicId String
+  grammarTopic   GrammarTopic @relation(fields: [grammarTopicId], references: [id], onDelete: Cascade)
+  title          String
+  explanation    String
+  examples       Json?
+  exceptions     Json?
+  commonMistakes Json?
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([grammarTopicId, order])
+  @@index([grammarTopicId, title])
 }
 
 model Word {
@@ -471,6 +503,7 @@ model Word {
   targetRelations       WordRelation[]      @relation("WordRelationTarget")
   examples              WordExample[]
   collocations          WordCollocation[]
+  exerciseLinks         ExerciseVocabulary[]
   reviewAttempts        WordReviewAttempt[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -560,6 +593,21 @@ model LessonVocabulary {
   @@index([wordId])
 }
 
+/// Relational tags keep a lesson's grammar and vocabulary discoverable for
+/// warm-ups, search and reporting. They intentionally replace JSON-only
+/// references where filtering is required.
+model LessonGrammarTopic {
+  id             String       @id @default(cuid())
+  lessonId       String
+  grammarTopicId String
+  lesson         Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  grammarTopic   GrammarTopic @relation(fields: [grammarTopicId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([lessonId, grammarTopicId])
+  @@index([grammarTopicId])
+}
+
 model Exercise {
   id                 String             @id @default(cuid())
   lessonBlockId      String
@@ -593,6 +641,8 @@ model Exercise {
   order              Int
   attempts           ExerciseAttempt[]
   mistakes           UserMistake[]
+  vocabularyLinks    ExerciseVocabulary[]
+  grammarLinks       ExerciseGrammarTopic[]
   learningActivities LearningActivity[]
   savedTemplates     CmsExerciseTemplate[] @relation("CmsExerciseTemplateSource")
   createdAt          DateTime           @default(now())
@@ -601,6 +651,30 @@ model Exercise {
   @@unique([lessonBlockId, order])
   @@index([lessonBlockId, type])
   @@index([previousVersionId])
+}
+
+model ExerciseVocabulary {
+  id         String   @id @default(cuid())
+  exerciseId String
+  wordId     String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  word       Word     @relation(fields: [wordId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+
+  @@unique([exerciseId, wordId])
+  @@index([wordId])
+}
+
+model ExerciseGrammarTopic {
+  id             String       @id @default(cuid())
+  exerciseId     String
+  grammarTopicId String
+  exercise       Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  grammarTopic   GrammarTopic @relation(fields: [grammarTopicId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([exerciseId, grammarTopicId])
+  @@index([grammarTopicId])
 }
 
 /// Owner-created reusable exercise configurations. They complement the static
@@ -653,7 +727,10 @@ model LessonProgress {
   grade             Int?
   correctAnswers    Int                  @default(0)
   incorrectAnswers  Int                  @default(0)
+  hintsUsed         Int                  @default(0)
+  solutionsOpened   Int                  @default(0)
   activeSeconds     Int                  @default(0)
+  totalSeconds      Int                  @default(0)
   startedAt         DateTime             @default(now())
   lastSeenAt        DateTime             @default(now())
   completedAt       DateTime?
@@ -720,7 +797,9 @@ model UserMistake {
   submittedAnswer Json?
   expectedAnswer  Json?
   explanation     String?
+  mistakeType     String?
   occurrenceCount Int       @default(1)
+  resolutionCount Int       @default(0)
   lastOccurredAt  DateTime  @default(now())
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())
@@ -1615,6 +1694,55 @@ model SearchQueryMetric {
   @@index([queryHash, day])
 }
 
+/// Lightweight, first-party Core Web Vitals samples. They deliberately store
+/// only a route path (never a full URL or query string) and no IP address.
+model WebVitalMetric {
+  id             String   @id @default(cuid())
+  metricId       String   @unique
+  name           String
+  value          Float
+  delta          Float?
+  rating         String
+  navigationType String?
+  pagePath       String
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name, createdAt])
+  @@index([pagePath, createdAt])
+  @@index([rating, createdAt])
+}
+
+/// First-party funnel telemetry. It deliberately stores only a constrained
+/// event name, safe navigation context and an optional signed-in user/course
+/// reference. It never contains form values, payment details, URLs with
+/// queries, IPs or user agents.
+model FunnelEvent {
+  id           String             @id @default(cuid())
+  eventId      String             @unique
+  eventType    FunnelEventType
+  pagePath     String
+  sessionId    String?
+  referrerPath String?
+  courseId     String?
+  levelCode    CefrLevel?
+  planCode     String?
+  currency     String?
+  deviceType   FunnelDeviceType?
+  result       FunnelEventResult?
+  userId       String?
+  user         User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime           @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([pagePath, createdAt])
+  @@index([courseId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([levelCode, createdAt])
+}
+
 model HelpArticle {
   id          String                @id @default(cuid())
   categoryId  String?
@@ -1821,6 +1949,10 @@ model Product {
   course            Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
   moduleId          String?
   module            CourseModule?       @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  /// Inclusive course-wide lesson positions for a one-off lesson pack. A
+  /// null range grants the complete course/module as before.
+  accessStartLessonOrder Int?
+  accessEndLessonOrder   Int?
   isActive          Boolean             @default(true)
   isPublic          Boolean             @default(true)
   metadata          Json?
@@ -1968,6 +2100,8 @@ model Entitlement {
   course         Course?           @relation(fields: [courseId], references: [id], onDelete: SetNull)
   moduleId       String?
   module         CourseModule?     @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  accessStartLessonOrder Int?
+  accessEndLessonOrder   Int?
   planId         String?
   plan           Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
   status         EntitlementStatus @default(ACTIVE)
@@ -2621,6 +2755,40 @@ enum CmsContentArea {
   HOME
   STUDENT_DASHBOARD
   TEACHER_DASHBOARD
+  LEGAL
+}
+
+enum FunnelEventType {
+  HOME_VIEW
+  PLACEMENT_TEST_START
+  PLACEMENT_TEST_COMPLETE
+  COURSE_CATALOG_VIEW
+  COURSE_FILTER_USED
+  COURSE_VIEW
+  PREVIEW_LESSON_START
+  PREVIEW_LESSON_COMPLETE
+  SIGNUP_START
+  SIGNUP_COMPLETE
+  PRICING_VIEW
+  CHECKOUT_START
+  CHECKOUT_ERROR
+  PURCHASE_COMPLETE
+  FIRST_LESSON_START
+  FIRST_LESSON_COMPLETE
+}
+
+enum FunnelDeviceType {
+  MOBILE
+  TABLET
+  DESKTOP
+}
+
+enum FunnelEventResult {
+  STARTED
+  SUCCEEDED
+  FAILED
+  CANCELED
+  PENDING
 }
 
 enum CefrLevel {
@@ -2985,6 +3153,7 @@ enum CoinTransactionType {
   ACHIEVEMENT_REWARD
   COURSE_REWARD
   PURCHASE
+  SOLUTION_PURCHASE
   REFUND
   ADMIN_ADJUSTMENT
   REVERSAL
