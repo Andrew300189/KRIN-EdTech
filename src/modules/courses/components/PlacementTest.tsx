@@ -573,6 +573,25 @@ export function PlacementTest() {
                 })}
               </div>
             )}
+
+            {/* Inline feedback toast shown after answering */}
+            {feedback && q.type !== "sentence_builder" && (
+              selected === correctIndex ? (
+                <div className={s.ptFeedbackCorrect} role="status">
+                  <span className={s.ptFeedbackIcon}>🎉</span>
+                  <span>
+                    <strong>Well done!</strong> That’s the right answer.
+                  </span>
+                </div>
+              ) : (
+                <div className={s.ptFeedbackWrong} role="status">
+                  <span className={s.ptFeedbackIcon}>❌</span>
+                  <span>
+                    Correct answer: <strong>{q.answer}</strong>
+                  </span>
+                </div>
+              )
+            )}
           </div>
         </div>
 

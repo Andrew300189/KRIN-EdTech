@@ -4,6 +4,10 @@ import { prisma } from "@/core/server/prisma";
 import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBanner";
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
 import { PlacementTest } from "@/modules/courses/components/PlacementTest";
+import { HomeCounterBanner } from "./HomeCounterBanner";
+import { HomeCurriculumTabs } from "./HomeCurriculumTabs";
+import { HomeTestimonials } from "./HomeTestimonials";
+import { AnimationObserver } from "@/core/components/AnimationObserver";
 import { FunnelEventReporter } from "@/modules/analytics/components/FunnelEventReporter";
 import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHeader";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
@@ -79,6 +83,7 @@ export default async function Home() {
   return (
     <main className={styles.page}>
       <FunnelEventReporter eventType="HOME_VIEW" />
+      <AnimationObserver />
       <PublicSiteHeader />
 
       {heroSlot ? (
@@ -98,6 +103,11 @@ export default async function Home() {
               Explore published courses by level and focus, try a real lesson
               exercise, then continue from your own learning dashboard.
             </p>
+            <div className={styles.heroTrustRow}>
+              <span className={styles.heroTrustBadge}>⚡ Gamified Learning</span>
+              <span className={styles.heroTrustBadge}>🎯 AI-Powered Progress</span>
+              <span className={styles.heroTrustBadge}>🗣️ 100% Speaking Practice</span>
+            </div>
             <div className={styles.heroSearch}>
               <GlobalSearch
                 context="PUBLIC"
@@ -105,8 +115,8 @@ export default async function Home() {
               />
             </div>
             <div className={styles.actions}>
-              <Link href="/course-finder" className={styles.primaryButton}>
-                Find my course
+              <Link href="/course-finder" className={styles.heroPrimaryBtn}>
+                🎯 Find my course
               </Link>
               <Link href="/levels" className={styles.secondaryButton}>
                 Browse levels
@@ -135,31 +145,36 @@ export default async function Home() {
         </div>
       </section>
 
+      <HomeCounterBanner />
+
       <section className={`${styles.section} ${styles.whiteSection}`}>
         <div className={styles.shell}>
           <div className={styles.sectionHeading}>
             <p className={styles.eyebrow}>How it works</p>
             <h2>A practical route from choosing to learning.</h2>
           </div>
-          <div className={styles.steps}>
-            <article className={styles.step}>
-              <span className={styles.stepNumber}>01</span>
+          <div className={styles.stepsV2}>
+            <article className={styles.stepV2} data-ao="fade-up" data-ao-delay="1">
+              <span className={styles.stepV2Number}>01</span>
+              <div className={styles.stepV2Icon}>🔍</div>
               <h3>Choose your starting point</h3>
               <p>
                 Filter the catalogue by a published CEFR level, focus and course
                 format.
               </p>
             </article>
-            <article className={styles.step}>
-              <span className={styles.stepNumber}>02</span>
+            <article className={styles.stepV2} data-ao="fade-up" data-ao-delay="2">
+              <span className={styles.stepV2Number}>02</span>
+              <div className={styles.stepV2Icon}>📚</div>
               <h3>Review the course structure</h3>
               <p>
                 See the published outcomes, modules, lessons and any available
                 free lesson before choosing access.
               </p>
             </article>
-            <article className={styles.step}>
-              <span className={styles.stepNumber}>03</span>
+            <article className={styles.stepV2} data-ao="fade-up" data-ao-delay="3">
+              <span className={styles.stepV2Number}>03</span>
+              <div className={styles.stepV2Icon}>🚀</div>
               <h3>Continue in your dashboard</h3>
               <p>
                 After access is granted, lessons and progress stay connected to
@@ -181,18 +196,18 @@ export default async function Home() {
                 contain published courses.
               </p>
             </div>
-            <div className={styles.focusGrid}>
-              {visibleCategories.map((category) => (
+            <div className={styles.bentoGrid}>
+              {visibleCategories.map((category, i) => (
                 <Link
                   key={category.id}
                   href={`/courses/categories/${category.slug}`}
-                  className={styles.focusCard}
+                  className={styles.bentoCard}
+                  data-ao="fade-up"
+                  data-ao-delay={String((i % 6) + 1)}
                 >
-                  {category.icon ? (
-                    <span aria-hidden="true" className={styles.focusIcon}>
-                      {category.icon}
-                    </span>
-                  ) : null}
+                  <div className={styles.bentoCardIcon}>
+                    {category.icon || "📖"}
+                  </div>
                   <h3>{category.title}</h3>
                   <p>
                     {category.description ||
@@ -223,7 +238,7 @@ export default async function Home() {
             </p>
           </div>
           <div className={styles.productCollections}>
-            <Link href="/professional" className={styles.productCollectionCard}>
+            <Link href="/professional" className={styles.productCollectionCard} data-ao="fade-left" data-ao-delay="1">
               <span className={styles.collectionLabel}>
                 Professional English
               </span>
@@ -236,7 +251,7 @@ export default async function Home() {
                 Explore Professional English →
               </span>
             </Link>
-            <Link href="/tests" className={styles.productCollectionCard}>
+            <Link href="/tests" className={styles.productCollectionCard} data-ao="fade-right" data-ao-delay="1">
               <span className={styles.collectionLabel}>English tests</span>
               <h3>Prepare with a clear published course structure.</h3>
               <p>
@@ -248,6 +263,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <HomeCurriculumTabs levels={levels} />
 
       {levels.length ? (
         <section
@@ -266,11 +283,13 @@ export default async function Home() {
               </p>
             </div>
             <div className={styles.levelGrid}>
-              {levels.map((level) => (
+              {levels.map((level, i) => (
                 <Link
                   key={level.id}
                   href={`/levels/${level.code.toLowerCase()}`}
                   className={styles.levelCard}
+                  data-ao="scale-up"
+                  data-ao-delay={String(i + 1)}
                 >
                   <span className={styles.levelCode}>{level.code}</span>
                   <h3>{level.title}</h3>
@@ -358,11 +377,13 @@ export default async function Home() {
               </p>
             </div>
             <div className={styles.courseGrid}>
-              {featuredCourses.map((course) => (
+              {featuredCourses.map((course, i) => (
                 <Link
                   key={course.id}
                   href={getPublicCourseHref(course.slug)}
                   className={styles.courseCard}
+                  data-ao="fade-up"
+                  data-ao-delay={String(i + 1)}
                 >
                   <div className={styles.metadata}>
                     <span>{course.level.code}</span>
@@ -387,13 +408,15 @@ export default async function Home() {
               <h2>Explore published subjects inside each level.</h2>
             </div>
             <div className={styles.curriculumGrid}>
-              {featuredCurriculum.map((node) => {
+              {featuredCurriculum.map((node, i) => {
                 const href = getPublicCurriculumHref(node);
                 return href ? (
                   <Link
                     key={node.id}
                     href={href}
                     className={styles.curriculumCard}
+                    data-ao="fade-up"
+                    data-ao-delay={String(i + 1)}
                   >
                     <div className={styles.metadata}>
                       <span>{node.level.code}</span>
@@ -412,6 +435,8 @@ export default async function Home() {
           </div>
         </section>
       ) : null}
+
+      <HomeTestimonials />
 
       <section
         id="pricing"
@@ -437,12 +462,12 @@ export default async function Home() {
               className={styles.pricingGrid}
               aria-label="Highlighted access options"
             >
-              {pricingHighlights.map((product) => {
+              {pricingHighlights.map((product, i) => {
                 const price = product.prices[0];
                 if (!price) return null;
 
                 return (
-                  <article key={product.id} className={styles.pricingCard}>
+                  <article key={product.id} className={styles.pricingCard} data-ao="scale-up" data-ao-delay={String(i + 1)}>
                     <p className={styles.pricingType}>
                       {product.type.replace(/_/g, " ").toLowerCase()}
                     </p>
@@ -482,7 +507,7 @@ export default async function Home() {
             <p className={styles.eyebrow}>Questions</p>
             <h2>Clear information before you start.</h2>
           </div>
-          <div className={styles.faq}>
+          <div className={styles.faqV2}>
             <details>
               <summary>Can I try a lesson before choosing a plan?</summary>
               <p>
@@ -519,7 +544,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className={styles.finalCta}>
+      <section className={styles.finalCtaV2}>
         <div className={styles.shell}>
           <p className={styles.eyebrow}>Your next step</p>
           <h2>Find a course that fits the level and focus you choose.</h2>
@@ -528,8 +553,8 @@ export default async function Home() {
             placement test.
           </p>
           <div className={styles.actions}>
-            <Link href="/course-finder" className={styles.primaryButton}>
-              Find my course
+            <Link href="/course-finder" className={styles.heroPrimaryBtn}>
+              🎯 Find my course
             </Link>
             <Link href="/courses" className={styles.secondaryButton}>
               Open catalogue

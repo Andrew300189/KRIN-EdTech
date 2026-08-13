@@ -719,6 +719,38 @@
   box-shadow: 0 10px 24px rgba(79, 70, 229, 0.44);
 }
 
+/* ── Answer feedback banners ─────────────────────────────────────────── */
+.ptFeedbackCorrect,
+.ptFeedbackWrong {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  animation: ptFadeSlide 220ms ease both;
+}
+
+.ptFeedbackCorrect {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.ptFeedbackWrong {
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.ptFeedbackIcon {
+  font-size: 1.05rem;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
 /* ── Finish (danger) button ──────────────────────────────────────────── */
 .ptBtnDanger {
   background: transparent;
