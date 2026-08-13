@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   description: "Choose a published English course, review its lesson outline and try an available lesson before paying.",
   metadataBase: new URL("https://krin-edtech.com"),
   applicationName: "KRIN EdTech",
+  icons: {
+    icon: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+    shortcut: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+    apple: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+  },
   robots: { index: true, follow: true },
   openGraph: {
     type: "website",

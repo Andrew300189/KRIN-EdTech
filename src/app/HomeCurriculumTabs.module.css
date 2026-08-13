@@ -1,0 +1,227 @@
+.section {
+  padding: 88px 0;
+  background: linear-gradient(180deg, #fff 0%, #f8f7ff 100%);
+}
+
+.shell {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.header {
+  max-width: 680px;
+  margin-bottom: 36px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #5148db;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.heading {
+  margin: 10px 0 0;
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  line-height: 1.14;
+  letter-spacing: -0.048em;
+  color: #1e293b;
+}
+
+.sub {
+  margin: 12px 0 0;
+  color: #60708a;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.tab:hover:not(.tabActive) {
+  border-color: #a5b4fc;
+  color: #312e81;
+}
+
+.tab:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.35);
+  outline-offset: 2px;
+}
+
+.tabActive {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.tabCount {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.tabActive .tabCount {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tab:not(.tabActive) .tabCount {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* ── Content panel ──────────────────────────────────────────────────── */
+.panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 44px;
+  align-items: start;
+  animation: panelIn 250ms ease both;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.levelEmoji {
+  font-size: 2.4rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.levelBadge {
+  display: inline-flex;
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.tagline {
+  margin: 0 0 22px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.skillList {
+  margin: 0 0 26px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 11px;
+}
+
+.skillItem {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.skillCheck {
+  font-weight: 800;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.cta:hover {
+  background: #4338ca;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+  transform: translateY(-1px);
+}
+
+/* ── Preview card ───────────────────────────────────────────────────── */
+.previewCard {
+  border: 1px solid #e2e8f0;
+  border-top-width: 3px;
+  border-radius: 16px;
+  padding: 26px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.07);
+}
+
+.previewLabel {
+  margin: 0 0 16px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pathItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.pathItem:first-of-type { border-top: none; }
+
+.pathNum {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+@media (max-width: 820px) {
+  .panel { grid-template-columns: 1fr; }
+  .previewCard { display: none; }
+}
+
+@media (max-width: 480px) {
+  .tabs { gap: 6px; }
+  .tab { padding: 8px 16px; font-size: 0.84rem; }
+}

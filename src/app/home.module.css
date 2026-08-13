@@ -364,3 +364,307 @@
 .primaryButton:hover, .secondaryButton:hover, .productCollectionCard:hover,
 .focusCard:hover, .levelCard:hover, .courseCard:hover, .curriculumCard:hover { transform: none; }
 .productCollectionCard:hover, .focusCard:hover, .levelCard:hover, .courseCard:hover, .curriculumCard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PREMIUM UPGRADE — new classes only, nothing above is modified
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Hero trust badges ──────────────────────────────────────────────── */
+.heroTrustRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.heroTrustBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: rgba(79, 70, 229, 0.06);
+  color: #312e81;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Premium hero CTA ───────────────────────────────────────────────── */
+.heroPrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 13px 28px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 800;
+  text-decoration: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(79, 70, 229, 0.34);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.heroPrimaryBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 36px rgba(79, 70, 229, 0.44);
+}
+
+.heroPrimaryBtn:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.4);
+  outline-offset: 3px;
+}
+
+/* ── Premium step cards ─────────────────────────────────────────────── */
+.stepsV2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.stepV2 {
+  position: relative;
+  padding: 28px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(79, 70, 229, 0.1);
+  background: linear-gradient(145deg, #fff 0%, #f9f8ff 100%);
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.stepV2::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+  border-radius: 20px 20px 0 0;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.stepV2:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(79, 70, 229, 0.1); }
+.stepV2:hover::before { opacity: 1; }
+
+.stepV2Icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  font-size: 1.35rem;
+  margin-bottom: 18px;
+}
+
+.stepV2Number {
+  position: absolute;
+  top: 16px; right: 18px;
+  font-size: 3.8rem;
+  font-weight: 900;
+  color: rgba(79, 70, 229, 0.065);
+  line-height: 1;
+  letter-spacing: -0.05em;
+  pointer-events: none;
+}
+
+.stepV2 h3 { margin: 0 0 10px; font-size: 1.08rem; font-weight: 800; color: #1e293b; }
+.stepV2 p  { margin: 0; font-size: 0.9rem; line-height: 1.62; color: #64748b; }
+
+/* ── Bento grid for categories ──────────────────────────────────────── */
+.bentoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 36px;
+}
+
+.bentoGrid > *:first-child { grid-column: span 2; }
+
+.bentoCard {
+  position: relative;
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(79, 70, 229, 0.1);
+  background: linear-gradient(145deg, #fff 0%, #f9f8ff 100%);
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  color: #1e293b;
+  text-decoration: none;
+}
+
+.bentoCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.22);
+}
+
+.bentoCard:focus-visible {
+  outline: 3px solid rgba(79, 70, 229, 0.36);
+  outline-offset: 2px;
+}
+
+.bentoCardIcon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(79, 70, 229, 0.08);
+  font-size: 1.2rem;
+  margin-bottom: 14px;
+  flex: 0 0 auto;
+}
+
+.bentoCard h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; }
+.bentoCard p  { margin: 0; font-size: 0.85rem; line-height: 1.55; color: #64748b; flex: 1; }
+.bentoCard .linkArrow { margin-top: 14px; padding-top: 0; }
+
+/* ── Premium FAQ ────────────────────────────────────────────────────── */
+.faqV2 { display: grid; gap: 8px; margin-top: 28px; }
+
+.faqV2 details {
+  border: 1px solid #e8edf6;
+  border-radius: 14px;
+  background: #fff;
+  padding: 0 20px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.faqV2 details[open] {
+  border-color: rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08);
+}
+
+.faqV2 summary {
+  cursor: pointer;
+  padding: 19px 0;
+  color: #1e293b;
+  font-weight: 750;
+  font-size: 0.95rem;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.faqV2 summary::-webkit-details-marker { display: none; }
+
+.faqV2 summary::after {
+  content: "+";
+  font-size: 1.4rem;
+  font-weight: 300;
+  color: #4f46e5;
+  flex: 0 0 auto;
+  line-height: 1;
+  transition: transform 200ms ease;
+}
+
+.faqV2 details[open] summary::after { transform: rotate(45deg); }
+.faqV2 p { margin: 0 0 18px; color: #64748b; line-height: 1.65; font-size: 0.9rem; }
+
+/* ── Final CTA v2 ───────────────────────────────────────────────────── */
+.finalCtaV2 {
+  padding: 96px 0;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1e1b4b 0%, #1a1742 50%, #0f172a 100%);
+  color: #fff;
+  text-align: center;
+}
+
+.finalCtaV2::before {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 900px; height: 450px;
+  background: radial-gradient(ellipse, rgba(99, 102, 241, 0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.finalCtaV2 .eyebrow { color: #818cf8; position: relative; z-index: 1; }
+
+.finalCtaV2 h2 {
+  max-width: 680px;
+  margin: 14px auto 0;
+  font-size: clamp(2.1rem, 4.5vw, 3.3rem);
+  line-height: 1.1;
+  letter-spacing: -0.055em;
+  color: #fff;
+  position: relative; z-index: 1;
+}
+
+.finalCtaV2 p:not(.eyebrow) {
+  max-width: 580px;
+  margin: 16px auto 0;
+  color: #94a3b8;
+  font-size: 1.04rem;
+  line-height: 1.7;
+  position: relative; z-index: 1;
+}
+
+.finalCtaV2 .actions {
+  justify-content: center;
+  margin-top: 36px;
+  position: relative; z-index: 1;
+}
+
+.finalCtaV2 .heroPrimaryBtn {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+.finalCtaV2 .secondaryButton {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0e7ff;
+}
+
+.finalCtaV2 .secondaryButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* ── Responsive for new elements ────────────────────────────────────── */
+@media (max-width: 950px) {
+  .stepsV2 { grid-template-columns: 1fr; }
+  .bentoGrid { grid-template-columns: repeat(2, 1fr); }
+  .bentoGrid > *:first-child { grid-column: span 1; }
+}
+
+@media (max-width: 640px) {
+  .bentoGrid { grid-template-columns: 1fr; }
+  .stepsV2 { gap: 12px; }
+  .heroTrustRow { margin-top: 14px; }
+  .finalCtaV2 { padding: 72px 0; }
+}
+
+/* ── Hero entrance animations (above-fold, CSS-only, no observer) ──── */
+@keyframes hFadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero .eyebrow { animation: hFadeUp 0.45s ease both 0.05s; }
+.heroTitle     { animation: hFadeUp 0.6s  ease both 0.15s; }
+.heroCopy      { animation: hFadeUp 0.6s  ease both 0.28s; }
+.heroTrustRow  { animation: hFadeUp 0.55s ease both 0.38s; }
+.heroSearch    { animation: hFadeUp 0.55s ease both 0.44s; }
+.hero .actions { animation: hFadeUp 0.55s ease both 0.50s; }
+.levelChips    { animation: hFadeUp 0.55s ease both 0.58s; }
+.heroAside     { animation: hFadeUp 0.65s ease both 0.32s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero .eyebrow, .heroTitle, .heroCopy, .heroTrustRow,
+  .heroSearch, .hero .actions, .levelChips, .heroAside { animation: none; }
+}
+
