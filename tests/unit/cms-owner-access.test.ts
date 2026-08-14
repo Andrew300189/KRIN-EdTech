@@ -26,7 +26,7 @@ describe("cms owner access", () => {
     expect(hasCmsAccess("andreykosir@gmail.com", "teacher")).toBe(true);
   });
 
-  it.each(["STUDENT", "TEACHER", "INSTRUCTOR"])(
+  it.each(["STUDENT", "TEACHER"])(
     "routes the owner to /cms before the %s role dashboard",
     (role) => {
       expect(resolvePostAuthDestination("andreykosir@gmail.com", role)).toBe(
@@ -50,7 +50,7 @@ describe("cms owner access", () => {
 
   it("resolves teacher and student only after checking the owner email", () => {
     expect(
-      resolvePostAuthDestination("teacher@example.com", "INSTRUCTOR"),
+        resolvePostAuthDestination("teacher@example.com", "TEACHER"),
     ).toBe("/teacher");
     expect(resolvePostAuthDestination("student@example.com", "STUDENT")).toBe(
       "/student",
@@ -58,7 +58,7 @@ describe("cms owner access", () => {
   });
 
   it("keeps an owner-only CMS guard from redirecting non-owners back to CMS", () => {
-    expect(resolveDashboardByRole("INSTRUCTOR")).toBe("/teacher");
+    expect(resolveDashboardByRole("TEACHER")).toBe("/teacher");
     expect(resolveDashboardByRole("STUDENT")).toBe("/student");
     expect(resolveDashboardByRole("ADMIN")).toBe("/student");
   });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type Course = { id: string; slug: string; title: string; description: string; level: string; category: string; source: string; progress: number; completedLessons: number; totalLessons: number; nextLesson: { slug: string; title: string } | null; canRemove: boolean };
-const sourceLabels: Record<string, string> = { SELF_ADDED: "Added by you", GROUP_ASSIGNED: "Group assignment", TEACHER_ASSIGNED: "Teacher assignment", PURCHASED: "Purchased", SUBSCRIPTION: "Subscription", ENROLLED: "Enrolled", IN_PROGRESS: "In progress", INSTRUCTOR: "Instructor course" };
+const sourceLabels: Record<string, string> = { SELF_ADDED: "Added by you", GROUP_ASSIGNED: "Group assignment", TEACHER_ASSIGNED: "Teacher assignment", PURCHASED: "Purchased", SUBSCRIPTION: "Subscription", ENROLLED: "Enrolled", IN_PROGRESS: "In progress", TEACHER_CREATED: "Created by you" };
 
 export default function StudentCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [confirming, setConfirming] = useState<Course | null>(null); const [removing, setRemoving] = useState(false);

@@ -11,6 +11,7 @@ import { AnimationObserver } from "@/core/components/AnimationObserver";
 import { FunnelEventReporter } from "@/modules/analytics/components/FunnelEventReporter";
 import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHeader";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
+import { FaqAccordion } from "./FaqAccordion";
 import {
   listHomepageCourses,
   listHomepageCurriculumNodes,
@@ -104,9 +105,9 @@ export default async function Home() {
               exercise, then continue from your own learning dashboard.
             </p>
             <div className={styles.heroTrustRow}>
-              <span className={styles.heroTrustBadge}>⚡ Gamified Learning</span>
-              <span className={styles.heroTrustBadge}>🎯 AI-Powered Progress</span>
-              <span className={styles.heroTrustBadge}>🗣️ 100% Speaking Practice</span>
+              <span className={styles.heroTrustBadge}>⚡ Structured learning</span>
+              <span className={styles.heroTrustBadge}>🎯 Clear progress</span>
+              <span className={styles.heroTrustBadge}>📘 Practical lessons</span>
             </div>
             <div className={styles.heroSearch}>
               <GlobalSearch
@@ -272,7 +273,7 @@ export default async function Home() {
           className={`${styles.section} ${styles.whiteSection} ${styles.anchorSection}`}
         >
           <div className={styles.shell}>
-            <div className={styles.sectionHeading}>
+            <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="1">
               <p className={styles.eyebrow}>Levels</p>
               <h2>
                 Stay within the level that matches your current learning stage.
@@ -288,8 +289,8 @@ export default async function Home() {
                   key={level.id}
                   href={`/levels/${level.code.toLowerCase()}`}
                   className={styles.levelCard}
-                  data-ao="scale-up"
-                  data-ao-delay={String(i + 1)}
+                  data-ao="stair"
+                  data-ao-delay={String((i + 1) * 2)}
                 >
                   <span className={styles.levelCode}>{level.code}</span>
                   <h3>{level.title}</h3>
@@ -305,8 +306,8 @@ export default async function Home() {
       ) : null}
 
       <section className={styles.section}>
-        <div className={`${styles.shell} ${styles.structure}`}>
-          <div className={styles.sectionHeading}>
+        <div className={`${styles.shell} ${styles.structure}`} data-ao="fade-up" data-ao-delay="1">
+          <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="2">
             <p className={styles.eyebrow}>Before you enrol</p>
             <h2>See what a course contains before you choose access.</h2>
             <p>
@@ -314,7 +315,7 @@ export default async function Home() {
               lesson is genuinely free, it is clearly marked and can be opened
               from that outline.
             </p>
-            <ul className={styles.structureList}>
+            <ul className={styles.structureList} data-ao="fade-up" data-ao-delay="3">
               <li>
                 <span>✓</span>
                 <div>
@@ -345,6 +346,8 @@ export default async function Home() {
           <div
             className={styles.structurePanel}
             aria-label="Example course outline"
+            data-ao="fade-up"
+            data-ao-delay="4"
           >
             <p>Published course outline</p>
             <h3>What you will see on a course page</h3>
@@ -503,44 +506,98 @@ export default async function Home() {
 
       <section className={styles.section}>
         <div className={styles.shell}>
-          <div className={styles.sectionHeading}>
+          <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="1">
             <p className={styles.eyebrow}>Questions</p>
             <h2>Clear information before you start.</h2>
           </div>
-          <div className={styles.faqV2}>
-            <details>
-              <summary>Can I try a lesson before choosing a plan?</summary>
-              <p>
-                Course pages show published free lessons when the author has
-                made them available. If a course has no free lesson, its access
-                type is still shown before checkout.
-              </p>
-            </details>
-            <details>
-              <summary>How are courses separated by level?</summary>
-              <p>
-                Course, section, topic and subtopic queries are scoped to their
-                own level in the catalogue and curriculum routes.
-              </p>
-            </details>
-            <details>
-              <summary>What happens after I receive access?</summary>
-              <p>
-                You can open available lessons from the course page and continue
-                them from your learning dashboard. Progress is stored against
-                your account.
-              </p>
-            </details>
-            <details>
-              <summary>
-                Where can I ask for help with my account or purchase?
-              </summary>
-              <p>
-                Signed-in learners can use the private support center from their
-                profile.
-              </p>
-            </details>
-          </div>
+          <FaqAccordion className={styles.faqV2}>
+            <div className={styles.faqColumn} data-ao="fade-up" data-ao-delay="2">
+              <details data-ao="fade-up" data-ao-delay="3">
+                <summary>Can I try a lesson before choosing a plan?</summary>
+                <p>
+                  Yes. Many courses offer a preview lesson or a sample section so
+                  you can test the teaching style, flow and difficulty before
+                  buying full access.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="4">
+                <summary>How are courses separated by level?</summary>
+                <p>
+                  Courses are structured by level, from beginner to advanced, so
+                  you can choose the path that matches your current English
+                  ability and learning goals.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="5">
+                <summary>What happens after I receive access?</summary>
+                <p>
+                  After purchase, you can open the course from your dashboard,
+                  continue lessons, track progress and resume exactly where you
+                  left off.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="6">
+                <summary>Do I get a certificate after finishing a course?</summary>
+                <p>
+                  In many courses, a completion certificate is available when you
+                  finish the required lessons or tasks. The exact certificate
+                  rule is shown on each course page.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="7">
+                <summary>How does the platform work day to day?</summary>
+                <p>
+                  You choose a learning path, complete lessons, review practice,
+                  and return to your dashboard to continue your progress across
+                  reading, vocabulary and grammar.
+                </p>
+              </details>
+            </div>
+
+            <div className={styles.faqColumn} data-ao="fade-up" data-ao-delay="8">
+              <details data-ao="fade-up" data-ao-delay="9">
+                <summary>What is the internal currency and how is it used?</summary>
+                <p>
+                  The platform may use an internal learning balance for rewards,
+                  premium features, and additional practice. You can check the
+                  exact rules in your account or the pricing details.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="10">
+                <summary>What results can I realistically expect?</summary>
+                <p>
+                  The strongest results come from consistent practice: better
+                  vocabulary, clearer grammar, stronger confidence in everyday
+                  communication and a clearer understanding of your current level
+                  over time.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="11">
+                <summary>Do I need a teacher to study effectively?</summary>
+                <p>
+                  You can study independently with guided lessons, exercises and
+                  feedback, while a teacher or coach can help if you want extra
+                  support and accountability.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="12">
+                <summary>Is this suitable for career and business English?</summary>
+                <p>
+                  Yes. The platform covers general communication, professional
+                  vocabulary, business language and practical situations that help
+                  learners improve confidence in real-world contexts.
+                </p>
+              </details>
+              <details data-ao="fade-up" data-ao-delay="13">
+                <summary>Where can I ask for help with my account or purchase?</summary>
+                <p>
+                  You can contact support from your account area or use the help
+                  center to ask about billing, access, certificates, or course
+                  questions.
+                </p>
+              </details>
+            </div>
+          </FaqAccordion>
         </div>
       </section>
 

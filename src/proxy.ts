@@ -35,6 +35,7 @@ function hasPossibleNextAuthCookie(request: NextRequest) {
 
 function normalizeRole(role: string | undefined) {
   const value = (role ?? "").toLowerCase();
+  // Existing JWTs may still carry the retired value until their normal refresh.
   if (value === "teacher" || value === "instructor") return "teacher" as const;
   return "student" as const;
 }

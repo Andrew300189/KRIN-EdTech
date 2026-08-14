@@ -26,7 +26,7 @@ export type LearnerCourseCard = {
   progress: number;
   completedLessons: number;
   totalLessons: number;
-  source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "INSTRUCTOR" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
+  source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "TEACHER_CREATED" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
   canRemove: boolean;
   nextLesson: { slug: string; title: string } | null;
 };
@@ -154,7 +154,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     const libraryEntry = course.studentCourses[0];
     const librarySource = libraryEntry?.sourceType;
     const source = course.instructorId === userId
-      ? "INSTRUCTOR"
+      ? "TEACHER_CREATED"
       : librarySource === "GROUP_ASSIGNED"
         ? "GROUP_ASSIGNED"
         : librarySource === "TEACHER_ASSIGNED"

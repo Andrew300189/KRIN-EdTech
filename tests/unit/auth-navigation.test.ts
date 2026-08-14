@@ -210,11 +210,11 @@ describe("authentication navigation", () => {
 
   it("sends each role to its own workspace and rejects cross-workspace callbacks", () => {
     expect(getRoleWorkspacePath("STUDENT")).toBe("/student");
-    expect(getRoleWorkspacePath("INSTRUCTOR")).toBe("/teacher");
+    expect(getRoleWorkspacePath("TEACHER")).toBe("/teacher");
     expect(getRoleWorkspacePath("ADMIN")).toBe("/admin");
     expect(getPostLoginPath("student@example.com", "STUDENT", "/teacher/groups")).toBe("/student");
-    expect(getPostLoginPath("teacher@example.com", "INSTRUCTOR", "/student/courses")).toBe("/teacher");
-    expect(getPostLoginPath("teacher@example.com", "INSTRUCTOR", "/teacher/groups")).toBe("/teacher/groups");
+    expect(getPostLoginPath("teacher@example.com", "TEACHER", "/student/courses")).toBe("/teacher");
+    expect(getPostLoginPath("teacher@example.com", "TEACHER", "/teacher/groups")).toBe("/teacher/groups");
   });
 
   it.each([
@@ -233,7 +233,7 @@ describe("authentication navigation", () => {
       getPostLoginPath("  ANDREYKOSIR@GMAIL.COM ", "STUDENT", "/teacher"),
     ).toBe("/cms");
     expect(
-      getPostLoginPath("teacher@example.com", "INSTRUCTOR", "/student/courses"),
+        getPostLoginPath("teacher@example.com", "TEACHER", "/student/courses"),
     ).toBe("/teacher");
     expect(
       getPostLoginPath("student@example.com", "STUDENT", "https://evil.example"),

@@ -49,9 +49,9 @@ export function HomeCurriculumTabs({ levels }: Props) {
   ) as Record<Cefr, number>;
 
   return (
-    <section className={s.section}>
+    <section className={s.section} data-ao="fade-up" data-ao-delay="1">
       <div className={s.shell}>
-        <div className={s.header}>
+        <div className={s.header} data-ao="fade-up" data-ao-delay="2">
           <p className={s.eyebrow}>Curriculum preview</p>
           <h2 className={s.heading}>Explore what you will achieve at each level.</h2>
           <p className={s.sub}>
@@ -78,7 +78,7 @@ export function HomeCurriculumTabs({ levels }: Props) {
           ))}
         </div>
 
-        <div className={s.panel} key={active} role="tabpanel" aria-label={`${active} level overview`}>
+        <div className={s.panel} key={active} role="tabpanel" aria-label={`${active} level overview`} data-ao="fade-up" data-ao-delay="3">
           <div>
             <span className={s.levelEmoji}>{data.emoji}</span>
             <span

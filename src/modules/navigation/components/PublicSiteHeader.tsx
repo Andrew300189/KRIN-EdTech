@@ -8,13 +8,22 @@ import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { courseSkillCatalog, courseSkillLevels, type CourseSkillSlug } from "@/modules/courses/data/skill-course-catalog";
 import styles from "./PublicSiteHeader.module.css";
 
+const levelOrder = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
+
 const primaryLinks = [
-  { href: "/courses/categories/reading", label: "Reading" },
-  { href: "/courses/categories/listening", label: "Listening" },
   { href: "/#courses", label: "Courses" },
   { href: "/#pricing", label: "Pricing" },
   { href: "/#levels", label: "Levels" },
 ] as const;
+
+const levelToneMap: Record<CefrLevel, "green" | "yellow" | "orange" | "pink" | "rose" | "red"> = {
+  A1: "green",
+  A2: "yellow",
+  B1: "orange",
+  B2: "pink",
+  C1: "rose",
+  C2: "red",
+};
 
 const moreLinks = [
   { href: "/professional", label: "Professional English", description: "Published courses for professional contexts." },
@@ -37,8 +46,12 @@ function SkillMenu({ skill }: { skill: CourseSkill }) {
   return <div className={styles.skillMenu}>
     <Link href={getSkillHref(skill.slug)} className={styles.skillTrigger}>{skill.label}</Link>
     <div className={styles.skillDropdown} aria-label={`${skill.label} courses by level`}>
-      <p>Choose a level</p>
-      <div className={styles.skillLevelGrid}>{courseSkillLevels.map((level) => <Link key={level} href={getSkillHref(skill.slug, level)} className={styles.skillLevelLink}>{level}</Link>)}</div>
+      <div className={styles.skillLevelGrid}>
+        {courseSkillLevels.map((level) => {
+          const tone = levelToneMap[level as CefrLevel];
+          return <Link key={level} href={getSkillHref(skill.slug, level)} className={`${styles.skillLevelLink} ${styles[tone]}`}>{level}</Link>;
+        })}
+      </div>
     </div>
   </div>;
 }
@@ -65,15 +78,21 @@ export function PublicSiteHeader() {
 
   return <header className={styles.header}>
     <div className={styles.inner}>
-      <Link href="/" className={styles.brand}>
-        <span className={styles.brandBase}>KRIN</span>
-        <span className={styles.brandDot}>·</span>
-        <span className={styles.brandAccent}>EdTech</span>
+      <Link href="/" className={styles.brand} aria-label="KRIN EdTech home">
+        <img
+          src="/icons/a-detailed-flat-vector-illustration-of-a-single-wh.svg"
+          alt="KRIN EdTech logo"
+          className={styles.brandLogo}
+        />
+        <span className={styles.brandText}>
+          <span className={styles.brandBase}>KRIN</span>
+          <span className={styles.brandDot}>·</span>
+          <span className={styles.brandAccent}>EdTech</span>
+        </span>
       </Link>
       <nav className={styles.desktopNav} aria-label="Primary navigation">
-        {primaryLinks.slice(0, 2).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
+        {primaryLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
         {courseSkillCatalog.map((skill) => <SkillMenu key={skill.slug} skill={skill} />)}
-        {primaryLinks.slice(2).map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
       </nav>
       <div className={styles.desktopActions}><button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>I teach</button><ThemeToggle /><button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>Log in</button></div>
       <div className={styles.mobileActions}><ThemeToggle /><button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>Log in</button><button ref={triggerRef} type="button" aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button></div>
@@ -81,7 +100,7 @@ export function PublicSiteHeader() {
     <AppModal open={menuOpen} onOpenChange={setMenuOpen} title="Navigation" size="fullscreen" className={styles.menuDialog} closeLabel="Close navigation menu">
       <div id="public-navigation-menu" className={styles.panel}>
         <section className={styles.menuSection}><p className={styles.menuHeading}>Learn</p>{primaryLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{link.label}</span></Link>)}</section>
-        <section className={styles.menuSection}><p className={styles.menuHeading}>Build a skill</p>{courseSkillCatalog.map((skill) => <div key={skill.slug} className={styles.mobileSkillGroup}><Link href={getSkillHref(skill.slug)} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{skill.label}</span><span className={styles.menuDescription}>Browse all levels or choose one below.</span></Link><div className={styles.mobileLevelLinks}>{courseSkillLevels.map((level) => <Link key={level} href={getSkillHref(skill.slug, level)} onClick={closeMenu}>{level}</Link>)}</div></div>)}</section>
+        <section className={styles.menuSection}><p className={styles.menuHeading}>Build a skill</p>{courseSkillCatalog.map((skill) => <div key={skill.slug} className={styles.mobileSkillGroup}><Link href={getSkillHref(skill.slug)} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{skill.label}</span><span className={styles.menuDescription}>Browse all levels or choose one below.</span></Link><div className={styles.mobileLevelLinks}>{courseSkillLevels.map((level) => <Link key={level} href={getSkillHref(skill.slug, level)} onClick={closeMenu} data-tone={levelToneMap[level as CefrLevel]}>{level}</Link>)}</div></div>)}</section>
         <section className={styles.menuSection}><p className={styles.menuHeading}>More</p>{moreLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{link.label}</span><span className={styles.menuDescription}>{link.description}</span></Link>)}</section>
         <div className={styles.menuCtas}><button type="button" onClick={() => { closeMenu(); openLogin("learner", "register"); }} className={styles.menuPrimary}>Create account</button><button type="button" onClick={() => { closeMenu(); openLogin("teacher"); }} className={styles.menuSecondary}>I am a teacher</button></div>
         <p className={styles.menuNote}>Public pages are currently available in English. You can set your account interface language after signing in.</p>

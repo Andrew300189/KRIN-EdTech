@@ -55,7 +55,7 @@ describeDb("search visibility integration", () => {
           username: `teacher-a-${suffix}`,
           name: `Teacher A ${suffix}`,
           passwordHash: "x",
-          role: "INSTRUCTOR",
+          role: "TEACHER",
           emailVerified: true,
         },
         {
@@ -64,7 +64,7 @@ describeDb("search visibility integration", () => {
           username: `teacher-b-${suffix}`,
           name: `Teacher B ${suffix}`,
           passwordHash: "x",
-          role: "INSTRUCTOR",
+          role: "TEACHER",
           emailVerified: true,
         },
         {

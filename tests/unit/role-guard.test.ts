@@ -1,4 +1,5 @@
 import { hasPermission } from "@/core/server/role-guard";
+import { parseRole } from "@/core/utils/role";
 import { getPostLoginPath } from "@/core/utils/workspace-path";
 
 describe("role workspace boundaries", () => {
@@ -10,6 +11,11 @@ describe("role workspace boundaries", () => {
 
   it("rejects a safe but cross-role callback", () => {
     expect(getPostLoginPath("student@example.com", "STUDENT", "/teacher/analytics")).toBe("/student");
-    expect(getPostLoginPath("teacher@example.com", "INSTRUCTOR", "/admin/users")).toBe("/teacher");
+    expect(getPostLoginPath("teacher@example.com", "TEACHER", "/admin/users")).toBe("/teacher");
+  });
+
+  it("uses TEACHER as the canonical role while accepting an existing legacy session", () => {
+    expect(parseRole("TEACHER")).toBe("teacher");
+    expect(parseRole("instructor")).toBe("teacher");
   });
 });
