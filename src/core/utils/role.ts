@@ -5,6 +5,8 @@ export function parseRole(value: string | null | undefined): AppRole {
   if (normalized === "super_admin") return "super_admin";
   if (normalized === "admin") return "admin";
   if (normalized === "content_manager") return "content_manager";
+  // Accept the pre-rename value only for already-issued sessions. New users and
+  // database records use the canonical TEACHER role after the Prisma migration.
   if (normalized === "teacher" || normalized === "instructor") return "teacher";
   return "student";
 }

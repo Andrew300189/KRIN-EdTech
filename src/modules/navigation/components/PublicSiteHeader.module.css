@@ -1,10 +1,12 @@
 /* ─ full rewrite: clean professional nav ─ */
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 40;
+  right: 0;
+  left: 0;
+  z-index: 80;
   border-bottom: 1px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.97);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   box-shadow:
     inset 0 -1px 0 rgb(255 255 255 / 75%),
@@ -23,7 +25,7 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.05rem;
+  gap: 0.6rem;
   flex: 0 0 auto;
   font-size: 1.2rem;
   font-weight: 800;
@@ -31,6 +33,20 @@
   line-height: 1;
   color: #0f172a;
   text-decoration: none;
+}
+
+.brandLogo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  display: block;
+}
+
+.brandText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
 }
 
 .brandBase {
@@ -109,9 +125,22 @@
 .menuTitle { display: block; font-size: 1.06rem; font-weight: 850; letter-spacing: 0.01em; }
 .menuDescription { display: block; margin-top: 3px; color: #475569; font-size: 0.88rem; line-height: 1.45; }
 .mobileSkillGroup + .mobileSkillGroup { margin-top: 8px; }
+.mobileNavGroup { padding: 0 6px; }
 .mobileLevelLinks { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 12px 12px; }
-.mobileLevelLinks a { display: inline-flex; min-height: 34px; min-width: 42px; align-items: center; justify-content: center; padding: 6px 9px; border: 1px solid #cbd5e1; border-radius: 8px; color: #334155; background: #fff; font-size: .79rem; font-weight: 800; }
-.mobileLevelLinks a:hover { border-color: #a5b4fc; color: #3730a3; background: #eef2ff; }
+.mobileLevelLinks a { display: inline-flex; min-height: 34px; min-width: 42px; align-items: center; justify-content: center; padding: 6px 9px; border: none; border-radius: 999px; color: #334155; background: transparent; font-size: .79rem; font-weight: 800; transition: all 0.3s ease-in-out; }
+.mobileLevelLinks a:hover { background: rgba(148, 163, 184, 0.08); color: #0f172a; }
+.mobileLevelLinks a[data-tone="green"] { color: #167b45; }
+.mobileLevelLinks a[data-tone="yellow"] { color: #a66a00; }
+.mobileLevelLinks a[data-tone="orange"] { color: #c7610a; }
+.mobileLevelLinks a[data-tone="pink"] { color: #c5437f; }
+.mobileLevelLinks a[data-tone="rose"] { color: #d75d5f; }
+.mobileLevelLinks a[data-tone="red"] { color: #b91c1c; }
+.mobileLevelLinks a[data-tone="green"]:hover { background: rgba(34, 197, 94, 0.16); color: #0f5d35; }
+.mobileLevelLinks a[data-tone="yellow"]:hover { background: rgba(250, 204, 21, 0.18); color: #8a5a00; }
+.mobileLevelLinks a[data-tone="orange"]:hover { background: rgba(249, 115, 22, 0.18); color: #9a4d00; }
+.mobileLevelLinks a[data-tone="pink"]:hover { background: rgba(236, 72, 153, 0.14); color: #ad2d69; }
+.mobileLevelLinks a[data-tone="rose"]:hover { background: rgba(251, 113, 133, 0.18); color: #b42318; }
+.mobileLevelLinks a[data-tone="red"]:hover { background: rgba(239, 68, 68, 0.18); color: #991b1b; }
 .menuCtas { display: grid; gap: 8px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
 .menuPrimary,
 .menuSecondary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 10px 14px; border-radius: 9px; font: inherit; font-size: 0.92rem; font-weight: 800; cursor: pointer; }
@@ -155,12 +184,23 @@
 
   .skillMenu { position: relative; display: flex; align-items: center; min-height: 72px; }
   .skillTrigger { display: inline-flex; min-height: 40px; align-items: center; }
-  .skillDropdown { position: absolute; z-index: 60; top: calc(100% - 14px); left: 50%; width: 210px; padding: 13px; border: 1px solid var(--border); border-radius: 13px; visibility: hidden; opacity: 0; pointer-events: none; background: var(--surface-elevated); box-shadow: var(--shadow-lg); transform: translate(-50%, 6px); transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease; }
+  .skillDropdown { position: absolute; z-index: 60; top: calc(100% - 14px); left: 50%; width: 150px; padding: 10px 12px; border: 1px solid rgba(148, 163, 184, 0.24); border-radius: 12px; visibility: hidden; opacity: 0; pointer-events: none; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12); transform: translate(-50%, 10px); transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out, visibility 0.3s ease-in-out; }
   .skillMenu:hover .skillDropdown, .skillMenu:focus-within .skillDropdown { visibility: visible; opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
-  .skillDropdown p { margin: 0 0 9px; color: var(--text-secondary); font-size: .73rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
-  .skillLevelGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .skillLevelLink { display: inline-flex; min-height: 35px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary); background: var(--surface); font-size: .78rem; font-weight: 850; transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease; }
-  .skillLevelLink:hover, .skillLevelLink:focus-visible { border-color: var(--primary); color: var(--primary-contrast); background: var(--primary); }
+  .skillLevelGrid { display: flex; flex-direction: column; gap: 4px; }
+  .skillLevelLink { display: flex; min-height: 28px; align-items: center; justify-content: flex-start; padding: 4px 8px; border: none; border-radius: 999px; color: #374151; background: transparent; font-size: .8rem; font-weight: 800; transition: all 0.3s ease-in-out; }
+  .skillLevelLink:hover, .skillLevelLink:focus-visible { transform: translateX(2px); }
+  .skillLevelLink.green { color: #167b45; }
+  .skillLevelLink.yellow { color: #a66a00; }
+  .skillLevelLink.orange { color: #c7610a; }
+  .skillLevelLink.pink { color: #c5437f; }
+  .skillLevelLink.rose { color: #d75d5f; }
+  .skillLevelLink.red { color: #b91c1c; }
+  .skillLevelLink.green:hover, .skillLevelLink.green:focus-visible { background: rgba(34, 197, 94, 0.16); color: #0f5d35; }
+  .skillLevelLink.yellow:hover, .skillLevelLink.yellow:focus-visible { background: rgba(250, 204, 21, 0.18); color: #8a5a00; }
+  .skillLevelLink.orange:hover, .skillLevelLink.orange:focus-visible { background: rgba(249, 115, 22, 0.18); color: #9a4d00; }
+  .skillLevelLink.pink:hover, .skillLevelLink.pink:focus-visible { background: rgba(236, 72, 153, 0.14); color: #ad2d69; }
+  .skillLevelLink.rose:hover, .skillLevelLink.rose:focus-visible { background: rgba(251, 113, 133, 0.18); color: #b42318; }
+  .skillLevelLink.red:hover, .skillLevelLink.red:focus-visible { background: rgba(239, 68, 68, 0.18); color: #991b1b; }
 }
 
 @media (max-width: 430px) {

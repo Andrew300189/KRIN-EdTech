@@ -20,7 +20,7 @@ type LearnerCourse = {
     | "PURCHASED"
     | "SUBSCRIPTION"
     | "IN_PROGRESS"
-    | "INSTRUCTOR"
+    | "TEACHER_CREATED"
     | "SELF_ADDED"
     | "TEACHER_ASSIGNED"
     | "GROUP_ASSIGNED";
@@ -32,7 +32,7 @@ const SOURCE_LABEL: Record<LearnerCourse["source"], string> = {
   PURCHASED: "Purchased access",
   SUBSCRIPTION: "Included in your subscription",
   IN_PROGRESS: "Started course",
-  INSTRUCTOR: "Instructor course",
+  TEACHER_CREATED: "Created by you",
   SELF_ADDED: "Added to your library",
   TEACHER_ASSIGNED: "Assigned by your teacher",
   GROUP_ASSIGNED: "Assigned to your group",
