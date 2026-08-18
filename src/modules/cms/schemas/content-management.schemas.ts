@@ -84,6 +84,20 @@ export const cmsExerciseTargetLessonSchema = z.object({
   targetLessonId: z.string().cuid(),
 });
 
+/** Target for a reusable multi-block lesson blueprint. */
+export const cmsLessonBlueprintTargetModuleSchema = z.object({
+  targetModuleId: z.string().cuid(),
+});
+
+export const cmsLessonTemplateSectionSchema = z.object({
+  title: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(800).optional().or(z.literal("")),
+});
+
+export const cmsLessonTemplateSectionItemSchema = z.object({
+  templateKey: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
+});
+
 export const cmsExerciseBulkUpdateSchema = z.object({
   exerciseIds: z.array(z.string().cuid()).min(1).max(100),
   basePoints: z.number().int().min(0).max(1000).optional(),

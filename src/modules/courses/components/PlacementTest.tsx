@@ -197,7 +197,7 @@ const LEVEL_DESCRIPTIONS: Record<CefrLevel, string> = {
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
 /** 70 % threshold (≥14/20) per block; sequential — breaks on first failure. */
-function computeLevel(results: boolean[]): CefrLevel {
+function computeLevel(results: boolean[]): CefrLevel | null {
   const passed: CefrLevel[] = [];
   for (const lvl of LEVELS) {
     const [from, to] = LEVEL_RANGES[lvl];
@@ -206,7 +206,24 @@ function computeLevel(results: boolean[]): CefrLevel {
     if (slice.filter(Boolean).length >= 14) passed.push(lvl);
     else break;
   }
-  return passed.length ? passed[passed.length - 1] : "A1";
+  return passed.length ? passed[passed.length - 1] : null;
+}
+
+export function getPlacementState(results: boolean[]) {
+  const level = computeLevel(results);
+  if (!level) {
+    return {
+      level: null,
+      belowA1: true,
+      message: "See you next time",
+    };
+  }
+
+  return {
+    level,
+    belowA1: false,
+    message: LEVEL_DESCRIPTIONS[level],
+  };
 }
 
 function computeBreakdown(results: boolean[]) {
@@ -442,7 +459,8 @@ export function PlacementTest() {
 
   // ── Result ───────────────────────────────────────────────────────────
   if (phase === "result") {
-    const level = computeLevel(results);
+    const placement = getPlacementState(results);
+    const level = placement.level;
     const breakdown = computeBreakdown(results).filter((b) => b.attempted);
     const strengths  = breakdown.filter((b) => b.pct >= 70).map((b) => b.level);
     const weaknesses = breakdown.filter((b) => b.pct < 70).map((b) => b.level);
@@ -454,37 +472,57 @@ export function PlacementTest() {
           <div className={s.ptProgressTrack}><div className={s.ptProgressFill} style={{ width: "100%" }} /></div>
           <div className={s.ptResult}>
             <div className={s.ptResultHeader}>
-              <div className={s.ptResultLevel}>{level}</div>
-              <h2 className={s.ptResultTitle}>Your level: {level}</h2>
-              <p className={s.ptResultSub}>{LEVEL_DESCRIPTIONS[level]}</p>
+              {level ? (
+                <>
+                  <div className={s.ptResultLevel}>{level}</div>
+                  <h2 className={s.ptResultTitle}>Your level: {level}</h2>
+                  <p className={s.ptResultSub}>{LEVEL_DESCRIPTIONS[level]}</p>
+                </>
+              ) : (
+                <>
+                  <div className={s.ptResultLevel} style={{ background: "#fef2f2", color: "#b91c1c" }}>—</div>
+                  <h2 className={s.ptResultTitle}>See you next time</h2>
+                  <p className={s.ptResultSub}>You did not reach the A1 threshold yet. Keep practising and come back when you are ready.</p>
+                </>
+              )}
               <p className={s.ptResultSub} style={{ marginTop: 6 }}>
                 <strong style={{ color: "#1e293b" }}>{totalCorrect} / {results.length}</strong> correct answers
               </p>
             </div>
 
-            <div className={s.ptScoreGrid}>
-              {breakdown.map(({ level: lvl, correct, total, pct }) => (
-                <div key={lvl} className={s.ptScoreRow}>
-                  <span className={s.ptScoreLabel}>{lvl}</span>
-                  <div className={s.ptScoreTrack}>
-                    <div className={`${s.ptScoreBar} ${pct < 70 ? s.ptScoreBarWeak : ""}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className={s.ptScoreNum}>{correct}/{total}</span>
+            {level && (
+              <>
+                <div className={s.ptScoreGrid}>
+                  {breakdown.map(({ level: lvl, correct, total, pct }) => (
+                    <div key={lvl} className={s.ptScoreRow}>
+                      <span className={s.ptScoreLabel}>{lvl}</span>
+                      <div className={s.ptScoreTrack}>
+                        <div className={`${s.ptScoreBar} ${pct < 70 ? s.ptScoreBarWeak : ""}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className={s.ptScoreNum}>{correct}/{total}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {(strengths.length > 0 || weaknesses.length > 0) && (
-              <div className={s.ptTags}>
-                {strengths.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagStrong}`}>\u2713 Strong at {l}</span>)}
-                {weaknesses.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagWeak}`}>\u2191 Review {l}</span>)}
-              </div>
+                {(strengths.length > 0 || weaknesses.length > 0) && (
+                  <div className={s.ptTags}>
+                    {strengths.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagStrong}`}>✓0 Strong at {l}</span>)}
+                    {weaknesses.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagWeak}`}>✓1 Review {l}</span>)}
+                  </div>
+                )}
+              </>
             )}
 
             <div className={s.ptCta}>
-              <Link href={`/levels/${level.toLowerCase()}`} className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`}>
-                🚀 Explore {level} courses
-              </Link>
+              {level ? (
+                <Link href={`/levels/${level.toLowerCase()}`} className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`}>
+                  🚀 Explore {level} courses
+                </Link>
+              ) : (
+                <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => dispatch({ type: "RESTART" })}>
+                  🔁 Try again
+                </button>
+              )}
               <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`}
                 onClick={() => dispatch({ type: "RESTART" })}>
                 \u21ba Retake the test

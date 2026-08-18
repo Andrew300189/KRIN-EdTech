@@ -1,0 +1,36 @@
+.page { display: grid; gap: var(--space-5); align-content: start; }
+.backLink { width: fit-content; color: var(--primary); font-size: 0.84rem; font-weight: 800; text-decoration: none; }
+.backLink:hover { color: var(--primary-hover); text-decoration: underline; }
+.eyebrow { margin: 0; color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
+.header { max-width: 47rem; }
+.header h2, .sectionHeading h3, .pathCard h4, .courseCard h4, .emptyState h4 { margin: 0.28rem 0 0; color: var(--text-primary); font-weight: 800; letter-spacing: -0.03em; }
+.header h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.13; }
+.header > p:not(.eyebrow) { margin: 0.55rem 0 0; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.55; }
+.paths, .courses { display: grid; gap: 0.9rem; }
+.sectionHeading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-3); }
+.sectionHeading h3 { font-size: 1.18rem; }
+.sectionHeading > span { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0.32rem 0.55rem; color: var(--text-muted); font-size: 0.76rem; font-weight: 800; }
+.pathGrid { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.pathCard { min-width: 0; padding: 0.95rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.pathCard > span { color: var(--primary); font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; }
+.pathCard h4 { font-size: 0.98rem; line-height: 1.32; }
+.pathCard p { margin: 0.46rem 0 0; color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; }
+.courseGrid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
+.courseCard { display: flex; min-width: 0; min-height: 14rem; flex-direction: column; padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.cardMeta { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.cardMeta span, .accessGranted, .accessLocked { overflow: hidden; max-width: 100%; border-radius: var(--radius-pill); padding: 0.2rem 0.42rem; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 800; line-height: 1.2; }
+.cardMeta span:first-child { background: color-mix(in srgb, var(--primary) 17%, transparent); color: var(--primary); }
+.cardMeta span:last-child, .accessLocked { background: var(--surface-secondary); color: var(--text-muted); }
+.courseLink { display: flex; min-height: 0; flex: 1; flex-direction: column; margin-top: 0.7rem; color: inherit; text-decoration: none; }
+.courseCard h4 { font-size: 1rem; line-height: 1.3; }
+.courseLink p { display: -webkit-box; overflow: hidden; margin: 0.42rem 0 0; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.courseCard footer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.8rem; }
+.accessGranted { background: color-mix(in srgb, var(--success, #16845b) 16%, transparent); color: var(--success, #0f7650); }
+.courseCard footer a, .emptyState a { color: var(--primary); font-size: 0.75rem; font-weight: 800; text-decoration: none; }
+.courseCard footer a:hover, .emptyState a:hover { color: var(--primary-hover); text-decoration: underline; }
+.emptyState { max-width: 42rem; padding: 1.3rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-elevated); }
+.emptyState h4 { font-size: 1rem; }
+.emptyState p { margin: 0.45rem 0 0; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.5; }
+.emptyState a { display: inline-block; margin-top: 0.7rem; }
+.backLink:focus-visible, .courseLink:focus-visible, .courseCard footer a:focus-visible, .emptyState a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .pathCard, .courseCard { transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; } .pathCard:hover, .courseCard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-1px); } }

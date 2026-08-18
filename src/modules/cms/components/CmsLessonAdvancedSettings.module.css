@@ -1,0 +1,13 @@
+.trigger { display: inline-flex; min-height: 2.2rem; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-secondary); color: var(--text-primary); padding: .45rem .7rem; font: inherit; font-size: .76rem; font-weight: 780; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease; }
+.trigger:hover { border-color: var(--border-strong); background: var(--surface); }
+.trigger:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.content { display: grid; gap: 1rem; }
+.content :global(.rounded-2xl), .content :global(.rounded-xl) { border-color: var(--border) !important; border-radius: var(--radius-xl) !important; background: var(--surface-elevated) !important; box-shadow: var(--shadow-sm); }
+.content :global(.border-slate-100), .content :global(.border-slate-200), .content :global(.border-slate-300) { border-color: var(--border) !important; }
+.content :global(.bg-white), .content :global(.bg-slate-50) { background: var(--surface-elevated) !important; }
+.content :global(.text-slate-950), .content :global(.text-slate-900), .content :global(.text-slate-800), .content :global(.text-slate-700) { color: var(--text-primary) !important; }
+.content :global(.text-slate-600), .content :global(.text-slate-500) { color: var(--text-secondary) !important; }
+.content :global(.text-blue-700), .content :global(.text-blue-800) { color: var(--primary) !important; }
+.content :global(.bg-blue-700) { background: var(--primary) !important; }
+.content :global(input:not([type="checkbox"]):not([type="radio"])), .content :global(select), .content :global(textarea) { border-color: var(--border) !important; border-radius: var(--radius-md) !important; background: var(--surface) !important; color: var(--text-primary) !important; }
+@media (prefers-reduced-motion: reduce) { .trigger { transition: none; } }

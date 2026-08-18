@@ -29,7 +29,7 @@ describe("CMS course operations", () => {
     ]);
   });
 
-  it("allows physical deletion only for a never-published course with no historical impact", () => {
+  it("allows complete deletion for an unused course, including one that was published", () => {
     const emptyImpact = {
       courseId,
       title: "Private draft",
@@ -44,11 +44,13 @@ describe("CMS course operations", () => {
       analyticsRecords: 0,
       learnerVocabularyRecords: 0,
       commerceProducts: 0,
+      commerceProductHistory: 0,
       certificates: 0,
     };
     expect(canPhysicallyDeleteCmsCourse(emptyImpact)).toBe(true);
-    expect(canPhysicallyDeleteCmsCourse({ ...emptyImpact, wasEverPublished: true })).toBe(false);
+    expect(canPhysicallyDeleteCmsCourse({ ...emptyImpact, wasEverPublished: true })).toBe(true);
     expect(canPhysicallyDeleteCmsCourse({ ...emptyImpact, progressRecords: 1 })).toBe(false);
     expect(canPhysicallyDeleteCmsCourse({ ...emptyImpact, purchases: 1 })).toBe(false);
+    expect(canPhysicallyDeleteCmsCourse({ ...emptyImpact, commerceProductHistory: 1 })).toBe(false);
   });
 });

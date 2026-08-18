@@ -10,7 +10,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const lesson = await prisma.lesson.findUnique({
     where: { id: (await params).lessonId },
-    include: { blocks: { orderBy: { order: "asc" }, include: { _count: { select: { exercises: true } } } } },
+    include: {
+      blocks: {
+        orderBy: { order: "asc" },
+        include: { exercises: { orderBy: { order: "asc" } } },
+      },
+    },
   });
   return lesson ? NextResponse.json({ data: lesson }) : NextResponse.json({ error: "Lesson not found" }, { status: 404 });
 }

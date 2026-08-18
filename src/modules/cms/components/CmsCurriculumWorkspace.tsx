@@ -26,17 +26,20 @@ export function CmsCurriculumWorkspace({ type, levels, initialNodes, parentOptio
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+  const levelFilter = searchParams.get("level") ?? "ALL";
   const [nodes, setNodes] = useState(initialNodes);
-  const [formLevel, setFormLevel] = useState(levels[0]?.code ?? "A1");
+  const [formLevel, setFormLevel] = useState(levelFilter !== "ALL" ? levelFilter : levels[0]?.code ?? "A1");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const query = searchParams.get("q") ?? "";
-  const levelFilter = searchParams.get("level") ?? "ALL";
 
   useEffect(() => setNodes(initialNodes), [initialNodes]);
+  useEffect(() => {
+    if (levelFilter !== "ALL" && levels.some((level) => level.code === levelFilter)) setFormLevel(levelFilter);
+  }, [levelFilter, levels]);
   const visible = useMemo(() => nodes.filter((node) => {
     const search = query.trim().toLowerCase();
     return (!search || `${node.title} ${node.slug} ${node.parent?.title ?? ""}`.toLowerCase().includes(search)) && (levelFilter === "ALL" || node.level.code === levelFilter);

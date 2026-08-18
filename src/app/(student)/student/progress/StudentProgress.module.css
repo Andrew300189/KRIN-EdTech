@@ -1,0 +1,51 @@
+.page { display: grid; gap: var(--space-5); align-content: start; }
+.header { max-width: 45rem; }
+.eyebrow { margin: 0; color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
+.header h2, .sectionHeading h3, .skillDetail h4 { margin: 0.25rem 0 0; color: var(--text-primary); font-weight: 800; letter-spacing: -0.03em; }
+.header h2 { font-size: clamp(1.65rem, 3vw, 2rem); line-height: 1.15; }
+.header > div > p:not(.eyebrow) { margin: 0.45rem 0 0; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; }
+.metricGrid { display: grid; gap: 0.7rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.metricGrid article { min-width: 0; padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.metricGrid span { display: block; color: var(--text-muted); font-size: 0.73rem; font-weight: 750; }
+.metricGrid strong { display: block; margin-top: 0.25rem; color: var(--text-primary); font-size: clamp(1.25rem, 2.2vw, 1.7rem); letter-spacing: -0.04em; }
+.metricGrid p { overflow: hidden; margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.73rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.skillSection, .weekSection { display: grid; gap: 1rem; padding: clamp(1rem, 2.5vw, 1.4rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.sectionHeading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-3); }
+.sectionHeading h3 { font-size: 1.2rem; }
+.sectionHeading > div > p:not(.eyebrow) { max-width: 36rem; margin: 0.38rem 0 0; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; }
+.sectionHeading > span { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0.32rem 0.55rem; color: var(--text-muted); font-size: 0.74rem; font-weight: 800; }
+.skillLayout { display: grid; gap: clamp(1rem, 3vw, 2.2rem); align-items: center; grid-template-columns: minmax(15rem, 0.9fr) minmax(18rem, 1.1fr); }
+.radarWrap { min-width: 0; text-align: center; }
+.radar { display: block; width: min(100%, 23rem); margin: 0 auto; overflow: visible; }
+.radarGuide { fill: none; stroke: var(--border); stroke-width: 0.55; }
+.radarAxis { stroke: var(--border-strong); stroke-width: 0.5; }
+.radarShape { fill: color-mix(in srgb, var(--primary) 22%, transparent); stroke: var(--primary); stroke-linejoin: round; stroke-width: 1.2; }
+.radarPoint, .radarPointActive { fill: var(--surface-elevated); stroke: var(--primary); stroke-width: 1.2; }
+.radarPointActive { fill: var(--primary); stroke: var(--primary-contrast); stroke-width: 1; }
+.radarLabel { fill: var(--text-secondary); font-size: 4px; font-weight: 800; }
+.radarNote { margin: -0.4rem 0 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.4; }
+.skillPanel { display: grid; gap: 0.9rem; }
+.skillButtons { display: grid; gap: 0.48rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.skillButton, .skillButtonActive { display: flex; min-height: 3.1rem; min-width: 0; align-items: center; justify-content: space-between; gap: 0.4rem; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.55rem 0.65rem; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.78rem; font-weight: 800; text-align: left; }
+.skillButton strong, .skillButtonActive strong { color: var(--text-primary); font-size: 0.92rem; }
+.skillButton:hover { border-color: var(--border-strong); background: var(--surface-secondary); }
+.skillButtonActive { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.skillButtonActive strong { color: var(--primary); }
+.skillDetail { padding: 0.95rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-secondary); }
+.skillDetail h4 { font-size: 1.03rem; }
+.skillDetail dl { display: grid; gap: 0.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0.8rem 0; }
+.skillDetail dl > div { min-width: 0; }
+.skillDetail dt { color: var(--text-muted); font-size: 0.68rem; font-weight: 750; }
+.skillDetail dd { margin: 0.15rem 0 0; color: var(--text-primary); font-size: 0.92rem; font-weight: 850; }
+.skillDetail > p:last-child { margin: 0; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
+.weeklyChart { display: grid; min-height: 12rem; gap: 0.55rem; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; }
+.day { display: grid; min-width: 0; gap: 0.3rem; justify-items: center; text-align: center; }
+.barTrack { display: flex; width: min(2.35rem, 100%); height: 7rem; align-items: end; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-secondary); }
+.bar { width: 100%; min-height: 0; border-radius: inherit; background: var(--primary); }
+.day strong { color: var(--text-primary); font-size: 0.78rem; }
+.day span { color: var(--text-secondary); font-size: 0.72rem; font-weight: 800; }
+.day small { overflow: hidden; max-width: 100%; color: var(--text-muted); font-size: 0.62rem; text-overflow: ellipsis; white-space: nowrap; }
+.skillButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@media (max-width: 760px) { .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .skillLayout { grid-template-columns: 1fr; } .radar { width: min(100%, 19rem); } }
+@media (max-width: 440px) { .skillButtons { grid-template-columns: 1fr; } .skillSection, .weekSection { padding: 0.9rem; } .metricGrid article { padding: 0.75rem; } .weeklyChart { gap: 0.32rem; } .barTrack { height: 5.8rem; } .day small { display: none; } }
+@media (prefers-reduced-motion: no-preference) { .skillButton, .bar { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, height 220ms ease; } }

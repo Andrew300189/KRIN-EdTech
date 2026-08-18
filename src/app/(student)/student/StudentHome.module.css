@@ -1,40 +1,48 @@
-.page { display: grid; gap: 1.25rem; }
-.hero { padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid #cbdcfb; border-radius: 1.3rem; background: linear-gradient(135deg, #f0f5ff, #f9fbff 72%); }
-.eyebrow { margin: 0; color: #2450a4; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
-.hero h2, .card h3 { margin: 0; color: #10213d; font-weight: 820; letter-spacing: -0.03em; }
-.hero h2 { margin-top: 0.45rem; font-size: clamp(1.8rem, 5vw, 2.65rem); line-height: 1.08; }
-.hero > p:not(.eyebrow) { max-width: 42rem; margin: 0.85rem 0 0; color: #40516a; font-size: 1rem; line-height: 1.65; }
-.heroActions, .cardActions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.35rem; }
-.primaryAction, .secondaryAction { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 0.7rem; padding: 0.68rem 0.95rem; font-size: 0.92rem; font-weight: 750; text-decoration: none; }
-.primaryAction { background: #2349b3; color: #fff; box-shadow: 0 0.25rem 0.7rem rgb(20 66 160 / 20%); }
-.primaryAction:hover { background: #18378e; }
-.secondaryAction { border-color: #cdd7e7; background: #fff; color: #26364e; }
-.secondaryAction:hover { border-color: #aebed8; background: #f8faff; }
-.overviewGrid { display: grid; gap: 0.85rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr)); }
-.statCard, .card { border: 1px solid #dde5f0; border-radius: 1rem; background: #fff; }
-.statCard { padding: 1.1rem; }
-.statCard p { margin: 0; color: #667085; font-size: 0.82rem; font-weight: 650; }
-.statCard h3 { min-height: 2.7rem; margin: 0.45rem 0 0; color: #10213d; font-size: 1rem; line-height: 1.35; }
-.statCard strong { display: block; min-height: 2.7rem; margin-top: 0.35rem; color: #10213d; font-size: 1.7rem; letter-spacing: -0.04em; }
-.statCard span { display: block; margin-top: 0.3rem; color: #667085; font-size: 0.8rem; line-height: 1.45; }
-.planGrid { display: grid; gap: 1rem; }
-.card { padding: clamp(1.15rem, 3vw, 1.55rem); }
-.cardHeading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.8rem; }
-.card h3 { margin-top: 0.25rem; font-size: 1.2rem; line-height: 1.25; }
-.statusTag { padding: 0.35rem 0.65rem; border-radius: 999px; background: #eef2f7; color: #40516a; font-size: 0.8rem; font-weight: 750; white-space: nowrap; }
-.cardText { margin: 0.9rem 0 0; color: #526176; font-size: 0.94rem; line-height: 1.6; }
-.cardText strong { color: #182945; }
-.helperText { margin: 0.7rem 0 0; color: #667085; font-size: 0.84rem; line-height: 1.55; }
-.nativeProgress { width: 100%; height: 0.65rem; margin-top: 1.1rem; overflow: hidden; border: 0; border-radius: 999px; accent-color: #2b59c3; }
-.progressTrack { height: 0.65rem; margin-top: 1.1rem; overflow: hidden; border-radius: 999px; background: #eaf0f8; }
-.progressFill { height: 100%; min-width: 0; border-radius: inherit; background: #2b59c3; }
-.inlineAction { margin-top: 1.15rem; }
-.supportGrid { display: grid; gap: 1rem; }
-.textLink { display: inline-flex; margin-top: 1.1rem; color: #21499f; font-size: 0.9rem; font-weight: 760; text-decoration: none; }
-.textLink:hover { color: #102f7a; text-decoration: underline; }
-.mistakeList { display: grid; gap: 0.55rem; margin: 0.9rem 0 0; padding: 0; list-style: none; }
-.mistakeList li { display: grid; gap: 0.25rem; padding: 0.7rem; border-radius: 0.7rem; background: #f6f8fb; color: #526176; font-size: 0.84rem; line-height: 1.45; }
-.mistakeList strong { color: #26364e; }
-.primaryAction:focus-visible, .secondaryAction:focus-visible, .textLink:focus-visible { outline: 3px solid #82a9ff; outline-offset: 3px; }
-@media (min-width: 860px) { .planGrid { grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); } .supportGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (prefers-reduced-motion: no-preference) { .primaryAction, .secondaryAction, .textLink { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } .progressFill { transition: width 260ms ease; } }
+.page { display: grid; gap: var(--space-3); align-content: start; }
+.hero, .panel, .statCard { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 1.1rem 1.25rem; }
+.eyebrow { margin: 0; color: var(--primary); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
+.hero h2, .panel h3, .statCard h3 { margin: 0; color: var(--text-primary); font-weight: 800; letter-spacing: -0.025em; }
+.hero h2 { margin-top: 0.2rem; font-size: clamp(1.45rem, 3vw, 1.85rem); line-height: 1.15; }
+.hero > div:first-child > p:not(.eyebrow) { max-width: 39rem; margin: 0.4rem 0 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.45; }
+.heroActions, .focusFooter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.primaryAction, .secondaryAction { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); padding: 0.58rem 0.82rem; font-size: 0.88rem; font-weight: 750; text-decoration: none; }
+.primaryAction { background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-sm); }
+.primaryAction:hover { background: var(--primary-hover); }
+.secondaryAction { border-color: var(--border); color: var(--text-secondary); }
+.secondaryAction:hover { border-color: var(--border-strong); background: var(--surface-secondary); color: var(--text-primary); }
+.overviewGrid { display: grid; gap: 0.65rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.statCard { min-width: 0; padding: 0.85rem; border-radius: var(--radius-lg); }
+.statCard p { margin: 0; color: var(--text-muted); font-size: 0.72rem; font-weight: 700; }
+.statCard h3 { overflow: hidden; min-height: 2.4rem; margin: 0.3rem 0 0; font-size: 0.92rem; line-height: 1.3; text-overflow: ellipsis; }
+.statCard strong { display: block; min-height: 2.4rem; margin-top: 0.2rem; color: var(--text-primary); font-size: 1.45rem; letter-spacing: -0.04em; }
+.statCard span { display: block; margin-top: 0.2rem; color: var(--text-muted); font-size: 0.75rem; line-height: 1.35; }
+.dashboardGrid { display: grid; gap: var(--space-3); }
+.panel { padding: 1rem; }
+.focusPanel { display: flex; min-height: 15rem; flex-direction: column; justify-content: space-between; }
+.cardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.panel h3 { margin-top: 0.2rem; font-size: 1.08rem; line-height: 1.28; }
+.statusTag, .billingStatus, .mistakeCount { flex: none; border-radius: var(--radius-pill); padding: 0.28rem 0.55rem; background: var(--surface-secondary); color: var(--text-secondary); font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+.cardText { margin: 0.72rem 0 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }
+.cardText strong { color: var(--text-primary); }
+.helperText { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
+.nativeProgress { width: 100%; height: 0.55rem; margin-top: 0.85rem; overflow: hidden; border: 0; border-radius: var(--radius-pill); accent-color: var(--primary); }
+.focusFooter { justify-content: space-between; margin-top: 0.9rem; }
+.quickLinks { display: flex; flex: 1 1 15rem; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+.quickLinks a, .textLink { color: var(--primary); font-size: 0.8rem; font-weight: 750; text-decoration: none; }
+.quickLinks a:hover, .textLink:hover { color: var(--primary-hover); text-decoration: underline; }
+.inlineAction { align-self: flex-start; margin-top: 1rem; }
+.sideStack { display: grid; gap: var(--space-3); }
+.sideStack .panel { min-height: 0; }
+.billingStatus { color: var(--text-muted); }
+.billingStatusActive { background: color-mix(in srgb, var(--success) 17%, transparent); color: var(--success); }
+.mistakeCount { min-width: 1.8rem; text-align: center; }
+.mistakeList { display: grid; gap: 0.35rem; margin: 0.58rem 0 0; padding: 0; list-style: none; }
+.mistakeList li { display: grid; gap: 0.1rem; overflow: hidden; padding: 0.45rem 0.55rem; border-radius: var(--radius-md); background: var(--surface-secondary); color: var(--text-muted); font-size: 0.73rem; line-height: 1.32; }
+.mistakeList strong { overflow: hidden; color: var(--text-secondary); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
+.textLink { display: inline-flex; margin-top: 0.65rem; }
+.primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .billingStatus, .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
+@media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .page { gap: 0.7rem; margin-bottom: -2rem; } .hero { min-height: 7.35rem; padding: 1rem 1.25rem; } .dashboardGrid { grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); align-items: stretch; } .focusPanel { min-height: 15.7rem; } .sideStack { grid-template-rows: repeat(2, minmax(0, 1fr)); } .sideStack .panel { padding: 0.85rem 1rem; } .mistakeList li { padding-block: 0.35rem; } }
+@media (prefers-reduced-motion: no-preference) { .primaryAction, .secondaryAction, .quickLinks a, .textLink { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } }

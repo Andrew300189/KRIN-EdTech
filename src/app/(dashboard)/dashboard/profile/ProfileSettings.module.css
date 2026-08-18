@@ -1,0 +1,45 @@
+.page {
+  width: min(100%, 54rem) !important;
+  max-width: 54rem !important;
+  padding-bottom: var(--space-6);
+}
+
+.header { max-width: 43rem; }
+.header h2 { color: var(--text-primary) !important; letter-spacing: -0.04em; }
+.header p { color: var(--text-secondary) !important; line-height: 1.5; }
+
+.card {
+  display: grid;
+  min-width: 0;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-xl) !important;
+  background: var(--surface-elevated) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.card :global(section) { border-color: var(--border) !important; }
+.card :global(label), .card :global(h3), .card :global(p.font-medium) { color: var(--text-primary) !important; }
+.card :global(input.form-control), .card :global(select.form-control) {
+  min-height: 2.6rem;
+  border-color: var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+}
+.card :global(input.form-control:hover), .card :global(select.form-control:hover) { border-color: var(--border-strong) !important; }
+.card :global(input.form-control:focus-visible), .card :global(select.form-control:focus-visible), .card :global(button:focus-visible), .card :global(label:focus-within) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.card :global(input.form-control:disabled) { background: var(--surface-secondary) !important; color: var(--text-muted) !important; }
+.card :global(.text-slate-500), .card :global(.text-slate-600) { color: var(--text-muted) !important; }
+.card :global(.btn) { min-height: 2.55rem; border-radius: var(--radius-md) !important; font-weight: 750; }
+
+@media (max-width: 640px) {
+  .page { width: 100% !important; gap: 1rem !important; }
+  .card { padding: 1rem !important; border-radius: var(--radius-lg) !important; }
+  .card :global(.btn) { width: 100%; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card { transition: border-color 150ms ease, box-shadow 150ms ease; }
+  .card:hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow-md) !important; }
+}

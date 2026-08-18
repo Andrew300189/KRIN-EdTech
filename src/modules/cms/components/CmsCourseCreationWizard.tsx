@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { ClipboardEvent, FormEvent, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import styles from "./CmsCourseBuilder.module.css";
 
 type Level = { code: string; title: string };
 type Category = { slug: string; title: string };
@@ -17,6 +18,9 @@ type IntegrityIssue = { code: string; message: string; entityType?: string; enti
 
 type AccessMode = "FREE" | "SUBSCRIPTION" | "ONE_TIME_PURCHASE" | "TEACHER_ASSIGNMENT" | "HIDDEN";
 type CourseType = "STANDARD" | "INTENSIVE" | "EXAM_PREP" | "PROFESSIONAL" | "SPECIALIZATION" | "SKILL";
+
+const MAX_PASTED_COVER_BYTES = 8 * 1024 * 1024;
+const MAX_PASTED_COVER_DATA_URL_LENGTH = 2_500_000;
 
 const steps = [
   ["Basics", "Title, content and author"],
@@ -43,6 +47,39 @@ function slugFromTitle(title: string) {
   return title.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 120);
 }
 
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The copied image could not be read."));
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("The copied image could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function optimisePastedCover(file: File) {
+  if (file.size > MAX_PASTED_COVER_BYTES) throw new Error("Choose an image smaller than 8 MB.");
+
+  if (typeof createImageBitmap !== "function") return readImageAsDataUrl(file);
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 1600 / bitmap.width, 900 / bitmap.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    for (const quality of [0.86, 0.74, 0.62]) {
+      const dataUrl = canvas.toDataURL("image/webp", quality);
+      if (dataUrl.length <= MAX_PASTED_COVER_DATA_URL_LENGTH) return dataUrl;
+    }
+  } finally {
+    bitmap.close();
+  }
+
+  throw new Error("The copied image is too large after compression. Use an image up to 1600×900 pixels.");
+}
+
 function Toggle({ label, checked, onChange, description }: { label: string; checked: boolean; onChange: (value: boolean) => void; description?: string }) {
   return <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-300"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-1 h-4 w-4" /><span><span className="block text-sm font-semibold text-slate-900">{label}</span>{description ? <span className="mt-1 block text-xs leading-5 text-slate-600">{description}</span> : null}</span></label>;
 }
@@ -62,18 +99,24 @@ export function CmsCourseCreationWizard({
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const stepWindowRef = useRef<HTMLDivElement>(null);
+  const [isStepWindowOpen, setStepWindowOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [course, setCourse] = useState<CreatedCourse | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityIssue[] | null>(null);
+  const [hasFinalized, setHasFinalized] = useState(false);
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
+  const [title, setTitleState] = useState("");
+  const [slug, setSlugState] = useState("");
+  const [slugIsManuallyEdited, setSlugIsManuallyEdited] = useState(false);
+  const slugInputRef = useRef(false);
   const [shortDescription, setShortDescription] = useState("");
   const [fullDescription, setFullDescription] = useState("");
-  const [coverImage, setCoverImage] = useState("");
+  const [coverImage, setCoverImageValue] = useState("");
+  const [pastedCoverImage, setPastedCoverImage] = useState<string | null>(null);
   const [language, setLanguage] = useState("en");
   const [authorId, setAuthorId] = useState("");
   const [levelCode, setLevelCode] = useState(levels.some((item) => item.code === initialLevelCode) ? initialLevelCode! : levels[0]?.code ?? "A1");
@@ -87,7 +130,7 @@ export function CmsCourseCreationWizard({
   const [priceAmount, setPriceAmount] = useState("");
   const [priceCurrency, setPriceCurrency] = useState("USD");
   const [firstFreeLessonCount, setFirstFreeLessonCount] = useState(0);
-  const [display, setDisplay] = useState({ catalog: true, search: true, homepage: false, recommendations: false, levelBlock: true, academy: true, studentDashboard: true });
+  const [display, setDisplay] = useState({ catalog: true, search: true, homepage: true, recommendations: false, levelBlock: true, academy: true, studentDashboard: true });
   const [publication, setPublication] = useState<"DRAFT" | "REVIEW" | "PUBLISH" | "SCHEDULE">("DRAFT");
   const [scheduledAt, setScheduledAt] = useState("");
   const [newNodeType, setNewNodeType] = useState<"TOPIC" | "SUBTOPIC" | null>(null);
@@ -104,12 +147,68 @@ export function CmsCourseCreationWizard({
     setLevelCode(nextLevelCode); setSectionId(""); setTopicId(""); setSubtopicId("");
   }
 
+  function setTitle(nextTitle: string) {
+    setTitleState(nextTitle);
+    if (!slugIsManuallyEdited) setSlugState(slugFromTitle(nextTitle));
+  }
+
+  function setSlug(nextSlug: string) {
+    const normalizedSlug = slugFromTitle(nextSlug);
+    setSlugState(normalizedSlug);
+    if (slugInputRef.current) setSlugIsManuallyEdited(normalizedSlug.length > 0);
+  }
+
+  function setCoverImage(nextCoverImage: string) {
+    setPastedCoverImage(null);
+    setCoverImageValue(nextCoverImage);
+  }
+
+  function trackCourseInput(event: FormEvent<HTMLElement>) {
+    slugInputRef.current = event.target instanceof HTMLInputElement && event.target.placeholder === "present-simple-essentials";
+  }
+
+  async function handleCoverPaste(event: ClipboardEvent<HTMLElement>) {
+    if (!isStepWindowOpen || step !== 0) return;
+
+    const imageItem = Array.from(event.clipboardData.items).find((item) => item.type.startsWith("image/"));
+    if (imageItem) {
+      event.preventDefault();
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      try {
+        const pastedImage = await optimisePastedCover(file);
+        setPastedCoverImage(pastedImage);
+        setMessage({ text: "Cover image pasted and ready to save with the course." });
+      } catch (error) {
+        setMessage({ text: error instanceof Error ? error.message : "Unable to use the copied image.", error: true });
+      }
+      return;
+    }
+
+    const copiedHtml = event.clipboardData.getData("text/html");
+    if (!copiedHtml) return;
+    const source = new DOMParser().parseFromString(copiedHtml, "text/html").querySelector("img")?.getAttribute("src");
+    if (source && /^https?:\/\//i.test(source)) {
+      event.preventDefault();
+      setCoverImage(source);
+      setMessage({ text: "Cover image link pasted and ready to save with the course." });
+    }
+  }
+
+  function openStep(index: number) {
+    setStep(index);
+    setStepWindowOpen(true);
+    window.requestAnimationFrame(() => {
+      stepWindowRef.current?.focus({ preventScroll: true });
+    });
+  }
+
   function basePayload() {
     const paidAmount = priceAmount.trim() ? Math.round(Number(priceAmount) * 100) : undefined;
     return {
       title: title.trim(), slug: slug.trim() || undefined, shortDescription: shortDescription.trim(), fullDescription: fullDescription.trim() || undefined,
-      coverImage: coverImage.trim() || undefined, language: language.trim() || "en", levelCode, categorySlug, instructorId: authorId || undefined,
-      estimatedDuration: 0, difficulty: undefined, isPublished: false, isFeatured: display.recommendations,
+      coverImage: (pastedCoverImage ?? coverImage).trim() || undefined, language: language.trim() || "en", levelCode, categorySlug, instructorId: authorId || undefined,
+      estimatedDuration: 0, difficulty: undefined, isFeatured: display.recommendations,
       courseType, accessMode, accessPlan: accessMode === "SUBSCRIPTION" ? accessPlan : "FREE", priceAmount: accessMode === "ONE_TIME_PURCHASE" ? paidAmount : undefined,
       priceCurrency, firstFreeLessonCount, learningOutcomes: [], prerequisites: [],
       isVisibleInCatalog: display.catalog, isVisibleInSearch: display.search, isVisibleOnHomepage: display.homepage,
@@ -136,7 +235,7 @@ export function CmsCourseCreationWizard({
       await savePlacement(course.id);
       return course;
     }
-    const created = await request<CreatedCourse>("/api/admin/courses", "POST", basePayload());
+    const created = await request<CreatedCourse>("/api/admin/courses", "POST", { ...basePayload(), isPublished: false });
     setCourse(created);
     await savePlacement(created.id);
     return created;
@@ -222,6 +321,7 @@ export function CmsCourseCreationWizard({
           if (action === "SCHEDULE" && !scheduledAt) throw new Error("Choose a future publication date and time.");
           await request(`/api/admin/cms/content/COURSE/${current.id}`, "PATCH", { action, ...(action === "SCHEDULE" ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}) });
         }
+        setHasFinalized(true);
         setMessage({ text: action === "DRAFT" ? "Draft saved. You can return to it from Courses." : action === "REVIEW" ? "Course sent to review." : action === "PUBLISH" ? "Course published." : "Course publication scheduled." });
         router.refresh();
       } catch (error) { setMessage({ text: error instanceof Error ? error.message : "Unable to update publication status.", error: true }); }
@@ -230,9 +330,31 @@ export function CmsCourseCreationWizard({
 
   const exerciseBlocks = blocks.filter((block) => block.type === "EXERCISE");
   const courseEditorHref = course ? `/cms/courses/${course.id}` : "/cms/courses";
+  const hasBasics = title.trim().length >= 2 && shortDescription.trim().length >= 10;
+  const hasValidPrice = accessMode !== "ONE_TIME_PURCHASE" || (priceAmount.trim().length > 0 && Number(priceAmount) >= 0);
+  const stepComplete = [
+    hasBasics,
+    Boolean(course),
+    Boolean(course) && hasValidPrice,
+    modules.length > 0 && lessons.length > 0 && blocks.length > 0,
+    Boolean(course) && Object.values(display).some(Boolean),
+    integrity !== null && integrity.length === 0,
+    hasFinalized,
+  ];
 
-  return <section className="space-y-6">
-    <nav aria-label="Course creation steps" className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-7">{steps.map(([label, detail], index) => <button key={label} type="button" onClick={() => index <= step && setStep(index)} disabled={index > step} aria-current={index === step ? "step" : undefined} className={`rounded-xl px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${index === step ? "bg-blue-700 text-white" : "hover:bg-slate-50"}`}><span className="text-xs font-bold">{index + 1}</span><span className="ml-2 block font-semibold sm:ml-0">{label}</span><span className={`mt-1 block text-xs ${index === step ? "text-blue-100" : "text-slate-500"}`}>{detail}</span></button>)}</nav>
+  return <section ref={stepWindowRef} tabIndex={-1} onChangeCapture={trackCourseInput} onPasteCapture={handleCoverPaste} className={`${styles.wizard} ${isStepWindowOpen ? styles.wizardOpen : styles.wizardClosed} space-y-6`} aria-label={`${steps[step][0]} course creation step`}>
+    {isStepWindowOpen ? <button type="button" onClick={() => setStepWindowOpen(false)} className={styles.closeStepButton} aria-label="Close course step editor">Close</button> : null}
+    {isStepWindowOpen && step === 0 ? <aside className={styles.coverPasteHint} aria-live="polite">{pastedCoverImage || coverImage ? <><img src={pastedCoverImage ?? coverImage} alt="Selected course cover preview" /><span>Cover ready. You can paste another image to replace it.</span></> : "Copy an image and press Ctrl+V anywhere in this window to use it as the course cover."}</aside> : null}
+    <nav aria-label="Course creation steps" className={styles.stepNavigation}>{steps.map(([label, detail], index) => {
+      const completed = stepComplete[index];
+      const current = index === step;
+      return <button key={label} type="button" onClick={() => openStep(index)} aria-current={current ? "step" : undefined} className={`${styles.stepCard} ${current ? styles.stepCurrent : ""} ${completed ? styles.stepComplete : ""}`}>
+        <span className={styles.stepCardTop}><span className={styles.stepNumber}>Step {index + 1}</span><span className={styles.stepState}>{completed ? "Complete" : current ? "Editing" : "Open"}</span></span>
+        <span className={styles.stepLabel}>{label}</span>
+        <span className={styles.stepDescription}>{detail}</span>
+        <span className={styles.stepAction}>{completed ? "Open and edit" : "Open step"} <span aria-hidden="true">→</span></span>
+      </button>;
+    })}</nav>
     {message ? <p role="status" className={`rounded-xl border px-4 py-3 text-sm ${message.error ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{message.text}</p> : null}
 
     {step === 0 ? <section className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-6 md:grid-cols-2"><div className="md:col-span-2"><h2 className="text-xl font-bold text-slate-950">1. Basic course data</h2><p className="mt-1 text-sm text-slate-600">A draft is not created until its classification is selected on the next step.</p></div><label className="md:col-span-2 text-sm font-medium">Course title<input value={title} onChange={(event) => { setTitle(event.target.value); if (!slug) setSlug(slugFromTitle(event.target.value)); }} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="md:col-span-2 text-sm font-medium">Slug<input value={slug} onChange={(event) => setSlug(slugFromTitle(event.target.value))} placeholder="present-simple-essentials" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono" /><span className="mt-1 block text-xs text-slate-500">A unique public URL is generated automatically if this is left empty.</span></label><label className="md:col-span-2 text-sm font-medium">Short description<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} minLength={10} className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="md:col-span-2 text-sm font-medium">Full description<textarea value={fullDescription} onChange={(event) => setFullDescription(event.target.value)} className="mt-1 min-h-36 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium">Cover image URL<input type="url" value={coverImage} onChange={(event) => setCoverImage(event.target.value)} placeholder="https://…" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /><Link href="/cms/media" className="mt-2 inline-block text-xs font-semibold text-blue-700 hover:underline">Open Media Library</Link></label><label className="text-sm font-medium">Content language<select value={language} onChange={(event) => setLanguage(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"><option value="en">English</option><option value="uk">Ukrainian</option><option value="ru">Russian</option><option value="en-GB">English (UK)</option><option value="en-US">English (US)</option></select></label><label className="text-sm font-medium">Course author<select value={authorId} onChange={(event) => setAuthorId(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">Current CMS owner</option>{authors.map((author) => <option key={author.id} value={author.id}>{author.name ?? author.email} · {author.email}</option>)}</select></label><label className="text-sm font-medium">Planned publication status<select value={publication} onChange={(event) => setPublication(event.target.value as typeof publication)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"><option value="DRAFT">Draft</option><option value="PUBLISH">Publish after review</option><option value="SCHEDULE">Schedule after review</option></select></label></section> : null}

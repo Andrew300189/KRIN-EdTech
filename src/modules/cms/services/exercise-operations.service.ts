@@ -4,6 +4,7 @@ import type { UpdateExerciseInput } from "@/modules/courses/schemas/content.sche
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
+import { syncCourseDurationForLessonBlock } from "@/modules/cms/services/course-duration.service";
 import { canonicalExerciseAnswer } from "@/modules/courses/utils/exercise-evaluation";
 
 type ExerciseForOrder = { id: string; order: number };
@@ -103,6 +104,7 @@ export async function updateCmsExercise(actorId: string, exerciseId: string, inp
   });
   await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: updated.id, action: "UPDATED", snapshot: updated });
   await prisma.contentAuditLog.create({ data: { actorId, action: "CMS_EXERCISE_UPDATED", entityType: "Exercise", entityId: updated.id } });
+  await syncCourseDurationForLessonBlock(updated.lessonBlockId);
   return updated;
 }
 
@@ -171,13 +173,15 @@ export async function duplicateCmsExercise(actorId: string, exerciseId: string, 
   if (!source) throw new Error("Exercise not found.");
   const targetLesson = await prisma.lesson.findUnique({ where: { id: targetLessonId }, select: { id: true } });
   if (!targetLesson) throw new Error("Target lesson not found.");
-  return prisma.$transaction(async (tx) => {
+  const copied = await prisma.$transaction(async (tx) => {
     const block = await getOrCreateExerciseBlock(tx, targetLesson.id);
     const copied = await tx.exercise.create({ data: await copiedExerciseData(source, block.id, await nextExerciseOrder(tx, block.id), previousVersionId) });
     await tx.cmsContentVersion.create({ data: { entityType: "EXERCISE", entityId: copied.id, version: 1, action: previousVersionId ? "DUPLICATED" : "DUPLICATED", snapshot: { sourceExerciseId: source.id, targetLessonId, previousVersionId }, actorId } });
     await tx.contentAuditLog.create({ data: { actorId, action: previousVersionId ? "CMS_EXERCISE_NEW_VERSION_CREATED" : "CMS_EXERCISE_DUPLICATED", entityType: "Exercise", entityId: copied.id, metadata: { sourceExerciseId: source.id, targetLessonId, previousVersionId } } });
     return copied;
   });
+  await syncCourseDurationForLessonBlock(copied.lessonBlockId);
+  return copied;
 }
 
 /** A successor starts as a draft, keeping source analytics tied to its original ID. */
@@ -197,6 +201,7 @@ export async function moveCmsExercise(actorId: string, exerciseId: string, targe
     await prisma.exercise.update({ where: { id: exerciseId }, data: { contentStatus: "ARCHIVED", archivedAt: new Date() } });
     await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: exerciseId, action: "ARCHIVED", snapshot: { movedToLessonId: targetLessonId, replacementExerciseId: replacement.id } });
     await prisma.contentAuditLog.create({ data: { actorId, action: "CMS_EXERCISE_MOVED_AS_VERSION", entityType: "Exercise", entityId: exerciseId, metadata: { targetLessonId, replacementExerciseId: replacement.id } } });
+    await syncCourseDurationForLessonBlock(source.lessonBlockId);
     return { ...replacement, movedAsVersion: true };
   }
   const targetLesson = await prisma.lesson.findUnique({ where: { id: targetLessonId }, select: { id: true } });
@@ -207,6 +212,7 @@ export async function moveCmsExercise(actorId: string, exerciseId: string, targe
   });
   await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: moved.id, action: "UPDATED", snapshot: { ...moved, movedToLessonId: targetLessonId } });
   await prisma.contentAuditLog.create({ data: { actorId, action: "CMS_EXERCISE_MOVED", entityType: "Exercise", entityId: moved.id, metadata: { targetLessonId } } });
+  await Promise.all([syncCourseDurationForLessonBlock(source.lessonBlockId), syncCourseDurationForLessonBlock(moved.lessonBlockId)]);
   return moved;
 }
 
@@ -252,7 +258,7 @@ export async function createCmsExerciseFromTemplate(actorId: string, templateId:
   if (issues.length) throw new Error(issues.join(" "));
   const targetLesson = await prisma.lesson.findUnique({ where: { id: targetLessonId }, select: { id: true } });
   if (!targetLesson) throw new Error("Target lesson not found.");
-  return prisma.$transaction(async (tx) => {
+  const exercise = await prisma.$transaction(async (tx) => {
     const block = await getOrCreateExerciseBlock(tx, targetLesson.id);
     const exercise = await tx.exercise.create({
       data: {
@@ -282,6 +288,8 @@ export async function createCmsExerciseFromTemplate(actorId: string, templateId:
     await tx.contentAuditLog.create({ data: { actorId, action: "CMS_EXERCISE_CREATED_FROM_TEMPLATE", entityType: "Exercise", entityId: exercise.id, metadata: { templateId, targetLessonId } } });
     return exercise;
   });
+  await syncCourseDurationForLessonBlock(exercise.lessonBlockId);
+  return exercise;
 }
 
 export async function bulkUpdateCmsExercises(actorId: string, exerciseIds: string[], input: { basePoints?: number; hintsEnabled?: boolean }) {
@@ -299,6 +307,7 @@ export async function bulkUpdateCmsExercises(actorId: string, exerciseIds: strin
     }
     await tx.contentAuditLog.create({ data: { actorId, action: "CMS_EXERCISES_BULK_UPDATED", entityType: "Exercise", entityId: exerciseIds[0], metadata: { exerciseIds, ...input } } });
   });
+  await Promise.all([...new Set(exercises.map((exercise) => exercise.lessonBlockId))].map((lessonBlockId) => syncCourseDurationForLessonBlock(lessonBlockId)));
 }
 
 export async function getCmsExerciseAnalytics(exerciseId: string) {

@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
+import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
+import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { SearchContext } from "@/modules/search/types";
 import styles from "./WorkspaceShell.module.css";
 
 type WorkspaceNavigationItem = {
   href: string;
   label: string;
+  notificationSection?: NotificationBadgeSection;
 };
 
 type WorkspaceShellProps = {
@@ -59,8 +62,20 @@ export function WorkspaceShell({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [navigationBadges, setNavigationBadges] = useState<Partial<Record<NotificationBadgeSection, boolean>>>({});
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+
+  const loadNavigationBadges = useCallback(async () => {
+    try {
+      const response = await fetch("/api/notifications/badges", { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as { badges?: Partial<Record<NotificationBadgeSection, number>> } | null;
+      if (!response.ok || !payload?.badges) return;
+      setNavigationBadges(Object.fromEntries(Object.entries(payload.badges).map(([section, count]) => [section, Boolean(count)])) as Partial<Record<NotificationBadgeSection, boolean>>);
+    } catch {
+      // Badges are a convenience indicator; navigation remains available.
+    }
+  }, []);
 
   const closeMenu = (restoreFocus = false) => {
     setMenuOpen(false);
@@ -101,10 +116,26 @@ export function WorkspaceShell({
     }
   };
 
-  const isActive = (href: string) => {
+  const isActive = useCallback((href: string) => {
     if (href === "/student" || href === "/teacher") return pathname === href;
     return pathname === href || pathname.startsWith(`${href}/`);
-  };
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navigation.some((item) => item.notificationSection)) return;
+    void loadNavigationBadges();
+    const timer = window.setInterval(() => void loadNavigationBadges(), 60_000);
+    window.addEventListener("focus", loadNavigationBadges);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", loadNavigationBadges); };
+  }, [loadNavigationBadges, navigation]);
+
+  useEffect(() => {
+    const section = navigation.find((item) => item.notificationSection && isActive(item.href))?.notificationSection;
+    if (!section) return;
+    void fetch("/api/notifications/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section }) })
+      .then((response) => { if (response.ok) setNavigationBadges((current) => ({ ...current, [section]: false })); })
+      .catch(() => undefined);
+  }, [isActive, navigation, pathname]);
 
   const sidebar = (isMobileDrawer = false) => (
     <aside
@@ -148,7 +179,8 @@ export function WorkspaceShell({
               aria-current={active ? "page" : undefined}
               className={`${styles.navigationLink} ${active ? styles.navigationLinkActive : ""}`}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.notificationSection && navigationBadges[item.notificationSection] ? <span className={styles.navigationBadge} role="img" aria-label="New updates" /> : null}
             </Link>
           );
         })}
@@ -165,6 +197,7 @@ export function WorkspaceShell({
 
   return (
     <div className={styles.workspace}>
+      <PresenceHeartbeat />
       <div className={styles.desktopSidebar}>{sidebar()}</div>
 
       {menuOpen ? (

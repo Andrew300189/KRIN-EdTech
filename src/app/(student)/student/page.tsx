@@ -2,19 +2,33 @@ import Link from "next/link";
 import { requireRole } from "@/core/server/role-guard";
 import { prisma } from "@/core/server/prisma";
 import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBanner";
-import { CmsStudentCourseRecommendations } from "@/modules/cms/components/CmsStudentCourseRecommendations";
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
 import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
 import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
+import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import styles from "./StudentHome.module.css";
 
 function courseHref(slug: string) {
   return `/student/courses/${slug}`;
 }
 
-export default async function StudentHomePage() {
+function formatPlan(plan: string) {
+  return plan.charAt(0) + plan.slice(1).toLowerCase();
+}
+
+function formatAccessDate(value: Date | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(value);
+}
+
+export default async function StudentHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ firstVisit?: string }>;
+}) {
   const guard = await requireRole(["student"]);
   if (!guard.ok) return null;
+  const isFirstVisit = (await searchParams).firstVisit === "1";
 
   const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes] = await Promise.all([
     listLearnerCourses(guard.user.id),
@@ -25,7 +39,7 @@ export default async function StudentHomePage() {
     prisma.userMistake.findMany({
       where: { userId: guard.user.id, resolvedAt: null },
       orderBy: { lastOccurredAt: "desc" },
-      take: 3,
+      take: 2,
       select: {
         id: true,
         occurrenceCount: true,
@@ -46,71 +60,78 @@ export default async function StudentHomePage() {
   const dailyGoal = motivation.dailyGoalMinutes;
   const dailyProgress = Math.min(100, Math.round((completedMinutes / dailyGoal) * 100));
   const nextLessonLabel = next?.nextLesson?.title ?? "Choose a course to build your plan";
+  const activePaidPlan = guard.user.subscriptionPlan !== "FREE" && !["NONE", "CANCELED", "EXPIRED"].includes(guard.user.subscriptionStatus);
+  const billingDate = formatAccessDate(guard.user.subscriptionCurrentPeriodEnd);
+  const billingLabel = activePaidPlan ? `${formatPlan(guard.user.subscriptionPlan)} access` : "Free plan";
+  const billingDetail = activePaidPlan
+    ? billingDate ? `Access available until ${billingDate}` : "Your access is active"
+    : "Upgrade whenever you need more access";
 
   return (
     <section className={styles.page}>
-      <CmsManagedSlotBanner slot={managedSlot} />
-
+      <FirstVisitQueryCleaner active={isFirstVisit} />
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Your learning space</p>
-        <h2>Welcome back, {name}</h2>
-        <p>Take one clear next step. Your progress, study pace and review work stay in one place.</p>
+        <div>
+          <p className={styles.eyebrow}>Your learning space</p>
+          <h2>{isFirstVisit ? "Welcome" : "Welcome back"}, {name}</h2>
+          <p>One focused lesson is enough for today. Your next step is ready below.</p>
+        </div>
         <div className={styles.heroActions}>
-          <Link href={next ? courseHref(next.slug) : "/student/catalog"} className={styles.primaryAction}>
-            {next ? "Continue learning" : "Choose a course"}
-          </Link>
-          <Link href="/profile/support" className={styles.secondaryAction}>Get support</Link>
+          <Link href={next ? courseHref(next.slug) : "/student/catalog"} className={styles.primaryAction}>{next ? "Continue learning" : "Choose a course"}</Link>
+          <Link href="/profile/support" className={styles.secondaryAction}>Help</Link>
         </div>
       </header>
 
+      <CmsManagedSlotBanner slot={managedSlot} variant="compact" />
+
       <section className={styles.overviewGrid} aria-label="Learning overview">
-        <article className={styles.statCard}><p>Current course</p><h3>{next?.title ?? "No course selected"}</h3><span>{next?.level ?? "Start when you are ready"}</span></article>
-        <article className={styles.statCard}><p>Next lesson</p><h3>{nextLessonLabel}</h3><span>{next?.nextLesson ? "Open your course when you are ready." : "A practical next step will appear here."}</span></article>
-        <article className={styles.statCard}><p>Overall progress</p><strong>{overallProgress}%</strong><span>{completedLessons} of {totalLessons} lessons completed</span></article>
-        <article className={styles.statCard}><p>Today&apos;s study time</p><strong>{completedMinutes}/{dailyGoal} min</strong><span>A missed day never removes what you have learned.</span></article>
+        <article className={styles.statCard}><p>Current course</p><h3>{next?.title ?? "No course selected"}</h3><span>{next?.level ?? "Choose a level when ready"}</span></article>
+        <article className={styles.statCard}><p>Overall progress</p><strong>{overallProgress}%</strong><span>{completedLessons} of {totalLessons} lessons</span></article>
+        <article className={styles.statCard}><p>Today&apos;s pace</p><strong>{completedMinutes}/{dailyGoal} min</strong><span>{dailyProgress}% of your goal</span></article>
+        <article className={styles.statCard}><p>Review queue</p><strong>{reviewCount}</strong><span>{reviewCount === 1 ? "word ready to review" : "words ready to review"}</span></article>
       </section>
 
-      <section className={styles.planGrid} aria-label="Your next learning step">
-        <article className={styles.card}>
+      <section className={styles.dashboardGrid} aria-label="Your next learning step">
+        <article className={`${styles.panel} ${styles.focusPanel}`}>
           <div className={styles.cardHeading}>
-            <div><p className={styles.eyebrow}>Your plan</p><h3>{next?.title ?? "Build a learning plan"}</h3></div>
+            <div><p className={styles.eyebrow}>Up next</p><h3>{nextLessonLabel}</h3></div>
             {next ? <span className={styles.statusTag}>{next.progress}% complete</span> : null}
           </div>
           {next ? (
             <>
-              <p className={styles.cardText}>Next: <strong>{nextLessonLabel}</strong></p>
-              <p className={styles.helperText}>Recommended pace: one focused lesson at a time. Adjust your daily goal whenever it stops fitting your schedule.</p>
+              <p className={styles.cardText}>Continue <strong>{next.title}</strong> at a pace that works for you.</p>
               <progress className={styles.nativeProgress} value={next.progress} max="100">{next.progress}%</progress>
-              <div className={styles.cardActions}>
-                <Link href={courseHref(next.slug)} className={styles.primaryAction}>Continue this course</Link>
-                <Link href="/profile/settings/motivation" className={styles.secondaryAction}>Adjust study pace</Link>
+              <div className={styles.focusFooter}>
+                <div className={styles.quickLinks}>
+                  <Link href="/student/vocabulary">{reviewCount ? `${reviewCount} words to review` : "Vocabulary review"}</Link>
+                  <Link href="/student/homework">{assignmentCount ? `${assignmentCount} homework items` : "Homework"}</Link>
+                  <Link href="/profile/settings/motivation">Study pace</Link>
+                </div>
+                <Link href={courseHref(next.slug)} className={styles.primaryAction}>Start lesson</Link>
               </div>
             </>
           ) : (
             <>
-              <p className={styles.cardText}>Choose a published course to get a simple next-lesson plan here. You can try a free lesson before paying.</p>
+              <p className={styles.cardText}>Choose a published course to get a simple next-lesson plan. You can try a free lesson before paying.</p>
               <Link href="/student/catalog" className={`${styles.primaryAction} ${styles.inlineAction}`}>Browse courses</Link>
             </>
           )}
         </article>
 
-        <article className={styles.card}>
-          <p className={styles.eyebrow}>Daily goal</p>
-          <h3>A sustainable pace</h3>
-          <p className={styles.cardText}>{guard.user.learningGoal ? `Goal: ${guard.user.learningGoal}.` : "Set a goal in your settings when you are ready."}</p>
-          <div className={styles.progressTrack} aria-label={`${dailyProgress}% of today's study goal complete`}><div className={styles.progressFill} style={{ width: `${dailyProgress}%` }} /></div>
-          <p className={styles.helperText}>{completedMinutes} of {dailyGoal} minutes completed today</p>
-          <p className={styles.helperText}>Current streak: {motivation.streak.currentStreak} day{motivation.streak.currentStreak === 1 ? "" : "s"}. Streaks are a record, not a penalty.</p>
-        </article>
-      </section>
+        <div className={styles.sideStack}>
+          <article className={styles.panel}>
+            <div className={styles.cardHeading}><div><p className={styles.eyebrow}>Billing</p><h3>{billingLabel}</h3></div><span className={`${styles.billingStatus} ${activePaidPlan ? styles.billingStatusActive : ""}`}>{activePaidPlan ? "Active" : "Free"}</span></div>
+            <p className={styles.helperText}>{billingDetail}</p>
+            <Link href="/student/billing" className={styles.textLink}>Manage billing</Link>
+          </article>
 
-      <section className={styles.supportGrid} aria-label="Review and support">
-        <article className={styles.card}><h3>Review next</h3><p className={styles.cardText}>{reviewCount ? `${reviewCount} word${reviewCount === 1 ? "" : "s"} are ready for spaced review.` : "No vocabulary review is due right now."}</p><Link href="/student/vocabulary" className={styles.textLink}>Open vocabulary review</Link></article>
-        <article className={styles.card}><h3>Recent mistakes</h3>{recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? "Practice item"}</strong><span>{mistake.explanation ?? `Review this item (${mistake.occurrenceCount} attempt${mistake.occurrenceCount === 1 ? "" : "s"}).`}</span></li>)}</ul> : <p className={styles.cardText}>No unresolved mistakes. Keep learning at a pace that works for you.</p>}<Link href="/student/mistakes" className={styles.textLink}>Review mistakes</Link></article>
-        <article className={styles.card}><h3>Need help?</h3><p className={styles.cardText}>Ask for help with access, a lesson or payment without leaving your learning plan.</p><p className={styles.helperText}>{assignmentCount ? `${assignmentCount} assignment${assignmentCount === 1 ? "" : "s"} still need attention.` : "No homework is waiting."}</p><Link href="/profile/support" className={styles.textLink}>Contact support</Link></article>
+          <article className={`${styles.panel} ${styles.mistakesPanel}`}>
+            <div className={styles.cardHeading}><div><p className={styles.eyebrow}>My mistakes</p><h3>{recentMistakes.length ? "Review and improve" : "You are all caught up"}</h3></div><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
+            {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? "Practice item"}</strong><span>{mistake.explanation ?? `Review after ${mistake.occurrenceCount} attempt${mistake.occurrenceCount === 1 ? "" : "s"}.`}</span></li>)}</ul> : <p className={styles.helperText}>New mistakes will appear here with their explanations.</p>}
+            <Link href="/student/mistakes" className={styles.textLink}>Open mistakes</Link>
+          </article>
+        </div>
       </section>
-
-      <CmsStudentCourseRecommendations />
     </section>
   );
 }

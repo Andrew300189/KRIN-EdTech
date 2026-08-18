@@ -17,7 +17,10 @@ function normalizeText(value: string, options: JsonRecord) {
 
 export function canonicalExerciseAnswer(value: unknown, options: JsonRecord = {}): string {
   if (typeof value === "string") return normalizeText(value, options);
-  if (Array.isArray(value)) return JSON.stringify(value.map((item) => canonicalExerciseAnswer(item, options)).sort());
+  if (Array.isArray(value)) {
+    const values = value.map((item) => canonicalExerciseAnswer(item, options));
+    return JSON.stringify(options.preserveOrder === true ? values : values.sort());
+  }
   if (value && typeof value === "object") {
     return JSON.stringify(
       Object.entries(value as JsonRecord)

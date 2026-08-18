@@ -8,20 +8,17 @@ import { WorkspaceShell } from "@/modules/teaching/components/WorkspaceShell";
 
 const navigation = [
   { href: "/student", label: "Home" },
-  { href: "/student/courses", label: "My courses" },
+  { href: "/student/courses", label: "My courses", notificationSection: "courses" as const },
+  { href: "/student/vocabulary", label: "Vocabulary", notificationSection: "vocabulary" as const },
   { href: "/student/catalog", label: "Catalog" },
-  { href: "/student/levels", label: "Levels A1–C2" },
   { href: "/student/search", label: "Search" },
-  { href: "/student/academies", label: "Academies" },
   { href: "/student/homework", label: "Homework" },
   { href: "/student/progress", label: "Progress" },
-  { href: "/student/vocabulary", label: "Vocabulary" },
   { href: "/student/mistakes", label: "My mistakes" },
-  { href: "/student/achievements", label: "Achievements" },
-  { href: "/student/notifications", label: "Notifications" },
-  { href: "/student/billing", label: "Billing" },
-  { href: "/student/support", label: "Support" },
-  { href: "/student/settings", label: "Settings" },
+  { href: "/student/achievements", label: "Achievements", notificationSection: "achievements" as const },
+  { href: "/student/billing", label: "Billing", notificationSection: "billing" as const },
+  { href: "/student/support", label: "Support", notificationSection: "support" as const },
+  { href: "/student/settings", label: "Settings", notificationSection: "settings" as const },
 ];
 
 export default async function StudentLayout({

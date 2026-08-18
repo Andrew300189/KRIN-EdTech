@@ -16,6 +16,9 @@ export type LessonExercise = {
   solutionCost: number;
   allowInstantCheck: boolean;
   allowExtraExercise: boolean;
+  /** Present only in the protected CMS preview. Never selected for public lessons. */
+  correctAnswer?: unknown;
+  alternativeAnswers?: unknown;
 };
 
 export type LessonBlock = {

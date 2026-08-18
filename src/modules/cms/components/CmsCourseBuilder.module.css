@@ -1,0 +1,55 @@
+.workspace, .wizard { display: grid; gap: var(--space-4); align-content: start; color: var(--text-primary); }
+.wizard { width: min(100%, 70rem); outline: none; }
+.wizardClosed > :global(section), .wizardClosed > :global(footer) { display: none; }
+.wizardOpen::before { position: fixed; z-index: 60; inset: 0; content: ""; background: color-mix(in srgb, #08152b 68%, transparent); pointer-events: none; }
+.wizardOpen > :global(section) { position: fixed; z-index: 61; top: 5.25rem; left: 50%; width: min(calc(100vw - 2rem), 58rem); max-height: calc(100dvh - 9.75rem); overflow-y: auto; transform: translateX(-50%); box-shadow: var(--shadow-lg, 0 24px 52px rgb(0 0 0 / 0.24)); }
+.wizardOpen > :global(footer) { position: fixed; z-index: 62; bottom: 0.85rem; left: 50%; width: min(calc(100vw - 2rem), 58rem); margin: 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-lg, 0 24px 52px rgb(0 0 0 / 0.24)); transform: translateX(-50%); }
+.closeStepButton { position: fixed; z-index: 63; top: 5.8rem; right: max(1.45rem, calc((100vw - 58rem) / 2 + 0.8rem)); min-height: 2.25rem; padding: 0.4rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-elevated); color: var(--text-primary); font-size: 0.8rem; font-weight: 800; box-shadow: var(--shadow-sm); }
+.closeStepButton:hover { border-color: var(--primary); color: var(--primary); }
+.coverPasteHint { position: fixed; z-index: 63; right: max(1.45rem, calc((100vw - 58rem) / 2 + 0.8rem)); bottom: 4.7rem; display: flex; align-items: center; gap: 0.55rem; max-width: 19rem; margin: 0; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-elevated); color: var(--text-secondary); font-size: 0.72rem; line-height: 1.4; box-shadow: var(--shadow-sm); }
+.coverPasteHint img { width: 3rem; height: 2.25rem; flex: 0 0 auto; border-radius: 0.35rem; object-fit: cover; }
+.wizardOpen > :global(p[role="status"]) { position: fixed; z-index: 64; top: 5.8rem; left: 50%; width: min(calc(100vw - 8rem), 34rem); margin: 0; transform: translateX(-50%); box-shadow: var(--shadow-md); }
+.workspace > :global(header) { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-4); padding: clamp(1rem, 2.5vw, 1.35rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.workspace > :global(header h1) { color: var(--text-primary) !important; font-size: clamp(1.6rem, 3vw, 2rem); letter-spacing: -0.04em; }
+.workspace > :global(header p) { color: var(--text-secondary) !important; line-height: 1.5; }
+.workspace :global(.rounded-2xl), .workspace :global(.rounded-xl), .wizard :global(.rounded-2xl), .wizard :global(.rounded-xl) { border-color: var(--border) !important; border-radius: var(--radius-xl) !important; background: var(--surface-elevated) !important; box-shadow: var(--shadow-sm); }
+.workspace :global(.rounded-lg), .wizard :global(.rounded-lg) { border-radius: var(--radius-md) !important; }
+.workspace :global(.border-slate-100), .workspace :global(.border-slate-200), .workspace :global(.border-slate-300), .wizard :global(.border-slate-100), .wizard :global(.border-slate-200), .wizard :global(.border-slate-300) { border-color: var(--border) !important; }
+.workspace :global(.bg-white), .wizard :global(.bg-white) { background: var(--surface-elevated) !important; }
+.workspace :global(.bg-slate-50), .workspace :global(.bg-slate-100), .wizard :global(.bg-slate-50), .wizard :global(.bg-slate-100) { background: var(--surface-secondary) !important; }
+.workspace :global(.text-slate-950), .workspace :global(.text-slate-900), .workspace :global(.text-slate-800), .workspace :global(.text-slate-700), .wizard :global(.text-slate-950), .wizard :global(.text-slate-900), .wizard :global(.text-slate-800), .wizard :global(.text-slate-700) { color: var(--text-primary) !important; }
+.workspace :global(.text-slate-600), .workspace :global(.text-slate-500), .workspace :global(.text-slate-400), .wizard :global(.text-slate-600), .wizard :global(.text-slate-500) { color: var(--text-secondary) !important; }
+.workspace :global(.text-blue-700), .workspace :global(.text-blue-800), .wizard :global(.text-blue-700), .wizard :global(.text-blue-800) { color: var(--primary) !important; }
+.workspace :global(.bg-blue-700), .wizard :global(.bg-blue-700) { border-color: var(--primary) !important; background: var(--primary) !important; }
+.workspace :global(.bg-blue-50), .wizard :global(.bg-blue-50) { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)) !important; background: color-mix(in srgb, var(--primary) 12%, var(--surface-elevated)) !important; }
+.workspace :global(.border-blue-200), .workspace :global(.border-blue-300), .workspace :global(.border-blue-600), .workspace :global(.border-blue-700), .wizard :global(.border-blue-200), .wizard :global(.border-blue-300), .wizard :global(.border-blue-600), .wizard :global(.border-blue-700) { border-color: var(--primary) !important; }
+.workspace :global(input:not([type="checkbox"]):not([type="radio"])), .workspace :global(select), .workspace :global(textarea), .wizard :global(input:not([type="checkbox"]):not([type="radio"])), .wizard :global(select), .wizard :global(textarea) { min-height: 2.55rem; border-color: var(--border) !important; border-radius: var(--radius-md) !important; background: var(--surface) !important; color: var(--text-primary) !important; box-shadow: none !important; }
+.workspace :global(textarea), .wizard :global(textarea) { min-height: 5.5rem; }
+.workspace :global(input[type="checkbox"]), .workspace :global(input[type="radio"]), .wizard :global(input[type="checkbox"]), .wizard :global(input[type="radio"]) { accent-color: var(--primary); }
+.workspace :global(input:focus-visible), .workspace :global(select:focus-visible), .workspace :global(textarea:focus-visible), .workspace :global(button:focus-visible), .workspace :global(a:focus-visible), .wizard :global(input:focus-visible), .wizard :global(select:focus-visible), .wizard :global(textarea:focus-visible), .wizard :global(button:focus-visible), .wizard :global(a:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.workspace :global(table) { overflow: hidden; border-collapse: separate; border-spacing: 0; }
+.workspace :global(thead) { background: var(--surface-secondary) !important; color: var(--text-muted) !important; }
+.workspace :global(tbody tr:hover) { background: var(--surface-secondary); }
+.stepNavigation { position: static; z-index: 10; display: grid; width: 100%; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.7rem; }
+.stepCard { display: grid; min-width: 0; min-height: 11.35rem; align-content: start; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); color: var(--text-primary); padding: 0.85rem; text-align: left; box-shadow: var(--shadow-sm); cursor: pointer; }
+.stepCard:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface-elevated)); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.stepCardTop { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 0.35rem; }
+.stepNumber, .stepState { font-size: 0.66rem; font-weight: 850; letter-spacing: 0.075em; line-height: 1.2; text-transform: uppercase; }
+.stepNumber { color: var(--text-secondary); }
+.stepState { max-width: 100%; overflow-wrap: anywhere; border-radius: 999px; background: var(--surface-secondary); color: var(--text-secondary); padding: 0.22rem 0.38rem; letter-spacing: 0.035em; }
+.stepLabel { overflow-wrap: anywhere; color: var(--text-primary); font-size: 0.95rem; font-weight: 850; line-height: 1.2; }
+.stepDescription { overflow-wrap: anywhere; color: var(--text-secondary); font-size: 0.74rem; line-height: 1.45; }
+.stepAction { margin-top: auto; color: var(--primary); font-size: 0.72rem; font-weight: 800; line-height: 1.25; }
+.stepComplete { border-color: color-mix(in srgb, #1e9a63 58%, var(--border)); background: color-mix(in srgb, #1e9a63 10%, var(--surface-elevated)); }
+.stepComplete .stepState { background: color-mix(in srgb, #1e9a63 16%, var(--surface-elevated)); color: #137848; }
+.stepComplete .stepAction { color: #137848; }
+.stepCurrent { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-elevated)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent), var(--shadow-md); }
+.stepCurrent .stepNumber, .stepCurrent .stepDescription { color: color-mix(in srgb, var(--primary) 80%, var(--text-secondary)); }
+.stepCurrent .stepState { background: var(--primary); color: var(--primary-contrast); }
+.stepCurrent .stepAction { color: var(--primary); }
+.wizard :global(label) { color: var(--text-primary); }
+@media (max-width: 1150px) { .stepNavigation { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .stepNavigation { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stepCard { min-height: 10rem; } .wizardOpen > :global(section) { top: 1rem; max-height: calc(100dvh - 5.75rem); } .wizardOpen > :global(footer) { bottom: 0.5rem; } .closeStepButton { top: 1.45rem; right: 1.5rem; } .coverPasteHint { right: 0.75rem; bottom: 4.4rem; max-width: 14rem; } .wizardOpen > :global(p[role="status"]) { top: 4.5rem; width: min(calc(100vw - 2rem), 26rem); } }
+@media (max-width: 430px) { .stepNavigation { grid-template-columns: 1fr; } .stepCard { min-height: 0; } }
+@media (max-width: 640px) { .workspace > :global(header) { align-items: stretch; padding: 1rem; } .workspace > :global(header > a) { width: 100%; } .workspace :global(.overflow-x-auto) { margin-inline: -0.15rem; } }
+@media (prefers-reduced-motion: no-preference) { .workspace :global(.rounded-2xl), .workspace :global(.rounded-xl), .wizard :global(.rounded-2xl), .wizard :global(.rounded-xl), .workspace :global(button), .wizard :global(button) { transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, box-shadow 150ms ease; } .workspace :global(.rounded-2xl:hover), .workspace :global(.rounded-xl:hover), .wizard :global(.rounded-2xl:hover), .wizard :global(.rounded-xl:hover) { border-color: var(--border-strong) !important; box-shadow: var(--shadow-md); } }

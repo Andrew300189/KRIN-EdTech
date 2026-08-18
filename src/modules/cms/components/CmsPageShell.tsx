@@ -5,17 +5,20 @@ type CmsPageShellProps = {
   eyebrow: string;
   title: string;
   description: string;
+  titleMeta?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  compact?: boolean;
+  dense?: boolean;
 };
 
-export function CmsPageShell({ eyebrow, title, description, actions, children }: CmsPageShellProps) {
+export function CmsPageShell({ eyebrow, title, description, titleMeta, actions, children, compact = false, dense = false }: CmsPageShellProps) {
   return (
-    <section className={styles.page}>
-      <header className={styles.header}>
+    <section className={`${styles.page}${compact ? ` ${styles.compact}` : ""}`}>
+      <header className={`${styles.header}${dense ? ` ${styles.denseHeader}` : ""}`}>
         <div>
           <p className={styles.eyebrow}>{eyebrow}</p>
-          <h1 className={styles.title}>{title}</h1>
+          <div className={styles.titleRow}><h1 className={styles.title}>{title}</h1>{titleMeta ? <div className={styles.titleMeta}>{titleMeta}</div> : null}</div>
           <p className={styles.description}>{description}</p>
         </div>
         {actions ? <div className={styles.actions}>{actions}</div> : null}

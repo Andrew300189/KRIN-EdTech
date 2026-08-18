@@ -1,14 +1,37 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/core/server/prisma";
-import { CmsPageShell } from "@/modules/cms/components/CmsPageShell";
-import { displayContent } from "@/modules/lessons/components/lesson-content";
+import { LessonPlayer } from "@/modules/lessons/components/LessonPlayer";
 
+/**
+ * The protected CMS preview deliberately reuses the learner Focus Mode.
+ * Correct answers remain in this server-rendered author view and are evaluated
+ * locally by the preview renderer; they are never exposed on a public route.
+ */
 export default async function CmsLessonPreviewPage({ params }: { params: Promise<{ lessonId: string }> }) {
+  const lessonId = (await params).lessonId;
   const lesson = await prisma.lesson.findUnique({
-    where: { id: (await params).lessonId },
-    include: { module: { include: { course: { select: { title: true, slug: true } } } }, prerequisiteLesson: { select: { title: true } }, blocks: { orderBy: { order: "asc" }, include: { exercises: { orderBy: { order: "asc" } } } } },
+    where: { id: lessonId },
+    include: {
+      module: { include: { course: { select: { title: true, slug: true } } } },
+      blocks: { orderBy: { order: "asc" }, include: { exercises: { orderBy: { order: "asc" } } } },
+    },
   });
   if (!lesson) notFound();
-  return <CmsPageShell eyebrow="Learner preview" title={lesson.title} description={lesson.description ?? "No description yet."} actions={<Link href={`/cms/lessons/${lesson.id}`} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-white">Back to editor</Link>}><section className="rounded-2xl border border-slate-200 bg-white p-6"><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">{lesson.type} · {lesson.estimatedDuration || "—"} minutes</p><div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">{lesson.prerequisiteLesson ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800">Requires “{lesson.prerequisiteLesson.title}” · {lesson.requiredPrerequisiteCompletion}%</span> : null}{lesson.autoUnlockNextLesson ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">Opens the next lesson after completion</span> : null}</div>{lesson.previewText ? <p className="mt-5 text-slate-700">{lesson.previewText}</p> : null}</section><section className="mt-6 space-y-4">{lesson.blocks.length ? lesson.blocks.map((block) => <article key={block.id} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{block.order}. {block.type}</p><h2 className="mt-1 text-xl font-bold text-slate-950">{block.title ?? "Untitled block"}</h2>{displayContent(block.content) ? <p className="mt-3 whitespace-pre-wrap text-slate-700">{displayContent(block.content)}</p> : null}{block.type === "VIDEO" && typeof (block.content as { url?: unknown } | null)?.url === "string" ? <a href={(block.content as { url: string }).url} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:underline">Open video</a> : null}{block.exercises.length ? <p className="mt-3 text-sm text-slate-600">{block.exercises.length} exercise{block.exercises.length === 1 ? "" : "s"}</p> : null}</article>) : <article className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600">This lesson has no blocks yet.</article>}</section></CmsPageShell>;
+
+  return (
+    <LessonPlayer
+      lessonId={lesson.id}
+      courseSlug={lesson.module.course.slug}
+      moduleTitle={lesson.module.title}
+      title={lesson.title}
+      estimatedDuration={lesson.estimatedDuration}
+      objectives={lesson.learningObjectives}
+      blocks={lesson.blocks}
+      lessons={[{ slug: lesson.slug, title: lesson.title, order: lesson.order }]}
+      currentSlug={lesson.slug}
+      canSaveProgress={false}
+      previewMode
+      returnHref={`/cms/lessons/${lesson.id}`}
+    />
+  );
 }

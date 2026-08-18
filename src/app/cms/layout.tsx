@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { logAuthDiagnostic } from "@/core/server/auth-diagnostics";
+import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
 import { isPlatformOwner } from "@/core/server/platform-owner";
 import { requireAuth } from "@/core/server/session";
 import { resolveDashboardByRole } from "@/core/utils/workspace-path";
@@ -27,5 +28,5 @@ export default async function CmsLayout({
   }
 
   logAuthDiagnostic({ event: "cms_guard_result", result: "allowed" });
-  return <div className={styles.layout}><CmsNavigation /><CmsBreadcrumbs /><main className={styles.main}>{children}</main></div>;
+  return <div className={styles.layout}><PresenceHeartbeat /><CmsNavigation /><CmsBreadcrumbs /><main className={styles.main}>{children}</main></div>;
 }

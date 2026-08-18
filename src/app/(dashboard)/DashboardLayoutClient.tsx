@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { VocabularyReviewPrompt } from "@/modules/vocabulary/components/VocabularyReviewPrompt";
-import { NotificationBell } from "@/modules/communications/components/NotificationBell";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
+import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", exact: true },
@@ -44,6 +44,7 @@ export function DashboardLayoutClient({
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100">
+      <PresenceHeartbeat />
       <aside className="sticky top-0 h-screen w-64 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white/90 px-4 py-5 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur">
         <div className="px-2 pb-4">
           <Link
@@ -72,12 +73,6 @@ export function DashboardLayoutClient({
             );
           })}
           <div className="my-3 h-px w-full bg-slate-200" />
-          <Link
-            className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90"
-            href="/profile/notifications"
-          >
-            Notifications
-          </Link>
           <Link
             className="block rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100/90"
             href="/profile/support"
@@ -109,7 +104,6 @@ export function DashboardLayoutClient({
                   placeholder="Search courses, lessons, words"
                 />
               </div>
-              <NotificationBell />
               <button
                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                 onClick={handleSignOut}
