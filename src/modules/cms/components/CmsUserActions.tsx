@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/core/components/ConfirmDialog";
+import styles from "./CmsUsersWorkspace.module.css";
 
 export function CmsUserActions({ userId, userName, archived, isOwner }: { userId: string; userName: string; archived: boolean; isOwner: boolean }) {
   const router = useRouter();
@@ -33,11 +34,11 @@ export function CmsUserActions({ userId, userName, archived, isOwner }: { userId
     }
   };
 
-  if (isOwner) return <span className="text-xs text-slate-500">Platform owner</span>;
+  if (isOwner) return <span className={styles.ownerLabel}>Protected owner account</span>;
 
-  return <div className="flex flex-col items-end gap-1">
-    <button type="button" disabled={busy} onClick={() => archived ? void perform("PATCH") : setConfirmDelete(true)} className={`rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${archived ? "border border-slate-300 text-slate-700 hover:bg-slate-50" : "border border-red-200 text-red-700 hover:bg-red-50"}`}>{busy ? "Saving…" : archived ? "Restore" : "Delete"}</button>
-    {error ? <span role="alert" className="max-w-52 text-right text-xs text-red-700">{error}</span> : null}
+  return <div className={styles.actions}>
+    <button type="button" disabled={busy} onClick={() => archived ? void perform("PATCH") : setConfirmDelete(true)} className={`${styles.actionButton} ${archived ? styles.restoreButton : styles.deleteButton}`}>{busy ? "Saving…" : archived ? "Restore" : "Delete"}</button>
+    {error ? <span role="alert" className={styles.actionError}>{error}</span> : null}
     <ConfirmDialog
       open={confirmDelete}
       onOpenChange={setConfirmDelete}

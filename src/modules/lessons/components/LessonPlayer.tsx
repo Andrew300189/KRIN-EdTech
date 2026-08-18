@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LessonVocabularyPanel } from "@/modules/vocabulary/components/LessonVocabularyPanel";
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
-import { asStringArray, type LessonBlock } from "./lesson-content";
+import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
+import styles from "./FocusLessonPlayer.module.css";
 
 type StoredProgress = {
   status: "STARTED" | "COMPLETED";
@@ -28,11 +28,7 @@ type LessonWord = {
   wordId: string;
   role: string;
   isRequired: boolean;
-  word: {
-    lemma: string;
-    partOfSpeech: string | null;
-    meanings: Array<{ translation: string | null; definition: string }>;
-  };
+  word: { lemma: string; partOfSpeech: string | null; meanings: Array<{ translation: string | null; definition: string }> };
 };
 
 type Props = {
@@ -51,13 +47,23 @@ type Props = {
   warmUpRequired?: boolean;
   autoUnlockNextLesson?: boolean;
   isFirstCourseLesson?: boolean;
+  /** Uses the same learner player but keeps draft answers in the browser only. */
+  previewMode?: boolean;
+  returnHref?: string;
 };
+
+function exerciseTheory(block: LessonBlock) {
+  const firstExercise = block.exercises[0];
+  if (!firstExercise) return null;
+  const context = asObject(asObject(firstExercise.content).authoringContext);
+  if (context.visible === false || typeof context.text !== "string" || !context.text.trim()) return null;
+  return context.text.trim();
+}
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
-  autoUnlockNextLesson = true,
-  isFirstCourseLesson = false,
+  autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref,
 }: Props) {
   const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
@@ -68,29 +74,38 @@ export function LessonPlayer({
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const [warmUpDone, setWarmUpDone] = useState(!warmUpSessionId);
   const [skippingWarmUp, setSkippingWarmUp] = useState(false);
-  const lastSavedSeconds = useRef(0);
-  const learningSessionId = useRef<string | null>(null);
-  const interactionCount = useRef(0);
+  const [theoryCollapsed, setTheoryCollapsed] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [stepVerified, setStepVerified] = useState(false);
+  const [finished, setFinished] = useState(false);
   const hasGuestPreviewRef = useRef(false);
   const previewCompleteReported = useRef(false);
+  const learningSessionId = useRef<string | null>(null);
+  const interactionCount = useRef(0);
+
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
-  const previousLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null;
   const nextLesson = currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
   const objectiveItems = asStringArray(objectives);
+  const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
+  const activeBlock = blocks[activeIndex] ?? null;
+  const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
+  const isInteractiveStep = Boolean(activeBlock?.type === "EXERCISE" && activeBlock.exercises.length);
+  const canAdvance = Boolean(activeBlock && (!isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
   const progressPercent = useMemo(() => blocks.length ? Math.round((completedBlocks.length / blocks.length) * 100) : 0, [blocks.length, completedBlocks.length]);
-
   const guestPreviewKey = `krin:lesson-preview:${lessonId}`;
+  const destination = returnHref ?? `/courses/${courseSlug}`;
 
   useEffect(() => {
+    if (previewMode) return;
     if (canSaveProgress) {
       if (isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_START");
       return;
     }
     reportFunnelEvent("PREVIEW_LESSON_START");
-  }, [canSaveProgress, isFirstCourseLesson]);
+  }, [canSaveProgress, isFirstCourseLesson, previewMode]);
 
   useEffect(() => {
-    if (!canSaveProgress) return;
+    if (previewMode || !canSaveProgress) return;
     try {
       const raw = window.localStorage.getItem(guestPreviewKey);
       if (!raw) return;
@@ -106,25 +121,23 @@ export function LessonPlayer({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completedBlockIds: restoredBlocks, currentBlockId: restoredCurrentBlock, activeSeconds: restoredSeconds, complete: false }),
-      }).then((response) => {
-        if (response.ok) window.localStorage.removeItem(guestPreviewKey);
-      }).catch(() => undefined);
+      }).then((response) => { if (response.ok) window.localStorage.removeItem(guestPreviewKey); }).catch(() => undefined);
     } catch {
       window.localStorage.removeItem(guestPreviewKey);
     }
-  }, [blocks, canSaveProgress, guestPreviewKey, lessonId]);
+  }, [blocks, canSaveProgress, guestPreviewKey, lessonId, previewMode]);
 
   useEffect(() => {
-    if (canSaveProgress) return;
+    if (previewMode || canSaveProgress) return;
     try {
       window.localStorage.setItem(guestPreviewKey, JSON.stringify({ completedBlocks, currentBlockId, activeSeconds: elapsedSeconds }));
     } catch {
-      // Storage is optional; the lesson remains usable in private browsing.
+      // Storage is optional; an unauthenticated learner can still use the lesson.
     }
-  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey]);
+  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey, previewMode]);
 
   useEffect(() => {
-    if (!canSaveProgress) return;
+    if (previewMode || !canSaveProgress) return;
     let live = true;
     void fetch(`/api/learning/lessons/${lessonId}/progress`)
       .then(async (response) => response.ok ? response.json() : null)
@@ -135,14 +148,13 @@ export function LessonPlayer({
         setCompletedBlocks(asStringArray(saved.completedBlocks));
         setCurrentBlockId(saved.currentBlockId ?? blocks[0]?.id ?? null);
         setElapsedSeconds(saved.activeSeconds ?? 0);
-        lastSavedSeconds.current = saved.activeSeconds ?? 0;
       })
       .catch(() => undefined);
     return () => { live = false; };
-  }, [blocks, canSaveProgress, lessonId]);
+  }, [blocks, canSaveProgress, lessonId, previewMode]);
 
   useEffect(() => {
-    if (!canSaveProgress) return;
+    if (previewMode || !canSaveProgress) return;
     let live = true;
     const noteInteraction = () => { interactionCount.current += 1; };
     const create = async () => {
@@ -157,69 +169,90 @@ export function LessonPlayer({
     void create();
     window.addEventListener("pointerdown", noteInteraction);
     window.addEventListener("keydown", noteInteraction);
-    window.addEventListener("scroll", noteInteraction, { passive: true });
     const timer = window.setInterval(heartbeat, 30_000);
-    return () => { live = false; window.clearInterval(timer); window.removeEventListener("pointerdown", noteInteraction); window.removeEventListener("keydown", noteInteraction); window.removeEventListener("scroll", noteInteraction); if (learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined); };
-  }, [canSaveProgress, lessonId]);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+      window.removeEventListener("pointerdown", noteInteraction);
+      window.removeEventListener("keydown", noteInteraction);
+      if (learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
+    };
+  }, [canSaveProgress, lessonId, previewMode]);
 
   useEffect(() => {
-    // This is an informative display clock only. Server-side heartbeats remain
-    // the source of truth for saved active time and pause while hidden.
+    if (previewMode) return;
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") setElapsedSeconds((value) => value + 1);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [previewMode]);
 
-  async function persistProgress(complete = false) {
-    if (!canSaveProgress) return;
-    lastSavedSeconds.current = elapsedSeconds;
+  useEffect(() => {
+    setTheoryCollapsed(false);
+    setHintOpen(false);
+    setStepVerified(Boolean(activeBlock && (!isInteractiveStep || completedBlocks.includes(activeBlock.id))));
+  }, [activeBlock, completedBlocks, isInteractiveStep]);
+
+  async function persistProgress(complete = false, snapshot?: { completed: string[]; current: string | null }) {
+    if (previewMode || !canSaveProgress) return null;
+    const savedCompleted = snapshot?.completed ?? completedBlocks;
+    const savedCurrent = snapshot?.current ?? currentBlockId;
     setSaveError(null);
     const response = await fetch(`/api/learning/lessons/${lessonId}/progress`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completedBlockIds: completedBlocks, currentBlockId, activeSeconds: 0, complete }),
+      body: JSON.stringify({ completedBlockIds: savedCompleted, currentBlockId: savedCurrent, activeSeconds: 0, complete }),
     });
     const payload = await response.json() as { data?: StoredProgress; error?: string };
     if (!response.ok || !payload.data) {
-      setSaveError(payload.error ?? "Unable to save progress.");
-      return;
+      setSaveError(payload.error ?? "Unable to save your progress.");
+      return null;
     }
     setStoredProgress(payload.data);
     if (payload.data.motivationReward?.awarded) {
       const reward = payload.data.motivationReward;
       setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
     }
-    if (complete && learningSessionId.current) {
-      void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
-    }
-    if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) {
-      reportFunnelEvent("FIRST_LESSON_COMPLETE");
-    }
-    // The route still performs the server-side prerequisite and subscription
-    // check. Navigation only happens after progress was durably saved.
-    if (complete && payload.data.status === "COMPLETED" && autoUnlockNextLesson && nextLesson) {
-      router.push(`/courses/${courseSlug}/lessons/${nextLesson.slug}`);
-    }
+    if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
+    if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_COMPLETE");
+    return payload.data;
   }
 
   useEffect(() => {
-    if (!canSaveProgress || elapsedSeconds === 0 || elapsedSeconds % 30 !== 0) return;
+    if (previewMode || !canSaveProgress || elapsedSeconds === 0 || elapsedSeconds % 30 !== 0) return;
     void persistProgress();
-  // Progress is deliberately persisted at the clock boundary, not on every render.
+  // Saving happens at the clock boundary, not every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsedSeconds, canSaveProgress]);
+  }, [elapsedSeconds, canSaveProgress, previewMode]);
 
-  function toggleBlock(blockId: string) {
-    setCurrentBlockId(blockId);
-    setCompletedBlocks((current) => {
-      const next = current.includes(blockId) ? current.filter((id) => id !== blockId) : [...current, blockId];
-      if (!canSaveProgress && !previewCompleteReported.current && blocks.length > 0 && next.length === blocks.length) {
-        previewCompleteReported.current = true;
-        reportFunnelEvent("PREVIEW_LESSON_COMPLETE");
-      }
-      return next;
-    });
+  async function advanceStep() {
+    if (!activeBlock || !canAdvance) return;
+    const nextCompleted = completedBlocks.includes(activeBlock.id) ? completedBlocks : [...completedBlocks, activeBlock.id];
+    const nextBlock = blocks[activeIndex + 1] ?? null;
+    setCompletedBlocks(nextCompleted);
+    if (nextBlock) {
+      setCurrentBlockId(nextBlock.id);
+      await persistProgress(false, { completed: nextCompleted, current: nextBlock.id });
+      return;
+    }
+
+    const saved = await persistProgress(true, { completed: nextCompleted, current: activeBlock.id });
+    if (canSaveProgress && !saved) return;
+    if (!previewMode && !canSaveProgress && !previewCompleteReported.current) {
+      previewCompleteReported.current = true;
+      reportFunnelEvent("PREVIEW_LESSON_COMPLETE");
+    }
+    if (saved?.status === "COMPLETED" && autoUnlockNextLesson && nextLesson) {
+      router.push(`/courses/${courseSlug}/lessons/${nextLesson.slug}`);
+      return;
+    }
+    setFinished(true);
+  }
+
+  async function leaveLesson() {
+    const saved = await persistProgress(false);
+    if (canSaveProgress && !previewMode && !saved) return;
+    router.push(destination);
   }
 
   async function skipWarmUp() {
@@ -233,42 +266,101 @@ export function LessonPlayer({
     }
   }
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      void leaveLesson();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  // `leaveLesson` intentionally reads the latest saved state from this render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBlockId, completedBlocks, canSaveProgress, previewMode]);
+
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
-  const showWarmUp = Boolean(warmUpSessionId && !warmUpDone);
+  const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <main className={styles.player}>
       <RewardNotification events={rewardEvents} />
-      <nav className="text-sm font-medium text-blue-700"><Link href={`/courses/${courseSlug}`}>← {moduleTitle}</Link></nav>
-      <header className="mt-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Lesson {currentIndex >= 0 ? currentIndex + 1 : ""}</p>
-        <h1 className="mt-2 text-4xl font-bold text-slate-900">{title}</h1>
-        <p className="mt-3 text-slate-600">Estimated time: {estimatedDuration || "—"} minutes · Active time: {formattedTime}</p>
-        {canSaveProgress ? <p className="mt-2 text-sm font-medium text-slate-700">Progress: {storedProgress?.completionPercent ?? progressPercent}% · Score: {storedProgress?.score ?? 0}{storedProgress?.grade ? ` · Grade ${storedProgress.grade}/5` : ""}</p> : null}
-        {objectiveItems.length > 0 ? <div className="mt-5"><h2 className="font-semibold text-slate-900">Learning objectives</h2><ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">{objectiveItems.map((objective) => <li key={objective}>{objective}</li>)}</ul></div> : null}
-      </header>
-
-      {showWarmUp ? (
-        <section className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <p className="text-sm font-semibold uppercase tracking-wide text-amber-800">Before the lesson</p>
-          <h2 className="mt-1 text-2xl font-bold text-amber-950">Quick warm-up</h2>
-          <p className="mt-2 text-amber-900">Review a few words selected from your previous learning progress.</p>
-          <div className="mt-5"><VocabularyTrainingPlayer sessionId={warmUpSessionId!} compact onCompleted={() => setWarmUpDone(true)} /></div>
-          {!warmUpRequired ? <button type="button" disabled={skippingWarmUp} onClick={() => void skipWarmUp()} className="mt-4 text-sm font-semibold text-amber-900 underline disabled:opacity-50">{skippingWarmUp ? "Skipping…" : "Skip warm-up"}</button> : null}
-        </section>
-      ) : (
-        <>
-          <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} />
-          <div className="mt-7 space-y-5">{blocks.map((block) => <LessonBlockRenderer key={block.id} block={block} completed={completedBlocks.includes(block.id)} onToggleComplete={toggleBlock} canSaveProgress={canSaveProgress} />)}</div>
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            {previousLesson ? <Link className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" href={`/courses/${courseSlug}/lessons/${previousLesson.slug}`}>← {previousLesson.title}</Link> : <span />}
-            <button type="button" onClick={() => void persistProgress(true)} disabled={!canSaveProgress} className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">Complete lesson</button>
-            {nextLesson ? <Link className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" href={`/courses/${courseSlug}/lessons/${nextLesson.slug}`}>{nextLesson.title} →</Link> : <span />}
+      <div className={styles.frame}>
+        <header className={styles.header} aria-label="Lesson controls">
+          <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and close lesson">Close</button>
+          <div className={styles.progress} aria-label={`Lesson progress: ${progressPercent}%`}>
+            <div className={styles.progressMeta}><span>{progressPercent}% complete</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
+            <div className={styles.progressTrack}><div className={styles.progressValue} style={{ width: `${progressPercent}%` }} /></div>
           </div>
-        </>
-      )}
-      {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}
-      {!canSaveProgress ? <p className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real public lesson. Answers can be checked now; create an account after exploring to save this lesson and continue from the same place. <Link className="font-semibold underline" href={`/register?next=${encodeURIComponent(`/courses/${courseSlug}/lessons/${currentSlug}`)}`}>Create an account</Link> or <Link className="font-semibold underline" href={`/login?next=${encodeURIComponent(`/courses/${courseSlug}/lessons/${currentSlug}`)}`}>sign in</Link>.</p> : null}
+          <span className={styles.stepCounter}>Step {blocks.length ? activeIndex + 1 : 0} of {blocks.length}</span>
+        </header>
+
+        <section className={styles.lessonContext} aria-labelledby="lesson-title">
+          <h1 id="lesson-title">{title}</h1>
+          <p>{moduleTitle} · {estimatedDuration ? `${estimatedDuration} min` : "Self-paced"}{storedProgress ? ` · Score ${storedProgress.score}` : ""}</p>
+        </section>
+
+        {showWarmUp ? (
+          <section className={styles.taskCard}>
+            <p className={styles.taskType}>Before the lesson</p>
+            <h2>Quick warm-up</h2>
+            <p className="mt-2 text-sm text-slate-600">Review a few words selected from your recent learning progress.</p>
+            <div className="mt-5"><VocabularyTrainingPlayer sessionId={warmUpSessionId!} compact onCompleted={() => setWarmUpDone(true)} /></div>
+            {!warmUpRequired ? <button type="button" disabled={skippingWarmUp} onClick={() => void skipWarmUp()} className={styles.showTheory}>{skippingWarmUp ? "Skipping…" : "Skip warm-up"}</button> : null}
+          </section>
+        ) : finished ? (
+          <section className={styles.completion} aria-live="polite">
+            <p className={styles.taskType}>Lesson complete</p>
+            <h2>Great work — your progress is saved.</h2>
+            <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : "Continue with your course whenever you are ready."}</p>
+            <button type="button" className={styles.finishButton} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : "Back to course"}</button>
+          </section>
+        ) : !activeBlock ? (
+          <section className={styles.empty}><h2>No lesson steps yet</h2><p>Add content blocks in the lesson editor to build the learner flow.</p></section>
+        ) : (
+          <section className={styles.workspace} aria-label="Current lesson step">
+            {!previewMode && vocabulary.length > 0 ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
+            {activeTheory ? (
+              <section className={styles.theory}>
+                <button type="button" className={styles.theoryToggle} onClick={() => setTheoryCollapsed((value) => !value)} aria-expanded={!theoryCollapsed}>
+                  <span><span className={styles.theoryEyebrow}>Theory for this step</span><span className={styles.theoryTitle}>Use this explanation while you practise</span></span>
+                  <span>{theoryCollapsed ? "Show theory" : "Hide theory"}</span>
+                </button>
+                <div className={`${styles.theoryPanel} ${theoryCollapsed ? styles.theoryPanelCollapsed : ""}`}><div className={styles.theoryInner}><p className={styles.theoryText}>{activeTheory}</p></div></div>
+              </section>
+            ) : null}
+
+            <article className={styles.taskCard}>
+              <div className={styles.taskTopline}>
+                <span className={styles.taskType}>{activeBlock.type.replace(/_/g, " ")}</span>
+                {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
+              </div>
+              <div className={styles.focusContent} key={activeBlock.id}>
+                <LessonBlockRenderer
+                  block={activeBlock}
+                  completed={completedBlocks.includes(activeBlock.id)}
+                  onToggleComplete={() => undefined}
+                  canSaveProgress={false}
+                  previewMode={previewMode}
+                  hideExerciseTheoryText={Boolean(activeTheory)}
+                  onAttemptResolved={({ isCorrect }) => setStepVerified(isCorrect)}
+                />
+              </div>
+            </article>
+
+            {activeBlock.exercises[0]?.hint && hintOpen ? <p className={styles.hint} role="status">{activeBlock.exercises[0].hint}</p> : null}
+            <footer className={styles.footer}>
+              <p className={styles.footerNote}>{isInteractiveStep && !stepVerified ? "Check your answer to unlock the next step." : objectiveItems[0] ?? "Take one focused step at a time."}</p>
+              <div className={styles.footerActions}>
+                {activeBlock.exercises[0]?.hint ? <button type="button" className={styles.hintButton} onClick={() => setHintOpen((value) => !value)}>{hintOpen ? "Hide hint" : "Hint"}</button> : null}
+                <button type="button" className={activeIndex === blocks.length - 1 ? styles.finishButton : styles.nextButton} disabled={!canAdvance} onClick={() => void advanceStep()}>{activeIndex === blocks.length - 1 ? "Finish lesson" : "Next step"}</button>
+              </div>
+            </footer>
+          </section>
+        )}
+
+        {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}
+        {!previewMode && !canSaveProgress ? <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real lesson. Sign in after the preview to save this step and continue from the same place.</p> : null}
+      </div>
     </main>
   );
 }

@@ -3,10 +3,20 @@ import { prisma } from "@/core/server/prisma";
 import { emailService } from "@/modules/communications/services/email.service";
 import { renderNotificationTemplate } from "@/modules/communications/services/template-renderer";
 import { categorySettingKey, isValidActionUrl, notificationPolicy, type SafeNotificationPayload, type TemplateVariables } from "@/modules/communications/types/notification.types";
+import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { NotificationCategory, NotificationChannel, NotificationDeliveryStatus, NotificationType } from "@/generated/prisma-client-payments-runtime";
 
 type Tx = Prisma.TransactionClient;
 type Settings = { locale: string; timezone: string; inAppEnabled: boolean; emailEnabled: boolean; webPushEnabled: boolean; learningEnabled: boolean; vocabularyEnabled: boolean; motivationEnabled: boolean; billingEnabled: boolean; supportEnabled: boolean; marketingEnabled: boolean; systemEnabled: boolean; quietHoursEnabled: boolean; quietHoursStart: string | null; quietHoursEnd: string | null };
+
+const navigationBadgeCategories: Record<NotificationBadgeSection, NotificationCategory[]> = {
+  courses: ["LEARNING"],
+  vocabulary: ["VOCABULARY"],
+  achievements: ["MOTIVATION"],
+  billing: ["BILLING"],
+  support: ["SUPPORT"],
+  settings: ["ACCOUNT", "SECURITY", "SYSTEM", "MARKETING"],
+};
 
 export type CreateNotificationInput = {
   userId: string;
@@ -145,6 +155,26 @@ export class NotificationService {
 
   async getUnreadCount(userId: string) {
     return prisma.notification.count({ where: { userId, status: "ACTIVE", readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } });
+  }
+
+  async getNavigationBadgeCounts(userId: string): Promise<Record<NotificationBadgeSection, number>> {
+    const grouped = await prisma.notification.groupBy({
+      by: ["category"],
+      where: { userId, status: "ACTIVE", readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      _count: { _all: true },
+    });
+    const byCategory = new Map(grouped.map((item) => [item.category, item._count._all]));
+    return Object.fromEntries(Object.entries(navigationBadgeCategories).map(([section, categories]) => [
+      section,
+      categories.reduce((count, category) => count + (byCategory.get(category) ?? 0), 0),
+    ])) as Record<NotificationBadgeSection, number>;
+  }
+
+  async markNavigationSectionAsRead(userId: string, section: NotificationBadgeSection) {
+    return prisma.notification.updateMany({
+      where: { userId, category: { in: navigationBadgeCategories[section] }, status: "ACTIVE", readAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      data: { status: "READ", readAt: new Date(), seenAt: new Date() },
+    });
   }
 
   async markAsRead(userId: string, notificationId: string) {

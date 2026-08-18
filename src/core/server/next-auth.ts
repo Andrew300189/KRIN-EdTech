@@ -6,6 +6,7 @@ import {
 } from "@/core/server/google-user";
 import { logAuthDiagnostic } from "@/core/server/auth-diagnostics";
 import { isPlatformOwner, normalizeEmail } from "@/core/server/platform-owner";
+import { touchUserPresence } from "@/core/server/presence";
 import { clearLegacySession } from "@/core/server/session";
 import { getSafePostAuthRedirectUrl } from "@/core/utils/safe-internal-path";
 
@@ -36,6 +37,12 @@ export const nextAuthOptions: NextAuthOptions = {
 
       const appUser = await provisionGoogleUser(identity, user.name);
       if (!appUser) return false;
+
+      try {
+        await touchUserPresence(appUser.id);
+      } catch {
+        // Presence must not block a successful Google sign-in.
+      }
 
       // Google login replaces any stale password-session cookie from a
       // previously signed-in user in the same browser.

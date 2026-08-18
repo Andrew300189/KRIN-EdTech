@@ -8,13 +8,14 @@ const primaryLinks = [
   { href: "/cms", label: "Overview" },
   { href: "/cms/courses", label: "Courses" },
   { href: "/cms/levels", label: "Curriculum" },
+  { href: "/cms/lesson-templates", label: "Lesson templates" },
   { href: "/cms/exercise-templates", label: "Exercises" },
   { href: "/cms/media", label: "Media library" },
-  { href: "/cms/homepage", label: "Homepage" },
   { href: "/cms/legal", label: "Legal & trust" },
   { href: "/cms/import-export", label: "Import & export" },
   { href: "/cms/audit", label: "Audit history" },
   { href: "/cms/users", label: "Users" },
+  { href: "/cms/sales", label: "Sales" },
 ] as const;
 
 const moreLinks = [

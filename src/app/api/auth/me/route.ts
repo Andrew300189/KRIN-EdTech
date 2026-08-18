@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/core/server/auth";
+import { isPlatformOwner } from "@/core/server/platform-owner";
 import { prisma } from "@/core/server/prisma";
 import { requireAuth } from "@/core/server/session";
 import { refreshSubscriptionAccessCookie } from "@/modules/payments/services/subscription-cookie";
@@ -18,7 +19,16 @@ export async function GET() {
 
     await refreshSubscriptionAccessCookie(user);
 
-    return NextResponse.json({ authenticated: true, user }, { status: 200 });
+    return NextResponse.json(
+      {
+        authenticated: true,
+        user,
+        // This is only a presentation hint for the public header. CMS routes
+        // and APIs still enforce the same server-side owner guard themselves.
+        canAccessCms: isPlatformOwner(user.email),
+      },
+      { status: 200 },
+    );
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },

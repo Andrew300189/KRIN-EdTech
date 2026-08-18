@@ -1,0 +1,121 @@
+.page { display: grid; gap: var(--space-4); align-content: start; }
+.header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--space-4); }
+.eyebrow { margin: 0; color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
+.header h2, .courseCard h3, .emptyState h3 { margin: 0.25rem 0 0; color: var(--text-primary); font-weight: 800; letter-spacing: -0.03em; }
+.header h2 { font-size: clamp(1.65rem, 3vw, 2rem); line-height: 1.15; }
+.headerText { max-width: 43rem; margin: 0.45rem 0 0; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; }
+.primaryAction, .secondaryAction, .removeButton, .retryButton { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); padding: 0.56rem 0.82rem; font-size: 0.86rem; font-weight: 750; text-decoration: none; }
+.primaryAction { background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-sm); }
+.primaryAction:hover { background: var(--primary-hover); }
+.secondaryAction, .removeButton { border-color: var(--border); background: transparent; color: var(--text-secondary); }
+.secondaryAction:hover, .removeButton:hover { border-color: var(--border-strong); background: var(--surface-secondary); color: var(--text-primary); }
+.summaryGrid { display: grid; gap: 0.7rem; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 48rem; }
+.summaryCard { min-width: 0; padding: 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.summaryCard p { margin: 0; color: var(--text-muted); font-size: 0.73rem; font-weight: 700; }
+.summaryCard strong { display: block; margin-top: 0.2rem; color: var(--text-primary); font-size: 1.5rem; letter-spacing: -0.04em; }
+.summaryCard span { display: block; margin-top: 0.1rem; color: var(--text-muted); font-size: 0.76rem; line-height: 1.3; }
+.courseGrid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); align-items: stretch; }
+.courseCard { display: flex; min-width: 0; min-height: 20rem; flex-direction: column; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.cardTop { display: grid; gap: 0.55rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.levelTag, .categoryTag, .sourceLabel { display: inline-flex; align-items: center; width: fit-content; border-radius: var(--radius-pill); padding: 0.25rem 0.5rem; font-size: 0.7rem; font-weight: 800; line-height: 1.2; }
+.levelTag { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+.categoryTag, .sourceLabel { background: var(--surface-secondary); color: var(--text-muted); }
+.sourceLabel { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+.courseCard h3 { margin-top: 0.85rem; font-size: 1.08rem; line-height: 1.3; }
+.description { display: -webkit-box; flex: 1; overflow: hidden; margin: 0.5rem 0 0; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.48; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.progressSection { margin-top: 1rem; }
+.progressHeading { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--text-muted); font-size: 0.76rem; line-height: 1.3; }
+.progressHeading strong { color: var(--text-primary); }
+.progressTrack { height: 0.5rem; margin-top: 0.45rem; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-secondary); }
+.progressFill { height: 100%; min-width: 0; border-radius: inherit; background: var(--primary); }
+.nextLesson { overflow: hidden; margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.cardActions { display: flex; gap: 0.55rem; margin-top: 1rem; }
+.cardActions .primaryAction { flex: 1; }
+.errorState { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0.9rem 1rem; border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--border)); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--danger) 12%, var(--surface-elevated)); color: var(--text-primary); }
+.errorState strong { font-size: 0.9rem; }
+.errorState p { margin: 0.18rem 0 0; color: var(--text-secondary); font-size: 0.82rem; }
+.retryButton { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); color: var(--text-primary); }
+.emptyState { max-width: 43rem; padding: clamp(1.25rem, 4vw, 2rem); border: 1px dashed var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-elevated); }
+.emptyState h3 { font-size: 1.25rem; }
+.emptyState > p:not(.eyebrow) { max-width: 33rem; margin: 0.55rem 0 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+.emptyActions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+.loadingHeader, .summarySkeleton, .courseSkeleton { border-radius: var(--radius-lg); background: var(--skeleton); animation: pulse 1.2s ease-in-out infinite; }
+.loadingHeader { width: min(22rem, 70%); height: 4.5rem; }
+.summarySkeleton { height: 5.2rem; }
+.courseSkeleton { min-height: 20rem; }
+.primaryAction:focus-visible, .secondaryAction:focus-visible, .removeButton:focus-visible, .retryButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+@media (max-width: 520px) { .summaryGrid { max-width: none; gap: 0.45rem; } .summaryCard { padding: 0.72rem; } .summaryCard strong { font-size: 1.25rem; } .summaryCard span { font-size: 0.68rem; } .courseGrid { gap: 0.75rem; } .courseCard { min-height: 18.5rem; padding: 0.9rem; } }
+@media (prefers-reduced-motion: reduce) { .loadingHeader, .summarySkeleton, .courseSkeleton { animation: none; } }
+@media (prefers-reduced-motion: no-preference) { .primaryAction, .secondaryAction, .removeButton, .retryButton { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } .courseCard { transition: border-color 150ms ease, box-shadow 150ms ease; } .courseCard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); } .progressFill { transition: width 220ms ease; } }
+
+.vocabularySection { display: grid; gap: 1rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.vocabularyHeader { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
+.vocabularyHeader h2 { margin: 0.22rem 0 0; color: var(--text-primary); font-size: clamp(1.35rem, 2.5vw, 1.75rem); letter-spacing: -0.035em; }
+.vocabularyHeader p:not(.eyebrow) { max-width: 38rem; margin: 0.38rem 0 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }
+.vocabularyGrid, .vocabularyLower { display: grid; gap: 0.8rem; grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr); }
+.wordTrack, .quickAddForm, .wordPreview, .vocabularySettings { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
+.wordTrack { display: grid; gap: 1rem; padding: 1rem; }
+.wordCount { display: flex; align-items: center; gap: 0.75rem; }
+.wordCount > strong { display: grid; width: 3.3rem; height: 3.3rem; flex: 0 0 auto; place-items: center; border-radius: 1rem; background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); font-size: 1.65rem; letter-spacing: -0.06em; }
+.wordCount span { display: block; color: var(--text-primary); font-size: 0.93rem; font-weight: 800; }
+.wordCount p { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.78rem; }
+.trackProgress > div:first-child { display: flex; justify-content: space-between; gap: 0.75rem; color: var(--text-secondary); font-size: 0.78rem; font-weight: 750; }
+.trackProgress > div:first-child strong { color: var(--text-primary); }
+.trackSteps { display: flex; justify-content: space-between; gap: 0.3rem; margin: 0.65rem 0 0; padding: 0; list-style: none; color: var(--text-muted); font-size: 0.7rem; font-weight: 750; }
+.trackSteps li { position: relative; padding-top: 0.52rem; }
+.trackSteps li::before { position: absolute; top: 0; left: 50%; width: 0.38rem; height: 0.38rem; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-elevated); content: ""; transform: translateX(-50%); }
+.trackStepCurrent, .trackStepDone { color: var(--primary) !important; }
+.trackStepCurrent::before, .trackStepDone::before { border-color: var(--primary) !important; background: var(--primary) !important; }
+.quickAddForm { display: grid; align-content: start; gap: 0.8rem; padding: 1rem; }
+.quickAddTitle { margin: 0; color: var(--text-primary); font-size: 0.94rem; font-weight: 800; }
+.quickAddText { margin: 0.22rem 0 0; color: var(--text-muted); font-size: 0.78rem; line-height: 1.4; }
+.quickAddFields { display: grid; gap: 0.55rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; }
+.quickAddFields label { min-width: 0; color: var(--text-secondary); font-size: 0.71rem; font-weight: 750; }
+.quickAddFields label span { display: block; margin-bottom: 0.28rem; }
+.quickAddFields input, .vocabularySettings input[type=number] { width: 100%; min-height: 2.35rem; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); padding: 0.48rem 0.58rem; font: inherit; font-size: 0.82rem; }
+.quickAddFields input:focus-visible, .vocabularySettings input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.addWordButton, .settingsActions button { min-height: 2.35rem; border: 0; border-radius: var(--radius-md); background: var(--primary); color: var(--primary-contrast); padding: 0.45rem 0.72rem; font: inherit; font-size: 0.78rem; font-weight: 800; }
+.addWordButton:disabled, .settingsActions button:disabled { cursor: not-allowed; opacity: 0.62; }
+.addSuccess, .addError, .settingsMessage { margin: 0; font-size: 0.77rem; font-weight: 700; }
+.addSuccess { color: var(--success, #157347); animation: vocabularySuccess 280ms ease-out both; }
+.addError { color: var(--danger); }
+.vocabularyLower { align-items: start; }
+.wordPreview { padding: 1rem; }
+.vocabularySubheading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.6rem; }
+.vocabularySubheading h3 { margin: 0; color: var(--text-primary); font-size: 0.94rem; }
+.vocabularySubheading p { margin: 0.22rem 0 0; color: var(--text-muted); font-size: 0.76rem; }
+.vocabularySubheading a, .settingsActions a { color: var(--primary); font-size: 0.76rem; font-weight: 800; text-decoration: none; }
+.vocabularySubheading a:hover, .settingsActions a:hover { text-decoration: underline; }
+.wordList { display: grid; gap: 0.42rem; margin: 0.8rem 0 0; padding: 0; list-style: none; }
+.wordList li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.56rem 0; border-top: 1px solid var(--border); }
+.wordList li:first-child { border-top: 0; }
+.wordList li > div:first-child { min-width: 0; }
+.wordList strong, .wordList span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wordList strong { color: var(--text-primary); font-size: 0.85rem; }
+.wordList span { margin-top: 0.16rem; color: var(--text-muted); font-size: 0.75rem; }
+.wordList li > div:last-child { display: flex; flex: 0 0 auto; align-items: center; gap: 0.5rem; }
+.wordList em { border-radius: var(--radius-pill); background: var(--surface-secondary); color: var(--text-muted); padding: 0.18rem 0.4rem; font-size: 0.63rem; font-style: normal; font-weight: 800; }
+.wordList b { min-width: 2.5rem; color: var(--text-secondary); font-size: 0.72rem; text-align: right; }
+.wordEmpty { margin-top: 0.8rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 0.9rem; }
+.wordEmpty strong { color: var(--text-primary); font-size: 0.83rem; }
+.wordEmpty p { margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.76rem; line-height: 1.4; }
+.vocabularySettings { overflow: hidden; }
+.vocabularySettings summary { display: flex; cursor: pointer; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 1rem; color: var(--text-primary); list-style: none; }
+.vocabularySettings summary::-webkit-details-marker { display: none; }
+.vocabularySettings[open] summary { border-bottom: 1px solid var(--border); }
+.vocabularySettings summary strong, .vocabularySettings summary small { display: block; }
+.vocabularySettings summary strong { font-size: 0.9rem; }
+.vocabularySettings summary small { margin-top: 0.2rem; color: var(--text-muted); font-size: 0.73rem; }
+.vocabularySettings form { display: grid; gap: 0.7rem; padding: 1rem; }
+.vocabularySettings form > label:not(.settingToggle) { color: var(--text-secondary); font-size: 0.73rem; font-weight: 750; }
+.vocabularySettings form > label:not(.settingToggle) input { display: block; margin-top: 0.28rem; }
+.settingToggle { display: flex; align-items: center; gap: 0.45rem; color: var(--text-secondary); font-size: 0.77rem; font-weight: 700; }
+.settingToggle input { accent-color: var(--primary); }
+.settingsActions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; padding-top: 0.1rem; }
+.settingsMessage { color: var(--text-secondary); }
+@keyframes vocabularySuccess { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 900px) { .vocabularyGrid, .vocabularyLower { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .vocabularyHeader { align-items: stretch; } .vocabularyHeader .primaryAction { width: 100%; } .quickAddFields { grid-template-columns: 1fr; } .addWordButton { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .addSuccess { animation: none; } }

@@ -9,6 +9,7 @@ import { HomeCurriculumTabs } from "./HomeCurriculumTabs";
 import { HomeTestimonials } from "./HomeTestimonials";
 import { AnimationObserver } from "@/core/components/AnimationObserver";
 import { FunnelEventReporter } from "@/modules/analytics/components/FunnelEventReporter";
+import { getPublicLearningStatistics } from "@/modules/analytics/services/platform-statistics.service";
 import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHeader";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { FaqAccordion } from "./FaqAccordion";
@@ -22,6 +23,8 @@ import {
   getPublicCourseHref,
   getPublicCurriculumHref,
 } from "@/modules/courses/utils/public-content-routes";
+
+export const dynamic = "force-dynamic";
 
 function courseAccessLabel(
   plan: "FREE" | "BASIC" | "PREMIUM" | "PRO" | "CORPORATE",
@@ -53,6 +56,7 @@ export default async function Home() {
     featuredCurriculum,
     featuredCourses,
     pricingHighlights,
+    publicStatistics,
   ] = await Promise.all([
     getPublishedCmsContentSlot("home.hero"),
     listPublishedLanguageLevels(),
@@ -76,6 +80,7 @@ export default async function Home() {
       orderBy: { title: "asc" },
       take: 4,
     }),
+    getPublicLearningStatistics(),
   ]);
   const visibleCategories = categories
     .filter((category) => category._count.courses > 0)
@@ -146,7 +151,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <HomeCounterBanner />
+      <HomeCounterBanner initialStatistics={publicStatistics} />
 
       <section className={`${styles.section} ${styles.whiteSection}`}>
         <div className={styles.shell}>

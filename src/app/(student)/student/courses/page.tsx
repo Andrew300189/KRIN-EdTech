@@ -1,16 +1,19 @@
-"use client";
+import { requireRole } from "@/core/server/role-guard";
+import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
+import { StudentCoursesClient } from "./StudentCoursesClient";
 
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+/**
+ * Render the initial library on the server so the learner lands on useful
+ * content immediately, rather than waiting for a second browser request.
+ */
+export default async function StudentCoursesPage() {
+  const guard = await requireRole(["student"]);
+  if (!guard.ok) return null;
 
-type Course = { id: string; slug: string; title: string; description: string; level: string; category: string; source: string; progress: number; completedLessons: number; totalLessons: number; nextLesson: { slug: string; title: string } | null; canRemove: boolean };
-const sourceLabels: Record<string, string> = { SELF_ADDED: "Added by you", GROUP_ASSIGNED: "Group assignment", TEACHER_ASSIGNED: "Teacher assignment", PURCHASED: "Purchased", SUBSCRIPTION: "Subscription", ENROLLED: "Enrolled", IN_PROGRESS: "In progress", TEACHER_CREATED: "Created by you" };
-
-export default function StudentCoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [confirming, setConfirming] = useState<Course | null>(null); const [removing, setRemoving] = useState(false);
-  const load = useCallback(async () => { setLoading(true); const response = await fetch("/api/dashboard/courses", { cache: "no-store" }); const payload = await response.json().catch(() => null); if (response.ok) setCourses(payload?.data ?? []); else setError(payload?.error ?? "Unable to load your courses."); setLoading(false); }, []);
-  useEffect(() => { void load(); }, [load]);
-  const remove = async () => { if (!confirming) return; setRemoving(true); const response = await fetch(`/api/student/courses/${confirming.id}`, { method: "DELETE" }); const payload = await response.json().catch(() => null); setRemoving(false); if (!response.ok) { setError(payload?.error ?? "Unable to remove course."); return; } setCourses((items) => items.filter((course) => course.id !== confirming.id)); setConfirming(null); };
-  if (loading) return <section aria-busy="true" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[1, 2, 3].map((item) => <div key={item} className="h-64 animate-pulse rounded-2xl bg-slate-200"/>)}</section>;
-  return <section className="space-y-6"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold text-blue-700">LEARNING LIBRARY</p><h2 className="mt-1 text-3xl font-bold text-slate-950">My courses</h2><p className="mt-2 text-slate-600">Your added, purchased and assigned learning paths.</p></div><Link href="/student/catalog" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">Add a course</Link></header>{error ? <p className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p> : null}{courses.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><h3 className="text-xl font-bold">Your library is empty</h3><p className="mx-auto mt-2 max-w-md text-slate-600">Find a course in the catalog and add it to your learning plan.</p><div className="mt-5 flex justify-center gap-3"><Link href="/student/catalog" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white">Open catalog</Link><Link href="/student/search" className="rounded-lg border px-4 py-2 font-semibold">Find a course</Link></div></div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{courses.map((course) => <article key={course.id} className="flex min-h-72 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap gap-2"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800">{course.level}</span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{course.category}</span></div><h3 className="mt-4 text-xl font-bold text-slate-950">{course.title}</h3><p className="mt-2 flex-1 text-sm text-slate-600">{course.description}</p><p className="mt-4 text-xs font-semibold text-slate-500">{sourceLabels[course.source] ?? course.source}</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" aria-label={`${course.progress}% complete`}><div className="h-full rounded-full bg-blue-600" style={{ width: `${course.progress}%` }}/></div><p className="mt-2 text-sm text-slate-600">{course.progress}% · {course.completedLessons}/{course.totalLessons} lessons</p>{course.nextLesson ? <p className="mt-1 truncate text-xs text-slate-500">Next: {course.nextLesson.title}</p> : null}<div className="mt-5 flex gap-2"><Link href={`/student/courses/${course.slug}`} className="flex-1 rounded-lg bg-blue-700 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-blue-800">{course.progress ? "Continue" : "Start"}</Link>{course.canRemove ? <button type="button" aria-label={`Remove ${course.title} from my courses`} onClick={() => setConfirming(course)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">Remove</button> : null}</div></article>)}</div>}{confirming ? <div role="dialog" aria-modal="true" aria-labelledby="remove-course-title" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h3 id="remove-course-title" className="text-xl font-bold">Remove course from my courses?</h3><p className="mt-2 text-slate-600">Your progress remains saved. You can add this course again later.</p><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setConfirming(null)} disabled={removing} className="rounded-lg border px-4 py-2 font-semibold">Cancel</button><button type="button" onClick={() => void remove()} disabled={removing} className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white disabled:opacity-50">{removing ? "Removing…" : "Remove course"}</button></div></div></div> : null}</section>;
+  try {
+    const courses = await listLearnerCourses(guard.user.id);
+    return <StudentCoursesClient initialCourses={courses} />;
+  } catch {
+    return <StudentCoursesClient initialCourses={[]} initialError="Unable to load your courses right now." />;
+  }
 }

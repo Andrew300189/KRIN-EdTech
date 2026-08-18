@@ -2,6 +2,10 @@ import { z } from "zod";
 import { isExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Exercise definitions use stable registry codes (for example
+// `CONTEXT_SELECTION`). Older authored exercises may use URL-style keys, so
+// accept both representations at the API boundary.
+const exerciseSubtypePattern = /^(?:[A-Z0-9]+(?:_[A-Z0-9]+)*|[a-z0-9]+(?:-[a-z0-9]+)*)$/;
 
 export const cefrLevelSchema = z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]);
 export const subscriptionPlanSchema = z.enum(["FREE", "PREMIUM", "CORPORATE"]);
@@ -87,6 +91,11 @@ export const jsonValueSchema = z.custom<JsonValue>(isJsonValue, {
 });
 
 const optionalUrlSchema = z.string().url().max(2048).optional().or(z.literal(""));
+const pastedImageDataUrlSchema = z
+  .string()
+  .regex(/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/, "Invalid pasted image data.")
+  .max(2_500_000);
+const optionalCourseCoverSchema = z.union([z.string().url().max(2048), pastedImageDataUrlSchema]).optional().or(z.literal(""));
 
 export const createCourseSchema = z.object({
   levelCode: cefrLevelSchema,
@@ -95,7 +104,7 @@ export const createCourseSchema = z.object({
   slug: z.string().trim().regex(slugPattern).max(160).optional(),
   shortDescription: z.string().trim().min(10).max(500),
   fullDescription: z.string().trim().max(10000).optional(),
-  coverImage: optionalUrlSchema,
+  coverImage: optionalCourseCoverSchema,
   trailerVideoUrl: optionalUrlSchema,
   language: z.string().trim().min(2).max(32).default("en"),
   estimatedDuration: z.number().int().min(0).max(100000).default(0),
@@ -191,7 +200,7 @@ export const updateLessonBlockSchema = createLessonBlockSchema
 export const createExerciseSchema = z.object({
   type: exerciseTypeSchema,
   engineKey: z.string().trim().refine(isExerciseEngineKey, "Unsupported exercise engine").optional(),
-  variantKey: z.string().trim().regex(slugPattern).max(120).optional(),
+  variantKey: z.string().trim().regex(exerciseSubtypePattern).max(120).optional(),
   instruction: z.string().trim().min(1).max(2000),
   question: z.string().trim().min(1).max(5000),
   content: jsonValueSchema.optional(),

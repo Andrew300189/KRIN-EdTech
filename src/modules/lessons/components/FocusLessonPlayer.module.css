@@ -1,0 +1,357 @@
+.player {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 14% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 28rem),
+    var(--surface-page);
+  color: var(--text-primary);
+}
+
+.frame {
+  width: min(100%, 74rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 2.3vw, 2rem);
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(11rem, 2.25fr) minmax(7rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-height: 3.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  box-shadow: var(--shadow-sm);
+  padding: .65rem .8rem;
+}
+
+.closeLink,
+.hintButton,
+.nextButton,
+.finishButton,
+.showTheory {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.closeLink,
+.hintButton,
+.showTheory {
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  padding: .55rem .8rem;
+}
+
+.closeLink:hover,
+.hintButton:hover,
+.showTheory:hover {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated));
+  color: var(--primary);
+}
+
+.progress {
+  display: grid;
+  gap: .38rem;
+  min-width: 0;
+}
+
+.progressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  color: var(--text-secondary);
+  font-size: .68rem;
+  font-weight: 760;
+}
+
+.progressTrack {
+  height: .46rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 18%, var(--surface-secondary));
+}
+
+.progressValue {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 62%, #9d7cf8));
+  transition: width 400ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.stepCounter {
+  justify-self: end;
+  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.lessonContext {
+  margin-top: clamp(1rem, 2vw, 1.5rem);
+}
+
+.lessonContext h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(1.3rem, 3vw, 2rem);
+  font-weight: 850;
+  letter-spacing: -.045em;
+}
+
+.lessonContext p {
+  margin: .38rem 0 0;
+  color: var(--text-secondary);
+  font-size: .8rem;
+}
+
+.workspace {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.theory {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-elevated));
+  box-shadow: var(--shadow-sm);
+}
+
+.theoryToggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: .9rem 1rem;
+  text-align: left;
+}
+
+.theoryToggle span:first-child {
+  display: grid;
+  gap: .13rem;
+}
+
+.theoryEyebrow {
+  color: var(--primary);
+  font-size: .62rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.theoryTitle {
+  color: var(--text-primary);
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.theoryToggle > span:last-child {
+  color: var(--text-secondary);
+  font-size: .7rem;
+  font-weight: 760;
+}
+
+.theoryPanel {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 220ms ease, opacity 180ms ease;
+}
+
+.theoryPanelCollapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.theoryInner {
+  min-height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+  padding: 0 1rem 1rem;
+}
+
+.theoryText {
+  margin: .85rem 0 0;
+  color: var(--text-secondary);
+  font-size: .91rem;
+  line-height: 1.68;
+  white-space: pre-wrap;
+}
+
+.taskCard {
+  min-height: min(33rem, 58dvh);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.taskTopline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+  margin-bottom: 1rem;
+}
+
+.taskType {
+  color: var(--primary);
+  font-size: .66rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.required {
+  border-radius: 999px;
+  background: color-mix(in srgb, #b7791f 12%, var(--surface-elevated));
+  color: #895a0d;
+  padding: .25rem .5rem;
+  font-size: .63rem;
+  font-weight: 820;
+}
+
+.focusContent {
+  animation: stepIn 260ms ease both;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.footerNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+.footerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+}
+
+.nextButton,
+.finishButton {
+  border: 1px solid transparent;
+  background: var(--primary);
+  box-shadow: 0 .55rem 1.2rem color-mix(in srgb, var(--primary) 19%, transparent);
+  color: white;
+  padding: .6rem .95rem;
+}
+
+.nextButton:hover,
+.finishButton:hover {
+  background: color-mix(in srgb, var(--primary) 88%, #20144e);
+  transform: translateY(-1px);
+}
+
+.nextButton:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: .5;
+  transform: none;
+}
+
+.hint {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, #b7791f 26%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, #b7791f 8%, var(--surface-elevated));
+  color: var(--text-secondary);
+  padding: .75rem .85rem;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+
+.empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  padding: 2rem;
+  text-align: center;
+}
+
+.completion {
+  display: grid;
+  gap: .65rem;
+  min-height: min(25rem, 52dvh);
+  align-content: center;
+  justify-items: center;
+  border: 1px solid color-mix(in srgb, #198754 25%, var(--border));
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, #198754 7%, var(--surface-elevated));
+  padding: 2rem;
+  text-align: center;
+}
+
+.completion h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.04em; }
+.completion p { max-width: 32rem; margin: 0; color: var(--text-secondary); line-height: 1.55; }
+
+.player :global(.focus-answer-correct) { animation: successPulse 650ms ease-out; }
+.player :global(.focus-answer-incorrect) { animation: errorShake 330ms ease-in-out; }
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(1rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes successPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, #198754 38%, transparent); }
+  100% { box-shadow: 0 0 0 1rem transparent; }
+}
+
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-.35rem); }
+  40%, 80% { transform: translateX(.35rem); }
+}
+
+@media (max-width: 650px) {
+  .frame { padding: .75rem; }
+  .header { grid-template-columns: auto minmax(0, 1fr); gap: .55rem; border-radius: var(--radius-lg); padding: .55rem; }
+  .progress { grid-column: 1 / -1; grid-row: 2; }
+  .stepCounter { font-size: .65rem; }
+  .closeLink { min-height: 2.25rem; padding: .45rem .62rem; }
+  .taskCard { min-height: 0; border-radius: var(--radius-lg); padding: 1rem; }
+  .footer { align-items: stretch; }
+  .footerActions { width: 100%; }
+  .hintButton, .nextButton, .finishButton { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressValue,
+  .theoryPanel,
+  .closeLink,
+  .hintButton,
+  .nextButton,
+  .finishButton,
+  .showTheory { transition: none; }
+  .focusContent, .player :global(.focus-answer-correct), .player :global(.focus-answer-incorrect) { animation: none; }
+}

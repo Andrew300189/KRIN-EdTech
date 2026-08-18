@@ -1,7 +1,10 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useCallback, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CmsLessonContentComposer } from "@/modules/cms/components/CmsLessonContentComposer";
+import { CmsLessonStepPlayer, type CmsLessonStepBlock } from "@/modules/cms/components/CmsLessonStepPlayer";
 
 const lessonTypes = ["THEORY", "PRACTICE", "VOCABULARY", "GRAMMAR", "READING", "LISTENING", "WRITING", "TEST", "PROJECT", "MIXED"] as const;
 
@@ -67,7 +70,7 @@ export function CmsLessonDetailsEditor({ lesson, availableLessons }: { lesson: L
   return <form onSubmit={submit} className="mt-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 md:grid-cols-2"><div className="md:col-span-2"><h2 className="text-xl font-bold text-slate-950">Lesson settings</h2><p className="mt-1 text-sm text-slate-600">Prerequisites and automatic continuation are checked on the server for every learner.</p></div><label className="md:col-span-2 text-sm font-medium text-slate-700">Title<input name="title" required minLength={2} defaultValue={lesson.title} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Slug<input name="slug" required defaultValue={lesson.slug} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Type<select name="type" defaultValue={lesson.type} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">{lessonTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><label className="md:col-span-2 text-sm font-medium text-slate-700">Description<textarea name="description" defaultValue={lesson.description ?? ""} className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Estimated minutes<input name="estimatedDuration" type="number" min="0" max="10000" defaultValue={lesson.estimatedDuration} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Lesson prerequisite<select name="prerequisiteLessonId" defaultValue={lesson.prerequisiteLessonId ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"><option value="">No prerequisite</option>{prerequisites.map((item) => <option key={item.id} value={item.id}>{item.order}. {item.title}</option>)}</select></label><label className="text-sm font-medium text-slate-700">Required prerequisite completion (%)<input name="requiredPrerequisiteCompletion" type="number" min="1" max="100" defaultValue={lesson.requiredPrerequisiteCompletion} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><div className="flex flex-wrap items-center gap-5 text-sm font-medium text-slate-700"><label className="flex items-center gap-2"><input name="autoUnlockNextLesson" type="checkbox" defaultChecked={lesson.autoUnlockNextLesson} />Open the next lesson after completion</label><label className="flex items-center gap-2"><input name="isFree" type="checkbox" defaultChecked={lesson.isFree} />Free lesson</label></div><label className="md:col-span-2 text-sm font-medium text-slate-700">Preview text<textarea name="previewText" defaultValue={lesson.previewText ?? ""} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Phrase of the day<input name="phraseOfTheDay" defaultValue={lesson.phraseOfTheDay ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><label className="text-sm font-medium text-slate-700">Motivational quote<input name="motivationalQuote" defaultValue={lesson.motivationalQuote ?? ""} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label><div className="md:col-span-2 flex items-center gap-3"><button disabled={isPending} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{isPending ? "Saving…" : "Save lesson"}</button>{feedback ? <p role="status" className={`text-sm ${feedback.error ? "text-rose-700" : "text-emerald-700"}`}>{feedback.message}</p> : null}</div></form>;
 }
 
-export function CmsLessonEnhancements({ lessonId }: { lessonId: string }) {
+function CmsLessonAdditions({ lessonId }: { lessonId: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -97,4 +100,75 @@ export function CmsLessonEnhancements({ lessonId }: { lessonId: string }) {
   }
 
   return <section className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-5"><h2 className="text-xl font-bold text-slate-950">Lesson additions</h2><p className="mt-1 text-sm text-slate-600">These create canonical draft blocks — no duplicate content store is introduced.</p><div className="mt-4 grid gap-4 lg:grid-cols-3"><form onSubmit={(event) => createBlock(event, "GRAMMAR")} className="rounded-xl border border-blue-100 bg-white p-4"><h3 className="font-semibold text-slate-900">Mini grammar</h3><textarea name="content" required minLength={2} placeholder="Rule, example and note…" className="mt-3 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><button disabled={isPending} className="mt-3 rounded border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Add mini grammar</button></form><form onSubmit={(event) => createBlock(event, "HOMEWORK")} className="rounded-xl border border-blue-100 bg-white p-4"><h3 className="font-semibold text-slate-900">Homework assignment</h3><textarea name="content" required minLength={2} placeholder="Instructions for the learner…" className="mt-3 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><button disabled={isPending} className="mt-3 rounded border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Assign homework</button></form><form onSubmit={(event) => createBlock(event, "VIDEO")} className="rounded-xl border border-blue-100 bg-white p-4"><h3 className="font-semibold text-slate-900">Previous homework review</h3><input name="url" type="url" required placeholder="https://…" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><button disabled={isPending} className="mt-3 rounded border border-blue-700 px-3 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50">Add video review</button></form></div>{feedback ? <p role="status" className={`mt-3 text-sm ${feedback.error ? "text-rose-700" : "text-emerald-700"}`}>{feedback.message}</p> : null}</section>;
+}
+
+function CmsLessonObjectivesEditor({ lessonId, initialObjectives }: { lessonId: string; initialObjectives: unknown }) {
+  const [value, setValue] = useState(() => Array.isArray(initialObjectives) ? initialObjectives.filter((item): item is string => typeof item === "string").join("\n") : "");
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setValue(Array.isArray(initialObjectives) ? initialObjectives.filter((item): item is string => typeof item === "string").join("\n") : "");
+  }, [initialObjectives]);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startTransition(async () => {
+      try {
+        await request(`/api/admin/lessons/${lessonId}`, "PATCH", {
+          learningObjectives: value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        });
+        setMessage("Learning objectives saved.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Unable to save learning objectives.");
+      }
+    });
+  }
+
+  return <section className="mt-6 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-violet-700">Lesson plan</p><h2 className="mt-1 text-xl font-bold text-slate-950">Learning objectives</h2><p className="mt-1 text-sm text-slate-600">Use one clear learner outcome per line. These objectives are stored on the lesson itself.</p><form onSubmit={submit} className="mt-4"><textarea value={value} onChange={(event) => setValue(event.target.value)} className="min-h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-violet-600 focus:ring-4 focus:ring-violet-100" placeholder={"Use the target grammar correctly\nRecognise common errors"} /><div className="mt-3 flex items-center gap-3"><button disabled={isPending} className="rounded-xl border border-violet-700 px-4 py-2 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:opacity-60">{isPending ? "Saving…" : "Save objectives"}</button>{message ? <p role="status" className="text-sm text-slate-700">{message}</p> : null}</div></form></section>;
+}
+
+/**
+ * The compact additions remain available, while the composer is loaded from
+ * the same owner-protected blocks API used by the detailed CMS screen.
+ */
+export function CmsLessonEnhancements({ lessonId }: { lessonId: string }) {
+  const [blocks, setBlocks] = useState<CmsLessonStepBlock[] | null>(null);
+  const [learningObjectives, setLearningObjectives] = useState<unknown>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadBlocks = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/admin/lessons/${lessonId}/blocks`, {
+        credentials: "same-origin",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        data?: { blocks?: CmsLessonStepBlock[]; learningObjectives?: unknown };
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.data?.blocks) {
+        throw new Error(payload?.error ?? "Unable to load lesson content.");
+      }
+      setBlocks(payload.data.blocks);
+      setLearningObjectives(payload.data.learningObjectives ?? []);
+      setLoadError(null);
+    } catch (error) {
+      setBlocks(null);
+      setLoadError(error instanceof Error ? error.message : "Unable to load lesson content.");
+    }
+  }, [lessonId]);
+
+  useEffect(() => {
+    void loadBlocks();
+  }, [loadBlocks]);
+
+  return <>
+    {blocks ? <CmsLessonStepPlayer lessonId={lessonId} blocks={blocks} onContentChanged={() => { void loadBlocks(); }} /> : <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-blue-50 p-5"><div><p className="text-xs font-bold uppercase tracking-wide text-blue-700">WYSIWYG lesson player</p><h2 className="mt-1 text-xl font-bold text-slate-950">Build the student experience step by step</h2><p className="mt-1 text-sm text-slate-600">Open the player to create theory, exercises and an estimated duration without a long form.</p></div><Link href={`/cms/lessons/${lessonId}/blocks`} className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800">Open step player</Link></section>}
+    <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">Advanced block editor and all exercise engines</summary>
+      <p className="mt-2 text-sm text-slate-600">Use this only for an engine that is not one of the four quick step types above.</p>
+      <CmsLessonAdditions lessonId={lessonId} />
+    {blocks ? <><CmsLessonObjectivesEditor lessonId={lessonId} initialObjectives={learningObjectives} /><CmsLessonContentComposer lessonId={lessonId} blocks={blocks} onContentChanged={() => { void loadBlocks(); }} /></> : <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">{loadError ?? "Loading lesson composer…"}</section>}
+    </details>
+  </>;
 }

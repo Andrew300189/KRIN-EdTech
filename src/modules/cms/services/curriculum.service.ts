@@ -18,7 +18,7 @@ const parentType: Record<CurriculumNodeType, CurriculumNodeType | null> = {
 
 async function nextNodeOrder(levelId: string, parentId: string | null, type: CurriculumNodeType) {
   const last = await prisma.curriculumNode.findFirst({
-    where: { levelId, parentId, type },
+    where: { levelId, parentId, type, contentStatus: { not: "ARCHIVED" } },
     orderBy: { order: "desc" },
     select: { order: true },
   });
@@ -30,18 +30,20 @@ async function validateParent(levelId: string, type: CurriculumNodeType, parentI
   if (!expected && parentId) throw new Error("A section cannot have a parent.");
   if (expected && !parentId) throw new Error(`A ${type.toLowerCase()} must have a parent.`);
   if (!parentId) return;
-  const parent = await prisma.curriculumNode.findUnique({ where: { id: parentId }, select: { id: true, levelId: true, type: true } });
+  const parent = await prisma.curriculumNode.findUnique({ where: { id: parentId }, select: { id: true, levelId: true, type: true, contentStatus: true } });
   if (!parent) throw new Error("The selected parent curriculum item was not found.");
+  if (parent.contentStatus === "ARCHIVED") throw new Error("An archived curriculum item cannot be used as a parent.");
   if (parent.levelId !== levelId) throw new Error("A curriculum item must belong to the same CEFR level as its parent.");
   if (parent.type !== expected) throw new Error(`A ${type.toLowerCase()} must be placed below a ${expected!.toLowerCase()}.`);
 }
 
-export async function listCurriculumNodes(input?: { levelCode?: string; type?: CurriculumNodeType; parentId?: string }) {
+export async function listCurriculumNodes(input?: { levelCode?: string; type?: CurriculumNodeType; parentId?: string; includeArchived?: boolean }) {
   return prisma.curriculumNode.findMany({
     where: {
       ...(input?.levelCode ? { level: { code: input.levelCode as never } } : {}),
       ...(input?.type ? { type: input.type } : {}),
       ...(input?.parentId ? { parentId: input.parentId } : {}),
+      ...(!input?.includeArchived ? { contentStatus: { not: "ARCHIVED" } } : {}),
     },
     orderBy: [{ level: { order: "asc" } }, { order: "asc" }, { title: "asc" }],
     include: {
@@ -58,6 +60,40 @@ export async function createCurriculumNode(actorId: string, input: CmsCurriculum
   const level = await prisma.languageLevel.findUnique({ where: { code: input.levelCode }, select: { id: true } });
   if (!level) throw new Error("CEFR level not found.");
   await validateParent(level.id, input.type, input.parentId);
+  const archivedMatch = await prisma.curriculumNode.findFirst({
+    where: {
+      levelId: level.id,
+      parentId: input.parentId ?? null,
+      type: input.type,
+      slug: input.slug,
+      contentStatus: "ARCHIVED",
+    },
+    select: { id: true },
+  });
+  if (archivedMatch) {
+    const node = await prisma.curriculumNode.update({
+      where: { id: archivedMatch.id },
+      data: {
+        title: input.title,
+        description: input.description?.trim() || null,
+        locale: input.locale,
+        seoTitle: input.seoTitle?.trim() || null,
+        seoDescription: input.seoDescription?.trim() || null,
+        seoKeywords: input.seoKeywords?.trim() || null,
+        showOnHomepage: input.showOnHomepage,
+        showInSearch: input.showInSearch,
+        order: input.order ?? await nextNodeOrder(level.id, input.parentId ?? null, input.type),
+        contentStatus: "DRAFT",
+        scheduledAt: null,
+        publishedAt: null,
+        archivedAt: null,
+      },
+      include: { level: { select: { code: true } }, parent: { select: { title: true } } },
+    });
+    await prisma.contentAuditLog.create({ data: { actorId, action: "CMS_CURRICULUM_NODE_REACTIVATED", entityType: "CurriculumNode", entityId: node.id, metadata: { type: node.type, level: node.level.code, parent: node.parent?.title ?? null } } });
+    await recordCmsContentVersion({ actorId, entityType: "CURRICULUM_NODE", entityId: node.id, action: "RESTORED", snapshot: node });
+    return node;
+  }
   const node = await prisma.curriculumNode.create({
     data: {
       levelId: level.id,

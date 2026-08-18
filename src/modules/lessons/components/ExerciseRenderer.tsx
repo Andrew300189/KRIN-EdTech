@@ -1,10 +1,14 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Published lesson images can come from the CMS media URL configured by the owner. */
+
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExercise } from "./lesson-content";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
+import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
+import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 
 type Feedback = { example: string | null; theoryHref: string | null; errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }> };
 type AttemptResult = {
@@ -20,12 +24,39 @@ function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
 }
 
+function stepContext(value: unknown) {
+  const context = asObject(asObject(value).authoringContext);
+  return {
+    visible: context.visible !== false,
+    text: typeof context.text === "string" ? context.text : "",
+    audioUrl: mediaUrl(context.audioUrl),
+    imageUrl: mediaUrl(context.imageUrl),
+    videoUrl: mediaUrl(context.videoUrl),
+  };
+}
+
 function isMultipleChoice(exercise: LessonExercise) {
   return exercise.engineKey === "multiple-choice" || exercise.engineKey === "multi-choice" || exercise.type === "MULTIPLE_CHOICE";
 }
 
-export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
+type ExerciseRendererProps = {
+  exercise: LessonExercise;
+  /** CMS previews evaluate a draft locally and never expose answers to a public route. */
+  previewMode?: boolean;
+  hideContext?: boolean;
+  hideContextText?: boolean;
+  onAttemptResolved?: (result: { isCorrect: boolean }) => void;
+};
+
+function hasAnswerValue(answer: string | string[] | JsonObject) {
+  if (typeof answer === "string") return answer.trim().length > 0;
+  if (Array.isArray(answer)) return answer.length > 0;
+  return Object.values(answer).some((value) => typeof value === "string" && value.trim().length > 0);
+}
+
+export function ExerciseRenderer({ exercise, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved }: ExerciseRendererProps) {
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
+  const context = useMemo(() => stepContext(exercise.content), [exercise.content]);
   const options = useMemo(() => asStringArray(content.options), [content]);
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
   const matchingRight = useMemo(() => asStringArray(content.right), [content]);
@@ -58,7 +89,15 @@ export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
   }
 
   async function checkAnswer() {
+    if (!hasAnswerValue(answer)) return;
     setSending(true); setError(null);
+    if (previewMode) {
+      const isCorrect = answerMatches(answer, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], content);
+      setResult({ isCorrect, scoreAwarded: isCorrect ? exercise.basePoints : 0, score: isCorrect ? exercise.basePoints : 0, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
+      onAttemptResolved?.({ isCorrect });
+      setSending(false);
+      return;
+    }
     const key = idempotencyKey ?? crypto.randomUUID();
     setIdempotencyKey(key);
     try {
@@ -66,6 +105,7 @@ export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
+      onAttemptResolved?.({ isCorrect: payload.data.isCorrect });
       if (payload.data.motivationReward?.awarded) {
         const reward = payload.data.motivationReward;
         setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "XP earned", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
@@ -102,8 +142,9 @@ export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
   const passage = typeof content.passage === "string" ? content.passage : null;
   const visibleFeedback = solution ? { explanation: solution.explanation, correctAnswer: solution.correctAnswer, feedback: solution.feedback } : result && result.isCorrect !== undefined ? result : null;
 
-  return <section className="rounded-xl border border-slate-200 bg-slate-50 p-5" aria-label={exercise.instruction}>
+  return <section className={`rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}`} aria-label={exercise.instruction}>
     <RewardNotification events={rewardEvents} />
+    {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="mt-2 text-sm leading-6 text-slate-700 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-300 [&_blockquote]:pl-3 [&_h3]:font-bold [&_h3]:text-slate-900 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support video playback.</video> : null}</section> : null}
     <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-slate-900">{exercise.instruction}</p>{exercise.timeLimitSeconds ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Recommended time: {Math.ceil(exercise.timeLimitSeconds / 60)} min</span> : null}</div>
     {passage ? <article className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
@@ -116,7 +157,7 @@ export function ExerciseRenderer({ exercise }: { exercise: LessonExercise }) {
       {classification && classificationItems.map((item) => <label key={item} className="grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
       {!choice && !matching && !ordered && !classification ? <label className="block"><span className="sr-only">Your answer</span>{longText ? <textarea value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Type your answer" />}</label> : null}
     </div>
-    <button type="button" onClick={checkAnswer} disabled={sending} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{sending ? "Checking…" : "Check answer"}</button>
+    <button type="button" onClick={checkAnswer} disabled={sending || !hasAnswerValue(answer)} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{sending ? "Checking…" : "Check answer"}</button>
     {exercise.hintsEnabled && exercise.hint ? <details className="mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result ? <div className={`mt-4 rounded-lg p-3 text-sm ${result.isCorrect ? "bg-emerald-50 text-emerald-900" : "bg-rose-50 text-rose-900"}`} role="status"><p className="font-semibold">{result.isCorrect ? `Correct — ${result.scoreAwarded} points` : "Not quite"}</p><p className="mt-1 text-xs">Attempt {result.attemptNumber}</p></div> : null}

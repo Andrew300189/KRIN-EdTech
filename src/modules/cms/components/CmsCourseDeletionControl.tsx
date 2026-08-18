@@ -18,31 +18,24 @@ type DeletionImpact = {
   analyticsRecords: number;
   learnerVocabularyRecords: number;
   commerceProducts: number;
+  commerceProductHistory: number;
   certificates: number;
   canDelete: boolean;
   blockers: string[];
 };
 
-export function CmsCourseDeletionControl({ initialImpact }: { initialImpact: DeletionImpact }) {
+type CmsCourseDeletionControlProps = {
+  initialImpact: DeletionImpact;
+  className?: string;
+};
+
+/** Owner-only terminal action. The server repeats all impact checks on DELETE. */
+export function CmsCourseDeletionControl({ initialImpact, className }: CmsCourseDeletionControlProps) {
   const router = useRouter();
   const [impact, setImpact] = useState(initialImpact);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const impactRows: Array<[string, number]> = [
-    [`Course added by ${impact.studentsAdded} student(s)`, impact.studentsAdded],
-    [`There are ${impact.activeProgressions} active progression(s)`, impact.activeProgressions],
-    [`There are ${impact.progressRecords} total progress record(s)`, impact.progressRecords],
-    [`There are ${impact.teacherAssignments} teacher assignment(s)`, impact.teacherAssignments],
-    [`There are ${impact.purchases} purchase record(s)`, impact.purchases],
-    [`There are ${impact.entitlements} access entitlement(s)`, impact.entitlements],
-    [`There are ${impact.analyticsRecords} analytics record(s)`, impact.analyticsRecords],
-    [`There are ${impact.learnerVocabularyRecords} learner vocabulary record(s)`, impact.learnerVocabularyRecords],
-    [`There are ${impact.commerceProducts} linked commerce product(s)`, impact.commerceProducts],
-    [`There are ${impact.certificates} linked certificate(s)`, impact.certificates],
-  ];
-  const visibleImpact = impactRows.filter(([, count]) => count > 0);
-
   function archive() {
     startTransition(async () => {
       setMessage(null);
@@ -78,19 +71,15 @@ export function CmsCourseDeletionControl({ initialImpact }: { initialImpact: Del
     });
   }
 
-  return <section className={`rounded-2xl border p-5 ${impact.canDelete ? "border-amber-200 bg-amber-50" : "border-rose-200 bg-rose-50"}`}>
-    <h2 className="text-lg font-bold text-slate-950">Archive or permanently delete</h2>
-    <p className="mt-1 text-sm text-slate-700">Physical deletion is permitted only for a never-published course with no learners, progress, assignments, purchases, analytics, access rights or certificates.</p>
-    {impact.wasEverPublished ? <p className="mt-3 text-sm font-semibold text-rose-900">This course was published before and therefore must be archived.</p> : null}
-    {visibleImpact.length ? <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-800">{visibleImpact.map(([label]) => <li key={label}>{label}</li>)}</ul> : <p className="mt-3 text-sm text-slate-700">No learner or commercial impact has been found.</p>}
-    <div className="mt-4 flex flex-wrap items-center gap-3">
+  const confirmation = <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete course?" description="Are you sure you want to delete this course? This action cannot be undone." confirmLabel="Yes, delete" cancelLabel="No" onConfirm={remove} isProcessing={isPending}>
+    <p>The server will check learner, progress and payment records one more time before the course is removed.</p>
+  </ConfirmDialog>;
+
+  return <div className={className}>
       {impact.canDelete
-        ? <button type="button" disabled={isPending} onClick={() => setConfirmDelete(true)} className="rounded-lg border border-rose-400 bg-white px-4 py-2 text-sm font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50">Permanently delete course</button>
-        : <button type="button" disabled={isPending} onClick={archive} className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-50">Archive course instead</button>}
+        ? <button type="button" disabled={isPending} onClick={() => setConfirmDelete(true)}>Delete</button>
+        : <button type="button" disabled={isPending} onClick={archive}>Archive</button>}
       {message ? <p role="status" className="text-sm text-slate-700">{message}</p> : null}
-    </div>
-    <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title={`Permanently delete “${impact.title}”?`} description="This cannot be undone. The server will re-check all protected relationships before it deletes the course." confirmLabel="Delete course" onConfirm={remove} isProcessing={isPending}>
-      {visibleImpact.length ? <p>Current impact: {visibleImpact.map(([label]) => label).join("; ")}.</p> : <p>No learner or commercial impact has been found.</p>}
-    </ConfirmDialog>
-  </section>;
+    {confirmation}
+  </div>;
 }

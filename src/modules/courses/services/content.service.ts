@@ -27,6 +27,7 @@ import { notificationService } from "@/modules/communications/services/notificat
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
+import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 
 const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -807,9 +808,11 @@ export async function updateCourse(
     ...(input.prerequisites !== undefined ? { prerequisites: input.prerequisites as Prisma.InputJsonValue } : {}),
   };
   const course = await prisma.course.update({ where: { id: courseId }, data });
+  const duration = await syncCourseEstimatedDuration(course.id);
+  const savedCourse = { ...course, estimatedDuration: duration.minutes, lessonCount: duration.lessonCount };
   await writeContentAudit(actorId, "UPDATE", "Course", course.id, { slug: course.slug });
-  await recordCmsContentVersion({ actorId, entityType: "COURSE", entityId: course.id, action: "UPDATED", snapshot: course });
-  return course;
+  await recordCmsContentVersion({ actorId, entityType: "COURSE", entityId: course.id, action: "UPDATED", snapshot: savedCourse });
+  return savedCourse;
 }
 
 export async function createCourseModule(
@@ -896,6 +899,7 @@ export async function createLesson(
   });
   await writeContentAudit(actorId, "CREATE", "Lesson", lesson.id, { moduleId });
   await recordCmsContentVersion({ actorId, entityType: "LESSON", entityId: lesson.id, action: "CREATED", snapshot: lesson });
+  await syncCourseEstimatedDuration(courseModule.courseId);
   return lesson;
 }
 
@@ -921,6 +925,7 @@ export async function createLessonBlock(
   });
   await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId, type: block.type });
   await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
+  await syncCourseDurationForLessonBlock(block.id);
   return block;
 }
 
@@ -937,6 +942,7 @@ export async function updateLessonBlock(actorId: string, blockId: string, input:
   });
   await writeContentAudit(actorId, "UPDATE", "LessonBlock", block.id, { lessonId: block.lessonId });
   await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "UPDATED", snapshot: block });
+  await syncCourseDurationForLessonBlock(block.id);
   return block;
 }
 
@@ -951,6 +957,7 @@ export async function duplicateLessonBlock(actorId: string, blockId: string) {
   });
   await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId: block.lessonId, copiedFrom: source.id });
   await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
+  await syncCourseDurationForLessonBlock(block.id);
   return block;
 }
 
@@ -1003,6 +1010,7 @@ export async function createExercise(
   });
   await writeContentAudit(actorId, "CREATE", "Exercise", exercise.id, { lessonBlockId, type: exercise.type });
   await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: exercise.id, action: "CREATED", snapshot: exercise });
+  await syncCourseDurationForLessonBlock(lessonBlockId);
   return exercise;
 }
 

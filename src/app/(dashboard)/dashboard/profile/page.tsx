@@ -4,6 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import styles from "./ProfileSettings.module.css";
 
 type UserProfile = {
   firstName: string;
@@ -184,8 +185,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div>
+    <div className={`${styles.page} max-w-3xl space-y-6`}>
+      <div className={styles.header}>
         <h2 className="text-3xl font-bold text-slate-900">Profile settings</h2>
         <p className="mt-2 text-slate-600">
           Manage your personal details and application preferences.
@@ -193,7 +194,7 @@ export default function ProfilePage() {
       </div>
 
       <form
-        className="space-y-6 rounded-xl bg-white p-6 shadow-sm"
+        className={`${styles.card} space-y-6 rounded-xl bg-white p-6 shadow-sm`}
         onSubmit={handleSubmit}
       >
         <section className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center">
@@ -359,7 +360,7 @@ export default function ProfilePage() {
       </form>
 
       <form
-        className="space-y-5 rounded-xl bg-white p-6 shadow-sm"
+        className={`${styles.card} space-y-5 rounded-xl bg-white p-6 shadow-sm`}
         onSubmit={handlePasswordSubmit}
       >
         <div>

@@ -1,0 +1,39 @@
+.pageActions { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+.courseMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .38rem; }
+.levelBadge { display: inline-grid; width: 2.2rem; height: 2.2rem; place-items: center; border-radius: 50%; color: #fff; font-size: .72rem; font-weight: 850; letter-spacing: .02em; }
+.categoryBadge { display: inline-flex; min-height: 2.1rem; align-items: center; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-secondary); padding: .28rem .65rem; color: var(--text-secondary); font-size: .76rem; font-weight: 780; white-space: nowrap; }
+.levelA1 { background: #7067df; }.levelA2 { background: #4e83e9; }.levelB1 { background: #238e7a; }.levelB2 { background: #d38235; }.levelC1 { background: #c65c87; }.levelC2 { background: #6b5a9b; }.levelDefault { background: var(--primary); }
+.backLink, .previewLink, .editLink { display: inline-flex; min-height: 2.45rem; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-md); padding: .5rem .75rem; color: var(--text-secondary); font: inherit; font-size: .82rem; font-weight: 780; text-decoration: none; }
+.editLink { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: color-mix(in srgb, var(--primary) 11%, var(--surface-elevated)); color: var(--primary); cursor: pointer; }
+.previewLink { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)) !important; background: color-mix(in srgb, var(--primary) 11%, var(--surface-elevated)) !important; color: var(--primary) !important; }
+.backLink:hover, .previewLink:hover, .editLink:hover { border-color: var(--border-strong) !important; background: var(--surface-secondary) !important; color: var(--text-primary) !important; }
+.editLink:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 70%, white); outline-offset: 2px; }
+.publicationBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); padding: .65rem .75rem .65rem .9rem; }
+.publicationSummary { display: grid; grid-template-columns: auto auto; align-items: center; gap: .12rem .5rem; min-width: 0; }
+.publicationSummary > span { color: var(--text-muted); font-size: .62rem; font-weight: 820; letter-spacing: .075em; text-transform: uppercase; }
+.publicationSummary > strong { width: fit-content; border: 1px solid transparent; border-radius: 999px; padding: .18rem .46rem; font-size: .67rem; font-weight: 830; letter-spacing: .025em; white-space: nowrap; }
+.publicationSummary > small { grid-column: 1 / -1; overflow: hidden; color: var(--text-secondary); font-size: .71rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.publishedStatus { border-color: color-mix(in srgb, #25a568 36%, var(--border)) !important; background: color-mix(in srgb, #25a568 10%, var(--surface-elevated)); color: #16814f; }
+.draftStatus { border-color: color-mix(in srgb, #c48400 36%, var(--border)) !important; background: color-mix(in srgb, #c48400 10%, var(--surface-elevated)); color: #895a0d; }
+.publicationActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .35rem; }
+.courseLifecycle { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .35rem !important; }
+.courseLifecycle > :global(div:first-child) { gap: .35rem !important; }
+.courseLifecycle > :global(div:nth-child(2)) { flex: 0 1 12.5rem; gap: .35rem !important; }
+.courseLifecycle :global(label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.courseLifecycle :global(button) { min-height: 2rem !important; border-radius: .65rem !important; padding: .3rem .5rem !important; font-size: .67rem !important; }
+.courseLifecycle :global(input) { min-height: 2rem !important; min-width: 0 !important; border-radius: .65rem !important; padding: .28rem .42rem !important; font-size: .67rem !important; }
+.courseLifecycle :global(p) { width: 100%; margin: 0; font-size: .65rem; text-align: right; }
+.courseDeletion { display: flex; flex: 0 0 auto; align-items: center; gap: .35rem; }
+.courseDeletion > button { min-height: 2rem; border: 1px solid color-mix(in srgb, #d23e64 48%, var(--border)); border-radius: .65rem; background: color-mix(in srgb, #d23e64 6%, var(--surface-elevated)); padding: .3rem .5rem; color: #a92549; font-size: .67rem; font-weight: 780; cursor: pointer; }
+.courseDeletion > button:hover:not(:disabled) { border-color: #d23e64; background: color-mix(in srgb, #d23e64 13%, var(--surface-elevated)); }
+.courseDeletion > button:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 70%, white); outline-offset: 2px; }
+.courseDeletion > button:disabled { cursor: not-allowed; opacity: .55; }
+.courseDeletion > p { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.published { border-color: color-mix(in srgb, #25a568 48%, var(--border)); background: color-mix(in srgb, #25a568 8%, var(--surface-elevated)); }
+.published > strong { color: #16814f; }
+.draft { border-color: color-mix(in srgb, #c48400 42%, var(--border)); }
+.editorGrid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1rem; }
+.primaryColumn { display: grid; min-width: 0; gap: 1rem; }
+.editorGrid :global(section), .editorGrid :global(article), .editorGrid :global(div) { min-width: 0; }
+@media (max-width: 760px) { .publicationBar { align-items: stretch; } .publicationActions, .courseLifecycle { width: 100%; justify-content: stretch; } .courseLifecycle { flex: 1 1 100%; } .courseLifecycle > :global(div:first-child), .courseLifecycle > :global(div:nth-child(2)) { flex: 1 1 100%; justify-content: stretch; } .courseLifecycle :global(button), .courseDeletion { flex: 1; } .courseDeletion > button { width: 100%; } .pageActions { width: 100%; } .backLink, .previewLink, .editLink { flex: 1; } }
+@media (prefers-reduced-motion: no-preference) { .backLink, .previewLink, .editLink { transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease; } }

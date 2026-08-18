@@ -332,6 +332,7 @@ export type CmsCourseDeletionImpact = {
   analyticsRecords: number;
   learnerVocabularyRecords: number;
   commerceProducts: number;
+  commerceProductHistory: number;
   certificates: number;
   canDelete: boolean;
   blockers: string[];
@@ -341,7 +342,7 @@ export class CmsCourseDeletionBlockedError extends Error {
   readonly impact: CmsCourseDeletionImpact;
 
   constructor(impact: CmsCourseDeletionImpact) {
-    super("This course has learner, commercial, publication or analytics history and must be archived instead.");
+    super("This course has learner, commercial or analytics history and must be archived instead.");
     this.name = "CmsCourseDeletionBlockedError";
     this.impact = impact;
   }
@@ -349,16 +350,16 @@ export class CmsCourseDeletionBlockedError extends Error {
 
 /** Central rule so the UI and DELETE endpoint cannot disagree about safety. */
 export function canPhysicallyDeleteCmsCourse(impact: Omit<CmsCourseDeletionImpact, "canDelete" | "blockers">) {
-  return !impact.wasEverPublished
-    && impact.studentsAdded === 0
+  return impact.studentsAdded === 0
     && impact.legacyEnrolments === 0
     && impact.progressRecords === 0
+    && impact.activeProgressions === 0
     && impact.teacherAssignments === 0
     && impact.purchases === 0
     && impact.entitlements === 0
     && impact.analyticsRecords === 0
     && impact.learnerVocabularyRecords === 0
-    && impact.commerceProducts === 0
+    && impact.commerceProductHistory === 0
     && impact.certificates === 0;
 }
 
@@ -385,7 +386,7 @@ async function inspectCmsCourseDeletionImpact(db: CourseDeletionClient, courseId
 
   const lessonFilter = { module: { courseId: course.id } };
   const exerciseFilter = { lessonBlock: { lesson: lessonFilter } };
-  const [publishedVersionCount, publishAuditCount, progressRecords, activeProgressions, exerciseAttempts, mistakes, learningActivities, learningSessions, userWords, vocabularySessions] = await Promise.all([
+  const [publishedVersionCount, publishAuditCount, progressRecords, activeProgressions, exerciseAttempts, mistakes, learningActivities, learningSessions, userWords, vocabularySessions, linkedCommerceProducts] = await Promise.all([
     db.cmsContentVersion.count({ where: { entityType: "COURSE", entityId: course.id, action: "PUBLISHED" } }),
     db.contentAuditLog.count({ where: { entityId: course.id, action: "CMS_PUBLISH", entityType: { in: ["COURSE", "Course"] } } }),
     db.lessonProgress.count({ where: { lesson: lessonFilter } }),
@@ -396,6 +397,10 @@ async function inspectCmsCourseDeletionImpact(db: CourseDeletionClient, courseId
     db.learningSession.count({ where: { OR: [{ courseId: course.id }, { lesson: lessonFilter }] } }),
     db.userWord.count({ where: { sourceLesson: lessonFilter } }),
     db.vocabularyTrainingSession.count({ where: { lesson: lessonFilter } }),
+    db.product.findMany({
+      where: { OR: [{ courseId: course.id }, { module: { courseId: course.id } }] },
+      select: { id: true, _count: { select: { orderItems: true, includedInBundles: true } } },
+    }),
   ]);
 
   const wasEverPublished = course.isPublished || course.contentStatus === "PUBLISHED" || course.publishedAt !== null || publishedVersionCount > 0 || publishAuditCount > 0;
@@ -412,13 +417,13 @@ async function inspectCmsCourseDeletionImpact(db: CourseDeletionClient, courseId
     entitlements: course._count.entitlements,
     analyticsRecords: exerciseAttempts + mistakes + learningActivities + learningSessions,
     learnerVocabularyRecords: userWords + vocabularySessions,
-    commerceProducts: course._count.commerceProducts,
+    commerceProducts: linkedCommerceProducts.length,
+    commerceProductHistory: linkedCommerceProducts.reduce((total, product) => total + product._count.orderItems + product._count.includedInBundles, 0),
     // No certificate entity exists in the current schema. This is kept in the
     // contract rather than silently omitted from a deletion decision.
     certificates: 0,
   };
   const blockers = [
-    ...(base.wasEverPublished ? ["The course has been published before."] : []),
     ...(base.studentsAdded ? [`Course added by ${base.studentsAdded} student(s).`] : []),
     ...(base.legacyEnrolments ? [`Course has ${base.legacyEnrolments} legacy enrolment(s).`] : []),
     ...(base.progressRecords ? [`There are ${base.progressRecords} progress record(s).`] : []),
@@ -427,7 +432,7 @@ async function inspectCmsCourseDeletionImpact(db: CourseDeletionClient, courseId
     ...(base.entitlements ? [`There are ${base.entitlements} access entitlement(s).`] : []),
     ...(base.analyticsRecords ? [`There are ${base.analyticsRecords} analytics record(s).`] : []),
     ...(base.learnerVocabularyRecords ? [`There are ${base.learnerVocabularyRecords} learner vocabulary record(s).`] : []),
-    ...(base.commerceProducts ? [`There are ${base.commerceProducts} linked commerce product(s).`] : []),
+    ...(base.commerceProductHistory ? [`There are ${base.commerceProductHistory} protected order or bundle link(s) for commerce products.`] : []),
     ...(base.certificates ? [`There are ${base.certificates} linked certificate(s).`] : []),
   ];
   return { ...base, canDelete: canPhysicallyDeleteCmsCourse(base), blockers };
@@ -437,7 +442,12 @@ export function getCmsCourseDeletionImpact(courseId: string) {
   return inspectCmsCourseDeletionImpact(prisma, courseId);
 }
 
-/** Permanently removes only a never-published course without any historical impact. */
+/**
+ * Permanently removes a course and its CMS-owned structure when it has no
+ * learner, commercial or analytics history. Published-but-unused courses are
+ * safe to remove: the transaction deletes the canonical record, so every
+ * database-backed catalogue, search and homepage query stops returning it.
+ */
 export async function deleteCmsCoursePermanently(actorId: string, courseId: string) {
   return prisma.$transaction(async (tx) => {
     const impact = await inspectCmsCourseDeletionImpact(tx, courseId);
@@ -462,8 +472,9 @@ export async function deleteCmsCoursePermanently(actorId: string, courseId: stri
     const allIds = [courseId, ...moduleIds, ...lessonIds, ...blockIds, ...exerciseIds];
     await tx.cmsContentVersion.deleteMany({ where: { OR: revisionTargets.map(({ entityType, ids }) => ({ entityType, entityId: { in: ids } })) } });
     await tx.contentAuditLog.deleteMany({ where: { entityId: { in: allIds }, entityType: { in: auditEntityTypes } } });
+    await tx.product.deleteMany({ where: { OR: [{ courseId }, { module: { courseId } }] } });
     await tx.course.delete({ where: { id: courseId } });
-    await tx.contentAuditLog.create({ data: { actorId, action: "CMS_COURSE_PERMANENTLY_DELETED", entityType: "CourseDeletion", entityId: courseId, metadata: { slug: structure.slug, reason: "Never published and no learner, commercial or analytics history." } } });
+    await tx.contentAuditLog.create({ data: { actorId, action: "CMS_COURSE_PERMANENTLY_DELETED", entityType: "CourseDeletion", entityId: courseId, metadata: { slug: structure.slug, reason: "No learner, commercial or analytics history." } } });
     return { courseId, deleted: true };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

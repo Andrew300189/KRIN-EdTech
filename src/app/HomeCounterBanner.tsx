@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { PublicLearningStatistics } from "@/modules/analytics/types/platform-statistics.types";
+import { buildPublicStatisticCards } from "@/modules/analytics/utils/public-statistic-cards";
 import s from "./HomeCounterBanner.module.css";
 
-const STATS = [
-  { icon: "👥", target: 1, label: "Active Students", format: (n: number) => Math.round(n).toString() },
-  { icon: "📖", target: 0, label: "English Words Learned", format: (n: number) => Math.round(n).toString() },
-  { icon: "🎓", target: 0, label: "Completed Courses", format: (n: number) => Math.round(n).toString() },
-  { icon: "📈", target: 0, label: "Avg. Score Improvement", format: (n: number) => Math.round(n).toString() },
-];
-
-function AnimatedNumber({ target, format, trigger, delayMs = 0 }: {
+function AnimatedNumber({
+  target,
+  format,
+  trigger,
+  delayMs = 0,
+}: {
   target: number;
-  format: (n: number) => string;
+  format: (value: number) => string;
   trigger: boolean;
   delayMs?: number;
 }) {
-  const [val, setVal] = useState(0);
+  const [value, setValue] = useState(0);
 
   useEffect(() => {
     if (!trigger) {
-      setVal(0);
+      setValue(0);
       return;
     }
 
@@ -29,37 +29,71 @@ function AnimatedNumber({ target, format, trigger, delayMs = 0 }: {
       const start = performance.now();
       let rafId = 0;
 
-      function tick(now: number) {
-        const p = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setVal(target * eased);
+      const tick = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setValue(target * eased);
 
-        if (p < 1) {
+        if (progress < 1) {
           rafId = window.requestAnimationFrame(tick);
           return;
         }
 
-        setVal(target);
-      }
+        setValue(target);
+      };
 
       rafId = window.requestAnimationFrame(tick);
       return () => window.cancelAnimationFrame(rafId);
     }, delayMs);
 
     return () => window.clearTimeout(timer);
-  }, [trigger, target, delayMs]);
+  }, [delayMs, target, trigger]);
 
-  return <>{format(val)}</>;
+  return <>{format(value)}</>;
 }
 
-export function HomeCounterBanner() {
+type StatisticsResponse = { data?: PublicLearningStatistics };
+
+function isStatisticsResponse(
+  payload: StatisticsResponse | null,
+): payload is { data: PublicLearningStatistics } {
+  return Boolean(
+    payload?.data &&
+      Number.isFinite(payload.data.registeredLearners) &&
+      Number.isFinite(payload.data.masteredWords) &&
+      Number.isFinite(payload.data.completedCourses) &&
+      Number.isFinite(payload.data.completedLessons),
+  );
+}
+
+export function HomeCounterBanner({
+  initialStatistics,
+}: {
+  initialStatistics: PublicLearningStatistics;
+}) {
   const ref = useRef<HTMLElement>(null);
   const [triggered, setTriggered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [statistics, setStatistics] = useState(initialStatistics);
+
+  const refreshStatistics = useCallback(async () => {
+    try {
+      const response = await fetch("/api/platform/statistics", {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as StatisticsResponse | null;
+      if (response.ok && isStatisticsResponse(payload)) {
+        setStatistics(payload.data);
+      }
+    } catch {
+      // Statistics are supplementary; a transient network error must not
+      // make the public home page unavailable.
+    }
+  }, []);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const element = ref.current;
+    if (!element) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -75,24 +109,41 @@ export function HomeCounterBanner() {
       { threshold: 0.25 },
     );
 
-    observer.observe(el);
+    observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    void refreshStatistics();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshStatistics();
+      }
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, [isVisible, refreshStatistics]);
+
+  const statisticsCards = buildPublicStatisticCards(statistics);
 
   return (
     <section ref={ref} className={s.banner} aria-label="Platform statistics">
       <div className={s.inner}>
-        {STATS.map((stat, index) => (
+        {statisticsCards.map((stat, index) => (
           <div
-            key={`${stat.label}-${index}`}
+            key={stat.label}
             className={`${s.item} ${isVisible ? s.visible : s.hidden}`}
             style={{ animationDelay: `${index * 150}ms` }}
           >
-            <span className={s.icon} aria-hidden="true">{stat.icon}</span>
+            <span className={s.icon} aria-hidden="true">
+              {stat.icon}
+            </span>
             <strong className={s.value}>
               <AnimatedNumber
-                target={stat.target}
-                format={stat.format}
+                target={stat.value}
+                format={(value) => Math.round(value).toLocaleString("en-US")}
                 trigger={triggered}
                 delayMs={index * 150 + 220}
               />

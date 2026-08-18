@@ -75,7 +75,9 @@
 .mobileLogin,
 .menuButton,
 .loginLink,
-.teacherLink {
+.teacherLink,
+.cmsLink,
+.mobileCmsLink {
   display: inline-flex;
   min-height: 38px;
   align-items: center;
@@ -94,6 +96,17 @@
   background: #fff;
   color: #1e293b;
 }
+.cmsLink,
+.mobileCmsLink {
+  padding: 6px 12px;
+  border: 1px solid #4338ca;
+  background: #4f46e5;
+  color: #fff;
+  text-decoration: none;
+}
+.cmsLink:hover,
+.mobileCmsLink:hover { border-color: #3730a3; background: #4338ca; color: #fff; }
+.mobileCmsLink { padding: 6px 10px; }
 .mobileLogin { padding: 6px 12px; }
 .mobileLogin:hover,
 .loginLink:hover { border-color: #4f46e5; color: #4f46e5; background: #f5f3ff; }
@@ -180,6 +193,7 @@
   .teacherLink { color: #475569; font-size: 0.875rem; white-space: nowrap; }
   .teacherLink:hover { color: #1e293b; }
   .loginLink { padding: 6px 14px; white-space: nowrap; border-radius: 8px; }
+  .cmsLink { white-space: nowrap; border-radius: 8px; }
   .mobileActions { display: none; }
 
   .skillMenu { position: relative; display: flex; align-items: center; min-height: 72px; }

@@ -3,6 +3,7 @@ import { cookies, headers as getRequestHeaders } from "next/headers";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { normalizeEmail } from "@/core/server/platform-owner";
+import { touchUserPresence } from "@/core/server/presence";
 import { prisma } from "@/core/server/prisma";
 import { SESSION_CONFIG } from "@/core/constants/session";
 
@@ -126,7 +127,17 @@ async function getNextAuthValidatedSession(
         : typeof token?.sub === "string"
           ? token.sub
           : null;
-    return userId ? { userId, sessionId: `nextauth:${userId}` } : null;
+    if (!userId) return null;
+
+    // A Google session is JWT-backed, so it has no local Session row. Keep
+    // the shared user-level presence timestamp current without affecting auth.
+    try {
+      await touchUserPresence(userId);
+    } catch {
+      // Presence must never make a valid OAuth session unavailable.
+    }
+
+    return { userId, sessionId: `nextauth:${userId}` };
   } catch {
     return null;
   }
@@ -154,6 +165,12 @@ export async function createSession(
     },
     select: { id: true },
   });
+
+  try {
+    await touchUserPresence(userId, now);
+  } catch {
+    // Credentials authentication remains available during a presence outage.
+  }
 
   const userClaims = await prisma.user.findUnique({
     where: { id: userId },
@@ -393,6 +410,12 @@ export async function getValidatedSession(options?: {
         expiresAt: nextExpiresAt,
       },
     });
+  }
+
+  try {
+    await touchUserPresence(sessionRecord.userId, now);
+  } catch {
+    // Presence is a dashboard indicator, not an authorization dependency.
   }
 
   return { userId: sessionRecord.userId, sessionId: sessionRecord.id };

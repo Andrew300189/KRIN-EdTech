@@ -50,6 +50,7 @@ model User {
   welcomeBonusPoints            Int                          @default(0)
   guidedTourCompleted           Boolean                      @default(false)
   lastLoginAt                   DateTime?
+  lastActiveAt                  DateTime?
   teacherProfile                TeacherProfile?
   ownedLearningGroups           LearningGroup[]              @relation("LearningGroupOwner")
   groupTeachingMemberships      GroupTeacher[]               @relation("GroupTeacherUser")
@@ -121,12 +122,14 @@ model User {
   cmsContentSlotsCreated        CmsContentSlot[]             @relation("CmsContentSlotCreator")
   cmsContentSlotsUpdated        CmsContentSlot[]             @relation("CmsContentSlotUpdater")
   cmsExerciseTemplates          CmsExerciseTemplate[]        @relation("CmsExerciseTemplateCreator")
+  cmsLessonTemplateSections     CmsLessonTemplateSection[]   @relation("CmsLessonTemplateSectionCreator")
   supportTeamMemberships        SupportTeamMember[]
   createdAt                     DateTime                     @default(now())
   updatedAt                     DateTime                     @updatedAt
   CoinTransaction               CoinTransaction[]
 
   @@unique([provider, providerAccountId])
+  @@index([lastActiveAt])
 }
 
 model LanguageLevel {
@@ -711,6 +714,38 @@ model CmsExerciseTemplate {
   @@index([createdById, createdAt])
   @@index([isArchived, updatedAt])
   @@index([sourceExerciseId])
+}
+
+/// Owner-defined shelves for reusable lesson blueprints. A section contains
+/// references to catalogued lesson templates rather than cloned lesson data.
+model CmsLessonTemplateSection {
+  id          String                          @id @default(cuid())
+  title       String
+  description String?
+  createdById String
+  createdBy   User                            @relation("CmsLessonTemplateSectionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  items       CmsLessonTemplateSectionItem[]
+  createdAt   DateTime                        @default(now())
+  updatedAt   DateTime                        @updatedAt
+
+  @@index([createdById, createdAt])
+  @@index([title])
+}
+
+/// The template key is validated against the server-side lesson template
+/// catalogue before a reference is created. This avoids copying a blueprint
+/// and lets a template be improved centrally while sections remain organised.
+model CmsLessonTemplateSectionItem {
+  id          String                   @id @default(cuid())
+  sectionId   String
+  section     CmsLessonTemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  templateKey String
+  order       Int
+  createdAt   DateTime                 @default(now())
+
+  @@unique([sectionId, templateKey])
+  @@unique([sectionId, order])
+  @@index([templateKey])
 }
 
 model LessonProgress {
