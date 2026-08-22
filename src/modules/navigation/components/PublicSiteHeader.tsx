@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AppModal } from "@/core/components/AppModal";
 import { ThemeToggle } from "@/core/components/ThemeToggle";
+import {
+  localeNames,
+  supportedLocales,
+  useLocale,
+} from "@/core/i18n/locale";
 import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { courseSkillCatalog, courseSkillLevels, type CourseSkillSlug } from "@/modules/courses/data/skill-course-catalog";
 import styles from "./PublicSiteHeader.module.css";
@@ -62,6 +67,7 @@ function MenuIcon({ open }: { open: boolean }) {
 
 /** Shared public navigation with keyboard-accessible skill and mobile menus. */
 export function PublicSiteHeader() {
+  const { locale, setLocale, t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginIntent, setLoginIntent] = useState<"learner" | "teacher">("learner");
@@ -120,21 +126,59 @@ export function PublicSiteHeader() {
           <span className={styles.brandAccent}>EdTech</span>
         </span>
       </Link>
-      <nav className={styles.desktopNav} aria-label="Primary navigation">
-        {primaryLinks.map((link) => <Link key={link.href} href={link.href}>{link.label}</Link>)}
+      <nav className={styles.desktopNav} aria-label={t("header.navigation")}>
+        {primaryLinks.map((link) => <Link key={link.href} href={link.href}>{t(`header.${link.label.toLowerCase()}`)}</Link>)}
         {courseSkillCatalog.map((skill) => <SkillMenu key={skill.slug} skill={skill} />)}
       </nav>
-      <div className={styles.desktopActions}><button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>I teach</button><ThemeToggle />{canAccessCms ? <Link href="/cms" className={styles.cmsLink}>CMS</Link> : null}<button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>Log in</button></div>
-      <div className={styles.mobileActions}><ThemeToggle />{canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>CMS</Link> : null}<button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>Log in</button><button ref={triggerRef} type="button" aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button></div>
+      <div className={styles.desktopActions}>
+        <button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>{t("header.iTeach")}</button>
+        <ThemeToggle />
+        {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
+        <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>
+        <label className={styles.localeSelectWrap}>
+          <select
+            aria-label="Language"
+            className={styles.localeSelect}
+            value={locale}
+            onChange={(event) => setLocale(event.target.value)}
+          >
+            {supportedLocales.map((supportedLocale) => (
+              <option key={supportedLocale} value={supportedLocale}>
+                {supportedLocale.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className={styles.mobileActions}>
+        <ThemeToggle />
+        {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
+        <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>
+        <label className={styles.localeSelectWrapMobile}>
+          <select
+            aria-label="Language"
+            className={styles.localeSelect}
+            value={locale}
+            onChange={(event) => setLocale(event.target.value)}
+          >
+            {supportedLocales.map((supportedLocale) => (
+              <option key={supportedLocale} value={supportedLocale}>
+                {supportedLocale.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button ref={triggerRef} type="button" aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button>
+      </div>
     </div>
-    <AppModal open={menuOpen} onOpenChange={setMenuOpen} title="Navigation" size="fullscreen" className={styles.menuDialog} closeLabel="Close navigation menu">
+    <AppModal open={menuOpen} onOpenChange={setMenuOpen} title={t("header.navigation")} size="fullscreen" className={styles.menuDialog} closeLabel="Close navigation menu">
       <div id="public-navigation-menu" className={styles.panel}>
-        <section className={styles.menuSection}><p className={styles.menuHeading}>Learn</p>{primaryLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{link.label}</span></Link>)}</section>
-        <section className={styles.menuSection}><p className={styles.menuHeading}>Build a skill</p>{courseSkillCatalog.map((skill) => <div key={skill.slug} className={styles.mobileSkillGroup}><Link href={getSkillHref(skill.slug)} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{skill.label}</span><span className={styles.menuDescription}>Browse all levels or choose one below.</span></Link><div className={styles.mobileLevelLinks}>{courseSkillLevels.map((level) => <Link key={level} href={getSkillHref(skill.slug, level)} onClick={closeMenu} data-tone={levelToneMap[level as CefrLevel]}>{level}</Link>)}</div></div>)}</section>
-        <section className={styles.menuSection}><p className={styles.menuHeading}>More</p>{moreLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{link.label}</span><span className={styles.menuDescription}>{link.description}</span></Link>)}</section>
-        {canAccessCms ? <section className={styles.menuSection}><p className={styles.menuHeading}>Platform</p><Link href="/cms" onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>CMS</span><span className={styles.menuDescription}>Manage platform content and settings.</span></Link></section> : null}
-        <div className={styles.menuCtas}><button type="button" onClick={() => { closeMenu(); openLogin("learner", "register"); }} className={styles.menuPrimary}>Create account</button><button type="button" onClick={() => { closeMenu(); openLogin("teacher"); }} className={styles.menuSecondary}>I am a teacher</button></div>
-        <p className={styles.menuNote}>Public pages are currently available in English. You can set your account interface language after signing in.</p>
+        <section className={styles.menuSection}><p className={styles.menuHeading}>{t("header.learn")}</p>{primaryLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{t(`header.${link.label.toLowerCase()}`)}</span></Link>)}</section>
+        <section className={styles.menuSection}><p className={styles.menuHeading}>{t("header.buildSkill")}</p>{courseSkillCatalog.map((skill) => <div key={skill.slug} className={styles.mobileSkillGroup}><Link href={getSkillHref(skill.slug)} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{skill.label}</span><span className={styles.menuDescription}>Browse all levels or choose one below.</span></Link><div className={styles.mobileLevelLinks}>{courseSkillLevels.map((level) => <Link key={level} href={getSkillHref(skill.slug, level)} onClick={closeMenu} data-tone={levelToneMap[level as CefrLevel]}>{level}</Link>)}</div></div>)}</section>
+        <section className={styles.menuSection}><p className={styles.menuHeading}>{t("header.more")}</p>{moreLinks.map((link) => <Link key={link.href} href={link.href} onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{link.label}</span><span className={styles.menuDescription}>{link.description}</span></Link>)}</section>
+        {canAccessCms ? <section className={styles.menuSection}><p className={styles.menuHeading}>Platform</p><Link href="/cms" onClick={closeMenu} className={styles.menuLink}><span className={styles.menuTitle}>{t("header.cms")}</span><span className={styles.menuDescription}>Manage platform content and settings.</span></Link></section> : null}
+        <div className={styles.menuCtas}><button type="button" onClick={() => { closeMenu(); openLogin("learner", "register"); }} className={styles.menuPrimary}>{t("header.createAccount")}</button><button type="button" onClick={() => { closeMenu(); openLogin("teacher"); }} className={styles.menuSecondary}>{t("header.teacher")}</button></div>
+        <p className={styles.menuNote}>{t("header.note")}</p>
       </div>
     </AppModal>
     <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} intent={loginIntent} initialView={loginInitialView} nextPath={loginIntent === "teacher" ? "/teacher" : undefined} />

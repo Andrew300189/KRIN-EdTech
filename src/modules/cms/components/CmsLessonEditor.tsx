@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState, useTransition } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import styles from "./CmsPageShell.module.css";
 import { CmsLessonContentComposer } from "@/modules/cms/components/CmsLessonContentComposer";
 import { CmsLessonStepPlayer, type CmsLessonStepBlock } from "@/modules/cms/components/CmsLessonStepPlayer";
 
@@ -32,6 +33,95 @@ async function request(url: string, method: "PATCH" | "POST", body: object) {
   const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   if (!response.ok) throw new Error(payload?.error ?? "Unable to save lesson.");
+}
+
+export function InlineLessonTitleEditor({ lessonId, initialTitle, onSave }: { lessonId: string; initialTitle: string; onSave?: (newTitle: string) => void }) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(initialTitle);
+  const [draft, setDraft] = useState(initialTitle);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setTitle(initialTitle);
+    setDraft(initialTitle);
+  }, [initialTitle]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [isEditing]);
+
+  async function saveNextTitle(nextValue: string) {
+    const normalized = nextValue.trim();
+
+    if (!normalized) {
+      setDraft(title);
+      setIsEditing(false);
+      return;
+    }
+
+    if (normalized === title) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/lessons/${lessonId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: normalized }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "Unable to save lesson title.");
+
+      setTitle(normalized);
+      setDraft(normalized);
+      onSave?.(normalized);
+      router.refresh();
+    } catch (error) {
+      setDraft(title);
+      console.error(error);
+    } finally {
+      setIsEditing(false);
+    }
+  }
+
+  if (!isEditing) {
+    return <button type="button" className={styles.inlineTitleButton} onClick={() => {
+      setDraft(title);
+      setIsEditing(true);
+    }} aria-label="Edit lesson title">
+      {title}
+    </button>;
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      className={styles.inlineTitleInput}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => { void saveNextTitle(draft); }}
+      onKeyDown={(event) => {
+        // Save on Enter to persist the new lesson title.
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void saveNextTitle(draft);
+          return;
+        }
+
+        // Escape closes the editor without saving changes.
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setDraft(title);
+          setIsEditing(false);
+        }
+      }}
+      aria-label="Lesson title"
+    />
+  );
 }
 
 export function CmsLessonDetailsEditor({ lesson, availableLessons }: { lesson: Lesson; availableLessons: AvailableLesson[] }) {

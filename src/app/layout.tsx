@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ScrollToTopButton from "@/core/components/ScrollToTopButton";
 import { SkipToMainContent } from "@/core/components/SkipToMainContent";
+import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
 
 const themeBootstrap = `(() => {
@@ -76,11 +77,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body>
-        <SkipToMainContent />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
-        <div id="main-content" tabIndex={-1}>{children}</div>
-        <WebVitalsReporter />
-        <ScrollToTopButton />
+        <LocaleProvider>
+          <SkipToMainContent />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
+          <div id="main-content" tabIndex={-1}>{children}</div>
+          <WebVitalsReporter />
+          <ScrollToTopButton />
+        </LocaleProvider>
       </body>
     </html>
   );

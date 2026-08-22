@@ -8,20 +8,22 @@ export type CourseDurationEstimate = {
 };
 
 const ENGINE_SECONDS: Record<string, number> = {
-  choice: 20,
-  "single-choice": 20,
-  "multiple-choice": 30,
-  "true-false-not-given": 25,
-  "text-input": 35,
-  "fill-in-the-blanks": 35,
-  "dropdown-gaps": 30,
-  "drag-and-drop": 45,
-  matching: 45,
-  sorting: 45,
-  "sentence-builder": 45,
-  categorization: 50,
-  "find-and-correct": 50,
-  "highlight-text": 40,
+  // A choice is one deliberate click, not a one-minute activity. Compound
+  // engines use the number of items below, at five seconds per interaction.
+  choice: 5,
+  "single-choice": 5,
+  "multiple-choice": 5,
+  "true-false-not-given": 5,
+  "text-input": 18,
+  "fill-in-the-blanks": 10,
+  "dropdown-gaps": 5,
+  "drag-and-drop": 5,
+  matching: 5,
+  sorting: 5,
+  "sentence-builder": 5,
+  categorization: 5,
+  "find-and-correct": 20,
+  "highlight-text": 5,
   "reading-with-questions": 75,
   "audio-with-questions": 75,
   "video-with-questions": 90,
@@ -30,7 +32,7 @@ const ENGINE_SECONDS: Record<string, number> = {
   "pronunciation-check": 90,
   "writing-assignment": 150,
   translation: 60,
-  flashcards: 20,
+  flashcards: 5,
   "interactive-dialogue": 75,
   "timed-quiz": 45,
   "adaptive-test": 60,
@@ -51,15 +53,41 @@ function textLength(value: unknown): number {
   return 0;
 }
 
-function exerciseSeconds(exercise: { engineKey: string; difficulty: number; basePoints: number; timeLimitSeconds: number | null }) {
-  const base = ENGINE_SECONDS[exercise.engineKey] ?? 35;
-  const difficultyFactor = 0.82 + Math.min(5, Math.max(1, exercise.difficulty)) * 0.12;
-  const pointsFactor = 1 + Math.min(0.2, Math.max(0, exercise.basePoints - 1) * 0.025);
-  const weighted = Math.round(base * difficultyFactor * pointsFactor);
-  return exercise.timeLimitSeconds ? Math.max(weighted, Math.min(exercise.timeLimitSeconds, 300)) : weighted;
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-function blockSeconds(block: { type: string; title: string | null; content: unknown; settings: unknown; exercises: Array<{ engineKey: string; difficulty: number; basePoints: number; timeLimitSeconds: number | null }> }) {
+function itemCount(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+/**
+ * Estimates active learning time from actual interactions. Legacy
+ * `timeLimitSeconds` values are deliberately not used: they are author-facing
+ * limits and previously inflated a single click into 30–60 seconds.
+ */
+function exerciseSeconds(exercise: { engineKey: string; difficulty: number; basePoints: number; timeLimitSeconds: number | null; content: unknown; correctAnswer: unknown }) {
+  const content = asRecord(exercise.content);
+  const engine = exercise.engineKey;
+  const base = ENGINE_SECONDS[engine] ?? 18;
+  const options = itemCount(content.options);
+  const pairs = itemCount(content.left);
+  const items = Math.max(itemCount(content.items), itemCount(content.categories));
+  const gaps = Math.max(itemCount(content.gaps), itemCount(content.blankIds));
+  const answerItems = itemCount(exercise.correctAnswer);
+
+  let interactionSeconds = base;
+  if (["matching", "drag-and-drop"].includes(engine)) interactionSeconds = Math.max(10, pairs * 5 || base);
+  if (["sorting", "sentence-builder"].includes(engine)) interactionSeconds = Math.max(10, options * 5 || base);
+  if (engine === "categorization") interactionSeconds = Math.max(10, items * 5 || base);
+  if (["fill-in-the-blanks", "dropdown-gaps"].includes(engine)) interactionSeconds = Math.max(5, gaps * (engine === "dropdown-gaps" ? 5 : 10) || base);
+  if (engine === "multiple-choice") interactionSeconds = Math.max(5, answerItems * 5 || base);
+
+  const difficultyFactor = 0.95 + Math.min(5, Math.max(1, exercise.difficulty)) * 0.04;
+  return Math.max(5, Math.round(interactionSeconds * difficultyFactor));
+}
+
+function blockSeconds(block: { type: string; title: string | null; content: unknown; settings: unknown; exercises: Array<{ engineKey: string; difficulty: number; basePoints: number; timeLimitSeconds: number | null; content: unknown; correctAnswer: unknown }> }) {
   if (block.exercises.length) return block.exercises.reduce((total, exercise) => total + exerciseSeconds(exercise), 0);
   const words = Math.ceil((textLength(block.title) + textLength(block.content) + textLength(block.settings)) / 5);
   const reading = Math.min(420, Math.max(20, Math.ceil(words / 2.4)));
@@ -90,7 +118,7 @@ export async function getCourseDurationEstimate(courseId: string): Promise<Cours
                   settings: true,
                   exercises: {
                     where: { contentStatus: { not: "ARCHIVED" } },
-                    select: { engineKey: true, difficulty: true, basePoints: true, timeLimitSeconds: true },
+                    select: { engineKey: true, difficulty: true, basePoints: true, timeLimitSeconds: true, content: true, correctAnswer: true },
                   },
                 },
               },

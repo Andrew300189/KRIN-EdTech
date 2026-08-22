@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
 
 type LearnerCourse = {
   id: string;
@@ -237,7 +238,7 @@ export default function DashboardCoursesPage() {
                 {course.totalLessons} lessons
               </p>
               <Link
-                href={`/courses/${course.slug}`}
+                href={learnerCourseContinueHref(course)}
                 className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 {course.nextLesson ? "Continue course" : "View course"}

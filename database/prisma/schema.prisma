@@ -123,6 +123,7 @@ model User {
   cmsContentSlotsUpdated        CmsContentSlot[]             @relation("CmsContentSlotUpdater")
   cmsExerciseTemplates          CmsExerciseTemplate[]        @relation("CmsExerciseTemplateCreator")
   cmsLessonTemplateSections     CmsLessonTemplateSection[]   @relation("CmsLessonTemplateSectionCreator")
+  cmsNotificationReadState      CmsNotificationReadState?    @relation("CmsNotificationReadOwner")
   supportTeamMemberships        SupportTeamMember[]
   createdAt                     DateTime                     @default(now())
   updatedAt                     DateTime                     @updatedAt
@@ -130,6 +131,8 @@ model User {
 
   @@unique([provider, providerAccountId])
   @@index([lastActiveAt])
+  @@index([createdAt])
+  @@index([deletedAt])
 }
 
 model LanguageLevel {
@@ -242,6 +245,9 @@ model Course {
   coursePurchases      CoursePurchase[]
   entitlements         Entitlement[]
   curriculumLinks      CourseCurriculumLink[]
+  /// Localized learner-facing copies. The canonical course and its learning
+  /// structure remain single rows; translations never create a second course.
+  translations         CourseTranslation[]
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 
@@ -255,6 +261,53 @@ model Course {
   @@index([contentStatus, isVisibleInCatalog])
   @@index([contentStatus, isVisibleInSearch])
   @@index([isTemplate, contentStatus])
+}
+
+/// CMS-managed locale registry for learner-facing content. Interface strings
+/// remain in the i18n bundle; courses and lessons reference these records.
+model ContentLocale {
+  code                     String                   @id
+  displayName              String
+  nativeName               String
+  isActive                 Boolean                  @default(true)
+  order                    Int                      @default(0)
+  courseTranslations       CourseTranslation[]      @relation("CourseTranslationLocale")
+  moduleTranslations       CourseModuleTranslation[] @relation("CourseModuleTranslationLocale")
+  lessonTranslations       LessonTranslation[]      @relation("LessonTranslationLocale")
+  lessonBlockTranslations  LessonBlockTranslation[] @relation("LessonBlockTranslationLocale")
+  exerciseTranslations     ExerciseTranslation[]    @relation("ExerciseTranslationLocale")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+
+  @@index([isActive, order])
+}
+
+/// One localized learner-facing presentation per course and locale. Slugs are
+/// locale-scoped so public URLs can be localized without URL collisions.
+model CourseTranslation {
+  id             String           @id @default(cuid())
+  courseId       String
+  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  locale         String
+  localeRecord   ContentLocale    @relation("CourseTranslationLocale", fields: [locale], references: [code], onDelete: Restrict)
+  slug           String
+  title          String
+  shortDescription String
+  fullDescription String?
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  learningOutcomes Json?
+  prerequisites  Json?
+  contentStatus  CmsContentStatus @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([courseId, locale])
+  @@unique([locale, slug])
+  @@index([locale, contentStatus])
+  @@index([locale, title])
 }
 
 /// Owner-managed level-specific curriculum tree. One table models sections,
@@ -355,12 +408,30 @@ model CourseModule {
   lessons          Lesson[]
   commerceProducts Product[]
   entitlements     Entitlement[]
+  translations     CourseModuleTranslation[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@unique([courseId, order])
   @@index([courseId, isPublished])
   @@index([courseId, unlockAfterModuleId])
+}
+
+model CourseModuleTranslation {
+  id           String           @id @default(cuid())
+  moduleId     String
+  module       CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  locale       String
+  localeRecord ContentLocale    @relation("CourseModuleTranslationLocale", fields: [locale], references: [code], onDelete: Restrict)
+  title        String
+  description  String?
+  contentStatus CmsContentStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([moduleId, locale])
+  @@index([locale, contentStatus])
 }
 
 model Lesson {
@@ -406,12 +477,36 @@ model Lesson {
   learningSessions   LearningSession[]
   assignments        Assignment[]
   grammarTopics      LessonGrammarTopic[]
+  translations       LessonTranslation[]
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
 
   @@unique([moduleId, order])
   @@index([moduleId, isPublished])
   @@index([moduleId, prerequisiteLessonId])
+}
+
+model LessonTranslation {
+  id                  String           @id @default(cuid())
+  lessonId            String
+  lesson              Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  locale              String
+  localeRecord        ContentLocale    @relation("LessonTranslationLocale", fields: [locale], references: [code], onDelete: Restrict)
+  slug                String
+  title               String
+  description         String?
+  phraseOfTheDay      String?
+  motivationalQuote  String?
+  learningObjectives Json?
+  previewText         String?
+  contentStatus       CmsContentStatus @default(DRAFT)
+  publishedAt         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([lessonId, locale])
+  @@unique([locale, slug])
+  @@index([locale, contentStatus])
 }
 
 model LessonBlock {
@@ -430,11 +525,31 @@ model LessonBlock {
   archivedAt          DateTime?
   exercises           Exercise[]
   homeworkSubmissions HomeworkSubmission[]
+  translations        LessonBlockTranslation[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
   @@unique([lessonId, order])
   @@index([lessonId, type])
+}
+
+/// Text or rich-content overrides for theory and other lesson blocks.
+/// Behavioural settings remain on LessonBlock and are never translated.
+model LessonBlockTranslation {
+  id           String           @id @default(cuid())
+  lessonBlockId String
+  lessonBlock  LessonBlock      @relation(fields: [lessonBlockId], references: [id], onDelete: Cascade)
+  locale       String
+  localeRecord ContentLocale    @relation("LessonBlockTranslationLocale", fields: [locale], references: [code], onDelete: Restrict)
+  title        String?
+  content      Json?
+  contentStatus CmsContentStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([lessonBlockId, locale])
+  @@index([locale, contentStatus])
 }
 
 model GrammarTopic {
@@ -648,12 +763,35 @@ model Exercise {
   grammarLinks       ExerciseGrammarTopic[]
   learningActivities LearningActivity[]
   savedTemplates     CmsExerciseTemplate[] @relation("CmsExerciseTemplateSource")
+  translations       ExerciseTranslation[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
   @@unique([lessonBlockId, order])
   @@index([lessonBlockId, type])
   @@index([previousVersionId])
+}
+
+/// Localizes learner-facing exercise copy. Answer configuration remains on
+/// Exercise so translations cannot silently change scoring semantics.
+model ExerciseTranslation {
+  id           String           @id @default(cuid())
+  exerciseId   String
+  exercise     Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  locale       String
+  localeRecord ContentLocale    @relation("ExerciseTranslationLocale", fields: [locale], references: [code], onDelete: Restrict)
+  instruction  String
+  question     String
+  content      Json?
+  explanation  String?
+  hint         String?
+  contentStatus CmsContentStatus @default(DRAFT)
+  publishedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([exerciseId, locale])
+  @@index([locale, contentStatus])
 }
 
 model ExerciseVocabulary {
@@ -1453,6 +1591,18 @@ model Notification {
   @@index([expiresAt])
 }
 
+/// A single server-side cursor per CMS owner. Platform notifications are
+/// calculated from real domain events instead of duplicating every new user,
+/// purchase or support request into a second high-volume event table.
+model CmsNotificationReadState {
+  id         String   @id @default(cuid())
+  ownerId    String   @unique
+  owner      User     @relation("CmsNotificationReadOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model NotificationDelivery {
   id                String                     @id @default(cuid())
   notificationId    String
@@ -1895,6 +2045,7 @@ model Payment {
   @@index([orderId])
   @@index([provider, providerPaymentId])
   @@index([provider, status])
+  @@index([status, paidAt])
 }
 
 model PaymentEvent {
@@ -2117,6 +2268,7 @@ model CoursePurchase {
 
   @@unique([userId, courseId, orderId])
   @@index([userId, courseId])
+  @@index([status, createdAt])
 }
 
 model Entitlement {

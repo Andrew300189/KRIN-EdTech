@@ -4,7 +4,7 @@ import { calculateLessonResult, gradeForPercent } from "@/modules/lessons/utils/
 describe("lesson result calculation", () => {
   it("uses the latest attempt for each exercise and maps the grade consistently", () => {
     const result = calculateLessonResult([
-      { exerciseId: "one", isCorrect: false, scoreAwarded: 0, attemptNumber: 1 },
+      { exerciseId: "one", isCorrect: false, scoreAwarded: -2, attemptNumber: 1 },
       { exerciseId: "one", isCorrect: true, scoreAwarded: 2, attemptNumber: 2 },
       { exerciseId: "two", isCorrect: true, scoreAwarded: 3, attemptNumber: 1 },
     ]);

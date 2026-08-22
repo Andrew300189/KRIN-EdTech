@@ -72,6 +72,46 @@
   margin-left: auto;
 }
 
+.localeSelectWrap,
+.localeSelectWrapMobile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid #dfe7f1;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+.localeSelect {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  min-width: 52px;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.localeSelectWrap:hover,
+.localeSelectWrapMobile:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.localeSelect:focus-visible {
+  outline: none;
+}
+
 .mobileLogin,
 .menuButton,
 .loginLink,
@@ -189,11 +229,27 @@
     color: #1e293b;
     background: #f8fafc;
   }
-  .desktopActions { display: flex; align-items: center; justify-self: end; gap: 6px; margin-left: 0; }
+  .desktopActions {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+    gap: 8px;
+    margin-left: 0;
+    max-width: 100%;
+  }
+  .teacherLink,
+  .loginLink,
+  .cmsLink {
+    flex-shrink: 0;
+  }
   .teacherLink { color: #475569; font-size: 0.875rem; white-space: nowrap; }
   .teacherLink:hover { color: #1e293b; }
   .loginLink { padding: 6px 14px; white-space: nowrap; border-radius: 8px; }
   .cmsLink { white-space: nowrap; border-radius: 8px; }
+  .localeSelectWrap {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
   .mobileActions { display: none; }
 
   .skillMenu { position: relative; display: flex; align-items: center; min-height: 72px; }

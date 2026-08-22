@@ -1,8 +1,17 @@
-export type CmsLiveActivityKind = "REGISTRATION" | "LEARNING" | "PAYMENT";
+export type CmsLiveActivityKind = "SECURITY" | "BILLING" | "SUPPORT";
+
+export type CmsLiveActivityType =
+  | "SECURITY_ALERT"
+  | "PAYMENT_FAILURE"
+  | "URGENT_SUPPORT";
+
+export type CmsLiveActivitySeverity = "CRITICAL" | "HIGH";
 
 export type CmsLiveActivity = {
   id: string;
   kind: CmsLiveActivityKind;
+  type: CmsLiveActivityType;
+  severity: CmsLiveActivitySeverity;
   title: string;
   detail: string;
   occurredAt: string;

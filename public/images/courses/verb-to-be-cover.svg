@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Глагол to be: Present Simple для A1</title>
+  <desc id="description">Обложка курса с формами am, is и are.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#eef2ff"/>
+      <stop offset="0.55" stop-color="#ddd6fe"/>
+      <stop offset="1" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="26" flood-color="#312e81" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" rx="56" fill="url(#background)"/>
+  <circle cx="1380" cy="150" r="220" fill="#ffffff" fill-opacity="0.35"/>
+  <circle cx="154" cy="790" r="250" fill="#c4b5fd" fill-opacity="0.4"/>
+  <g filter="url(#shadow)">
+    <rect x="120" y="135" width="1360" height="630" rx="46" fill="#ffffff" fill-opacity="0.86"/>
+    <rect x="174" y="194" width="204" height="54" rx="27" fill="#e0e7ff"/>
+    <text x="276" y="229" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="700" font-size="24" fill="#4338ca">A1 · Grammar</text>
+    <text x="174" y="372" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="88" fill="#172554">Глагол to be</text>
+    <text x="180" y="445" font-family="Inter, Arial, sans-serif" font-weight="500" font-size="34" fill="#475569">Present Simple: говорим о себе и мире вокруг</text>
+    <g transform="translate(178 535)">
+      <rect width="222" height="106" rx="30" fill="#4f46e5"/>
+      <text x="111" y="69" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="48" fill="#ffffff">I am</text>
+      <rect x="252" width="222" height="106" rx="30" fill="#6366f1"/>
+      <text x="363" y="69" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="48" fill="#ffffff">she is</text>
+      <rect x="504" width="222" height="106" rx="30" fill="#818cf8"/>
+      <text x="615" y="69" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="48" fill="#ffffff">we are</text>
+    </g>
+    <g transform="translate(1100 250)">
+      <circle cx="120" cy="120" r="116" fill="#c7d2fe"/>
+      <circle cx="120" cy="88" r="40" fill="#fef3c7"/>
+      <path d="M42 220c6-63 42-94 78-94s72 31 78 94" fill="#4f46e5"/>
+      <path d="M74 150c18 20 74 20 92 0" fill="none" stroke="#312e81" stroke-width="10" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

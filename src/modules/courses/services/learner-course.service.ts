@@ -1,5 +1,7 @@
 import { Prisma, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
+import { getLearningRewardPreview } from "@/modules/motivation/services/motivation.service";
+import { listLessonProgressByLessonIds } from "./content.service";
 
 const PLAN_ORDER: SubscriptionPlan[] = [
   "FREE",
@@ -26,6 +28,8 @@ export type LearnerCourseCard = {
   progress: number;
   completedLessons: number;
   totalLessons: number;
+  lessonExperience: number;
+  lessonAccuracy: { correctAnswers: number; incorrectAnswers: number };
   source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "TEACHER_CREATED" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
   canRemove: boolean;
   nextLesson: { slug: string; title: string } | null;
@@ -42,16 +46,19 @@ function plansAvailableTo(subscriptionPlan: SubscriptionPlan | undefined) {
  */
 export async function listLearnerCourses(userId: string): Promise<LearnerCourseCard[]> {
   const now = new Date();
-  const subscription = await prisma.entitlement.findFirst({
-    where: {
-      userId,
-      type: "SUBSCRIPTION",
-      ...activeWindow(now),
-      plan: { isNot: null },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { plan: { select: { code: true } } },
-  });
+  const [subscription, rewardPreview] = await Promise.all([
+    prisma.entitlement.findFirst({
+      where: {
+        userId,
+        type: "SUBSCRIPTION",
+        ...activeWindow(now),
+        plan: { isNot: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { plan: { select: { code: true } } },
+    }),
+    getLearningRewardPreview(),
+  ]);
   const subscriptionPlans = plansAvailableTo(subscription?.plan?.code);
 
   const directEntitlement = { userId, ...activeWindow(now) };
@@ -115,6 +122,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
             where: { isPublished: true },
             orderBy: { order: "asc" },
             select: {
+              id: true,
               slug: true,
               title: true,
               progress: {
@@ -128,11 +136,18 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     },
   });
 
+  const lessonProgressById = new Map(
+    (await listLessonProgressByLessonIds(
+      userId,
+      courses.flatMap((course) => course.modules.flatMap((courseModule) => courseModule.lessons.map((lesson) => lesson.id))),
+    )).map((progress) => [progress.lessonId, progress]),
+  );
+
   return courses.map((course) => {
     const lessons = course.modules.flatMap((courseModule) => courseModule.lessons);
     const requiredModules = course.modules.filter((courseModule) => courseModule.isRequired);
     const requiredLessons = requiredModules.length ? requiredModules.flatMap((courseModule) => courseModule.lessons) : lessons;
-    const progressEntries = requiredLessons.map((lesson) => lesson.progress[0]);
+    const progressEntries = requiredLessons.map((lesson) => lessonProgressById.get(lesson.id));
     const totalLessons = requiredLessons.length;
     const completedLessons = progressEntries.filter(
       (progress) => progress?.status === "COMPLETED",
@@ -145,8 +160,13 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
             0,
           ) / totalLessons,
         );
-    const nextLesson = lessons.find(
-      (lesson) => lesson.progress[0]?.status !== "COMPLETED",
+    const nextLesson = lessons.find((lesson) => lessonProgressById.get(lesson.id)?.status !== "COMPLETED");
+    const lessonAccuracy = progressEntries.reduce(
+      (summary, item) => ({
+        correctAnswers: summary.correctAnswers + (item?.attemptAccuracy.correctAnswers ?? 0),
+        incorrectAnswers: summary.incorrectAnswers + (item?.attemptAccuracy.incorrectAnswers ?? 0),
+      }),
+      { correctAnswers: 0, incorrectAnswers: 0 },
     );
     const hasModuleEntitlement = course.modules.some(
       (module) => module.entitlements.length > 0,
@@ -180,6 +200,8 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       progress,
       completedLessons,
       totalLessons,
+      lessonExperience: rewardPreview.lesson.experience,
+      lessonAccuracy,
       source,
       canRemove: Boolean(libraryEntry),
       nextLesson: nextLesson

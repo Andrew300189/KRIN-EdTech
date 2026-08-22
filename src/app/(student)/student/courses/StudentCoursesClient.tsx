@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/core/components/ConfirmDialog";
 import type { LearnerCourseCard } from "@/modules/courses/services/learner-course.service";
+import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
+import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import styles from "./StudentCourses.module.css";
 
 type StudentCoursesClientProps = {
@@ -26,6 +28,13 @@ function getProgressLabel(course: LearnerCourseCard) {
   if (course.totalLessons === 0) return "Course structure is being prepared";
   if (course.progress >= 100) return "Course completed";
   return `${course.completedLessons} of ${course.totalLessons} lessons complete`;
+}
+
+function getXpLabel(course: LearnerCourseCard) {
+  if (course.lessonExperience <= 0) return "No XP reward is active for lessons right now.";
+  const remaining = Math.max(0, course.totalLessons - course.completedLessons);
+  if (remaining === 0 && course.totalLessons > 0) return "First-completion XP collected. Repeats do not award XP.";
+  return `${remaining} new ${remaining === 1 ? "lesson" : "lessons"} available · +${course.lessonExperience} XP each on first completion`;
 }
 
 export function StudentCoursesClient({
@@ -118,9 +127,10 @@ export function StudentCoursesClient({
             <div className={styles.progressHeading}><span>{getProgressLabel(course)}</span><strong>{course.progress}%</strong></div>
             <div className={styles.progressTrack} aria-label={`${course.progress}% complete`}><div className={styles.progressFill} style={{ width: `${course.progress}%` }} /></div>
             <p className={styles.nextLesson}>{course.nextLesson ? `Next: ${course.nextLesson.title}` : course.progress >= 100 ? "You have completed this course." : "Choose a lesson when you are ready."}</p>
+            <div className={styles.xpReward}><LessonXpBadge experience={course.lessonExperience} correctAnswers={course.lessonAccuracy.correctAnswers} incorrectAnswers={course.lessonAccuracy.incorrectAnswers} progressPercent={course.progress} /><span>{getXpLabel(course)}</span></div>
           </div>
           <div className={styles.cardActions}>
-            <Link href={`/student/courses/${course.slug}`} className={styles.primaryAction}>{course.progress ? "Continue" : "Start course"}</Link>
+            <Link href={learnerCourseContinueHref(course)} className={styles.primaryAction}>{course.progress ? "Continue" : "Start course"}</Link>
             {course.canRemove ? <button type="button" aria-label={`Remove ${course.title} from my courses`} onClick={() => setConfirming(course)} className={styles.removeButton}>Remove</button> : null}
           </div>
         </article>)}

@@ -30,6 +30,7 @@
 .progressTrack { height: 0.5rem; margin-top: 0.45rem; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-secondary); }
 .progressFill { height: 100%; min-width: 0; border-radius: inherit; background: var(--primary); }
 .nextLesson { overflow: hidden; margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.xpReward { display: flex; align-items: center; gap: .5rem; margin: .55rem 0 0; color: var(--primary); font-size: .72rem; font-weight: 800; line-height: 1.35; }
 .cardActions { display: flex; gap: 0.55rem; margin-top: 1rem; }
 .cardActions .primaryAction { flex: 1; }
 .errorState { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0.9rem 1rem; border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--border)); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--danger) 12%, var(--surface-elevated)); color: var(--text-primary); }
