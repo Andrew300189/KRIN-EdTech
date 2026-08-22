@@ -4,26 +4,103 @@ import { notFound } from "next/navigation";
 import { getPublishedLevelWithCourses } from "@/modules/courses/services/content.service";
 import { getPublicCourseHref } from "@/modules/courses/utils/public-content-routes";
 import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHeader";
+import styles from "./level-page.module.css";
 
-export async function generateMetadata({ params }: { params: Promise<{ levelCode: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ levelCode: string }>;
+}): Promise<Metadata> {
   const level = await getPublishedLevelWithCourses((await params).levelCode);
+
   if (!level) return { title: "English level" };
+
   return {
     title: level.seoTitle || `${level.title} English courses`,
     description: level.seoDescription || level.description,
-    keywords: level.seoKeywords?.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+    keywords: level.seoKeywords
+      ?.split(",")
+      .map((keyword) => keyword.trim())
+      .filter(Boolean),
   };
 }
 
-export default async function LevelCoursesPage({ params }: { params: Promise<{ levelCode: string }> }) {
+function accessLabel(plan: "FREE" | "BASIC" | "PREMIUM" | "PRO" | "CORPORATE") {
+  if (plan === "FREE") return "Free";
+  if (plan === "CORPORATE") return "Corporate";
+  return "Subscription";
+}
+
+export default async function LevelCoursesPage({
+  params,
+}: {
+  params: Promise<{ levelCode: string }>;
+}) {
   const { levelCode } = await params;
   const level = await getPublishedLevelWithCourses(levelCode);
+
   if (!level) notFound();
+
   return (
-    <main className="min-h-screen bg-slate-50"><PublicSiteHeader /><div className="mx-auto max-w-6xl px-6 py-12">
-      <Link href="/levels" className="text-sm font-semibold text-blue-700 hover:underline">← All levels</Link>
-      <header className="mt-5"><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">{level.code}</p><h1 className="mt-2 text-4xl font-bold text-slate-900">{level.title} courses</h1><p className="mt-3 max-w-2xl text-slate-600">{level.description}</p></header>
-      {level.courses.length === 0 ? <p className="mt-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600">Published courses for this level are being prepared.</p> : <section className="mt-8 grid gap-5 md:grid-cols-2" aria-label={`${level.code} courses`}>{level.courses.map((course) => <Link key={course.slug} href={getPublicCourseHref(course.slug)} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"><p className="text-sm font-semibold text-blue-700">{course.accessPlan === "FREE" ? "Free" : "Premium"}</p><h2 className="mt-2 text-2xl font-bold text-slate-900">{course.title}</h2><p className="mt-3 text-slate-600">{course.shortDescription}</p><p className="mt-5 text-sm text-slate-500">{course.lessonCount} lessons · {course.estimatedDuration || "—"} min</p></Link>)}</section>}
-    </div></main>
+    <main className={styles.page}>
+      <PublicSiteHeader />
+
+      <div className={styles.shell}>
+        <Link href="/levels" className={styles.backLink}>
+          All levels
+        </Link>
+
+        <header className={styles.header}>
+          <span className={styles.levelBadge}>{level.code}</span>
+          <div>
+            <p className={styles.eyebrow}>CEFR level</p>
+            <h1>{level.title} courses</h1>
+            {level.description ? <p>{level.description}</p> : null}
+          </div>
+        </header>
+
+        <section className={styles.coursesSection} aria-label={`${level.code} courses`}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>Available courses</p>
+              <h2>Build your {level.code} foundation</h2>
+            </div>
+            <span className={styles.courseCount}>{level.courses.length} {level.courses.length === 1 ? "course" : "courses"}</span>
+          </div>
+
+          {level.courses.length === 0 ? (
+            <div className={styles.emptyState}>
+              <h2>Courses are being prepared</h2>
+              <p>Published courses for this level will appear here as soon as they are ready.</p>
+            </div>
+          ) : (
+            <div className={styles.courseGrid}>
+              {level.courses.map((course) => (
+                <Link
+                  key={course.slug}
+                  href={getPublicCourseHref(course.slug)}
+                  className={styles.courseCard}
+                  aria-label={`Open course: ${course.title}`}
+                >
+                  <div className={styles.cardTopline}>
+                    <span className={styles.category}>{course.category.title}</span>
+                    <span className={styles.access}>{accessLabel(course.accessPlan)}</span>
+                  </div>
+                  <h3>{course.title}</h3>
+                  <p className={styles.description}>
+                    {course.shortDescription || "Course details are being prepared."}
+                  </p>
+                  <div className={styles.cardFooter}>
+                    <span>{course.lessonCount} {course.lessonCount === 1 ? "lesson" : "lessons"}</span>
+                    <span>{course.estimatedDuration > 0 ? `${course.estimatedDuration} min` : "Self-paced"}</span>
+                    <strong>Open course <span aria-hidden="true">→</span></strong>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }

@@ -10,6 +10,10 @@
 .title { margin: 0.3rem 0 0; color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 820; letter-spacing: -0.04em; line-height: 1.12; }
 .titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
 .titleMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .3rem; }
+.inlineTitleButton { appearance: none; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: inherit; padding: 0.15rem 0.35rem; margin: 0.3rem 0 0; font: inherit; font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 820; letter-spacing: -0.04em; line-height: 1.12; text-align: left; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.inlineTitleButton:hover { border-color: var(--border); background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)); }
+.inlineTitleInput { min-width: min(100%, 26rem); border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--text-primary); padding: 0.5rem 0.7rem; font: inherit; font-size: clamp(1.2rem, 2.2vw, 1.6rem); font-weight: 820; letter-spacing: -0.03em; line-height: 1.1; }
+.inlineTitleInput:focus { border-color: var(--primary); outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .description { max-width: 48rem; margin: 0.55rem 0 0; color: var(--text-secondary); font-size: 0.92rem; line-height: 1.52; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; }
 .actions :global(a), .actions :global(button) { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border-color: var(--border) !important; border-radius: var(--radius-md) !important; background: transparent; color: var(--text-secondary); padding: 0.55rem 0.8rem; font-weight: 760; text-decoration: none; }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CmsNotificationNavLink } from "./CmsNotificationNavLink";
 import styles from "./CmsNavigation.module.css";
 
 const primaryLinks = [
@@ -10,9 +11,9 @@ const primaryLinks = [
   { href: "/cms/levels", label: "Curriculum" },
   { href: "/cms/lesson-templates", label: "Lesson templates" },
   { href: "/cms/exercise-templates", label: "Exercises" },
-  { href: "/cms/media", label: "Media library" },
+  { href: "/cms/translations", label: "Translations" },
   { href: "/cms/legal", label: "Legal & trust" },
-  { href: "/cms/import-export", label: "Import & export" },
+  { href: "/cms/notifications", label: "Notifications" },
   { href: "/cms/audit", label: "Audit history" },
   { href: "/cms/users", label: "Users" },
   { href: "/cms/sales", label: "Sales" },
@@ -30,8 +31,8 @@ const moreLinks = [
   { href: "/cms/dashboards", label: "Dashboards" },
   { href: "/cms/navigation", label: "Navigation" },
   { href: "/cms/search", label: "Search" },
-  { href: "/cms/translations", label: "Translations" },
   { href: "/cms/revisions", label: "Revisions" },
+  { href: "/cms/import-export", label: "Import & export" },
   { href: "/cms/settings", label: "Settings" },
 ] as const;
 
@@ -49,18 +50,21 @@ export function CmsNavigation() {
         <div className={styles.links}>
           {primaryLinks.map((link) => {
             const active = isActive(link.href);
+            if (link.href === "/cms/notifications") {
+              return <CmsNotificationNavLink key={link.href} active={active} />;
+            }
             return <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} className={`${styles.link} ${active ? styles.linkActive : ""}`}>{link.label}</Link>;
           })}
-          <details className={styles.more}>
-            <summary className={`${styles.moreSummary} ${moreIsActive ? styles.linkActive : ""}`}>More</summary>
-            <div className={styles.morePanel}>
-              {moreLinks.map((link) => {
-                const active = isActive(link.href);
-                return <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} className={`${styles.moreLink} ${active ? styles.moreLinkActive : ""}`}>{link.label}</Link>;
-              })}
-            </div>
-          </details>
         </div>
+        <details className={styles.more}>
+          <summary className={`${styles.moreSummary} ${moreIsActive ? styles.linkActive : ""}`}>More</summary>
+          <div className={styles.morePanel}>
+            {moreLinks.map((link) => {
+              const active = isActive(link.href);
+              return <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined} className={`${styles.moreLink} ${active ? styles.moreLinkActive : ""}`}>{link.label}</Link>;
+            })}
+          </div>
+        </details>
         <Link href="/student" className={styles.learnerLink}>Open learner view</Link>
       </div>
     </nav>

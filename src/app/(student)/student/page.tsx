@@ -4,12 +4,13 @@ import { prisma } from "@/core/server/prisma";
 import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBanner";
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
 import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
+import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
 import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import styles from "./StudentHome.module.css";
 
-function courseHref(slug: string) {
-  return `/student/courses/${slug}`;
+function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
+  return learnerCourseContinueHref(course);
 }
 
 function formatPlan(plan: string) {
@@ -77,7 +78,7 @@ export default async function StudentHomePage({
           <p>One focused lesson is enough for today. Your next step is ready below.</p>
         </div>
         <div className={styles.heroActions}>
-          <Link href={next ? courseHref(next.slug) : "/student/catalog"} className={styles.primaryAction}>{next ? "Continue learning" : "Choose a course"}</Link>
+          <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}>{next ? "Continue learning" : "Choose a course"}</Link>
           <Link href="/profile/support" className={styles.secondaryAction}>Help</Link>
         </div>
       </header>
@@ -107,7 +108,7 @@ export default async function StudentHomePage({
                   <Link href="/student/homework">{assignmentCount ? `${assignmentCount} homework items` : "Homework"}</Link>
                   <Link href="/profile/settings/motivation">Study pace</Link>
                 </div>
-                <Link href={courseHref(next.slug)} className={styles.primaryAction}>Start lesson</Link>
+                <Link href={courseHref(next)} className={styles.primaryAction}>Start lesson</Link>
               </div>
             </>
           ) : (

@@ -6,6 +6,7 @@ import { CmsLifecycleControls } from "@/modules/cms/components/CmsLifecycleContr
 import { CmsLessonBlockEditor } from "@/modules/cms/components/CmsLessonBlockEditor";
 import { CmsLessonStepPlayer } from "@/modules/cms/components/CmsLessonStepPlayer";
 import { CmsEmptyState, CmsPageShell } from "@/modules/cms/components/CmsPageShell";
+import { InlineLessonTitleEditor } from "@/modules/cms/components/CmsLessonEditor";
 import { AdminBlockForm, AdminExerciseForm } from "@/modules/courses/components/admin/ContentForms";
 import { CmsLessonGrammarManager } from "@/modules/grammar/components/CmsLessonGrammarManager";
 import { listLessonGrammarTopics } from "@/modules/grammar/services/grammar-cms.service";
@@ -50,10 +51,12 @@ export default async function CmsLessonBlocksPage({
 
   if (!lesson) notFound();
 
+  const titleNode = <InlineLessonTitleEditor lessonId={lesson.id} initialTitle={lesson.title} />;
+
   return (
     <CmsPageShell
       eyebrow="Lesson editor"
-      title={`Blocks: ${lesson.title}`}
+      title={titleNode}
       description="Build and test one learner-facing step at a time."
       dense
       actions={(

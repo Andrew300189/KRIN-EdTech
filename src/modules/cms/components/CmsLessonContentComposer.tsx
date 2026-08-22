@@ -102,6 +102,10 @@ function payloadFrom(fields: Fields, allowEmptyTimeLimit = false) {
   let alternativeAnswers: string[] | undefined = answers.slice(1);
   if (fields.source.trim()) content.text = fields.source.trim();
   if (fields.mediaUrl.trim()) content.mediaUrl = fields.mediaUrl.trim();
+  if (fields.engineKey === "find-and-correct") {
+    content.answerMode = "CORRECTED_TOKEN";
+    content.ignorePunctuation = true;
+  }
 
   if (["choice", "audio-choice", "hotspot"].includes(engine.renderer)) {
     const options = lines(fields.options);

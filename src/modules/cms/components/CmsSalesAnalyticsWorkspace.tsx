@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download, RefreshCw, ShoppingBag, Users } from "lucide-react";
 import type { CmsSalesAnalytics, CmsSalesPeriod } from "@/modules/cms/services/cms-sales-analytics.service";
 import styles from "./CmsSalesAnalyticsWorkspace.module.css";
+
+const CmsSalesChart = dynamic(
+  () => import("./CmsSalesChart").then((module) => module.CmsSalesChart),
+  { ssr: false, loading: () => <div className={styles.chart} aria-label="Loading sales chart" /> },
+);
 
 type Props = { report: CmsSalesAnalytics };
 
@@ -130,7 +135,7 @@ export function CmsSalesAnalyticsWorkspace({ report }: Props) {
       <section className={styles.insights}>
         <article className={styles.panel}>
           <div className={styles.panelHeading}><div><p className={styles.kicker}>Sales distribution</p><h2>Top products by purchases</h2></div><span>{report.productRanking.length} products sold</span></div>
-          {chartRows.length ? <div className={styles.chart}><ResponsiveContainer width="100%" height="100%"><BarChart data={chartRows} layout="vertical" margin={{ left: 8, right: 14, top: 2, bottom: 2 }}><CartesianGrid horizontal={false} stroke="var(--border)" /><XAxis type="number" allowDecimals={false} stroke="var(--text-secondary)" fontSize={12} /><YAxis type="category" dataKey="name" width={135} stroke="var(--text-secondary)" fontSize={12} /><Tooltip cursor={{ fill: "color-mix(in srgb, var(--primary) 8%, transparent)" }} contentStyle={{ borderRadius: 12, borderColor: "var(--border)", background: "var(--surface-elevated)" }} /><Bar dataKey="sold" fill="var(--primary)" radius={[6, 6, 6, 6]} /></BarChart></ResponsiveContainer></div> : <p className={styles.empty}>No confirmed sales in this period yet.</p>}
+          {chartRows.length ? <div className={styles.chart}><CmsSalesChart rows={chartRows} /></div> : <p className={styles.empty}>No confirmed sales in this period yet.</p>}
         </article>
         <aside className={styles.panel}>
           <div className={styles.panelHeading}><div><p className={styles.kicker}>Live activity</p><h2>Confirmed purchases</h2></div><span>Auto-refreshes every 30s</span></div>

@@ -26,7 +26,6 @@
 }
 
 .closeLink,
-.hintButton,
 .nextButton,
 .finishButton,
 .showTheory {
@@ -42,7 +41,6 @@
 }
 
 .closeLink,
-.hintButton,
 .showTheory {
   border: 1px solid var(--border);
   background: var(--surface-elevated);
@@ -51,7 +49,6 @@
 }
 
 .closeLink:hover,
-.hintButton:hover,
 .showTheory:hover {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
   background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated));
@@ -74,18 +71,59 @@
   font-weight: 760;
 }
 
-.progressTrack {
-  height: .46rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 18%, var(--surface-secondary));
+.blockTimeline {
+  display: grid;
+  gap: .28rem;
+  min-height: .62rem;
 }
 
-.progressValue {
-  height: 100%;
-  border-radius: inherit;
+.blockSegment {
+  min-width: 0;
+  min-height: .56rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-secondary));
+  /* Every timeline segment is a review link. Never signal that a completed
+     (or not-yet-opened) lesson step is forbidden when it can be opened. */
+  cursor: pointer;
+  padding: 0;
+  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.blockSegment:disabled {
+  cursor: pointer;
+  opacity: 1;
+}
+
+.blockSegmentCompleted {
+  cursor: pointer;
   background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 62%, #9d7cf8));
-  transition: width 400ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.blockSegmentCurrent {
+  cursor: pointer;
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface-elevated));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.blockSegment:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.blockSegment:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--primary));
+  outline-offset: 2px;
+}
+
+.blockSegmentNumber {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .stepCounter {
@@ -96,6 +134,28 @@
   text-align: right;
   white-space: nowrap;
 }
+
+.stepArea {
+  display: grid;
+  justify-items: end;
+  gap: .32rem;
+}
+
+.lessonReward {
+  margin: 1rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3 !important;
+  padding: .55rem .8rem;
+  font-size: .8rem;
+  font-weight: 750;
+}
+
+.lessonReward p { margin: 0; }
 
 .lessonContext {
   margin-top: clamp(1rem, 2vw, 1.5rem);
@@ -243,6 +303,38 @@
   padding-top: 1rem;
 }
 
+.footerSummary {
+  display: grid;
+  min-width: min(100%, 20rem);
+  flex: 1 1 22rem;
+  gap: .42rem;
+}
+
+.lessonGoal {
+  display: grid;
+  gap: .18rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated));
+  padding: .58rem .72rem;
+}
+
+.lessonGoalLabel {
+  color: var(--primary);
+  font-size: .62rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.lessonGoal p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: .78rem;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
 .footerNote {
   margin: 0;
   color: var(--text-muted);
@@ -276,17 +368,6 @@
   cursor: not-allowed;
   opacity: .5;
   transform: none;
-}
-
-.hint {
-  margin: 0;
-  border: 1px solid color-mix(in srgb, #b7791f 26%, var(--border));
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, #b7791f 8%, var(--surface-elevated));
-  color: var(--text-secondary);
-  padding: .75rem .85rem;
-  font-size: .8rem;
-  line-height: 1.5;
 }
 
 .empty {
@@ -338,20 +419,670 @@
   .header { grid-template-columns: auto minmax(0, 1fr); gap: .55rem; border-radius: var(--radius-lg); padding: .55rem; }
   .progress { grid-column: 1 / -1; grid-row: 2; }
   .stepCounter { font-size: .65rem; }
+  .stepArea { gap: .2rem; }
   .closeLink { min-height: 2.25rem; padding: .45rem .62rem; }
   .taskCard { min-height: 0; border-radius: var(--radius-lg); padding: 1rem; }
   .footer { align-items: stretch; }
   .footerActions { width: 100%; }
-  .hintButton, .nextButton, .finishButton { flex: 1; }
+  .nextButton, .finishButton { flex: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .progressValue,
+  .blockSegment,
   .theoryPanel,
   .closeLink,
-  .hintButton,
   .nextButton,
   .finishButton,
   .showTheory { transition: none; }
   .focusContent, .player :global(.focus-answer-correct), .player :global(.focus-answer-incorrect) { animation: none; }
+}
+
+/* Placement-test visual system applied to the learner-facing course player. */
+.player {
+  background:
+    radial-gradient(circle at 8% 0%, rgb(79 70 229 / 12%), transparent 24rem),
+    radial-gradient(circle at 92% 8%, rgb(37 99 235 / 8%), transparent 22rem),
+    #f7f9ff;
+  color: #1e293b;
+}
+
+.frame { width: min(100%, 56rem); padding: clamp(1rem, 3vw, 1.75rem); }
+
+.header,
+.lessonContext,
+.theory,
+.taskCard,
+.completion,
+.empty {
+  border-color: rgb(186 193 221 / 75%);
+  border-radius: 28px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 18px 42px rgb(27 42 86 / 10%);
+}
+
+.header { min-height: 4.2rem; padding: .72rem .9rem; }
+
+.closeLink,
+.hintButton,
+.showTheory {
+  border-color: #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+}
+
+.closeLink:hover,
+.hintButton:hover,
+.showTheory:hover {
+  border-color: #a5b4fc;
+  background: #f8f7ff;
+  color: #312e81;
+}
+
+.blockTimeline { gap: .25rem; }
+.blockSegment { min-height: .44rem; background: #eef2ff; }
+.blockSegmentCompleted { background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%); }
+.blockSegmentCurrent { border-color: #4f46e5; background: #c7d2fe; }
+
+.lessonContext {
+  position: relative;
+  overflow: hidden;
+  margin-top: 1rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.lessonContext::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
+  content: "";
+}
+
+.lessonContext h1 { color: #1e293b; font-size: clamp(1.3rem, 4vw, 1.85rem); font-weight: 900; }
+.lessonContext p, .progressMeta, .stepCounter { color: #64748b; }
+
+.workspace { gap: .85rem; margin-top: 1rem; }
+
+.theory {
+  border-color: #c7d2fe;
+  background: linear-gradient(135deg, #f8f7ff 0%, #f4f7ff 100%);
+  box-shadow: 0 10px 26px rgb(79 70 229 / 8%);
+}
+
+.theoryToggle { padding: 1rem 1.1rem; }
+.theoryEyebrow { color: #4f46e5; }
+.theoryTitle { color: #263650; }
+.theoryInner { border-color: #e0e7ff; padding: 0 1.1rem 1.1rem; }
+.theoryText { color: #475569; line-height: 1.65; }
+
+.taskCard {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+/* The actual exercise uses PlacementTest's header and body classes. */
+.exerciseTaskCard { border-radius: 22px; }
+.exerciseTaskCard .focusContent { padding: 0; }
+
+.taskTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #eef2ff;
+}
+.taskType {
+  color: #5148db;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .075em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.required {
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: .73rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: .48rem .7rem;
+}
+
+.focusContent { padding: 20px 24px 24px; }
+
+.focusContent :global(section.rounded-2xl) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.focusContent :global(section.rounded-xl) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.focusContent :global(.bg-slate-50) { background: transparent !important; }
+.focusContent :global(.bg-white) { background: #fff !important; }
+.focusContent :global(.border-slate-200),
+.focusContent :global(.border-slate-300) { border-color: #e2e8f0 !important; }
+.focusContent :global(.text-slate-900) { color: #1e293b !important; }
+.focusContent :global(.text-slate-800),
+.focusContent :global(.text-slate-700) { color: #263650 !important; }
+
+.focusContent :global(p.font-medium) {
+  color: #1e293b;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -.012em;
+  line-height: 1.52;
+}
+
+.focusContent :global(.rounded-lg) { border-radius: 18px; }
+
+.focusContent :global(label.rounded-lg) {
+  border-color: #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  font-size: .94rem;
+  font-weight: 650;
+  line-height: 1.45;
+  padding: .82rem .95rem;
+  transition: border-color 130ms ease, background-color 130ms ease, transform 110ms ease, box-shadow 130ms ease;
+}
+
+/* Match PlacementTest options precisely inside the learner exercise card. */
+.exerciseTaskCard .focusContent :global(label.rounded-lg) {
+  gap: 10px;
+  min-height: 0;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #263650;
+  font-size: .9rem;
+  font-weight: 600;
+  line-height: normal;
+  padding: 10px 13px;
+}
+
+.exerciseTaskCard .focusContent :global(label.rounded-lg:hover) {
+  border-color: #a5b4fc;
+  background: #f8f7ff;
+  box-shadow: none;
+  transform: translateX(2px);
+}
+
+.exerciseTaskCard .focusContent :global(input:not([type])),
+.exerciseTaskCard .focusContent :global(textarea),
+.exerciseTaskCard .focusContent :global(select) {
+  border-color: #cbd5e1;
+  border-radius: 12px;
+  font-size: .9rem;
+}
+
+/* Compact answer feedback: explanation on the left, useful actions on the right. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint) {
+  margin: 12px 0 0;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #854d0e;
+  font-size: .84rem;
+  line-height: 1.45;
+  padding: 9px 11px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 12px 13px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-success) {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-error) {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #881337;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-copy p) {
+  margin: 0;
+  color: inherit !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-title) {
+  font-size: .92rem;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-meta),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-xp) {
+  margin-top: 3px !important;
+  color: inherit !important;
+  font-size: .76rem;
+  font-weight: 650;
+  line-height: 1.35;
+  opacity: .82;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action) {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  font-size: .76rem;
+  font-weight: 780;
+  line-height: 1;
+  padding: 8px 11px;
+  transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease, transform 130ms ease;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action:hover:not(:disabled)) {
+  transform: translateY(-1px);
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action:disabled) {
+  cursor: wait;
+  opacity: .65;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-retry) {
+  border-color: #fda4af;
+  color: #be123c;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-retry:hover) { background: #ffe4e6; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-solution) {
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-solution:hover) { background: #eef2ff; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm > span) {
+  max-width: 11rem;
+  color: #854d0e;
+  font-size: .74rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-primary) {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-quiet) {
+  border-color: transparent;
+  background: transparent;
+  color: #64748b;
+}
+
+.focusContent :global(label.rounded-lg:hover) {
+  border-color: #a5b4fc;
+  background: #f8f7ff;
+  box-shadow: 0 5px 14px rgb(79 70 229 / 10%);
+  transform: translateX(2px);
+}
+
+.focusContent :global(label.rounded-lg:has(input:checked)) {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #1e293b;
+}
+
+.focusContent :global(input[type="radio"]),
+.focusContent :global(input[type="checkbox"]) { accent-color: #4f46e5; }
+
+.focusContent :global(input:not([type])),
+.focusContent :global(textarea),
+.focusContent :global(select) {
+  border-color: #cbd5e1;
+  border-radius: 16px;
+  background: #fff;
+  font-size: .95rem;
+  line-height: 1.45;
+}
+
+.focusContent :global(button.bg-blue-700) {
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  box-shadow: 0 7px 18px rgb(79 70 229 / 28%);
+}
+
+.focusContent :global(button.bg-blue-700:hover) {
+  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+}
+
+.footer { border-color: #eef2ff; }
+.lessonGoal { border-color: #c7d2fe; background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 92%); }
+.lessonGoalLabel { color: #4f46e5; }
+.lessonGoal p { color: #312e81; }
+.footerNote { color: #64748b; }
+
+.nextButton,
+.finishButton {
+  min-height: 2.7rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  box-shadow: 0 8px 20px rgb(79 70 229 / 28%);
+}
+
+.nextButton:hover,
+.finishButton:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
+  box-shadow: 0 12px 26px rgb(79 70 229 / 36%);
+}
+
+.hint { border-color: #fde68a; border-radius: 14px; background: #fffbeb; color: #854d0e; }
+
+/* The task itself is a compact dashboard card, rather than a bare form inside
+   the lesson canvas. These selectors deliberately affect learner exercises
+   only; CMS authoring controls keep their existing appearance. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-card) {
+  margin: 0;
+  border: 1px solid #e0e7ff !important;
+  border-radius: 20px !important;
+  background: linear-gradient(145deg, #ffffff 0%, #fafaff 100%) !important;
+  box-shadow: 0 10px 26px rgb(79 70 229 / 7%);
+  padding: 20px !important;
+}
+
+/* Exercise engines share one rhythm. This is intentionally part of the
+   reusable lesson player, rather than individual lesson data, so new courses
+   receive the same readable spacing automatically. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-card > * + *) {
+  margin-top: 1.1rem !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-context) {
+  margin-bottom: 0 !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-context) {
+  border-color: #dbeafe !important;
+  border-radius: 15px !important;
+  background: #f8fbff !important;
+  padding: 12px 13px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-heading) {
+  min-height: 0;
+  margin: 0;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-heading p) {
+  color: #4f46e5 !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: .09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-question) {
+  margin-top: 10px;
+  color: #1e293b !important;
+  font-size: 1.04rem;
+  font-weight: 720;
+  letter-spacing: -.012em;
+  line-height: 1.52;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-passage) {
+  border-color: #e2e8f0 !important;
+  border-radius: 15px !important;
+  background: #f8fafc !important;
+  padding: 13px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-list) {
+  margin-top: 1.1rem !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-list > :not([hidden]) ~ :not([hidden])) {
+  margin-top: .75rem !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-choice) {
+  min-height: 43px;
+  border-radius: 13px !important;
+  padding: 10px 13px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-choice span) {
+  color: #263650;
+  font-size: .92rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+/* Matching, ordering and written-answer engines use the same compact visual
+   language as choice exercises, so a lesson never changes character when the
+   exercise engine changes. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-match-row) {
+  align-items: center;
+  gap: 10px !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-match-row > span) {
+  color: #263650;
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-select) {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  color: #263650;
+  font-size: .86rem;
+  font-weight: 650;
+  padding: 8px 10px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-bank) {
+  border: 1px solid #e0e7ff;
+  border-radius: 14px;
+  background: #f8f7ff;
+  padding: 11px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-selected) {
+  min-height: 35px;
+  border-radius: 10px !important;
+  font-size: .84rem;
+  font-weight: 750;
+  padding: 8px 10px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token) {
+  border: 1px solid #c7d2fe !important;
+  background: #fff !important;
+  color: #4338ca;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token:hover:not(:disabled)) {
+  border-color: #818cf8 !important;
+  background: #eef2ff !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-answer) {
+  min-height: 58px;
+  border: 1.5px dashed #c7d2fe !important;
+  border-radius: 14px !important;
+  background: #fcfcff !important;
+  list-style: none;
+  padding: 11px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-selected) {
+  background: #e0e7ff !important;
+  color: #3730a3;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-reset) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  color: #4f46e5;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-text-answer) {
+  display: grid;
+  gap: .65rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-label) {
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-text-answer input),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-text-answer textarea) {
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 13px !important;
+  background: #fff !important;
+  color: #1e293b;
+  font-size: .94rem;
+  font-weight: 550;
+  line-height: 1.45;
+  padding: 10px 12px !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-text-answer input:focus),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-text-answer textarea:focus),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-select:focus) {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 13%);
+  outline: none;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint) {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 13px;
+  border: 1px solid #fde68a;
+  border-left: 3px solid #fbbf24;
+  border-radius: 13px;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: .85rem;
+  font-weight: 600;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-label) {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .055em;
+  line-height: 1;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger) {
+  display: inline-block;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #854d0e;
+  padding: 0;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: inherit;
+  color: #92400e;
+  font-size: .78rem;
+  font-weight: 800;
+  list-style: none;
+  padding: 8px 11px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary::-webkit-details-marker) { display: none; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary::before) {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f59e0b;
+  content: "";
+  margin-right: 7px;
+}
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open]) { display: block; padding: 0 11px 10px; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open] summary) { padding-left: 0; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger p) { color: #78350f; font-size: .84rem; font-weight: 600; line-height: 1.45; }
+
+@media (max-width: 650px) {
+  .frame { padding: .75rem; }
+  .header, .lessonContext, .theory, .taskCard, .completion, .empty { border-radius: 22px; }
+  .taskTopline { padding: 16px 18px 14px; }
+  .focusContent { padding: 16px 18px 20px; }
+  .focusContent :global(label.rounded-lg) { border-radius: 16px; }
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-result) { grid-template-columns: 1fr; gap: 10px; }
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm) { justify-content: flex-start; }
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm > span) { max-width: none; text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .closeLink, .hintButton, .showTheory, .focusContent :global(label.rounded-lg), .focusContent :global(button.bg-blue-700), .nextButton, .finishButton { transition: none; }
 }

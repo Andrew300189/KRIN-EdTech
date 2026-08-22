@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CmsLiveActivity,
   CmsLiveOverview,
@@ -49,9 +49,15 @@ function formatActivityTime(value: string): string {
 }
 
 function activityClass(kind: CmsLiveActivity["kind"]): string {
-  if (kind === "PAYMENT") return styles.activityPayment;
-  if (kind === "LEARNING") return styles.activityLearning;
-  return styles.activityRegistration;
+  if (kind === "SECURITY") return styles.activitySecurity;
+  if (kind === "BILLING") return styles.activityBilling;
+  return styles.activitySupport;
+}
+
+function activityTypeLabel(type: CmsLiveActivity["type"]): string {
+  if (type === "SECURITY_ALERT") return "Security";
+  if (type === "PAYMENT_FAILURE") return "Billing";
+  return "Support";
 }
 
 export function CmsLiveOverview({
@@ -62,8 +68,14 @@ export function CmsLiveOverview({
   const [overview, setOverview] = useState(initialOverview);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<CmsLiveActivity["kind"] | "ALL">("ALL");
+  const refreshInFlight = useRef(false);
 
   const refreshOverview = useCallback(async () => {
+    // Live data stays current every five seconds, but a slow database/API
+    // response must never stack concurrent requests and degrade the CMS.
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
     setIsRefreshing(true);
     try {
       const response = await fetch("/api/admin/cms/overview", {
@@ -81,6 +93,7 @@ export function CmsLiveOverview({
     } catch {
       setRefreshError(true);
     } finally {
+      refreshInFlight.current = false;
       setIsRefreshing(false);
     }
   }, []);
@@ -144,6 +157,21 @@ export function CmsLiveOverview({
       },
     ],
     [overview],
+  );
+
+  const activityFilters = useMemo(() => {
+    const count = (kind?: CmsLiveActivity["kind"]) => overview.recentActivity.filter((activity) => !kind || activity.kind === kind).length;
+    return [
+      { kind: "ALL" as const, label: "All critical", count: count() },
+      { kind: "SECURITY" as const, label: "Security", count: count("SECURITY") },
+      { kind: "BILLING" as const, label: "Billing", count: count("BILLING") },
+      { kind: "SUPPORT" as const, label: "Support", count: count("SUPPORT") },
+    ];
+  }, [overview.recentActivity]);
+
+  const visibleActivity = useMemo(
+    () => overview.recentActivity.filter((activity) => activityFilter === "ALL" || activity.kind === activityFilter),
+    [activityFilter, overview.recentActivity],
   );
 
   return (
@@ -228,22 +256,40 @@ export function CmsLiveOverview({
       </section>
 
       <section className={styles.activity} aria-labelledby="live-activity-heading">
-        <div>
+        <div className={styles.activityIntro}>
           <p className={styles.eyebrow}>Live activity</p>
           <h2 id="live-activity-heading">Latest platform events</h2>
           <p>
-            Registrations, learning activity and payment status changes are read
-            directly from their source records.
+            Only high-priority signals appear here. Registrations and learning
+            activity stay in the aggregate metrics above, even at large scale.
           </p>
+          <div className={styles.activityFilters} role="group" aria-label="Filter critical platform events">
+            {activityFilters.map((filter) => (
+              <button
+                key={filter.kind}
+                type="button"
+                className={`${styles.activityFilter} ${activityFilter === filter.kind ? styles.activityFilterActive : ""}`}
+                aria-pressed={activityFilter === filter.kind}
+                onClick={() => setActivityFilter(filter.kind)}
+              >
+                {filter.label} <span>{filter.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        {overview.recentActivity.length ? (
+        {visibleActivity.length ? (
           <ol className={styles.activityList}>
-            {overview.recentActivity.map((activity) => (
+            {visibleActivity.map((activity) => (
               <li key={activity.id} className={styles.activityItem}>
                 <span className={`${styles.activityMarker} ${activityClass(activity.kind)}`} aria-hidden="true" />
-                <div>
-                  <strong>{activity.title}</strong>
-                  <span>{activity.detail}</span>
+                <div className={styles.activityContent}>
+                  <div className={styles.activityTitleRow}>
+                    <strong>{activity.title}</strong>
+                    <span className={`${styles.activityType} ${activity.severity === "CRITICAL" ? styles.activityCritical : styles.activityHigh}`}>
+                      {activityTypeLabel(activity.type)} · {activity.severity.toLowerCase()}
+                    </span>
+                  </div>
+                  <span className={styles.activityDetail}>{activity.detail}</span>
                 </div>
                 <time dateTime={activity.occurredAt}>
                   {formatActivityTime(activity.occurredAt)}
@@ -252,7 +298,7 @@ export function CmsLiveOverview({
             ))}
           </ol>
         ) : (
-          <p className={styles.activityEmpty}>No platform activity has been recorded yet.</p>
+          <p className={styles.activityEmpty}>No critical {activityFilter === "ALL" ? "platform events" : `${activityFilter.toLowerCase()} events`} need attention right now.</p>
         )}
       </section>
 

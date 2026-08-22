@@ -3,9 +3,10 @@
 /* eslint-disable @next/next/no-img-element -- Published lesson images can come from the CMS media URL configured by the owner. */
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExercise } from "./lesson-content";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
+import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
 import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
@@ -45,13 +46,46 @@ type ExerciseRendererProps = {
   previewMode?: boolean;
   hideContext?: boolean;
   hideContextText?: boolean;
-  onAttemptResolved?: (result: { isCorrect: boolean }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean }) => void;
 };
 
-function hasAnswerValue(answer: string | string[] | JsonObject) {
+type ExerciseAnswer = string | string[] | JsonObject;
+
+function hasAnswerValue(answer: ExerciseAnswer) {
   if (typeof answer === "string") return answer.trim().length > 0;
   if (Array.isArray(answer)) return answer.length > 0;
   return Object.values(answer).some((value) => typeof value === "string" && value.trim().length > 0);
+}
+
+/**
+ * Keep word-order exercises solvable while ensuring their source order does
+ * not reveal the answer. The exercise id makes the shuffle stable during an
+ * attempt, so a re-render never moves a token under the learner's cursor.
+ */
+function shuffleTokens(tokens: string[], seed: string) {
+  if (tokens.length < 2) return [...tokens];
+  const shuffled = [...tokens];
+  let state = 2_166_136_261;
+  for (const character of seed) {
+    state ^= character.charCodeAt(0);
+    state = Math.imul(state, 16_777_619);
+  }
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    const target = (state >>> 0) % (index + 1);
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  if (shuffled.every((token, index) => token === tokens[index])) {
+    shuffled.push(shuffled.shift()!);
+  }
+  return shuffled;
+}
+
+/** Keep punctuation in the validated answer, but not on a word card. */
+function displaySentenceBuilderToken(token: string) {
+  return token.replace(/\.+$/u, "");
 }
 
 export function ExerciseRenderer({ exercise, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved }: ExerciseRendererProps) {
@@ -70,7 +104,9 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const ordered = renderer === "ordering" || renderer === "word-bank";
   const classification = renderer === "classification";
   const longText = renderer === "long-text" || renderer === "recording" || renderer === "media";
-  const [answer, setAnswer] = useState<string | string[] | JsonObject>(multiple || ordered ? [] : matching || classification ? {} : "");
+  const correctedWordOnly = exercise.engineKey === "find-and-correct" && content.answerMode === "CORRECTED_TOKEN";
+  const initialAnswer = useMemo<ExerciseAnswer>(() => multiple || ordered ? [] : matching || classification ? {} : "", [classification, matching, multiple, ordered]);
+  const [answer, setAnswer] = useState<ExerciseAnswer>(initialAnswer);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [solution, setSolution] = useState<SolutionResult | null>(null);
   const [confirmSolution, setConfirmSolution] = useState(false);
@@ -80,38 +116,61 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [solutionSending, setSolutionSending] = useState(false);
   const [extraSending, setExtraSending] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
-  const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
-  const [startedAt] = useState(() => Date.now());
+  const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
+  const submissionInFlightRef = useRef(false);
+  const orderedOptions = useMemo(() => (
+    ordered && content.preserveOrder !== true && content.shuffleOptions !== false
+      ? shuffleTokens(options, exercise.id)
+      : options
+  ), [content.preserveOrder, content.shuffleOptions, exercise.id, options, ordered]);
 
-  function changeAnswer(next: string | string[] | JsonObject) {
-    setAnswer(next); setResult(null); setSolution(null); setConfirmSolution(false); setIdempotencyKey(null);
+  const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
+  const inputsLocked = sending || result !== null;
+
+  function changeAnswer(next: ExerciseAnswer) {
+    setAnswer(next); setResult(null); setSolution(null); setConfirmSolution(false);
   }
 
-  async function checkAnswer() {
-    if (!hasAnswerValue(answer)) return;
+  function restartExercise() {
+    submissionInFlightRef.current = false;
+    setAnswer(initialAnswer);
+    setResult(null);
+    setSolution(null);
+    setConfirmSolution(false);
+    setError(null);
+    setHintUsed(false);
+    setAttemptStartedAt(Date.now());
+  }
+
+  async function checkAnswer(answerToCheck: ExerciseAnswer = answer) {
+    if (!hasAnswerValue(answerToCheck) || submissionInFlightRef.current) return;
+    submissionInFlightRef.current = true;
     setSending(true); setError(null);
     if (previewMode) {
-      const isCorrect = answerMatches(answer, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], content);
-      setResult({ isCorrect, scoreAwarded: isCorrect ? exercise.basePoints : 0, score: isCorrect ? exercise.basePoints : 0, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
-      onAttemptResolved?.({ isCorrect });
+      const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], content);
+      const hintPenalty = hintUsed && isCorrect ? Math.max(1, Math.ceil(exercise.basePoints * 0.2)) : 0;
+      const scoreAwarded = isCorrect ? Math.max(0, exercise.basePoints - hintPenalty) : -exercise.basePoints;
+      setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
+      onAttemptResolved?.({ exerciseId: exercise.id, isCorrect });
       setSending(false);
+      submissionInFlightRef.current = false;
       return;
     }
-    const key = idempotencyKey ?? crypto.randomUUID();
-    setIdempotencyKey(key);
+    const idempotencyKey = crypto.randomUUID();
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer, idempotencyKey: key, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - startedAt) / 1000)) }) });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)) }) });
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
-      onAttemptResolved?.({ isCorrect: payload.data.isCorrect });
+      onAttemptResolved?.({ exerciseId: exercise.id, isCorrect: payload.data.isCorrect });
       if (payload.data.motivationReward?.awarded) {
         const reward = payload.data.motivationReward;
         setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "XP earned", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
+        notifyMotivationUpdated();
       }
     } catch { setError("Unable to check the answer. Please try again."); }
-    finally { setSending(false); }
+    finally { setSending(false); submissionInFlightRef.current = false; }
   }
 
   async function openSolution() {
@@ -140,29 +199,36 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const audio = mediaUrl(content.audioUrl) ?? mediaUrl(content.mediaUrl);
   const video = mediaUrl(content.videoUrl);
   const passage = typeof content.passage === "string" ? content.passage : null;
-  const visibleFeedback = solution ? { explanation: solution.explanation, correctAnswer: solution.correctAnswer, feedback: solution.feedback } : result && result.isCorrect !== undefined ? result : null;
+  const visibleFeedback = solution ? { explanation: solution.explanation, correctAnswer: solution.correctAnswer, feedback: solution.feedback } : result?.isCorrect ? result : null;
+  const taskXpLabel = result?.isCorrect
+    ? previewMode
+      ? "Preview mode — XP is not awarded."
+      : result.motivationReward?.awarded
+        ? `+${result.motivationReward.experience} XP for this first correct completion${result.motivationReward.coins ? ` · +${result.motivationReward.coins} coins` : ""}`
+        : "0 XP — this is a repeat or the current reward limit has been reached."
+    : null;
 
-  return <section className={`rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}`} aria-label={exercise.instruction}>
+  return <section className={`lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}`} aria-label={exercise.instruction}>
     <RewardNotification events={rewardEvents} />
-    {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="mt-2 text-sm leading-6 text-slate-700 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-300 [&_blockquote]:pl-3 [&_h3]:font-bold [&_h3]:text-slate-900 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support video playback.</video> : null}</section> : null}
-    <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-slate-900">{exercise.instruction}</p>{exercise.timeLimitSeconds ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900">Recommended time: {Math.ceil(exercise.timeLimitSeconds / 60)} min</span> : null}</div>
-    {passage ? <article className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
+    {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="mt-2 text-sm leading-6 text-slate-700 [&_blockquote]:border-l-2 [&_blockquote]:border-blue-300 [&_blockquote]:pl-3 [&_h3]:font-bold [&_h3]:text-slate-900 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support video playback.</video> : null}</section> : null}
+    <div className="lesson-exercise-heading flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-slate-900">{exercise.instruction}</p></div>
+    {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
-    <p className="mt-3 text-slate-700">{exercise.question}</p>
-    <div className="mt-4 space-y-2">
-      {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} onChange={() => changeAnswer(multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option)} /><span>{option}</span></label>; })}
-      {matching && matchingLeft.map((leftItem) => <label key={leftItem} className="grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={String((answer as JsonObject)[leftItem] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })}><option value="">Choose a match</option>{matchingRight.map((rightItem) => <option key={rightItem} value={rightItem}>{rightItem}</option>)}</select></label>)}
-      {ordered ? <><div className="flex flex-wrap gap-2" aria-label="Available tokens">{options.map((option, index) => <button key={`${option}-${index}`} type="button" onClick={() => changeAnswer([...(answer as string[]), option])} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500">{option}</button>)}</div><ol className="flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label={`Remove ${token}`}>{index + 1}. {token}</button></li>)}</ol><button type="button" onClick={() => changeAnswer([])} className="text-sm font-semibold text-blue-700 hover:underline">Reset order</button></> : null}
-      {classification && classificationItems.map((item) => <label key={item} className="grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select className="rounded-lg border border-slate-300 bg-white px-3 py-2" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
-      {!choice && !matching && !ordered && !classification ? <label className="block"><span className="sr-only">Your answer</span>{longText ? <textarea value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Type your answer" />}</label> : null}
+    <p className="lesson-exercise-question mt-3 text-slate-700">{exercise.question}</p>
+    <div className="lesson-exercise-answer-list mt-4 space-y-2">
+      {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); if (!multiple || (next as string[]).length === expectedChoiceCount) void checkAnswer(next); }} /><span>{option}</span></label>; })}
+      {matching && matchingLeft.map((leftItem) => <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[leftItem] ?? "")} onChange={(event) => { const next = { ...(answer as JsonObject), [leftItem]: event.target.value }; changeAnswer(next); if (matchingLeft.every((item) => typeof next[item] === "string" && next[item])) void checkAnswer(next); }}><option value="">Choose a match</option>{matchingRight.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>)}
+      {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => { const next = [...answer as string[], option]; changeAnswer(next); if (next.length === options.length) void checkAnswer(next); }} className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className="lesson-exercise-token-answer list-none flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
+      {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => { const next = { ...(answer as JsonObject), [item]: event.target.value }; changeAnswer(next); if (classificationItems.every((classificationItem) => typeof next[classificationItem] === "string" && next[classificationItem])) void checkAnswer(next); }}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
+      {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
     </div>
-    <button type="button" onClick={checkAnswer} disabled={sending || !hasAnswerValue(answer)} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">{sending ? "Checking…" : "Check answer"}</button>
-    {exercise.hintsEnabled && exercise.hint ? <details className="mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
+    {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
+    {result && !result.isCorrect && (result.hint ?? exercise.hint) ? <aside className="lesson-exercise-hint" role="status"><span className="lesson-exercise-hint-label">Hint</span><span>{result.hint ?? exercise.hint}</span></aside> : null}
+    {!result && exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint · reduced points</summary><p className="mt-2">{exercise.hint}</p></details> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
-    {result ? <div className={`mt-4 rounded-lg p-3 text-sm ${result.isCorrect ? "bg-emerald-50 text-emerald-900" : "bg-rose-50 text-rose-900"}`} role="status"><p className="font-semibold">{result.isCorrect ? `Correct — ${result.scoreAwarded} points` : "Not quite"}</p><p className="mt-1 text-xs">Attempt {result.attemptNumber}</p></div> : null}
+    {result ? <section className={`lesson-exercise-result ${result.isCorrect ? "lesson-exercise-result-success" : "lesson-exercise-result-error"}`} role="status"><div className="lesson-exercise-result-copy"><p className="lesson-exercise-result-title">{result.isCorrect ? `Well done — +${result.scoreAwarded} points` : `Not quite — ${result.scoreAwarded} points`}</p><p className="lesson-exercise-result-meta">Attempt {result.attemptNumber}</p>{taskXpLabel ? <p className="lesson-exercise-result-xp">{taskXpLabel}</p> : null}</div>{(!result.isCorrect || (result.solution?.available && !solution)) ? <div className="lesson-exercise-result-actions">{!result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-action lesson-exercise-action-retry">Redo</button> : null}{result.solution?.available && !solution ? confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>Open solution for {result.solution.cost} coins?</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Confirm"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">Solution · {result.solution.cost} coins</button> : null}</div> : null}</section> : null}
     {visibleFeedback ? <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800">{visibleFeedback.correctAnswer !== null && !result?.isCorrect ? <p>Correct answer: {displayAnswer(visibleFeedback.correctAnswer)}</p> : null}{visibleFeedback.explanation ? <p className="mt-1">{visibleFeedback.explanation}</p> : null}{visibleFeedback.feedback?.example ? <p className="mt-2 rounded bg-blue-50 p-2">Example: {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="mt-2 inline-block font-semibold text-blue-700 hover:underline">Review the rule</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="mt-3"><summary className="cursor-pointer font-semibold">Show all errors</summary><ul className="mt-2 space-y-2">{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</div> : null}
-    {result?.solution?.available && !solution ? <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">{confirmSolution ? <><p>Open the full solution for {result.solution.cost} coins? It can reduce points earned on a later correct attempt.</p><div className="mt-2 flex gap-3"><button type="button" onClick={openSolution} disabled={solutionSending} className="rounded bg-amber-700 px-3 py-2 font-semibold text-white disabled:opacity-60">{solutionSending ? "Opening…" : "Confirm"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="font-semibold underline">Cancel</button></div></> : <button type="button" onClick={() => setConfirmSolution(true)} className="font-semibold underline">Open solution ({result.solution.cost} coins)</button>}</div> : null}
     {result && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="mt-3 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{extraSending ? "Preparing extra practice…" : "Try another exercise in this lesson"}</button> : null}
     {extraExercise ? <div className="mt-5 border-t border-slate-200 pt-5"><h3 className="mb-3 text-base font-bold text-slate-900">Extra practice</h3><ExerciseRenderer exercise={extraExercise} /></div> : null}
   </section>;

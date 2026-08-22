@@ -20,6 +20,7 @@ import {
 } from "@/modules/courses/schemas/content.schemas";
 import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
+import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
@@ -29,6 +30,7 @@ import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/co
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
 import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
+import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
 
 const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
@@ -71,6 +73,12 @@ function toLegacyLevel(code: CreateCourseInput["levelCode"]) {
 function toPrismaJson(value: JsonValue | undefined) {
   if (value === undefined) return undefined;
   return value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue);
+}
+
+function stringIdsFromJson(value: Prisma.JsonValue | null | undefined) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 type ExerciseFeedback = {
@@ -476,10 +484,20 @@ export async function countPublishedCourses(filters: CourseCatalogFilters = {}) 
   return prisma.course.count({ where: publishedCourseWhere(filters) });
 }
 
-export async function getPublishedCourseBySlug(slug: string) {
-  return prisma.course.findFirst({
-    where: { slug, isPublished: true, isTemplate: false, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
+export async function getPublishedCourseBySlug(slug: string, localeInput?: string | null) {
+  const locale = normalizeContentLocale(localeInput);
+  const shouldUseTranslation = Boolean(localeInput) && locale !== defaultContentLocale;
+  const course = await prisma.course.findFirst({
+    where: {
+      isPublished: true,
+      isTemplate: false,
+      accessMode: { not: "HIDDEN" },
+      level: { isPublished: true },
+      category: { isPublished: true },
+      ...(shouldUseTranslation ? { OR: [{ slug }, { translations: { some: { locale, slug, contentStatus: "PUBLISHED" } } }] } : { slug }),
+    },
     include: {
+      translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
       level: { select: { code: true, title: true } },
       category: { select: { slug: true, title: true, description: true, icon: true } },
       instructor: {
@@ -521,6 +539,7 @@ export async function getPublishedCourseBySlug(slug: string) {
         where: { isPublished: true },
         orderBy: { order: "asc" },
         include: {
+          translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
           lessons: {
             where: { isPublished: true },
             orderBy: { order: "asc" },
@@ -532,12 +551,44 @@ export async function getPublishedCourseBySlug(slug: string) {
               estimatedDuration: true,
               isFree: true,
               order: true,
+              translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
             },
           },
         },
       },
     },
   });
+  if (!course) return null;
+  const courseTranslation = course.translations[0];
+  return {
+    ...course,
+    // A localized URL is valid only once the course-level locale has been
+    // published. Child records may fall back individually to English.
+    contentLocale: courseTranslation ? locale : defaultContentLocale,
+    localizedSlug: courseTranslation?.slug ?? course.slug,
+    title: courseTranslation?.title ?? course.title,
+    shortDescription: courseTranslation?.shortDescription ?? course.shortDescription,
+    fullDescription: courseTranslation?.fullDescription ?? course.fullDescription,
+    learningOutcomes: courseTranslation?.learningOutcomes ?? course.learningOutcomes,
+    prerequisites: courseTranslation?.prerequisites ?? course.prerequisites,
+    modules: course.modules.map((courseModule) => {
+      const moduleTranslation = courseModule.translations[0];
+      return {
+        ...courseModule,
+        title: moduleTranslation?.title ?? courseModule.title,
+        description: moduleTranslation?.description ?? courseModule.description,
+        lessons: courseModule.lessons.map((lesson) => {
+          const lessonTranslation = lesson.translations[0];
+          return {
+            ...lesson,
+            localizedSlug: lessonTranslation?.slug ?? lesson.slug,
+            title: lessonTranslation?.title ?? lesson.title,
+            description: lessonTranslation?.description ?? lesson.description,
+          };
+        }),
+      };
+    }),
+  };
 }
 
 export async function getPublishedModuleById(courseSlug: string, moduleId: string) {
@@ -566,25 +617,36 @@ export async function getPublishedModuleById(courseSlug: string, moduleId: strin
   });
 }
 
-export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: string) {
-  return prisma.lesson.findFirst({
+export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: string, localeInput?: string | null) {
+  const locale = normalizeContentLocale(localeInput);
+  const shouldUseTranslation = Boolean(localeInput) && locale !== defaultContentLocale;
+  const lesson = await prisma.lesson.findFirst({
     where: {
-      slug: lessonSlug,
+      ...(shouldUseTranslation ? { OR: [{ slug: lessonSlug }, { translations: { some: { locale, slug: lessonSlug, contentStatus: "PUBLISHED" } } }] } : { slug: lessonSlug }),
       isPublished: true,
       module: {
         isPublished: true,
-        course: { slug: courseSlug, isPublished: true, isTemplate: false, level: { isPublished: true }, category: { isPublished: true } },
+        course: {
+          ...(shouldUseTranslation ? { OR: [{ slug: courseSlug }, { translations: { some: { locale, slug: courseSlug, contentStatus: "PUBLISHED" } } }] } : { slug: courseSlug }),
+          isPublished: true,
+          isTemplate: false,
+          level: { isPublished: true },
+          category: { isPublished: true },
+        },
       },
     },
     include: {
+      translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
       module: {
         include: {
+          translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
           course: {
             select: {
               id: true,
               title: true,
               slug: true,
               accessPlan: true,
+              translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
               modules: {
                 where: { isPublished: true },
                 orderBy: { order: "asc" },
@@ -602,7 +664,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
           lessons: {
             where: { isPublished: true },
             orderBy: { order: "asc" },
-            select: { slug: true, title: true, order: true },
+            select: { slug: true, title: true, order: true, translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 } },
           },
         },
       },
@@ -617,6 +679,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
           settings: true,
           order: true,
           isRequired: true,
+          translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
           exercises: {
             where: { contentStatus: "PUBLISHED" },
             orderBy: { order: "asc" },
@@ -637,6 +700,7 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
               allowInstantCheck: true,
               allowExtraExercise: true,
               order: true,
+              translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
             },
           },
         },
@@ -663,6 +727,52 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
       },
     },
   });
+  if (!lesson) return null;
+  const lessonTranslation = lesson.translations[0];
+  const moduleTranslation = lesson.module.translations[0];
+  const courseTranslation = lesson.module.course.translations[0];
+  return {
+    ...lesson,
+    // Course publication authorizes the locale route. Missing child copies
+    // intentionally fall back to the canonical English lesson data.
+    contentLocale: courseTranslation ? locale : defaultContentLocale,
+    localizedSlug: lessonTranslation?.slug ?? lesson.slug,
+    title: lessonTranslation?.title ?? lesson.title,
+    description: lessonTranslation?.description ?? lesson.description,
+    phraseOfTheDay: lessonTranslation?.phraseOfTheDay ?? lesson.phraseOfTheDay,
+    motivationalQuote: lessonTranslation?.motivationalQuote ?? lesson.motivationalQuote,
+    learningObjectives: lessonTranslation?.learningObjectives ?? lesson.learningObjectives,
+    previewText: lessonTranslation?.previewText ?? lesson.previewText,
+    module: {
+      ...lesson.module,
+      title: moduleTranslation?.title ?? lesson.module.title,
+      description: moduleTranslation?.description ?? lesson.module.description,
+      course: { ...lesson.module.course, title: courseTranslation?.title ?? lesson.module.course.title, localizedSlug: courseTranslation?.slug ?? lesson.module.course.slug },
+      lessons: lesson.module.lessons.map((item) => {
+        const itemTranslation = item.translations[0];
+        return { ...item, slug: itemTranslation?.slug ?? item.slug, title: itemTranslation?.title ?? item.title };
+      }),
+    },
+    blocks: lesson.blocks.map((block) => {
+      const blockTranslation = block.translations[0];
+      return {
+        ...block,
+        title: blockTranslation?.title ?? block.title,
+        content: blockTranslation?.content ?? block.content,
+        exercises: block.exercises.map((exercise) => {
+          const exerciseTranslation = exercise.translations[0];
+          return {
+            ...exercise,
+            instruction: exerciseTranslation?.instruction ?? exercise.instruction,
+            question: exerciseTranslation?.question ?? exercise.question,
+            content: exerciseTranslation?.content ?? exercise.content,
+            explanation: exerciseTranslation?.explanation ?? exercise.explanation,
+            hint: exerciseTranslation?.hint ?? exercise.hint,
+          };
+        }),
+      };
+    }),
+  };
 }
 
 export async function listManagedCourses() {
@@ -1139,8 +1249,12 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       select: { id: true },
     }));
     // A solution remains useful after an error, but it cannot be used to earn
-    // the full score on a later attempt.
-    const scoreAwarded = isCorrect ? (openedEarlierSolution ? Math.floor(exercise.basePoints / 2) : exercise.basePoints) : 0;
+    // the full score on a later attempt. Opening a hint also has a small,
+    // server-calculated score cost, so the learner sees the same result after
+    // a refresh or from another device.
+    const maximumCorrectScore = openedEarlierSolution ? Math.floor(exercise.basePoints / 2) : exercise.basePoints;
+    const hintPenalty = value.hintUsed && isCorrect ? Math.max(1, Math.ceil(exercise.basePoints * 0.2)) : 0;
+    const scoreAwarded = isCorrect ? Math.max(0, maximumCorrectScore - hintPenalty) : -exercise.basePoints;
     const attempt = await tx.exerciseAttempt.create({
       data: {
         userId,
@@ -1357,10 +1471,8 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     if (value.currentBlockId && !allowed.has(value.currentBlockId)) {
       throw new Error("The current block does not belong to this lesson");
     }
-    const completed = new Set(value.completedBlockIds);
-    const allRequiredBlocksComplete = blocks.filter((block) => block.isRequired).every((block) => completed.has(block.id));
-    const status = value.complete && allRequiredBlocksComplete ? "COMPLETED" : "STARTED";
-    const completionPercent = blocks.length === 0 ? (status === "COMPLETED" ? 100 : 0) : Math.round((completed.size / blocks.length) * 100);
+    const completedThisVisit = new Set(value.completedBlockIds);
+    const allRequiredBlocksComplete = blocks.filter((block) => block.isRequired).every((block) => completedThisVisit.has(block.id));
     const [attempts, sessionTime] = await Promise.all([
       tx.exerciseAttempt.findMany({
         where: { userId, lessonId },
@@ -1375,14 +1487,30 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     // on the server for interaction, replay and excessive gaps.
     const trustedSeconds = Math.max(0, sessionTime._sum.activeSeconds ?? 0);
     const now = new Date();
-    const previousProgress = await tx.lessonProgress.findUnique({ where: { userId_lessonId: { userId, lessonId } }, select: { status: true } });
+    const previousProgress = await tx.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId, lessonId } },
+      select: { status: true, completedBlocks: true, completedAt: true },
+    });
+    const wasCompleted = previousProgress?.status === "COMPLETED";
+    const completedNow = value.complete && allRequiredBlocksComplete;
+    // A learner may reopen a finished lesson for practice. That new attempt
+    // must never turn the historical completion back into STARTED.
+    const status = resolveLessonProgressStatus(previousProgress?.status, value.complete, allRequiredBlocksComplete);
+    const persistedCompletedBlockIds = wasCompleted
+      ? [...new Set([...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId)), ...value.completedBlockIds])]
+      : value.completedBlockIds;
+    const completionPercent = status === "COMPLETED"
+      ? 100
+      : blocks.length === 0
+        ? 0
+        : Math.round((completedThisVisit.size / blocks.length) * 100);
     const progress = await tx.lessonProgress.upsert({
       where: { userId_lessonId: { userId, lessonId } },
       create: {
         userId,
         lessonId,
         status,
-        completedBlocks: value.completedBlockIds as Prisma.InputJsonValue,
+        completedBlocks: persistedCompletedBlockIds as Prisma.InputJsonValue,
         currentBlockId: value.currentBlockId ?? null,
         completionPercent,
         score: result.score,
@@ -1394,11 +1522,11 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         activeSeconds: trustedSeconds,
         totalSeconds: trustedSeconds,
         lastSeenAt: now,
-        completedAt: status === "COMPLETED" ? now : null,
+        completedAt: completedNow ? now : null,
       },
       update: {
         status,
-        completedBlocks: value.completedBlockIds as Prisma.InputJsonValue,
+        completedBlocks: persistedCompletedBlockIds as Prisma.InputJsonValue,
         currentBlockId: value.currentBlockId ?? null,
         completionPercent,
         score: result.score,
@@ -1410,15 +1538,15 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         activeSeconds: trustedSeconds,
         totalSeconds: trustedSeconds,
         lastSeenAt: now,
-        completedAt: status === "COMPLETED" ? now : null,
+        completedAt: wasCompleted ? previousProgress?.completedAt ?? now : completedNow ? now : null,
       },
     });
     let motivationReward: Awaited<ReturnType<typeof recordLessonCompletion>> | null = null;
-    if (status === "COMPLETED" && previousProgress?.status !== "COMPLETED") {
+    if (completedNow && !wasCompleted) {
       const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { module: { select: { courseId: true } } } });
       if (lesson) motivationReward = await recordLessonCompletion(tx, userId, lessonId, lesson.module.courseId, true);
     }
-    return { ...progress, motivationReward, firstCompletion: status === "COMPLETED" && previousProgress?.status !== "COMPLETED" };
+    return { ...progress, motivationReward, firstCompletion: completedNow && !wasCompleted };
   });
   if (saved.firstCompletion) {
     try {
@@ -1429,8 +1557,69 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
   return saved;
 }
 
+type LatestExerciseResult = {
+  exerciseId: string;
+  blockId: string;
+  isCorrect: boolean;
+};
+
+type LessonAttemptAccuracy = {
+  correctAnswers: number;
+  incorrectAnswers: number;
+  attemptedExercises: number;
+  exerciseResults: LatestExerciseResult[];
+};
+
+const emptyLessonAttemptAccuracy = (): LessonAttemptAccuracy => ({
+  correctAnswers: 0,
+  incorrectAnswers: 0,
+  attemptedExercises: 0,
+  exerciseResults: [],
+});
+
+/**
+ * Returns the most recent answer for every exercise, rather than the lifetime
+ * number of attempts. This is intentionally presentation-only: motivation
+ * rewards continue to use their own first-success idempotency rules.
+ */
+async function getLatestLessonAttemptAccuracy(userId: string, lessonIds: string[]) {
+  const accuracyByLesson = new Map<string, LessonAttemptAccuracy>();
+  if (lessonIds.length === 0) return accuracyByLesson;
+
+  const attempts = await prisma.exerciseAttempt.findMany({
+    where: { userId, lessonId: { in: lessonIds } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      lessonId: true,
+      exerciseId: true,
+      isCorrect: true,
+      exercise: { select: { lessonBlockId: true } },
+    },
+  });
+
+  const seenExerciseIds = new Set<string>();
+  for (const attempt of attempts) {
+    if (seenExerciseIds.has(attempt.exerciseId)) continue;
+    seenExerciseIds.add(attempt.exerciseId);
+
+    const accuracy = accuracyByLesson.get(attempt.lessonId) ?? emptyLessonAttemptAccuracy();
+    accuracy.attemptedExercises += 1;
+    if (attempt.isCorrect) accuracy.correctAnswers += 1;
+    else accuracy.incorrectAnswers += 1;
+    accuracy.exerciseResults.push({
+      exerciseId: attempt.exerciseId,
+      blockId: attempt.exercise.lessonBlockId,
+      isCorrect: attempt.isCorrect,
+    });
+    accuracyByLesson.set(attempt.lessonId, accuracy);
+  }
+
+  return accuracyByLesson;
+}
+
 export async function getLessonProgress(userId: string, lessonId: string) {
-  return prisma.lessonProgress.findUnique({
+  const [progress, accuracyByLesson] = await Promise.all([
+    prisma.lessonProgress.findUnique({
     where: { userId_lessonId: { userId, lessonId } },
     select: {
       status: true,
@@ -1447,15 +1636,32 @@ export async function getLessonProgress(userId: string, lessonId: string) {
       totalSeconds: true,
       lastSeenAt: true,
     },
-  });
+    }),
+    getLatestLessonAttemptAccuracy(userId, [lessonId]),
+  ]);
+
+  if (!progress) return null;
+  return {
+    ...progress,
+    completionPercent: progress.status === "COMPLETED" ? 100 : progress.completionPercent,
+    attemptAccuracy: accuracyByLesson.get(lessonId) ?? emptyLessonAttemptAccuracy(),
+  };
 }
 
 export async function listLessonProgressByLessonIds(userId: string, lessonIds: string[]) {
   if (lessonIds.length === 0) return [];
-  return prisma.lessonProgress.findMany({
-    where: { userId, lessonId: { in: lessonIds } },
-    select: { lessonId: true, status: true, completionPercent: true, score: true, grade: true },
-  });
+  const [progress, accuracyByLesson] = await Promise.all([
+    prisma.lessonProgress.findMany({
+      where: { userId, lessonId: { in: lessonIds } },
+      select: { lessonId: true, status: true, completionPercent: true, score: true, grade: true },
+    }),
+    getLatestLessonAttemptAccuracy(userId, lessonIds),
+  ]);
+  return progress.map((item) => ({
+    ...item,
+    completionPercent: item.status === "COMPLETED" ? 100 : item.completionPercent,
+    attemptAccuracy: accuracyByLesson.get(item.lessonId) ?? emptyLessonAttemptAccuracy(),
+  }));
 }
 
 export async function saveHomeworkSubmission(userId: string, lessonBlockId: string, input: unknown) {

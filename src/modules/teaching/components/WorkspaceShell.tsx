@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
+import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { SearchContext } from "@/modules/search/types";
 import styles from "./WorkspaceShell.module.css";
@@ -21,6 +22,7 @@ type WorkspaceShellProps = {
   children: React.ReactNode;
   searchContext?: SearchContext;
   showCmsLink?: boolean;
+  showExperience?: boolean;
 };
 
 function MenuIcon() {
@@ -57,6 +59,7 @@ export function WorkspaceShell({
   children,
   searchContext,
   showCmsLink = false,
+  showExperience = false,
 }: WorkspaceShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -235,6 +238,7 @@ export function WorkspaceShell({
             </div>
 
             <div className={styles.headerActions}>
+              {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (
                 <Link href="/cms" className={styles.cmsLink}>
                   CMS

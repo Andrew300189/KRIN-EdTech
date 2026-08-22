@@ -242,7 +242,7 @@ function payloadFor(draft: Draft) {
     const question = isGapFill ? parsed.learnerText : draft.source.trim();
     if (!question || !answer) {
       throw new Error(isGapFill
-        ? "Put the correct answer in square brackets, for example: He [is] a doctor."
+        ? "Put the correct answer in square brackets, for example: The learner [writes] an answer."
         : "Add a prompt and an accepted answer.");
     }
     return { ...base, question, content, correctAnswer: answer };
@@ -371,7 +371,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
         document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
         emitValue();
       }}
-      data-placeholder={'Use “is” with he, she and it. Example: She is a doctor.'}
+      data-placeholder="Add a short rule, an example or a helpful note for this task."
       className={styles.richTextEditor}
     />
   </div>;
@@ -434,15 +434,15 @@ function TaskEditor({ draft, onChange, onChangeEngine }: { draft: Draft; onChang
     <div className={styles.formGrid}>
       <label className={styles.fieldLabel}>Instruction<input value={draft.instruction} onChange={(event) => set("instruction", event.target.value)} className={styles.field} /></label>
       {draft.kind === "gap" ? <>
-        <label className={styles.fieldLabel}>{isGapFill ? "Sentence with the correct answer in square brackets" : "Task prompt"}<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder={isGapFill ? "He [is] a doctor." : "Write a language prompt for the learner."} className={`${styles.field} ${styles.compactArea}`} /></label>
-        {!isGapFill ? <label className={styles.fieldLabel}>Accepted answer<input value={draft.correctAnswer} onChange={(event) => set("correctAnswer", event.target.value)} placeholder="is" className={styles.field} /></label> : null}
+        <label className={styles.fieldLabel}>{isGapFill ? "Sentence with the correct answer in square brackets" : "Task prompt"}<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder={isGapFill ? "The learner [writes] an answer." : "Write a language prompt for the learner."} className={`${styles.field} ${styles.compactArea}`} /></label>
+        {!isGapFill ? <label className={styles.fieldLabel}>Accepted answer<input value={draft.correctAnswer} onChange={(event) => set("correctAnswer", event.target.value)} placeholder="Expected answer" className={styles.field} /></label> : null}
       </> : null}
-      {draft.kind === "builder" ? <label className={styles.fieldLabel}>Final sentence<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder="She is a doctor." className={`${styles.field} ${styles.compactArea}`} /></label> : null}
+      {draft.kind === "builder" ? <label className={styles.fieldLabel}>Final sentence<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder="Write the sentence learners should build." className={`${styles.field} ${styles.compactArea}`} /></label> : null}
       {draft.kind === "choice" ? <>
-        <label className={styles.fieldLabel}>Question<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder="Choose the correct form: He ___ a doctor." className={`${styles.field} ${styles.compactArea}`} /></label>
+        <label className={styles.fieldLabel}>Question<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder="Write the question learners should answer." className={`${styles.field} ${styles.compactArea}`} /></label>
         <div className={styles.splitFields}>
-          <label className={styles.fieldLabel}>Options — one per line<textarea value={draft.options} onChange={(event) => set("options", event.target.value)} placeholder={'am\nis\nare'} className={`${styles.field} ${styles.compactArea}`} /></label>
-          <label className={styles.fieldLabel}>Correct option{multiple ? "s — one per line" : ""}<textarea value={draft.correctAnswer} onChange={(event) => set("correctAnswer", event.target.value)} placeholder={multiple ? "is\nare" : "is"} className={`${styles.field} ${styles.compactArea}`} /></label>
+          <label className={styles.fieldLabel}>Options — one per line<textarea value={draft.options} onChange={(event) => set("options", event.target.value)} placeholder={'Option one\nOption two\nOption three'} className={`${styles.field} ${styles.compactArea}`} /></label>
+          <label className={styles.fieldLabel}>Correct option{multiple ? "s — one per line" : ""}<textarea value={draft.correctAnswer} onChange={(event) => set("correctAnswer", event.target.value)} placeholder={multiple ? "Option one\nOption two" : "Option one"} className={`${styles.field} ${styles.compactArea}`} /></label>
         </div>
       </> : null}
       {draft.kind === "matching" ? <>
@@ -511,6 +511,15 @@ function LearnerSlidePreview({ draft }: { draft: Draft }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [ordered, setOrdered] = useState<string[]>([]);
   const [mapped, setMapped] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setAnswer("");
+    setResult(null);
+    setSelected([]);
+    setOrdered([]);
+    setMapped({});
+  }, [draft.id, draft.engineKey, draft.kind, draft.source, draft.options, draft.correctAnswer, draft.matchingPairs]);
+
   const gap = gapData(draft.source);
   const isGapFill = draft.engineKey === "fill-in-the-blanks";
   const expectedGap = isGapFill ? gap.answer : draft.correctAnswer.trim();
@@ -522,6 +531,7 @@ function LearnerSlidePreview({ draft }: { draft: Draft }) {
   const expectedChoices = draft.engineKey === "multiple-choice" ? lines(draft.correctAnswer) : [draft.correctAnswer.trim()].filter(Boolean);
   const tokens = draft.source.trim().split(/\s+/).filter(Boolean);
   const multiple = draft.engineKey === "multiple-choice";
+  const hasLiveTaskContent = draft.kind === "gap" ? Boolean(promptGap || expectedGap || draft.correctAnswer.trim()) : draft.kind === "choice" ? options.length > 0 : draft.kind === "builder" ? tokens.length > 0 : left.length > 0 || right.length > 0;
 
   function check() {
     if (draft.kind === "gap") setResult(answer.trim().toLowerCase() === expectedGap.toLowerCase() ? "correct" : "incorrect");
@@ -549,11 +559,49 @@ function LearnerSlidePreview({ draft }: { draft: Draft }) {
       </section> : <p className={styles.previewHint}>Add a theory note, audio or video to see it here.</p>}
       <section className={styles.previewTask}>
         <p className={styles.previewInstruction}>{draft.instruction || "Complete the task."}</p>
-        {draft.kind === "gap" ? <><p className={styles.previewPrompt}>{promptGap || "Your prompt appears here."}</p><input value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} className={styles.field} placeholder="Type your answer" /></> : null}
-        {draft.kind === "choice" ? <><p className={styles.previewPrompt}>{draft.source || "Your question appears here."}</p><div className={styles.answerStack}>{options.map((option) => <label key={option} className={styles.answerOption}><input type={multiple ? "checkbox" : "radio"} checked={selected.includes(option)} onChange={() => toggleChoice(option)} />{option}</label>)}</div></> : null}
-        {draft.kind === "builder" ? <><p className={styles.previewPrompt}>Build the sentence.</p><div className={styles.tokenRow}>{tokens.map((token, index) => <button key={`${token}-${index}`} type="button" onClick={() => { setOrdered((items) => [...items, token]); setResult(null); }} className={styles.token}>{token}</button>)}</div><div className={styles.answerTray}>{ordered.join(" ")}</div></> : null}
-        {draft.kind === "matching" ? <><p className={styles.previewPrompt}>{draft.source || "Match each pair."}</p><div className={styles.matchList}>{left.map((item) => <label key={item} className={styles.matchRow}><span>{item}</span><select value={mapped[item] ?? ""} onChange={(event) => { setMapped({ ...mapped, [item]: event.target.value }); setResult(null); }} className={styles.field}><option value="">Choose</option>{right.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div></> : null}
-        <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button>
+        {draft.kind === "gap" ? (
+          <>
+            <p className={styles.previewPrompt}>{promptGap || "Your prompt appears here."}</p>
+            <input value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} className={styles.field} placeholder="Type your answer" />
+          </>
+        ) : null}
+        {draft.kind === "choice" ? (
+          <>
+            <p className={styles.previewPrompt}>{draft.source || "Your question appears here."}</p>
+            {hasLiveTaskContent ? (
+              <div className={styles.answerStack}>{options.map((option) => <label key={option} className={styles.answerOption}><input type={multiple ? "checkbox" : "radio"} checked={selected.includes(option)} onChange={() => toggleChoice(option)} />{option}</label>)}</div>
+            ) : (
+              <div className={styles.previewEmptyState}>Add options to preview the task.</div>
+            )}
+          </>
+        ) : null}
+        {draft.kind === "builder" ? (
+          <>
+            <p className={styles.previewPrompt}>Build the sentence.</p>
+            {hasLiveTaskContent ? (
+              <>
+                <div className={styles.tokenRow}>{tokens.map((token, index) => <button key={`${token}-${index}`} type="button" onClick={() => { setOrdered((items) => [...items, token]); setResult(null); }} className={styles.token}>{token}</button>)}</div>
+                <div className={styles.answerTray}>{ordered.join(" ")}</div>
+              </>
+            ) : (
+              <div className={styles.previewEmptyState}>Add a sentence to preview the builder.</div>
+            )}
+          </>
+        ) : null}
+        {draft.kind === "matching" ? (
+          <>
+            <p className={styles.previewPrompt}>{draft.source || "Match each pair."}</p>
+            {hasLiveTaskContent ? (
+              <div className={styles.matchList}>{left.map((item) => <label key={item} className={styles.matchRow}><span>{item}</span><select value={mapped[item] ?? ""} onChange={(event) => { setMapped({ ...mapped, [item]: event.target.value }); setResult(null); }} className={styles.field}><option value="">Choose</option>{right.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div>
+            ) : (
+              <div className={styles.previewEmptyState}>Add matching pairs to preview the task.</div>
+            )}
+          </>
+        ) : null}
+        {draft.kind === "gap" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
+        {draft.kind === "choice" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
+        {draft.kind === "builder" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
+        {draft.kind === "matching" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
         {result ? <p role="status" className={`${styles.result} ${result === "correct" ? styles.correct : styles.incorrect}`}>{result === "correct" ? "Correct — this configuration works." : "Not correct — test the expected answer."}</p> : null}
       </section>
     </div>
@@ -620,8 +668,8 @@ function BlockEditorDialog({ block, onClose }: { block: CmsLessonStepBlock | nul
 type TimelineItem = {
   id: string;
   label: string;
-  kind: "exercise" | "block";
-  block: CmsLessonStepBlock;
+  kind: "exercise" | "block" | "draft";
+  block?: CmsLessonStepBlock;
   exercise?: Exercise;
   seconds: number;
 };
@@ -660,7 +708,7 @@ function LessonTimeline({
     <div className={styles.timerHeading}><div><p className={styles.eyebrow}>Smart lesson timer</p><strong>~{minutes} min</strong></div></div>
     <div className={styles.timerCopy}><div className={styles.timerTrack}><span style={{ width: `${Math.min(100, Math.round((totalSeconds / 1500) * 100))}%` }} /></div><p>{copy}</p></div>
     <nav className={styles.timeline} aria-label="Lesson block timeline">
-      {items.map((item, index) => <button key={item.id} type="button" onClick={() => onSelect(item)} data-tone={timelineToneIndex(item.id)} className={`${styles.timelineItem} ${item.exercise?.id === activeId ? styles.timelineItemActive : ""}`}><span>{index + 1} · ~{item.seconds} sec</span><strong>{item.label}</strong><em>{item.kind === "exercise" ? "Task" : item.block.type}</em></button>)}
+      {items.map((item, index) => <button key={item.id} type="button" onClick={() => onSelect(item)} data-tone={timelineToneIndex(item.id)} className={`${styles.timelineItem} ${item.exercise?.id === activeId || (item.kind === "draft" && activeId === "new") ? styles.timelineItemActive : ""}`}><span>{index + 1} · ~{item.seconds} sec</span><strong>{item.label}</strong><em>{item.kind === "exercise" ? "Task" : item.kind === "draft" ? "Draft" : item.block?.type}</em></button>)}
       {items.length === 0 ? <p className={styles.emptySteps}>No lesson blocks yet. Create the first task from Explanation / theory.</p> : null}
     </nav>
   </section>;
@@ -674,12 +722,14 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   const [taskPanelOpen, setTaskPanelOpen] = useState(false);
   const [enginePickerOpen, setEnginePickerOpen] = useState(false);
   const [editingNewTask, setEditingNewTask] = useState(false);
+  const [hasPendingStep, setHasPendingStep] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<CmsLessonStepBlock | null>(null);
   const [mediaDialog, setMediaDialog] = useState<"audio" | "video" | null>(null);
   const [isPending, startTransition] = useTransition();
   const steps = useMemo(() => blocks.filter((block) => block.type === "EXERCISE").flatMap((block) => block.exercises.map((exercise) => ({ exercise, blockId: block.id }))), [blocks]);
   const activeStep = steps.find((step) => step.exercise.id === activeId);
-  const timelineItems = useMemo<TimelineItem[]>(() => blocks.flatMap<TimelineItem>((block) => {
+  const timelineItems = useMemo<TimelineItem[]>(() => {
+    const savedItems = blocks.flatMap<TimelineItem>((block) => {
     if (block.exercises.length) {
       return block.exercises.map((exercise): TimelineItem => ({
         id: `exercise-${exercise.id}`,
@@ -697,8 +747,16 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
       block,
       seconds: staticBlockSeconds(block.type),
     }];
-  }), [blocks]);
-  const totalSeconds = timelineItems.reduce((total, item) => total + item.seconds, 0) + (activeId === "new" && editingNewTask ? estimatedSeconds(draft) : 0);
+    });
+    if (!hasPendingStep) return savedItems;
+    return [...savedItems, {
+      id: "draft-next-step",
+      label: "New lesson step",
+      kind: "draft",
+      seconds: editingNewTask ? estimatedSeconds(draft) : 20,
+    }];
+  }, [blocks, draft, editingNewTask, hasPendingStep]);
+  const totalSeconds = timelineItems.reduce((total, item) => total + item.seconds, 0);
 
   useEffect(() => {
     if (activeId === "new") return;
@@ -719,6 +777,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setActiveId("new");
     setDraft({ ...defaultDraft(draft.theory), ...(targetBlockId ? { blockId: targetBlockId } : {}) });
     setEditingNewTask(true);
+    if (!targetBlockId) setHasPendingStep(true);
     setTaskPanelOpen(true);
     setEnginePickerOpen(true);
   }
@@ -733,31 +792,23 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setEnginePickerOpen(false);
   }
 
-  function clearForNextStep(blockId: string) {
+  function clearForNextStep() {
     const theory = draft.theory;
     setActiveId("new");
-    setDraft({ ...defaultDraft(theory), blockId });
+    setDraft(defaultDraft(theory));
     setEditingNewTask(false);
+    setHasPendingStep(true);
     setTaskPanelOpen(false);
     setEnginePickerOpen(false);
   }
 
   async function createExerciseBlock() {
-    return api<{ id: string }>(`/api/admin/lessons/${lessonId}/blocks`, "POST", { type: "EXERCISE", title: "New lesson step", isRequired: true });
+    return api<{ id: string }>(`/api/admin/lessons/${lessonId}/blocks`, "POST", { type: "EXERCISE", title: "Practice task", isRequired: true });
   }
 
   function createNextStep() {
-    startTransition(async () => {
-      try {
-        const block = await createExerciseBlock();
-        clearForNextStep(block.id);
-        setMessage("A new lesson step is ready. The task form has been cleared.");
-        onContentChanged?.();
-        router.refresh();
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Unable to create the next lesson step.");
-      }
-    });
+    clearForNextStep();
+    setMessage("A new draft step is ready. It will be saved only when its task is saved.");
   }
 
   function closeTaskPanel() {
@@ -769,31 +820,49 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   function selectTimelineItem(item: TimelineItem) {
     setTaskPanelOpen(false);
     setEnginePickerOpen(false);
+    if (item.kind === "draft") {
+      setMessage(null);
+      setActiveId("new");
+      setEditingNewTask(false);
+      return;
+    }
     if (item.exercise) {
       selectStep(item.exercise.id);
       return;
     }
-    if (item.block.type === "EXERCISE") {
-      openTaskPicker(item.block.id);
+    const block = item.block;
+    if (!block) return;
+    if (block.type === "EXERCISE") {
+      setMessage(null);
+      if (block.exercises.length > 0) {
+        selectStep(block.exercises[0].id);
+        return;
+      }
+      setActiveId("new");
+      setDraft((current) => ({
+        ...defaultDraft(current.theory),
+        blockId: block.id,
+        duration: current.duration,
+      }));
+      setEditingNewTask(true);
       return;
     }
-    setSelectedBlock(item.block);
+    setSelectedBlock(block);
   }
 
   function saveAndNext() {
     startTransition(async () => {
       try {
         const payload = payloadFor(draft);
-        let blockId = draft.blockId ?? blocks.find((block) => block.type === "EXERCISE")?.id;
+        let blockId = draft.blockId;
         if (!blockId) {
           const block = await createExerciseBlock();
           blockId = block.id;
         }
         if (draft.id) await api(`/api/admin/exercises/${draft.id}`, "PATCH", payload);
         else await api(`/api/admin/blocks/${blockId}/exercises`, "POST", payload);
-        const nextBlock = await createExerciseBlock();
-        clearForNextStep(nextBlock.id);
-        setMessage(draft.id ? "Task saved. A fresh next step is ready." : "Task saved. A fresh next step is ready.");
+        clearForNextStep();
+        setMessage("Task saved. A fresh draft step is ready.");
         onContentChanged?.();
         router.refresh();
       } catch (error) {

@@ -40,6 +40,7 @@ export default async function StudentLayout({
       navigation={navigation}
       searchContext="STUDENT"
       showCmsLink={showCmsLink}
+      showExperience
     >
       {children}
     </WorkspaceShell>

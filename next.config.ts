@@ -22,13 +22,6 @@ const nextConfig = {
       ],
     };
   },
-  experimental: {
-    optimizePackageImports: [
-      "@hookform/resolvers",
-      "date-fns",
-      "framer-motion",
-    ],
-  },
 };
 
 module.exports = nextConfig;

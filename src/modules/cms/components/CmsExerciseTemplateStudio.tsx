@@ -43,11 +43,11 @@ export function CmsExerciseTemplateStudio({ engine, definitions }: { engine: Eng
   const [question, setQuestion] = useState("Write a language question here.");
   const [optionsText, setOptionsText] = useState("example\nalternative\ncontext");
   const [correctText, setCorrectText] = useState("example");
-  const [leftText, setLeftText] = useState("I\nShe\nThey");
-  const [rightText, setRightText] = useState("am\nis\nare");
-  const [pairsText, setPairsText] = useState("I = am\nShe = is\nThey = are");
+  const [leftText, setLeftText] = useState("Term one\nTerm two\nTerm three");
+  const [rightText, setRightText] = useState("Meaning one\nMeaning two\nMeaning three");
+  const [pairsText, setPairsText] = useState("Term one = Meaning one\nTerm two = Meaning two\nTerm three = Meaning three");
   const [categoriesText, setCategoriesText] = useState("Correct\nIncorrect");
-  const [itemsText, setItemsText] = useState("She works\nThey work");
+  const [itemsText, setItemsText] = useState("Example one\nExample two");
   const [sourceText, setSourceText] = useState("Add a reading passage, dialogue transcript or media transcript here.");
   const [textAnswer, setTextAnswer] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);

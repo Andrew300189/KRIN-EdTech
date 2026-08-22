@@ -272,6 +272,25 @@ export async function getMotivationOverview(userId: string) {
   });
 }
 
+/**
+ * Learner-facing preview of the currently active rewards. The actual credit
+ * remains server-side and idempotent, so this value is never trusted to award
+ * XP on the client.
+ */
+export async function getLearningRewardPreview() {
+  const rules = await prisma.rewardRule.findMany({
+    where: { eventType: { in: ["EXERCISE_CORRECT", "LESSON_COMPLETED"] } },
+    select: { eventType: true, experienceAmount: true, coinAmount: true, isActive: true },
+  });
+  const byEvent = new Map(rules.map((rule) => [rule.eventType, rule]));
+  const exercise = byEvent.get("EXERCISE_CORRECT");
+  const lesson = byEvent.get("LESSON_COMPLETED");
+  return {
+    exercise: exercise?.isActive ? { experience: exercise.experienceAmount, coins: exercise.coinAmount } : { experience: 0, coins: 0 },
+    lesson: lesson?.isActive ? { experience: lesson.experienceAmount, coins: lesson.coinAmount } : { experience: 0, coins: 0 },
+  };
+}
+
 export async function getUserAnalytics(userId: string, days = 30) {
   const context = await prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true } });
   const end = userLocalDate(context?.timeZone);

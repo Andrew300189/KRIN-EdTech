@@ -4,14 +4,16 @@
 .links { display: flex; min-width: 0; flex: 1; align-items: center; gap: 0.15rem; overflow-x: auto; padding: 0.1rem 0; scrollbar-width: thin; }
 .link, .moreSummary, .learnerLink, .moreLink { font-size: 0.84rem; font-weight: 680; text-decoration: none; }
 .link, .moreSummary { display: inline-flex; flex: none; min-height: 2.25rem; align-items: center; padding: 0.45rem 0.6rem; border-radius: 0.6rem; color: #526176; white-space: nowrap; }
+.notificationLink { position: relative; gap: 0.34rem; }
+.notificationBadge { width: 0.48rem; height: 0.48rem; flex: none; border: 2px solid #fff; border-radius: 999px; background: #e5484d; box-shadow: 0 0 0 1px rgb(229 72 77 / 16%); }
 .link:hover, .moreSummary:hover { background: #f1f5fb; color: #173f96; }
 .linkActive { background: #e8f0ff; color: #123d92; }
-.more { position: relative; flex: none; }
+.more { position: relative; z-index: 1; flex: none; }
 .moreSummary { cursor: pointer; list-style: none; }
 .moreSummary::-webkit-details-marker { display: none; }
 .moreSummary::after { content: "⌄"; margin-left: 0.35rem; font-size: 0.9rem; line-height: 1; }
 .more[open] .moreSummary::after { transform: rotate(180deg); }
-.morePanel { position: absolute; right: 0; top: calc(100% + 0.45rem); display: grid; width: 13rem; gap: 0.15rem; padding: 0.45rem; border: 1px solid #dce4f0; border-radius: 0.8rem; background: #fff; box-shadow: 0 0.85rem 2rem rgb(15 32 58 / 16%); }
+.morePanel { position: absolute; z-index: 2; right: 0; top: calc(100% + 0.45rem); display: grid; width: 13rem; gap: 0.15rem; padding: 0.45rem; border: 1px solid #dce4f0; border-radius: 0.8rem; background: #fff; box-shadow: 0 0.85rem 2rem rgb(15 32 58 / 16%); }
 .moreLink { border-radius: 0.55rem; padding: 0.58rem 0.65rem; color: #445166; }
 .moreLink:hover { background: #f1f5fb; color: #173f96; }
 .moreLinkActive { background: #e8f0ff; color: #123d92; }
@@ -19,4 +21,5 @@
 .learnerLink:hover { border-color: #93ace0; background: #f2f6ff; color: #10213d; }
 .brand:focus-visible, .link:focus-visible, .moreSummary:focus-visible, .moreLink:focus-visible, .learnerLink:focus-visible { outline: 3px solid #82a9ff; outline-offset: 2px; }
 @media (max-width: 767px) { .inner { gap: 0.55rem; padding: 0.65rem 0.8rem; } .brand { font-size: 0.92rem; } .learnerLink { display: none; } .morePanel { position: fixed; right: 0.8rem; top: 3.4rem; width: min(14rem, calc(100vw - 1.6rem)); } }
-@media (prefers-reduced-motion: no-preference) { .link, .moreSummary, .moreLink, .learnerLink { transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; } }
+@media (prefers-reduced-motion: no-preference) { .link, .moreSummary, .moreLink, .learnerLink { transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; } .notificationBadge { animation: notification-pulse 1.8s ease-in-out infinite; } }
+@keyframes notification-pulse { 50% { box-shadow: 0 0 0 0.28rem rgb(229 72 77 / 10%); } }
