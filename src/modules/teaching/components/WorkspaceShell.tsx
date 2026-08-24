@@ -23,6 +23,8 @@ type WorkspaceShellProps = {
   searchContext?: SearchContext;
   showCmsLink?: boolean;
   showExperience?: boolean;
+  /** Keeps compact student overview pages inside the desktop viewport. */
+  lockDesktopViewport?: boolean;
 };
 
 function MenuIcon() {
@@ -60,21 +62,25 @@ export function WorkspaceShell({
   searchContext,
   showCmsLink = false,
   showExperience = false,
+  lockDesktopViewport = false,
 }: WorkspaceShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const shouldLockDesktopViewport = lockDesktopViewport && (pathname === "/student" || pathname === "/student/achievements");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [navigationBadges, setNavigationBadges] = useState<Partial<Record<NotificationBadgeSection, boolean>>>({});
+  const [navigationBadges, setNavigationBadges] = useState<Partial<Record<NotificationBadgeSection, number>>>({});
+  const [openMistakeCount, setOpenMistakeCount] = useState(0);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
 
   const loadNavigationBadges = useCallback(async () => {
     try {
       const response = await fetch("/api/notifications/badges", { cache: "no-store" });
-      const payload = await response.json().catch(() => null) as { badges?: Partial<Record<NotificationBadgeSection, number>> } | null;
+      const payload = await response.json().catch(() => null) as { badges?: Partial<Record<NotificationBadgeSection, number>>; openMistakeCount?: number } | null;
       if (!response.ok || !payload?.badges) return;
-      setNavigationBadges(Object.fromEntries(Object.entries(payload.badges).map(([section, count]) => [section, Boolean(count)])) as Partial<Record<NotificationBadgeSection, boolean>>);
+      setNavigationBadges(payload.badges);
+      setOpenMistakeCount(Math.max(0, payload.openMistakeCount ?? 0));
     } catch {
       // Badges are a convenience indicator; navigation remains available.
     }
@@ -133,10 +139,23 @@ export function WorkspaceShell({
   }, [loadNavigationBadges, navigation]);
 
   useEffect(() => {
+    const updateMistakeCount = (event: Event) => {
+      const count = (event as CustomEvent<{ count?: unknown }>).detail?.count;
+      if (typeof count === "number" && Number.isFinite(count)) {
+        setOpenMistakeCount(Math.max(0, count));
+        return;
+      }
+      void loadNavigationBadges();
+    };
+    window.addEventListener("mistakes:changed", updateMistakeCount);
+    return () => window.removeEventListener("mistakes:changed", updateMistakeCount);
+  }, [loadNavigationBadges]);
+
+  useEffect(() => {
     const section = navigation.find((item) => item.notificationSection && isActive(item.href))?.notificationSection;
     if (!section) return;
     void fetch("/api/notifications/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section }) })
-      .then((response) => { if (response.ok) setNavigationBadges((current) => ({ ...current, [section]: false })); })
+      .then((response) => { if (response.ok) setNavigationBadges((current) => ({ ...current, [section]: 0 })); })
       .catch(() => undefined);
   }, [isActive, navigation, pathname]);
 
@@ -173,6 +192,7 @@ export function WorkspaceShell({
       <nav className={styles.navigation} aria-label={`${title} sections`}>
         {navigation.map((item) => {
           const active = isActive(item.href);
+          const mistakeBadgeCount = item.href === "/student/mistakes" ? openMistakeCount : 0;
 
           return (
             <Link
@@ -183,7 +203,8 @@ export function WorkspaceShell({
               className={`${styles.navigationLink} ${active ? styles.navigationLinkActive : ""}`}
             >
               <span>{item.label}</span>
-              {item.notificationSection && navigationBadges[item.notificationSection] ? <span className={styles.navigationBadge} role="img" aria-label="New updates" /> : null}
+              {mistakeBadgeCount > 0 ? <span className={styles.navigationCountBadge} aria-label={`${mistakeBadgeCount} mistakes to review`}>{mistakeBadgeCount > 99 ? "99+" : mistakeBadgeCount}</span> : null}
+              {!mistakeBadgeCount && item.notificationSection && (navigationBadges[item.notificationSection] ?? 0) > 0 ? <span className={styles.navigationBadge} role="img" aria-label="New updates" /> : null}
             </Link>
           );
         })}
@@ -220,8 +241,8 @@ export function WorkspaceShell({
         </div>
       ) : null}
 
-      <main className={styles.main}>
-        <header className={styles.header}>
+      <main className={`${styles.main} ${shouldLockDesktopViewport ? styles.viewportLockedMain : ""}`}>
+        <header className={`${styles.header} ${shouldLockDesktopViewport ? styles.viewportLockedHeader : ""}`}>
           <div className={styles.headerRow}>
             <div className={styles.headerTitle}>
               <button
@@ -271,7 +292,7 @@ export function WorkspaceShell({
           ) : null}
         </header>
 
-        <div className={styles.content}>{children}</div>
+        <div className={`${styles.content} ${shouldLockDesktopViewport ? styles.viewportLockedContent : ""}`}>{children}</div>
       </main>
     </div>
   );

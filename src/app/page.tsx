@@ -228,41 +228,53 @@ export default async function Home() {
       ) : null}
 
       <section
-        id="courses"
+        id="all-courses"
         className={`${styles.section} ${styles.whiteSection} ${styles.anchorSection}`}
       >
         <div className={styles.shell}>
           <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>Choose by goal</p>
-            <h2>
-              Explore professional English and test preparation separately.
-            </h2>
+            <p className={styles.eyebrow}>All courses</p>
+            <h2>Choose the direction that fits your goal.</h2>
             <p>
-              These collections show only courses that their author has
-              published with the matching course type. They never pull in
-              unrelated catalogue results.
+              Start with the complete catalogue or open a focused collection.
+              Newly published courses appear in the relevant collection
+              automatically.
             </p>
           </div>
           <div className={styles.productCollections}>
-            <Link href="/professional" className={styles.productCollectionCard} data-ao="fade-left" data-ao-delay="1">
-              <span className={styles.collectionLabel}>
-                Professional English
-              </span>
+            <Link href="/courses" className={styles.productCollectionCard} data-ao="fade-left" data-ao-delay="1">
+              <span className={styles.collectionLabel}>All courses</span>
+              <h3>Browse every published English course.</h3>
+              <p>
+                Filter the live catalogue by level, direction, format and
+                access type.
+              </p>
+              <span className={styles.linkArrow}>Browse all courses →</span>
+            </Link>
+            <Link href="/courses?category=general-english" className={styles.productCollectionCard} data-ao="fade-up" data-ao-delay="2">
+              <span className={styles.collectionLabel}>School &amp; General English</span>
+              <h3>Strengthen the English you use in everyday study.</h3>
+              <p>
+                Practise core grammar, vocabulary and communication through
+                published General English courses.
+              </p>
+              <span className={styles.linkArrow}>Explore General English →</span>
+            </Link>
+            <Link href="/professional" className={styles.productCollectionCard} data-ao="fade-up" data-ao-delay="3">
+              <span className={styles.collectionLabel}>Professional English</span>
               <h3>Use English with more confidence at work.</h3>
               <p>
                 Browse courses authored for professional contexts, each with a
                 visible level and programme.
               </p>
-              <span className={styles.linkArrow}>
-                Explore Professional English →
-              </span>
+              <span className={styles.linkArrow}>Explore Professional English →</span>
             </Link>
-            <Link href="/tests" className={styles.productCollectionCard} data-ao="fade-right" data-ao-delay="1">
+            <Link href="/tests" className={styles.productCollectionCard} data-ao="fade-right" data-ao-delay="4">
               <span className={styles.collectionLabel}>English tests</span>
               <h3>Prepare with a clear published course structure.</h3>
               <p>
-                Open the separate test and exam-preparation collection, then
-                review access and a real preview when offered.
+                Open test and exam-preparation courses, then review access and
+                a real preview lesson when one is available.
               </p>
               <span className={styles.linkArrow}>Explore English tests →</span>
             </Link>

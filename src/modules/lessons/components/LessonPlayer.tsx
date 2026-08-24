@@ -61,6 +61,10 @@ type Props = {
   returnHref?: string;
   /** Optional localized public path. Data APIs continue to use canonical IDs. */
   lessonHrefPrefix?: string;
+  /** A secure, user-owned error review opened from My mistakes. */
+  reviewMistake?: { exerciseId: string; returnHref: string };
+  /** A server-owned sequence of outstanding mistakes. */
+  reviewSession?: { runId: string; exerciseIds: string[]; initialMistakeCount: number; initialExerciseId?: string };
 };
 
 function exerciseTheory(block: LessonBlock) {
@@ -89,37 +93,45 @@ function getBlockAttemptVisual(block: LessonBlock, exerciseResults: Record<strin
   if (block.exercises.length === 0) return null;
   let correct = 0;
   let incorrect = 0;
-  for (const exercise of block.exercises) {
+  const stops = block.exercises.map((exercise, index) => {
     const result = exerciseResults[exercise.id];
     if (result === true) correct += 1;
     if (result === false) incorrect += 1;
-  }
-  const attempted = correct + incorrect;
-  if (attempted === 0) return null;
-
-  const correctPercent = Math.round((correct / block.exercises.length) * 100);
-  const attemptedPercent = Math.round((attempted / block.exercises.length) * 100);
-  const segments = [
-    correct > 0 ? `#34d399 0 ${correctPercent}%` : "",
-    incorrect > 0 ? `#fb7185 ${correctPercent}% ${attemptedPercent}%` : "",
-    attemptedPercent < 100 ? `#e2e8f0 ${attemptedPercent}% 100%` : "",
-  ].filter(Boolean).join(", ");
-
+    const start = (index / block.exercises.length) * 100;
+    const end = ((index + 1) / block.exercises.length) * 100;
+    const colour = result === true ? "#34d399" : result ===false ? "#fb7185" : "#e9d5ff";
+    return `${colour} ${start}% ${end}%`;
+  });
+  if (correct + incorrect === 0) return null;
   return {
     correct,
     incorrect,
-    style: { background: `linear-gradient(90deg, ${segments})` } as CSSProperties,
+    // The segment stays large, while its fill follows each answer in order.
+    style: { background: `linear-gradient(90deg, ${stops.join(", ")})` } as CSSProperties,
   };
+}
+
+function getBlockProgressFraction(
+  block: LessonBlock,
+  completedBlockIds: readonly string[],
+  attemptedExerciseIds: ReadonlySet<string>,
+) {
+  if (completedBlockIds.includes(block.id)) return 1;
+  if (block.exercises.length === 0) return 0;
+  return block.exercises.filter((exercise) => attemptedExerciseIds.has(exercise.id)).length / block.exercises.length;
 }
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
   autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
+  reviewMistake, reviewSession,
 }: Props) {
   const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
-  const [currentBlockId, setCurrentBlockId] = useState<string | null>(blocks[0]?.id ?? null);
+  const reviewTargetExerciseId = reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId;
+  const reviewBlockId = blocks.find((block) => block.exercises.some((exercise) => exercise.id === reviewTargetExerciseId))?.id ?? null;
+  const [currentBlockId, setCurrentBlockId] = useState<string | null>(reviewBlockId ?? blocks[0]?.id ?? null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [storedProgress, setStoredProgress] = useState<StoredProgress | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -131,13 +143,23 @@ export function LessonPlayer({
   const [stepVerified, setStepVerified] = useState(false);
   const [finished, setFinished] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
+  const [visitExerciseIds, setVisitExerciseIds] = useState<string[]>([]);
   const [autoAdvanceRequested, setAutoAdvanceRequested] = useState(false);
+  const [reviewReturnPending, setReviewReturnPending] = useState(false);
+  const [reviewIntroOpen, setReviewIntroOpen] = useState(Boolean(reviewSession));
+  const [reviewTransition, setReviewTransition] = useState<null | { state: "NEXT" | "WRAP"; nextUrl: string; nextLessonTitle: string; nextCourseTitle: string; remainingLessons: number }>(null);
+  const [reviewComplete, setReviewComplete] = useState<null | { experience: number; coins: number; firstFocusedRun: boolean; achievements: string[] }>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
   const previewCompleteReported = useRef(false);
   const learningSessionId = useRef<string | null>(null);
   const interactionCount = useRef(0);
   const autoAdvanceTimerRef = useRef<number | null>(null);
+  const reviewReturnTimerRef = useRef<number | null>(null);
+  const reviewReturnStartedRef = useRef(false);
+  const reviewAdvanceStartedRef = useRef(false);
   const advanceStepRef = useRef<() => void>(() => undefined);
 
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
@@ -145,6 +167,8 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
+  const isReviewSession = Boolean(reviewSession);
+  const reviewDialogOpen = Boolean(reviewIntroOpen || reviewTransition || reviewComplete);
   const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
   const isInteractiveStep = Boolean(activeBlock?.type === "EXERCISE" && activeBlock.exercises.length);
   const lessonIsCompleted = storedProgress?.status === "COMPLETED";
@@ -152,12 +176,29 @@ export function LessonPlayer({
   const canFinishAfterActiveStep = useMemo(() => blocks
     .filter((block) => block.isRequired)
     .every((block) => completedBlocks.includes(block.id) || block.id === activeBlock?.id), [activeBlock?.id, blocks, completedBlocks]);
+  const attemptedExerciseIds = useMemo(() => new Set(visitExerciseIds), [visitExerciseIds]);
   const progressPercent = useMemo(() => {
-    if (lessonIsCompleted) return 100;
-    return blocks.length ? Math.round((completedBlocks.length / blocks.length) * 100) : 0;
-  }, [blocks.length, completedBlocks.length, lessonIsCompleted]);
+    if (blocks.length === 0) return 0;
+
+    // A completed lesson keeps its historical 100% status. A new or resumed
+    // lesson fills each large step according to its individual answers.
+    if (lessonIsCompleted && !isPracticeRunRef.current) return 100;
+    const visitedBlocks = isPracticeRunRef.current ? practiceBlockIds : completedBlocks;
+    const completedFraction = blocks.reduce(
+      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, attemptedExerciseIds),
+      0,
+    );
+    return Math.round((completedFraction / blocks.length) * 100);
+  }, [attemptedExerciseIds, blocks, completedBlocks, lessonIsCompleted, practiceBlockIds]);
+  const progressLabel = lessonIsCompleted
+    ? `Practice · ${progressPercent}% revisited`
+    : `${progressPercent}% complete`;
+  const hasUnfinishedRequiredBlocks = useMemo(
+    () => blocks.some((block) => block.isRequired && !completedBlocks.includes(block.id)),
+    [blocks, completedBlocks],
+  );
   const guestPreviewKey = `krin:lesson-preview:${lessonId}`;
-  const destination = returnHref ?? `/courses/${courseSlug}`;
+  const destination = reviewSession ? "/student/mistakes" : (returnHref ?? `/courses/${courseSlug}`);
 
   useEffect(() => {
     if (previewMode) return;
@@ -169,7 +210,7 @@ export function LessonPlayer({
   }, [canSaveProgress, isFirstCourseLesson, previewMode]);
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress) return;
+    if (previewMode || !canSaveProgress || isReviewSession) return;
     try {
       const raw = window.localStorage.getItem(guestPreviewKey);
       if (!raw) return;
@@ -189,19 +230,19 @@ export function LessonPlayer({
     } catch {
       window.localStorage.removeItem(guestPreviewKey);
     }
-  }, [blocks, canSaveProgress, guestPreviewKey, lessonId, previewMode]);
+  }, [blocks, canSaveProgress, guestPreviewKey, isReviewSession, lessonId, previewMode]);
 
   useEffect(() => {
-    if (previewMode || canSaveProgress) return;
+    if (previewMode || canSaveProgress || isReviewSession) return;
     try {
       window.localStorage.setItem(guestPreviewKey, JSON.stringify({ completedBlocks, currentBlockId, activeSeconds: elapsedSeconds }));
     } catch {
       // Storage is optional; an unauthenticated learner can still use the lesson.
     }
-  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey, previewMode]);
+  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey, isReviewSession, previewMode]);
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress) return;
+    if (previewMode || !canSaveProgress || isReviewSession) return;
     let live = true;
     void fetch(`/api/learning/lessons/${lessonId}/progress`)
       .then(async (response) => response.ok ? response.json() : null)
@@ -211,16 +252,39 @@ export function LessonPlayer({
         const restoredBlocks = validCompletedBlockIds(saved.completedBlocks, blocks);
         const restoredCurrentBlock = validCurrentBlockId(saved.currentBlockId, blocks);
         setStoredProgress({ ...saved, completedBlocks: restoredBlocks, currentBlockId: restoredCurrentBlock });
-        setExerciseResults(Object.fromEntries((saved.attemptAccuracy?.exerciseResults ?? []).map((item) => [item.exerciseId, item.isCorrect])));
-        if (saved.status === "COMPLETED") {
+        const savedResults = Object.fromEntries(
+          (saved.attemptAccuracy?.exerciseResults ?? []).map((item) => [item.exerciseId, item.isCorrect]),
+        );
+        // The progress request races with a learner's first answer on a slow
+        // connection.  Never replace a result already received in this visit
+        // with an older server snapshot, otherwise a timeline segment flashes
+        // back to its pending colour.  This merge is shared by all lessons.
+        setExerciseResults((current) => ({ ...savedResults, ...current }));
+        if (reviewBlockId) {
+          isPracticeRunRef.current = true;
+          setPracticeBlockIds([]);
+          setCompletedBlocks(restoredBlocks);
+          setCurrentBlockId(reviewBlockId);
+        } else if (saved.status === "COMPLETED") {
           // Start a practice visit at the first step, while retaining the
           // persisted completed steps. This lets the learner review freely
           // without showing a misleading 0% progress state or re-locking
           // the rest of a finished lesson.
           isPracticeRunRef.current = true;
+          setPracticeBlockIds([]);
+          // Keep historical answer colours, while a new practice pass starts
+          // at 0% and grows only from answers made in this visit.
+          setVisitExerciseIds((current) => current);
           setCompletedBlocks(restoredBlocks);
           setCurrentBlockId(blocks[0]?.id ?? null);
         } else {
+          isPracticeRunRef.current = false;
+          setPracticeBlockIds([]);
+          // Resuming an unfinished lesson preserves every prompt that was
+          // already attempted before the page was reopened.
+          setVisitExerciseIds((current) => [
+            ...new Set([...Object.keys(savedResults), ...current]),
+          ]);
           setCompletedBlocks(restoredBlocks);
           setCurrentBlockId(restoredCurrentBlock);
         }
@@ -228,10 +292,10 @@ export function LessonPlayer({
       })
       .catch(() => undefined);
     return () => { live = false; };
-  }, [blocks, canSaveProgress, lessonId, previewMode]);
+  }, [blocks, canSaveProgress, isReviewSession, lessonId, previewMode, reviewBlockId]);
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress) return;
+    if (previewMode || !canSaveProgress || isReviewSession) return;
     let live = true;
     const noteInteraction = () => { interactionCount.current += 1; };
     const create = async () => {
@@ -254,7 +318,7 @@ export function LessonPlayer({
       window.removeEventListener("keydown", noteInteraction);
       if (learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
     };
-  }, [canSaveProgress, lessonId, previewMode]);
+  }, [canSaveProgress, isReviewSession, lessonId, previewMode]);
 
   useEffect(() => {
     if (previewMode) return;
@@ -284,8 +348,63 @@ export function LessonPlayer({
     };
   }, [activeBlock?.id, autoAdvanceRequested, canAdvance]);
 
+  useEffect(() => () => {
+    if (reviewReturnTimerRef.current !== null) window.clearTimeout(reviewReturnTimerRef.current);
+  }, []);
+
+  function returnToMistakesAfterSuccess() {
+    if (!reviewMistake || reviewReturnStartedRef.current) return;
+    reviewReturnStartedRef.current = true;
+    setReviewReturnPending(true);
+    reviewReturnTimerRef.current = window.setTimeout(() => {
+      router.replace(reviewMistake.returnHref);
+    }, 900);
+  }
+
+  async function advanceReviewRun() {
+    if (!reviewSession || reviewAdvanceStartedRef.current) return;
+    reviewAdvanceStartedRef.current = true;
+    setReviewError(null);
+    try {
+      const response = await fetch(`/api/profile/mistakes/review-runs/${encodeURIComponent(reviewSession.runId)}/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId }),
+      });
+      const payload = await response.json().catch(() => null) as {
+        data?: { state: "CURRENT_INCOMPLETE" | "NEXT" | "WRAP" | "COMPLETE"; nextUrl?: string; nextLessonTitle?: string; nextCourseTitle?: string; remainingLessons?: number; reward?: { experience: number; coins: number; firstFocusedRun: boolean; achievements: string[] } };
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to update your review.");
+      if (payload.data.state === "CURRENT_INCOMPLETE") {
+        reviewAdvanceStartedRef.current = false;
+        setReviewError("Finish every saved mistake in this lesson before moving on.");
+        return;
+      }
+      if (payload.data.state === "COMPLETE" && payload.data.reward) {
+        setReviewComplete(payload.data.reward);
+        notifyMotivationUpdated();
+        return;
+      }
+      if ((payload.data.state === "NEXT" || payload.data.state === "WRAP") && payload.data.nextUrl && payload.data.nextLessonTitle && payload.data.nextCourseTitle) {
+        setReviewTransition({
+          state: payload.data.state,
+          nextUrl: payload.data.nextUrl,
+          nextLessonTitle: payload.data.nextLessonTitle,
+          nextCourseTitle: payload.data.nextCourseTitle,
+          remainingLessons: payload.data.remainingLessons ?? 1,
+        });
+        return;
+      }
+      throw new Error("Unable to find the next review lesson.");
+    } catch (error) {
+      reviewAdvanceStartedRef.current = false;
+      setReviewError(error instanceof Error ? error.message : "Unable to update your review.");
+    }
+  }
+
   async function persistProgress(complete = false, snapshot?: { completed: string[]; current: string | null }) {
-    if (previewMode || !canSaveProgress) return null;
+    if (previewMode || !canSaveProgress || isReviewSession) return null;
     const savedCompleted = snapshot?.completed ?? completedBlocks;
     const savedCurrent = snapshot?.current ?? currentBlockId;
     setSaveError(null);
@@ -312,11 +431,11 @@ export function LessonPlayer({
   }
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress || elapsedSeconds === 0 || elapsedSeconds % 30 !== 0) return;
+    if (previewMode || !canSaveProgress || isReviewSession || elapsedSeconds === 0 || elapsedSeconds % 30 !== 0) return;
     void persistProgress();
   // Saving happens at the clock boundary, not every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsedSeconds, canSaveProgress, previewMode]);
+  }, [elapsedSeconds, canSaveProgress, isReviewSession, previewMode]);
 
   async function advanceStep() {
     if (!activeBlock || !canAdvance) return;
@@ -324,6 +443,9 @@ export function LessonPlayer({
     autoAdvanceTimerRef.current = null;
     setAutoAdvanceRequested(false);
     const nextCompleted = completedBlocks.includes(activeBlock.id) ? completedBlocks : [...completedBlocks, activeBlock.id];
+    if (isPracticeRunRef.current) {
+      setPracticeBlockIds((current) => current.includes(activeBlock.id) ? current : [...current, activeBlock.id]);
+    }
     const nextBlock = blocks[activeIndex + 1] ?? null;
     setCompletedBlocks(nextCompleted);
     if (nextBlock) {
@@ -332,14 +454,12 @@ export function LessonPlayer({
       return;
     }
 
-    // Timeline navigation is deliberately open for review and practice. If a
-    // learner reaches the final visible step after skipping a required task,
-    // guide them to the first unfinished task instead of showing a false
-    // completion screen.
+    // Timeline navigation stays open: a learner may leave an incorrect or
+    // skipped task behind without being redirected to an unrelated block.
     const firstIncompleteRequiredBlock = blocks.find((block) => block.isRequired && !nextCompleted.includes(block.id));
     if (firstIncompleteRequiredBlock) {
-      setCurrentBlockId(firstIncompleteRequiredBlock.id);
-      await persistProgress(false, { completed: nextCompleted, current: firstIncompleteRequiredBlock.id });
+      await persistProgress(false, { completed: nextCompleted, current: activeBlock.id });
+      setFinished(true);
       return;
     }
 
@@ -396,20 +516,21 @@ export function LessonPlayer({
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and exit lesson">Save & exit</button>
-          <div className={styles.progress} aria-label={`Lesson progress: ${progressPercent}%`}>
-            <div className={styles.progressMeta}><span>{progressPercent}% complete</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
+          <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
+            <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
             <nav
               className={styles.blockTimeline}
-              aria-label="Lesson steps. Select any step to study or practise it."
+              aria-label="Lesson steps. Select an available step to study or practise it."
               style={{ gridTemplateColumns: `repeat(${Math.max(blocks.length, 1)}, minmax(0, 1fr))` }}
             >
               {blocks.map((block, index) => {
                 const isCompleted = completedBlocks.includes(block.id);
                 const isCurrent = block.id === activeBlock?.id;
                 const isReviewableAfterCompletion = Boolean(lessonIsCompleted);
-                const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : "available";
+                const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent;
+                const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : "locked";
                 const label = block.title?.trim() || `${block.type.replace(/_/g, " ")} step`;
-                const attemptVisual = getBlockAttemptVisual(block, exerciseResults);
+                const attemptVisual = canOpenBlock ? getBlockAttemptVisual(block, exerciseResults) : null;
                 const performance = attemptVisual
                   ? `${attemptVisual.correct} correct, ${attemptVisual.incorrect} incorrect`
                   : "No checked exercise yet";
@@ -420,10 +541,12 @@ export function LessonPlayer({
                     type="button"
                     className={`${styles.blockSegment} ${isReviewableAfterCompletion || isCompleted ? styles.blockSegmentCompleted : ""} ${isCurrent ? styles.blockSegmentCurrent : ""}`}
                     aria-current={isCurrent ? "step" : undefined}
-                    aria-label={`Step ${index + 1}: ${label}. ${state}. Latest result: ${performance}. Open this step.`}
+                    aria-label={`Step ${index + 1}: ${label}. ${state}. Latest result: ${performance}.${canOpenBlock ? " Open this step." : " Complete the current step first."}`}
                     style={attemptVisual?.style}
                     title={`${index + 1}. ${label}`}
+                    disabled={!canOpenBlock}
                     onClick={() => {
+                      if (!canOpenBlock) return;
                       setAutoAdvanceRequested(false);
                       setCurrentBlockId(block.id);
                       setFinished(false);
@@ -437,7 +560,7 @@ export function LessonPlayer({
           </div>
           <div className={styles.stepArea}>
             <ExperienceStatus />
-            <span className={styles.stepCounter}>Step {blocks.length ? activeIndex + 1 : 0} of {blocks.length}</span>
+            <span className={styles.stepCounter}>{lessonIsCompleted ? "Review " : ""}step {blocks.length ? activeIndex + 1 : 0} of {blocks.length}</span>
           </div>
         </header>
 
@@ -445,6 +568,31 @@ export function LessonPlayer({
           <h1 id="lesson-title">{title}</h1>
           <p>{moduleTitle} · {estimatedDuration ? `${estimatedDuration} min` : "Self-paced"}{storedProgress ? ` · Score ${storedProgress.score}` : ""}</p>
         </section>
+
+        {reviewSession && reviewIntroOpen ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-intro-title">
+          <p className={styles.taskType}>Mistake review</p>
+          <h2 id="review-intro-title">Now we focus on the mistakes from “{title}”</h2>
+          <p>Correct the saved answers in this lesson. When this lesson is clear, we will offer the next lesson with mistakes — without changing your normal course progress.</p>
+          <button type="button" className={styles.finishButton} onClick={() => setReviewIntroOpen(false)}>Start this review</button>
+        </section> : null}
+
+        {reviewTransition ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-next-title">
+          <p className={styles.taskType}>{reviewTransition.state === "WRAP" ? "Review the earlier lessons" : "Next review lesson"}</p>
+          <h2 id="review-next-title">{reviewTransition.state === "WRAP" ? "You have reached the end of this path." : "This lesson is clear."}</h2>
+          <p>{reviewTransition.state === "WRAP" ? `There are still earlier mistakes. Start with “${reviewTransition.nextLessonTitle}” in ${reviewTransition.nextCourseTitle}?` : `Next: “${reviewTransition.nextLessonTitle}” in ${reviewTransition.nextCourseTitle}. ${reviewTransition.remainingLessons > 1 ? `${reviewTransition.remainingLessons} lessons still need a review.` : "This is the last lesson in your queue."}`}</p>
+          <div className={styles.reviewDialogActions}>
+            <button type="button" className={styles.showTheory} onClick={() => router.push("/student/mistakes")}>Back to mistakes</button>
+            <button type="button" className={styles.finishButton} onClick={() => router.push(reviewTransition.nextUrl)}>{reviewTransition.state === "WRAP" ? "Start from this lesson" : "Continue review"}</button>
+          </div>
+        </section> : null}
+
+        {reviewComplete ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-complete-title">
+          <p className={styles.taskType}>Review complete</p>
+          <h2 id="review-complete-title">All your mistakes are corrected.</h2>
+          <p>{reviewComplete.firstFocusedRun ? "You cleared every saved mistake in one focused run — an ultra trophy is now yours." : "You cleared every saved mistake in this focused run. Keep this rhythm going."}</p>
+          <p className={styles.reviewReward}>+{reviewComplete.experience} XP{reviewComplete.coins ? ` · +${reviewComplete.coins} coins` : ""}{reviewComplete.achievements.length ? ` · ${reviewComplete.achievements.join(", ")}` : ""}</p>
+          <button type="button" className={styles.finishButton} onClick={() => router.push("/student/mistakes?reviewComplete=1")}>Back to My mistakes</button>
+        </section> : null}
 
         {showWarmUp ? (
           <section className={styles.taskCard}>
@@ -456,7 +604,7 @@ export function LessonPlayer({
           </section>
         ) : finished ? (
           <section className={styles.completion} aria-live="polite">
-            <p className={styles.taskType}>Lesson complete</p>
+            <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? "Session saved" : "Lesson complete"}</p>
             <h2>Great work — your progress is saved.</h2>
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : "Continue with your course whenever you are ready."}</p>
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>First-completion reward: +{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
@@ -467,7 +615,7 @@ export function LessonPlayer({
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>No lesson steps yet</h2><p>Add content blocks in the lesson editor to build the learner flow.</p></section>
         ) : (
-          <section className={styles.workspace} aria-label="Current lesson step">
+          <section className={`${styles.workspace} ${reviewDialogOpen ? styles.workspacePaused : ""}`} aria-label="Current lesson step" aria-hidden={reviewDialogOpen}>
             {!previewMode && vocabulary.length > 0 ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
             {activeTheory ? (
               <section className={styles.theory}>
@@ -481,9 +629,13 @@ export function LessonPlayer({
 
             <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""}`}>
               {activeBlock.type !== "EXERCISE" ? <div className={styles.taskTopline}>
-                <span className={styles.taskType}>{activeBlock.type.replace(/_/g, " ")}</span>
+                <span className={styles.taskType}>{activeBlock.type === "INTRO" ? "Lesson goal" : activeBlock.type.replace(/_/g, " ")}</span>
                 {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
               </div> : null}
+              <div className={styles.lessonGoalTop}>
+                <span className={styles.lessonGoalTopLabel}>Lesson goal</span>
+                <p>{objectiveItems[0] ?? "Take one focused step at a time."}</p>
+              </div>
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
                   block={activeBlock}
@@ -494,33 +646,63 @@ export function LessonPlayer({
                   hideHeader
                   playerStyle
                   hideExerciseTheoryText={Boolean(activeTheory)}
+                  focusExerciseId={reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId}
+                  individualExerciseStep={activeBlock.type === "EXERCISE"}
+                  mistakeExerciseIds={activeBlock.exercises
+                    .filter((exercise) => exerciseResults[exercise.id] === false)
+                    .map((exercise) => exercise.id)}
+                  requireCorrectForNext={isReviewSession}
+                  reviewRunId={reviewSession?.runId}
                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise }) => {
-                    setExerciseResults((current) => ({ ...current, [exerciseId]: isCorrect }));
-                    // A submitted answer is enough to continue. Learners can
-                    // retry a mistake, but are never trapped on a step.
-                    setStepVerified(true);
-                    if (isCorrect && isFinalExercise) setAutoAdvanceRequested(true);
+                    const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
+                    setExerciseResults(nextResults);
+                    setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);
+                    if (reviewSession?.exerciseIds.includes(exerciseId)) {
+                      if (!isCorrect) return;
+                      const allLessonReviewExercisesResolved = reviewSession.exerciseIds.every((reviewExerciseId) => nextResults[reviewExerciseId] === true);
+                      if (allLessonReviewExercisesResolved) {
+                        void advanceReviewRun();
+                        return;
+                      }
+                      const currentBlockReviewExercisesResolved = activeBlock.exercises
+                        .filter((exercise) => reviewSession.exerciseIds.includes(exercise.id))
+                        .every((exercise) => nextResults[exercise.id] === true);
+                      if (currentBlockReviewExercisesResolved && activeIndex < blocks.length - 1) {
+                        window.setTimeout(() => {
+                          const nextBlock = blocks[activeIndex + 1] ?? activeBlock;
+                          setCurrentBlockId(nextBlock.id);
+                        }, 700);
+                      }
+                      return;
+                    }
+                    if (reviewMistake?.exerciseId === exerciseId && isCorrect) {
+                      setAutoAdvanceRequested(false);
+                      returnToMistakesAfterSuccess();
+                      return;
+                    }
+                    // A learner must attempt every exercise in the current
+                    // block. Correctness changes the visual result and score,
+                    // but a retry is optional before moving on.
+                    if (isFinalExercise) {
+                      setStepVerified(true);
+                      setAutoAdvanceRequested(true);
+                    }
                   }}
                 />
               </div>
             </article>
 
             <footer className={styles.footer}>
-              <div className={styles.footerSummary}>
-                <div className={styles.lessonGoal}>
-                  <span className={styles.lessonGoalLabel}>Lesson goal</span>
-                  <p>{objectiveItems[0] ?? "Take one focused step at a time."}</p>
-                </div>
-                {isInteractiveStep && !stepVerified ? <p className={styles.footerNote}>Submit an answer to unlock the next step.</p> : null}
-              </div>
+              {reviewReturnPending ? <p className={styles.footerNote} role="status">Mistake fixed. Returning to your review list…</p> : isReviewSession ? <p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p> : isInteractiveStep && !stepVerified ? <p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p> : <span />}
               <div className={styles.footerActions}>
-                <button type="button" className={activeIndex === blocks.length - 1 ? styles.finishButton : styles.nextButton} disabled={!canAdvance} onClick={() => void advanceStep()}>{activeIndex === blocks.length - 1 ? canFinishAfterActiveStep ? "Finish lesson" : "Continue to unfinished step" : "Next step"}</button>
+                {!isReviewSession ? <button type="button" className={activeIndex === blocks.length - 1 ? styles.finishButton : styles.nextButton} disabled={!canAdvance} onClick={() => void advanceStep()}>{activeIndex === blocks.length - 1 ? canFinishAfterActiveStep ? "Finish lesson" : "Finish for now" : "Next step"}</button> : null}
               </div>
             </footer>
           </section>
         )}
 
         {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}
+        {reviewError ? <p role="alert" className={styles.reviewError}>{reviewError}</p> : null}
         {!previewMode && !canSaveProgress ? <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real lesson. Sign in after the preview to save this step and continue from the same place.</p> : null}
       </div>
     </main>

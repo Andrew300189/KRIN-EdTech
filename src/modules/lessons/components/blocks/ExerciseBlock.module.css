@@ -1,0 +1,125 @@
+.modal {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgb(15 23 42 / 43%);
+  padding: clamp(.75rem, 2.5vw, 2rem);
+  backdrop-filter: blur(8px);
+}
+
+.modalPanel {
+  display: grid;
+  width: min(100%, 64rem);
+  max-width: calc(100vw - 2rem);
+  max-height: min(52rem, calc(100dvh - 2rem));
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgb(199 210 254 / 92%);
+  border-radius: 26px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8f8ff 100%);
+  box-shadow: 0 28px 75px rgb(30 41 59 / 30%);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e0e7ff;
+  padding: 1.1rem 1.25rem;
+}
+
+.modalEyebrow {
+  margin: 0;
+  color: #4f46e5;
+  font-size: .66rem;
+  font-weight: 850;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.modalHeader h2 {
+  margin: .2rem 0 0;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -.025em;
+}
+
+.modalHeader p:last-child {
+  margin: .32rem 0 0;
+  color: #64748b;
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.modalClose {
+  display: inline-grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 2.35rem;
+  place-items: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 50%;
+  background: #fff;
+  color: #4338ca;
+  cursor: pointer;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: .45rem .8rem;
+}
+
+.modalClose:hover { border-color: #818cf8; background: #eef2ff; }
+.modalClose:focus-visible { outline: 3px solid rgb(99 102 241 / 30%); outline-offset: 2px; }
+
+.modalTasks {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: .75rem;
+  overflow-y: auto;
+  padding: .9rem 1.1rem 1.1rem 3.6rem;
+  counter-reset: lesson-task;
+  scrollbar-color: #a5b4fc transparent;
+  scrollbar-width: thin;
+}
+
+.modalTasks > div {
+  position: relative;
+  counter-increment: lesson-task;
+}
+
+.modalTasks > div::before {
+  position: absolute;
+  z-index: 1;
+  top: 1rem;
+  right: calc(100% + .75rem);
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4338ca;
+  content: attr(data-task-index);
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .modal { padding: .6rem; }
+  .modalPanel { max-height: calc(100dvh - 1.2rem); border-radius: 20px; }
+  .modalHeader { padding: .9rem 1rem; }
+  .modalTasks { padding: .8rem .8rem 1rem 3.25rem; }
+  .modalTasks > div::before { right: calc(100% + .55rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal, .modalClose { transition: none; }
+}

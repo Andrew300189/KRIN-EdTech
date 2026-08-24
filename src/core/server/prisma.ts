@@ -5,8 +5,15 @@ declare global {
   var __krinPrismaSubscriptionSchema: PrismaClient | undefined;
 }
 
+const cachedPrisma = global.__krinPrismaSubscriptionSchema;
+// Prisma delegates are fixed when the client is created. During `next dev`
+// the global singleton can outlive a schema generation, leaving a stale
+// client without a newly added model. Replace that client once, rather than
+// surfacing a vague "updateMany of undefined" error from a route.
+const cachedClientIsCurrent = Boolean(cachedPrisma && "mistakeReviewRun" in cachedPrisma);
+
 export const prisma =
-  global.__krinPrismaSubscriptionSchema ??
+  (cachedClientIsCurrent ? cachedPrisma : undefined) ??
   new PrismaClient({
     datasources: {
       db: {

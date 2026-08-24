@@ -72,7 +72,48 @@ type Draft = {
   duration: "auto" | "20" | "35" | "45" | "60" | "90";
 };
 
+type ContentBlockType =
+  | "INTRO"
+  | "LEARNING_OBJECTIVES"
+  | "WARM_UP"
+  | "THEORY"
+  | "GRAMMAR"
+  | "VOCABULARY"
+  | "READING"
+  | "LISTENING"
+  | "VIDEO"
+  | "IMAGE"
+  | "DIALOGUE"
+  | "REVIEW"
+  | "HOMEWORK"
+  | "QUOTE"
+  | "PHRASE_OF_THE_DAY"
+  | "NEXT_LESSON_PREVIEW"
+  | "BREAK"
+  | "DISCUSSION";
+
 const EMPTY_THEORY: Theory = { visible: true, text: "", audioUrl: "", imageUrl: "", videoUrl: "" };
+
+const CONTENT_BLOCK_OPTIONS: Array<{ type: ContentBlockType; title: string; description: string }> = [
+  { type: "INTRO", title: "Lesson goal", description: "A short opening or target for the learner." },
+  { type: "THEORY", title: "Theory", description: "A rich explanation, rule or worked example." },
+  { type: "GRAMMAR", title: "Grammar note", description: "A focused grammar rule or reminder." },
+  { type: "VOCABULARY", title: "Vocabulary", description: "Words, phrases or a small lexical set." },
+  { type: "WARM_UP", title: "Warm-up", description: "A light prompt before the core activity." },
+  { type: "READING", title: "Reading", description: "A reading passage or guided note." },
+  { type: "LISTENING", title: "Listening", description: "Text with an optional audio URL." },
+  { type: "VIDEO", title: "Video", description: "An embedded learning-video reference." },
+  { type: "IMAGE", title: "Image", description: "An illustration or visual prompt." },
+  { type: "DIALOGUE", title: "Dialogue", description: "A model conversation or role-play prompt." },
+  { type: "REVIEW", title: "Review", description: "A recap before the learner moves on." },
+  { type: "HOMEWORK", title: "Homework", description: "An assignment to complete outside the lesson." },
+  { type: "QUOTE", title: "Quote", description: "A highlighted example, quote or usage note." },
+  { type: "PHRASE_OF_THE_DAY", title: "Phrase of the day", description: "One useful phrase with context." },
+  { type: "NEXT_LESSON_PREVIEW", title: "Next lesson", description: "A short preview of what comes next." },
+  { type: "BREAK", title: "Break", description: "A deliberate pause or reflection prompt." },
+  { type: "DISCUSSION", title: "Discussion", description: "A speaking or written reflection prompt." },
+  { type: "LEARNING_OBJECTIVES", title: "Objectives", description: "A concise list of learning outcomes." },
+];
 
 const kindMeta: Record<StepKind, { title: string; description: string }> = {
   gap: { title: "Written response", description: "Ask for a short, checked language response." },
@@ -284,11 +325,11 @@ function payloadFor(draft: Draft) {
   };
 }
 
-async function api<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+async function api<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const payload = await response.json().catch(() => null) as { data?: T; error?: string } | null;
   if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to save the lesson step.");
@@ -329,6 +370,7 @@ function MediaDialog({
 
 function RichTextEditor({ value, onChange }: { value: string; onChange: (next: string) => void }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const selectionRef = useRef<Range | null>(null);
   const normalizedValue = sanitizeLessonRichText(value);
 
   useEffect(() => {
@@ -340,9 +382,24 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
     onChange(sanitizeLessonRichText(editorRef.current?.innerHTML ?? ""));
   }
 
+  function rememberSelection() {
+    const selection = window.getSelection();
+    if (!selection?.rangeCount || !editorRef.current?.contains(selection.anchorNode)) return;
+    selectionRef.current = selection.getRangeAt(0).cloneRange();
+  }
+
+  function restoreSelection() {
+    const selection = window.getSelection();
+    if (!selection || !selectionRef.current) return;
+    selection.removeAllRanges();
+    selection.addRange(selectionRef.current);
+  }
+
   function apply(command: string, commandValue?: string) {
     editorRef.current?.focus();
+    restoreSelection();
     document.execCommand(command, false, commandValue);
+    rememberSelection();
     emitValue();
   }
 
@@ -356,6 +413,12 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertUnorderedList")} aria-label="Bulleted list">• List</button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertOrderedList")} aria-label="Numbered list">1. List</button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "blockquote")} aria-label="Quote">Quote</button>
+      <span aria-hidden="true" />
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#5148db")} aria-label="Purple text" title="Purple text"><span style={{ color: "#5148db" }}>●</span></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#0369a1")} aria-label="Blue text" title="Blue text"><span style={{ color: "#0369a1" }}>●</span></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#047857")} aria-label="Green text" title="Green text"><span style={{ color: "#047857" }}>●</span></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#c2410c")} aria-label="Orange text" title="Orange text"><span style={{ color: "#c2410c" }}>●</span></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#be123c")} aria-label="Red text" title="Red text"><span style={{ color: "#be123c" }}>●</span></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("removeFormat")} aria-label="Clear formatting">Clear</button>
     </div>
     <div
@@ -366,6 +429,9 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
       contentEditable
       suppressContentEditableWarning
       onInput={emitValue}
+      onKeyUp={rememberSelection}
+      onMouseUp={rememberSelection}
+      onBlur={rememberSelection}
       onPaste={(event) => {
         event.preventDefault();
         document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
@@ -377,12 +443,117 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
   </div>;
 }
 
+function blockBody(content: unknown) {
+  if (typeof content === "string") return content;
+  const source = record(content);
+  return text(source.text) || text(source.body) || text(source.description) || text(source.content);
+}
+
+function blockMediaUrl(content: unknown) {
+  const source = record(content);
+  return text(source.url) || text(source.src);
+}
+
+function updatedBlockContent(original: unknown, body: string, mediaUrl: string) {
+  const content = record(original);
+  for (const key of ["text", "body", "description", "content"]) {
+    if (typeof content[key] === "string") delete content[key];
+  }
+  if (body.trim()) content.text = body.trim();
+  if (mediaUrl.trim()) content.url = mediaUrl.trim();
+  else {
+    delete content.url;
+    delete content.src;
+  }
+  return Object.keys(content).length ? content : null;
+}
+
+function usesMediaUrl(type: string) {
+  return ["VIDEO", "IMAGE", "LISTENING"].includes(type);
+}
+
+function ContentBlockDialog({
+  open,
+  lessonId,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  lessonId: string;
+  onClose: () => void;
+  onCreated: (type: ContentBlockType) => void;
+}) {
+  const [type, setType] = useState<ContentBlockType>("THEORY");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [required, setRequired] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const selected = CONTENT_BLOCK_OPTIONS.find((option) => option.type === type) ?? CONTENT_BLOCK_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+    setType("THEORY");
+    setTitle("");
+    setBody("");
+    setMediaUrl("");
+    setRequired(false);
+    setError(null);
+  }, [open]);
+
+  function create() {
+    startTransition(async () => {
+      try {
+        await api(`/api/admin/lessons/${lessonId}/blocks`, "POST", {
+          type,
+          title: title.trim() || selected.title,
+          content: updatedBlockContent(null, body, mediaUrl) ?? undefined,
+          isRequired: required,
+        });
+        onCreated(type);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Unable to create the content block.");
+      }
+    });
+  }
+
+  return <AppModal
+    open={open}
+    onOpenChange={(next) => { if (!next) onClose(); }}
+    title="Add content block"
+    description="Choose a learner-facing block, then add its title and styled content. You can refine it later from the lesson timeline."
+    size="large"
+    footer={<><button type="button" onClick={onClose} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={create} disabled={isPending} className={styles.primaryButton}>{isPending ? "Adding…" : "Add block"}</button></>}
+  >
+    <div className={styles.blockDialogFields}>
+      <div className={styles.blockTypeGrid} role="list" aria-label="Content block type">
+        {CONTENT_BLOCK_OPTIONS.map((option) => <button
+          key={option.type}
+          type="button"
+          onClick={() => setType(option.type)}
+          className={`${styles.blockTypeCard} ${option.type === type ? styles.blockTypeCardActive : ""}`}
+          role="listitem"
+        >
+          <strong>{option.title}</strong><span>{option.description}</span>
+        </button>)}
+      </div>
+      <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={selected.title} className={styles.field} /></label>
+      <label className={styles.fieldLabel}>Learner-facing text<RichTextEditor value={body} onChange={setBody} /></label>
+      {usesMediaUrl(type) ? <label className={styles.fieldLabel}>{type === "IMAGE" ? "Image" : type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label> : null}
+      <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
+      {error ? <p role="alert" className={styles.dialogError}>{error}</p> : null}
+    </div>
+  </AppModal>;
+}
+
 function TheoryEditor({
   theory,
   onChange,
   onAddAudio,
   onAddVideo,
   onAddTask,
+  onAddContentBlock,
   onNextStep,
   nextStepPending,
 }: {
@@ -391,6 +562,7 @@ function TheoryEditor({
   onAddAudio: () => void;
   onAddVideo: () => void;
   onAddTask: () => void;
+  onAddContentBlock: () => void;
   onNextStep: () => void;
   nextStepPending: boolean;
 }) {
@@ -409,6 +581,7 @@ function TheoryEditor({
     <div className={styles.theoryActions}>
       <button type="button" onClick={onAddAudio} className={styles.secondaryButton}>{theory.audioUrl ? "Edit audio" : "Add audio"}</button>
       <button type="button" onClick={onAddVideo} className={styles.secondaryButton}>{theory.videoUrl ? "Edit video" : "Add video"}</button>
+      <button type="button" onClick={onAddContentBlock} className={styles.secondaryButton}>+ Content block</button>
       <button type="button" onClick={onAddTask} className={styles.primaryButton}>+ Add task</button>
       <button type="button" onClick={onNextStep} disabled={nextStepPending} className={styles.secondaryButton}>{nextStepPending ? "Creating…" : "Next step →"}</button>
     </div>
@@ -416,7 +589,7 @@ function TheoryEditor({
   </section>;
 }
 
-function TaskEditor({ draft, onChange, onChangeEngine }: { draft: Draft; onChange: (next: Draft) => void; onChangeEngine: () => void }) {
+function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock }: { draft: Draft; onChange: (next: Draft) => void; onChangeEngine: () => void; onEditBlock?: () => void }) {
   const set = <Key extends keyof Draft>(key: Key, value: Draft[Key]) => onChange({ ...draft, [key]: value });
   const engine = getExerciseEngine(draft.engineKey);
   const isGapFill = draft.engineKey === "fill-in-the-blanks";
@@ -428,7 +601,10 @@ function TaskEditor({ draft, onChange, onChangeEngine }: { draft: Draft; onChang
         <p className={styles.eyebrow}>Learner task</p>
         <h2>{engine?.title ?? kindMeta[draft.kind].title}</h2>
       </div>
-      <button type="button" onClick={onChangeEngine} className={styles.tertiaryButton}>Change engine</button>
+      <div className={styles.taskCardActions}>
+        {draft.blockId ? <button type="button" onClick={onEditBlock} className={styles.tertiaryButton}>Block settings</button> : null}
+        <button type="button" onClick={onChangeEngine} className={styles.tertiaryButton}>Change engine</button>
+      </div>
     </div>
     <p className={styles.taskDescription}>{engine?.description ?? kindMeta[draft.kind].description}</p>
     <div className={styles.formGrid}>
@@ -461,6 +637,7 @@ function TaskAuthoringPanel({
   onChange,
   onChooseEngine,
   onChangeEngine,
+  onEditBlock,
   onClose,
   onSave,
   isPending,
@@ -471,6 +648,7 @@ function TaskAuthoringPanel({
   onChange: (next: Draft) => void;
   onChooseEngine: (engineKey: ExerciseEngineKey) => void;
   onChangeEngine: () => void;
+  onEditBlock: () => void;
   onClose: () => void;
   onSave: () => void;
   isPending: boolean;
@@ -498,7 +676,7 @@ function TaskAuthoringPanel({
           </button>)}
         </div>
       </> : <>
-        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} />
+        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} onEditBlock={onEditBlock} />
         <div className={styles.saveBar}><p>Configure the task, test it on the right, then save.</p><button type="button" disabled={isPending} onClick={onSave} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div>
       </>}
     </div>
@@ -612,20 +790,32 @@ function stringifyJson(value: unknown) {
   return value == null ? "" : JSON.stringify(value, null, 2);
 }
 
-function BlockEditorDialog({ block, onClose }: { block: CmsLessonStepBlock | null; onClose: () => void }) {
+function BlockEditorDialog({
+  block,
+  onClose,
+  onRemoved,
+}: {
+  block: CmsLessonStepBlock | null;
+  onClose: () => void;
+  onRemoved: (action: "DELETED" | "ARCHIVED") => void;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState(block?.title ?? "");
-  const [content, setContent] = useState(stringifyJson(block?.content));
+  const [body, setBody] = useState(blockBody(block?.content));
+  const [mediaUrl, setMediaUrl] = useState(blockMediaUrl(block?.content));
   const [settings, setSettings] = useState(stringifyJson(block?.settings));
   const [required, setRequired] = useState(block?.isRequired ?? false);
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setTitle(block?.title ?? "");
-    setContent(stringifyJson(block?.content));
+    setBody(blockBody(block?.content));
+    setMediaUrl(blockMediaUrl(block?.content));
     setSettings(stringifyJson(block?.settings));
     setRequired(block?.isRequired ?? false);
+    setConfirmRemoval(false);
     setError(null);
   }, [block]);
 
@@ -635,7 +825,7 @@ function BlockEditorDialog({ block, onClose }: { block: CmsLessonStepBlock | nul
       try {
         await api(`/api/admin/blocks/${block.id}`, "PATCH", {
           title: title.trim() || undefined,
-          content: content.trim() ? JSON.parse(content) : null,
+          content: updatedBlockContent(block.content, body, mediaUrl),
           settings: settings.trim() ? JSON.parse(settings) : null,
           isRequired: required,
         });
@@ -647,19 +837,42 @@ function BlockEditorDialog({ block, onClose }: { block: CmsLessonStepBlock | nul
     });
   }
 
+  function remove() {
+    if (!block) return;
+    startTransition(async () => {
+      try {
+        const result = await api<{ action: "DELETED" | "ARCHIVED" }>(`/api/admin/blocks/${block.id}`, "DELETE");
+        router.refresh();
+        onClose();
+        onRemoved(result.action);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Unable to remove this lesson block.");
+      }
+    });
+  }
+
+  const footer = confirmRemoval
+    ? <><button type="button" onClick={() => setConfirmRemoval(false)} disabled={isPending} className={styles.secondaryButton}>Keep block</button><button type="button" onClick={remove} disabled={isPending} className={styles.dangerButton}>{isPending ? "Removing…" : "Remove block"}</button></>
+    : <><button type="button" onClick={() => setConfirmRemoval(true)} disabled={isPending} className={styles.dangerButton}>Remove block</button><span className={styles.footerSpacer} /><button type="button" onClick={onClose} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>;
+
   return <AppModal
     open={block !== null}
     onOpenChange={(open) => { if (!open) onClose(); }}
     title={block?.title ?? block?.type ?? "Edit lesson block"}
-    description="Edit this saved lesson block. Exercise blocks open directly in the visual task editor."
+    description="Edit the learner-facing content with rich formatting. Exercise blocks retain their tasks and open in the visual task editor."
     size="large"
-    footer={<><button type="button" onClick={onClose} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>}
+    footer={footer}
   >
     <div className={styles.blockDialogFields}>
       <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} className={styles.field} /></label>
-      <label className={styles.fieldLabel}>Content JSON<textarea value={content} onChange={(event) => setContent(event.target.value)} className={`${styles.field} ${styles.jsonArea}`} /></label>
-      <label className={styles.fieldLabel}>Settings JSON<textarea value={settings} onChange={(event) => setSettings(event.target.value)} className={`${styles.field} ${styles.jsonArea}`} /></label>
+      <label className={styles.fieldLabel}>Learner-facing text<RichTextEditor value={body} onChange={setBody} /></label>
+      {block && usesMediaUrl(block.type) ? <label className={styles.fieldLabel}>{block.type === "IMAGE" ? "Image" : block.type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label> : null}
       <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
+      <details className={styles.advancedFields}>
+        <summary>Advanced settings</summary>
+        <label className={styles.fieldLabel}>Settings JSON<textarea value={settings} onChange={(event) => setSettings(event.target.value)} className={`${styles.field} ${styles.jsonArea}`} /></label>
+      </details>
+      {confirmRemoval ? <p className={styles.removalNotice}>This removes the block from the lesson. If learners already have attempts, homework or saved mistakes, it is archived instead so their history remains intact.</p> : null}
       {error ? <p role="alert" className={styles.dialogError}>{error}</p> : null}
     </div>
   </AppModal>;
@@ -724,6 +937,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   const [editingNewTask, setEditingNewTask] = useState(false);
   const [hasPendingStep, setHasPendingStep] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<CmsLessonStepBlock | null>(null);
+  const [contentBlockCreatorOpen, setContentBlockCreatorOpen] = useState(false);
   const [mediaDialog, setMediaDialog] = useState<"audio" | "video" | null>(null);
   const [isPending, startTransition] = useTransition();
   const steps = useMemo(() => blocks.filter((block) => block.type === "EXERCISE").flatMap((block) => block.exercises.map((exercise) => ({ exercise, blockId: block.id }))), [blocks]);
@@ -811,6 +1025,14 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setMessage("A new draft step is ready. It will be saved only when its task is saved.");
   }
 
+  function openDraftBlockSettings() {
+    const block = draft.blockId ? blocks.find((item) => item.id === draft.blockId) : null;
+    if (!block) return;
+    setTaskPanelOpen(false);
+    setEnginePickerOpen(false);
+    setSelectedBlock(block);
+  }
+
   function closeTaskPanel() {
     setTaskPanelOpen(false);
     setEnginePickerOpen(false);
@@ -874,19 +1096,20 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   return <section className={styles.player} aria-label="WYSIWYG lesson builder">
     <LessonTimeline items={timelineItems} totalSeconds={totalSeconds} activeId={activeId} onSelect={selectTimelineItem} />
     <div className={styles.workspace}>
-      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
+      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onEditBlock={openDraftBlockSettings} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
       <div className={styles.authorColumn}>
       <TheoryEditor
         theory={draft.theory}
         onChange={(theory) => setDraft({ ...draft, theory })}
         onAddAudio={() => setMediaDialog("audio")}
         onAddVideo={() => setMediaDialog("video")}
+        onAddContentBlock={() => setContentBlockCreatorOpen(true)}
         onAddTask={() => openTaskPicker()}
         onNextStep={createNextStep}
         nextStepPending={isPending}
       />
       <div className={styles.authorScroll}>
-        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} />)}
+        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} onEditBlock={openDraftBlockSettings} />)}
         {!taskPanelOpen && (activeId !== "new" || editingNewTask) ? <div className={styles.saveBar}><p>{activeStep ? "Changes update this learner slide." : "Configure the task, test it on the right, then save."}</p><button type="button" disabled={isPending} onClick={saveAndNext} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div> : null}
         {message ? <p role="status" className={styles.statusMessage}>{message}</p> : null}
       </div>
@@ -896,6 +1119,21 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     </aside>
     </div>
     <MediaDialog kind={mediaDialog} value={mediaDialog === "audio" ? draft.theory.audioUrl : draft.theory.videoUrl} onClose={() => setMediaDialog(null)} onSave={(value) => setDraft((current) => ({ ...current, theory: mediaDialog === "audio" ? { ...current.theory, audioUrl: value } : { ...current.theory, videoUrl: value } }))} />
-    <BlockEditorDialog block={selectedBlock} onClose={() => setSelectedBlock(null)} />
+    <ContentBlockDialog
+      open={contentBlockCreatorOpen}
+      lessonId={lessonId}
+      onClose={() => setContentBlockCreatorOpen(false)}
+      onCreated={(type) => {
+        setContentBlockCreatorOpen(false);
+        setMessage(`${type.replace(/_/g, " ")} block added. Select it on the timeline to continue editing.`);
+        onContentChanged?.();
+        router.refresh();
+      }}
+    />
+    <BlockEditorDialog
+      block={selectedBlock}
+      onClose={() => setSelectedBlock(null)}
+      onRemoved={(action) => setMessage(action === "DELETED" ? "Block removed from the lesson." : "Block archived because learner history exists.")}
+    />
   </section>;
 }

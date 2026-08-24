@@ -82,6 +82,7 @@ model User {
   lessonProgress                LessonProgress[]
   exerciseAttempts              ExerciseAttempt[]
   mistakes                      UserMistake[]
+  mistakeReviewRuns             MistakeReviewRun[]
   userWords                     UserWord[]
   userCustomWords               UserCustomWord[]
   wordReviewAttempts            WordReviewAttempt[]
@@ -244,6 +245,7 @@ model Course {
   commerceProducts     Product[]
   coursePurchases      CoursePurchase[]
   entitlements         Entitlement[]
+  mistakeReviewRuns    MistakeReviewRun[]
   curriculumLinks      CourseCurriculumLink[]
   /// Localized learner-facing copies. The canonical course and its learning
   /// structure remain single rows; translations never create a second course.
@@ -977,9 +979,49 @@ model UserMistake {
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  reviewItems     MistakeReviewRunItem[]
 
   @@index([userId, resolvedAt, lastOccurredAt])
   @@index([exerciseId, userId])
+}
+
+/// A secure, server-owned review queue. It records only mistakes that belong
+/// to the learner at the time a review starts, so a client cannot unlock or
+/// review arbitrary lessons by crafting a URL.
+model MistakeReviewRun {
+  id                  String                  @id @default(cuid())
+  userId              String
+  user                User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId            String?
+  course              Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  scope               MistakeReviewRunScope   @default(COURSE)
+  status              MistakeReviewRunStatus  @default(ACTIVE)
+  initialMistakeCount Int
+  startedFromLessonId String?
+  completedAt         DateTime?
+  awardedExperience   Int                     @default(0)
+  awardedCoins        Int                     @default(0)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  items               MistakeReviewRunItem[]
+
+  @@index([userId, status, createdAt])
+  @@index([courseId, status])
+}
+
+model MistakeReviewRunItem {
+  id        String           @id @default(cuid())
+  runId     String
+  run       MistakeReviewRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  mistakeId String
+  mistake   UserMistake      @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+  resolvedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([runId, mistakeId])
+  @@index([runId, resolvedAt])
+  @@index([mistakeId])
 }
 
 model UserWord {
@@ -3393,6 +3435,19 @@ enum AchievementConditionType {
   ACTIVE_MINUTES
   EXPERIENCE_EARNED
   PERFECT_LESSONS
+  MISTAKES_RESOLVED
+  MISTAKE_REVIEW_RUNS_COMPLETED
+}
+
+enum MistakeReviewRunScope {
+  COURSE
+  ALL
+}
+
+enum MistakeReviewRunStatus {
+  ACTIVE
+  COMPLETED
+  CANCELED
 }
 
 enum SuspiciousActivityType {

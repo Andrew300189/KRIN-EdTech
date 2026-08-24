@@ -16,7 +16,7 @@ import styles from "./PublicSiteHeader.module.css";
 const levelOrder = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 
 const primaryLinks = [
-  { href: "/#courses", label: "Courses" },
+  { href: "/#all-courses", label: "Courses" },
   { href: "/#pricing", label: "Pricing" },
   { href: "/#levels", label: "Levels" },
 ] as const;

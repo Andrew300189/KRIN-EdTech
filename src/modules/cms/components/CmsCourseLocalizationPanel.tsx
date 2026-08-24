@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import styles from "./CmsCourseLocalizationPanel.module.css";
 
 type LocaleSummary = {
   code: string;
@@ -26,6 +27,7 @@ async function actionRequest(courseId: string, body: unknown) {
 export function CmsCourseLocalizationPanel({ courseId, totalUnits, locales }: Props) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function run(locale: string, action: "CREATE_DRAFT" | "PUBLISH" | "UNPUBLISH") {
@@ -45,15 +47,67 @@ export function CmsCourseLocalizationPanel({ courseId, totalUnits, locales }: Pr
     });
   }
 
-  return <section className="mb-5 rounded-3xl border border-violet-100 bg-white p-5 shadow-sm" aria-labelledby="course-localization-title">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-600">Learner content</p><h2 id="course-localization-title" className="mt-1 text-xl font-bold text-slate-950">Course translations</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">English stays the canonical course. A locale draft copies only learner-facing text across {totalUnits} content items; progress, answers, scoring and content order stay shared.</p></div><Link href={`/cms/translations?course=${courseId}`} className="rounded-full border border-violet-200 px-3 py-2 text-sm font-bold text-violet-700 hover:bg-violet-50">Open translation workspace</Link></div>
-    {message ? <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700" aria-live="polite">{message}</p> : null}
-    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {locales.map((locale) => <article key={locale.code} className={`rounded-2xl border p-4 ${locale.isBase ? "border-slate-200 bg-slate-50" : locale.status === "PUBLISHED" ? "border-emerald-200 bg-emerald-50/60" : "border-violet-100 bg-violet-50/40"}`}>
-        <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-slate-900">{locale.nativeName}</h3><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{locale.code} · {locale.displayName}</p></div><span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold uppercase text-slate-600">{locale.isBase ? "Base" : locale.status ?? "Not started"}</span></div>
-        <p className="mt-3 text-sm text-slate-600">{locale.isBase ? "Edit source content in the course editor." : `${locale.translatedUnits}/${totalUnits} draft items · ${locale.publishedUnits}/${totalUnits} live`}</p>
-        {!locale.isBase ? <div className="mt-3 flex flex-wrap gap-2">{!locale.exists ? <button type="button" disabled={isPending} onClick={() => run(locale.code, "CREATE_DRAFT")} className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-700 disabled:opacity-50">Create draft</button> : <><Link href={`/cms/translations?course=${courseId}&locale=${locale.code}`} className="rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 hover:bg-violet-50">Edit</Link><button type="button" disabled={isPending} onClick={() => run(locale.code, locale.status === "PUBLISHED" ? "UNPUBLISH" : "PUBLISH")} className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50">{locale.status === "PUBLISHED" ? "Unpublish" : "Publish"}</button></>}</div> : null}
-      </article>)}
-    </div>
-  </section>;
+  return (
+    <section className={styles.panel} aria-labelledby="course-localization-title">
+      <header className={styles.header}>
+        <div className={styles.heading}>
+          <p className={styles.eyebrow}>Learner content</p>
+          <h2 id="course-localization-title">Course translations</h2>
+          <button
+            type="button"
+            className={styles.expandButton}
+            onClick={() => setIsExpanded((current) => !current)}
+            aria-expanded={isExpanded}
+            aria-controls="course-translation-locales"
+          >
+            {isExpanded ? "Hide languages" : `Show ${locales.length} languages`}
+            <span className={isExpanded ? styles.chevronOpen : styles.chevron} aria-hidden="true">⌄</span>
+          </button>
+        </div>
+        <Link href={`/cms/translations?course=${courseId}`} className={styles.workspaceLink}>Open workspace <span aria-hidden="true">→</span></Link>
+      </header>
+
+      {isExpanded ? <>
+        {message ? <p className={styles.message} aria-live="polite">{message}</p> : null}
+
+      <div id="course-translation-locales" className={styles.localeGrid}>
+        {locales.map((locale) => {
+          const status = locale.isBase ? "Base" : locale.status ?? "Not started";
+          const tone = locale.isBase ? styles.base : locale.status === "PUBLISHED" ? styles.published : styles.draft;
+
+          return (
+            <article key={locale.code} className={`${styles.localeCard} ${tone}`}>
+              <div className={styles.cardTopline}>
+                <div className={styles.localeTitle}>
+                  <span className={styles.localeCode}>{locale.code}</span>
+                  <div><h3>{locale.nativeName}</h3><p>{locale.displayName}</p></div>
+                </div>
+                <span className={styles.status}>{status}</span>
+              </div>
+
+              <p className={styles.progress}>
+                {locale.isBase
+                  ? "Source language"
+                  : `${locale.translatedUnits}/${totalUnits} draft · ${locale.publishedUnits}/${totalUnits} live`}
+              </p>
+
+              {!locale.isBase ? (
+                <div className={styles.actions}>
+                  {!locale.exists ? (
+                    <button type="button" disabled={isPending} onClick={() => run(locale.code, "CREATE_DRAFT")} className={styles.primaryAction}>Create draft</button>
+                  ) : (
+                    <>
+                      <Link href={`/cms/translations?course=${courseId}&locale=${locale.code}`} className={styles.secondaryAction}>Edit</Link>
+                      <button type="button" disabled={isPending} onClick={() => run(locale.code, locale.status === "PUBLISHED" ? "UNPUBLISH" : "PUBLISH")} className={styles.secondaryAction}>{locale.status === "PUBLISHED" ? "Unpublish" : "Publish"}</button>
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+      </> : null}
+    </section>
+  );
 }
