@@ -6,6 +6,7 @@
 .theoryCard, .taskCard, .emptyCanvas, .previewCard, .timerCard { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); }
 .theoryCard, .taskCard, .emptyCanvas { padding: .9rem; }
 .cardHeading, .stepRailHeader, .previewHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.taskCardActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
 .cardHeading h2, .emptyCanvas h2 { margin: .15rem 0 0; color: var(--text-primary); font-size: 1rem; font-weight: 800; letter-spacing: -.02em; }
 .eyebrow { margin: 0; color: var(--primary); font-size: .68rem; font-weight: 800; letter-spacing: .08em; line-height: 1.2; text-transform: uppercase; }
 .visibility { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-secondary); font-size: .74rem; font-weight: 700; white-space: nowrap; }
@@ -120,6 +121,20 @@
 .timelineItemActive span, .timelineItemActive em { color: #312e81; }
 .timelineItem:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 .blockDialogFields { display: grid; gap: .8rem; }
+.blockTypeGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: .5rem; max-height: 16rem; overflow: auto; overscroll-behavior: contain; padding-right: .15rem; }
+.blockTypeCard { display: grid; min-height: 5.8rem; align-content: start; gap: .28rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-secondary); color: var(--text-primary); padding: .62rem; text-align: left; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
+.blockTypeCard:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)); transform: translateY(-1px); }
+.blockTypeCard strong { font-size: .78rem; line-height: 1.25; }
+.blockTypeCard span { color: var(--text-secondary); font-size: .68rem; line-height: 1.32; }
+.blockTypeCardActive { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-elevated)); box-shadow: 0 0 0 2px var(--focus-ring); }
+.advancedFields { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-secondary); padding: .55rem .65rem; }
+.advancedFields > summary { color: var(--text-secondary); cursor: pointer; font-size: .75rem; font-weight: 760; }
+.advancedFields > .fieldLabel { margin-top: .65rem; }
+.dangerButton { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; border: 1px solid #fda4af; border-radius: var(--radius-md); background: #fff1f2; color: #9f1239; padding: .48rem .7rem; font: inherit; font-size: .77rem; font-weight: 780; cursor: pointer; }
+.dangerButton:hover:not(:disabled) { border-color: #fb7185; background: #ffe4e6; }
+.dangerButton:disabled { cursor: wait; opacity: .65; }
+.footerSpacer { flex: 1 1 auto; }
+.removalNotice { margin: .65rem 0 0; border: 1px solid #fed7aa; border-radius: var(--radius-md); background: #fff7ed; color: #9a3412; padding: .58rem .65rem; font-size: .74rem; line-height: 1.4; }
 .jsonArea { min-height: 8rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .74rem; }
 .dialogError { margin: 0; border: 1px solid #fecaca; border-radius: var(--radius-md); background: #fff1f2; color: #9f1239; padding: .6rem; font-size: .78rem; }
 .engineGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .65rem; }
@@ -138,7 +153,7 @@
 .taskPanelIntro { margin: 0 0 .7rem; color: var(--text-secondary); font-size: .78rem; line-height: 1.45; }
 .taskPanel .taskCard { min-height: auto; }
 .taskPanel .saveBar { margin-bottom: .1rem; }
-.primaryButton:focus-visible, .secondaryButton:focus-visible, .tertiaryButton:focus-visible, .engineCard:focus-visible, .stepButton:focus-visible, .token:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.primaryButton:focus-visible, .secondaryButton:focus-visible, .tertiaryButton:focus-visible, .dangerButton:focus-visible, .engineCard:focus-visible, .blockTypeCard:focus-visible, .stepButton:focus-visible, .token:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 1100px) { .player { height: auto; max-height: none; } .workspace { grid-template-columns: 1fr; } .authorColumn { min-height: 38rem; } .previewColumn { min-height: 32rem; } .taskPanel { width: 100%; min-height: 38rem; } }
 @media (max-width: 640px) { .authorColumn { min-height: 40rem; } .splitFields, .timerCard { grid-template-columns: 1fr; } .timerCard { grid-template-areas: "heading" "copy" "timeline"; } .theoryActions .primaryButton { width: 100%; } .matchRow { grid-template-columns: 1fr; } .engineGrid { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .primaryButton, .secondaryButton, .tertiaryButton, .engineCard { transition: none; } }

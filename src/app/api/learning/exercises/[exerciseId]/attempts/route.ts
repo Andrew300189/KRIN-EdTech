@@ -22,7 +22,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const rateLimit = consumeRateLimit(`exercise-attempt:${guard.user.id}:${exerciseId}`, 12, 60_000);
   if (!rateLimit.allowed) return NextResponse.json({ error: "Too many attempts. Please wait before trying again." }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
   try {
-    const result = await submitExerciseAttempt(guard.user.id, exerciseId, await request.json());
+    const input = await request.json() as { reviewRunId?: unknown };
+    const reviewRunId = typeof input.reviewRunId === "string" && input.reviewRunId ? input.reviewRunId : undefined;
+    const result = await submitExerciseAttempt(guard.user.id, exerciseId, input, reviewRunId);
     return NextResponse.json({ data: result });
   } catch (error) {
     if (error instanceof ZodError) return NextResponse.json({ error: "Invalid exercise attempt", issues: error.issues }, { status: 400 });

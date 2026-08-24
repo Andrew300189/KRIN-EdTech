@@ -5,6 +5,29 @@ function getAnswerOptions(content: unknown): JsonRecord {
   return content as JsonRecord;
 }
 
+/**
+ * Ordering engines are the exception to the normal array comparison rule:
+ * their answer is a sentence, so the sequence is the answer.  Older CMS
+ * records did not persist `preserveOrder`, therefore the rule must also live
+ * beside evaluation rather than relying on every historical JSON payload.
+ */
+const ORDER_SENSITIVE_ENGINE_KEYS = new Set([
+  "sentence-builder",
+  "sorting",
+  "drag-and-drop",
+]);
+
+export function contentWithOrderSensitiveAnswerValidation(
+  content: unknown,
+  engineKey: string | null | undefined,
+): JsonRecord | unknown {
+  if (!ORDER_SENSITIVE_ENGINE_KEYS.has(engineKey?.trim().toLowerCase() ?? "")) {
+    return content;
+  }
+
+  return { ...getAnswerOptions(content), preserveOrder: true };
+}
+
 function normalizeText(value: string, options: JsonRecord) {
   const collapsed = options.ignoreExtraSpaces === false
     ? value.trim()

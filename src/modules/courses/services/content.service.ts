@@ -18,7 +18,7 @@ import {
   submitExerciseSchema,
   updateLessonBlockSchema,
 } from "@/modules/courses/schemas/content.schemas";
-import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
 import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
@@ -1071,6 +1071,72 @@ export async function duplicateLessonBlock(actorId: string, blockId: string) {
   return block;
 }
 
+/**
+ * Removes a disposable block while preserving learner history. A block with
+ * submitted work is archived instead of being physically deleted, so attempts
+ * and homework never disappear from reporting or a learner's history.
+ */
+export async function removeLessonBlock(actorId: string, blockId: string) {
+  const block = await prisma.lessonBlock.findUnique({
+    where: { id: blockId },
+    include: { lesson: { include: { module: { select: { courseId: true } } } } },
+  });
+  if (!block) throw new Error("Lesson block not found");
+
+  const [attemptCount, homeworkCount, mistakeCount] = await Promise.all([
+    prisma.exerciseAttempt.count({ where: { exercise: { lessonBlockId: block.id } } }),
+    prisma.homeworkSubmission.count({ where: { lessonBlockId: block.id } }),
+    prisma.userMistake.count({ where: { exercise: { is: { lessonBlockId: block.id } } } }),
+  ]);
+  const hasLearnerHistory = attemptCount + homeworkCount + mistakeCount > 0;
+
+  if (hasLearnerHistory) {
+    const archived = await prisma.lessonBlock.update({
+      where: { id: block.id },
+      data: { contentStatus: "ARCHIVED", archivedAt: new Date(), scheduledAt: null, publishedAt: null },
+    });
+    await writeContentAudit(actorId, "ARCHIVE", "LessonBlock", archived.id, {
+      lessonId: archived.lessonId,
+      attemptCount,
+      homeworkCount,
+      mistakeCount,
+    });
+    await recordCmsContentVersion({
+      actorId,
+      entityType: "LESSON_BLOCK",
+      entityId: archived.id,
+      action: "ARCHIVED",
+      snapshot: archived,
+      note: "Archived instead of deletion because learner history exists.",
+    });
+    return { action: "ARCHIVED" as const, id: archived.id };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.lessonBlock.delete({ where: { id: block.id } });
+    const remaining = await tx.lessonBlock.findMany({
+      where: { lessonId: block.lessonId },
+      orderBy: { order: "asc" },
+      select: { id: true },
+    });
+    await Promise.all(remaining.map((item, index) => tx.lessonBlock.update({
+      where: { id: item.id },
+      data: { order: index + 1 },
+    })));
+  });
+  await writeContentAudit(actorId, "DELETE", "LessonBlock", block.id, { lessonId: block.lessonId });
+  await recordCmsContentVersion({
+    actorId,
+    entityType: "LESSON_BLOCK",
+    entityId: block.id,
+    action: "ARCHIVED",
+    snapshot: block,
+    note: "Removed before learners created history.",
+  });
+  await syncCourseEstimatedDuration(block.lesson.module.courseId);
+  return { action: "DELETED" as const, id: block.id };
+}
+
 export async function createExercise(
   actorId: string,
   lessonBlockId: string,
@@ -1177,6 +1243,7 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
       correctAnswer: true,
       alternativeAnswers: true,
       content: true,
+      engineKey: true,
       explanation: true,
       hint: true,
       allowInstantCheck: true,
@@ -1186,7 +1253,12 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
   if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
   const access = await canAccessLesson(null, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("This exercise is available after access is granted.");
-  const isCorrect = answerMatches(value.answer, exercise.correctAnswer, exercise.alternativeAnswers, exercise.content);
+  const isCorrect = answerMatches(
+    value.answer,
+    exercise.correctAnswer,
+    exercise.alternativeAnswers,
+    contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
+  );
   return {
     attemptNumber: 0,
     isCorrect,
@@ -1200,7 +1272,7 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
   };
 }
 
-export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown) {
+export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown, reviewRunId?: string) {
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
     where: { id: exerciseId },
@@ -1208,7 +1280,18 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
   });
   if (!exerciseForAccess) throw new Error("Exercise not found");
   const access = await canAccessLesson(userId, exerciseForAccess.lessonBlock.lessonId);
-  if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
+  const reviewCanBypassSequence = !access.allowed
+    && (access.reason === "SEQUENCE_LOCKED" || access.reason === "PREREQUISITE_LOCKED")
+    && Boolean(reviewRunId && await prisma.mistakeReviewRun.findFirst({
+      where: {
+        id: reviewRunId,
+        userId,
+        status: "ACTIVE",
+        items: { some: { mistake: { exerciseId, lessonId: exerciseForAccess.lessonBlock.lessonId, resolvedAt: null } } },
+      },
+      select: { id: true },
+    }));
+  if (!access.allowed && !reviewCanBypassSequence) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
 
   return prisma.$transaction(async (tx) => {
     const exercise = await tx.exercise.findUnique({
@@ -1234,11 +1317,17 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
           hint: exercise.hint,
           feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
           solution: { available: existing.isCorrect === false, cost: exercise.solutionCost, opened: existing.solutionOpened },
+          openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
         };
       }
     }
 
-    const isCorrect = answerMatches(value.answer, exercise.correctAnswer, exercise.alternativeAnswers, exercise.content);
+    const isCorrect = answerMatches(
+      value.answer,
+      exercise.correctAnswer,
+      exercise.alternativeAnswers,
+      contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
+    );
     const previous = await tx.exerciseAttempt.findFirst({
       where: { userId, exerciseId },
       orderBy: { attemptNumber: "desc" },
@@ -1303,6 +1392,14 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
           },
         });
       }
+    } else {
+      // An error remains in the learner's review queue only until the same
+      // exercise is answered correctly.  This keeps the dashboard counter
+      // aligned with work that still needs attention.
+      await tx.userMistake.updateMany({
+        where: { userId, exerciseId, resolvedAt: null },
+        data: { resolvedAt: new Date(), resolutionCount: { increment: 1 } },
+      });
     }
 
     const attempts = await tx.exerciseAttempt.findMany({
@@ -1358,6 +1455,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
       solution: { available: !isCorrect, cost: exercise.solutionCost, opened: false },
       motivationReward,
+      openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
     };
   });
 }
@@ -1617,8 +1715,48 @@ async function getLatestLessonAttemptAccuracy(userId: string, lessonIds: string[
   return accuracyByLesson;
 }
 
+/**
+ * XP is an immutable ledger, not a display estimate. Map every credit for a
+ * lesson (its completion and first-correct exercises) back to that lesson so
+ * learner-facing screens never show a configured reward that was not earned.
+ */
+async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
+  const experienceByLesson = new Map<string, number>();
+  if (lessonIds.length === 0) return experienceByLesson;
+
+  const [lessonRewards, correctAttempts] = await Promise.all([
+    prisma.experienceTransaction.findMany({
+      where: { userId, type: "LESSON_COMPLETED", sourceId: { in: lessonIds } },
+      select: { sourceId: true, amount: true },
+    }),
+    prisma.exerciseAttempt.findMany({
+      where: { userId, lessonId: { in: lessonIds }, isCorrect: true },
+      select: { lessonId: true, exerciseId: true },
+    }),
+  ]);
+
+  for (const reward of lessonRewards) {
+    experienceByLesson.set(reward.sourceId, (experienceByLesson.get(reward.sourceId) ?? 0) + reward.amount);
+  }
+
+  const lessonIdByExerciseId = new Map<string, string>();
+  for (const attempt of correctAttempts) lessonIdByExerciseId.set(attempt.exerciseId, attempt.lessonId);
+  const exerciseIds = [...lessonIdByExerciseId.keys()];
+  if (exerciseIds.length === 0) return experienceByLesson;
+
+  const exerciseRewards = await prisma.experienceTransaction.findMany({
+    where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
+    select: { sourceId: true, amount: true },
+  });
+  for (const reward of exerciseRewards) {
+    const lessonId = lessonIdByExerciseId.get(reward.sourceId);
+    if (lessonId) experienceByLesson.set(lessonId, (experienceByLesson.get(lessonId) ?? 0) + reward.amount);
+  }
+  return experienceByLesson;
+}
+
 export async function getLessonProgress(userId: string, lessonId: string) {
-  const [progress, accuracyByLesson] = await Promise.all([
+  const [progress, accuracyByLesson, experienceByLesson] = await Promise.all([
     prisma.lessonProgress.findUnique({
     where: { userId_lessonId: { userId, lessonId } },
     select: {
@@ -1638,6 +1776,7 @@ export async function getLessonProgress(userId: string, lessonId: string) {
     },
     }),
     getLatestLessonAttemptAccuracy(userId, [lessonId]),
+    getLessonExperienceEarned(userId, [lessonId]),
   ]);
 
   if (!progress) return null;
@@ -1645,22 +1784,25 @@ export async function getLessonProgress(userId: string, lessonId: string) {
     ...progress,
     completionPercent: progress.status === "COMPLETED" ? 100 : progress.completionPercent,
     attemptAccuracy: accuracyByLesson.get(lessonId) ?? emptyLessonAttemptAccuracy(),
+    experienceEarned: experienceByLesson.get(lessonId) ?? 0,
   };
 }
 
 export async function listLessonProgressByLessonIds(userId: string, lessonIds: string[]) {
   if (lessonIds.length === 0) return [];
-  const [progress, accuracyByLesson] = await Promise.all([
+  const [progress, accuracyByLesson, experienceByLesson] = await Promise.all([
     prisma.lessonProgress.findMany({
       where: { userId, lessonId: { in: lessonIds } },
       select: { lessonId: true, status: true, completionPercent: true, score: true, grade: true },
     }),
     getLatestLessonAttemptAccuracy(userId, lessonIds),
+    getLessonExperienceEarned(userId, lessonIds),
   ]);
   return progress.map((item) => ({
     ...item,
     completionPercent: item.status === "COMPLETED" ? 100 : item.completionPercent,
     attemptAccuracy: accuracyByLesson.get(item.lessonId) ?? emptyLessonAttemptAccuracy(),
+    experienceEarned: experienceByLesson.get(item.lessonId) ?? 0,
   }));
 }
 
@@ -1688,7 +1830,7 @@ export async function listUserHomework(userId: string) {
 
 export async function listUserMistakes(userId: string) {
   return prisma.userMistake.findMany({
-    where: { userId },
+    where: { userId, resolvedAt: null },
     orderBy: { lastOccurredAt: "desc" },
     include: {
       lesson: { select: { title: true, slug: true, module: { select: { course: { select: { slug: true, title: true, level: { select: { code: true } } } } } } } },
@@ -1715,7 +1857,10 @@ export async function listUserProgress(userId: string) {
 }
 
 export async function resolveUserMistake(userId: string, mistakeId: string) {
-  return prisma.userMistake.updateMany({ where: { id: mistakeId, userId }, data: { resolvedAt: new Date() } });
+  return prisma.userMistake.updateMany({
+    where: { id: mistakeId, userId, resolvedAt: null },
+    data: { resolvedAt: new Date(), resolutionCount: { increment: 1 } },
+  });
 }
 
 export async function listUserWords(userId: string) {

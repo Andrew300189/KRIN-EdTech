@@ -1,11 +1,104 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
+import { prisma } from "@/core/server/prisma";
 import { listUserMistakes } from "@/modules/courses/services/content.service";
+import { MistakesGrid, type MistakeCardItem } from "./MistakesGrid";
+import styles from "./Mistakes.module.css";
 
-export default async function ProfileMistakesPage() {
+function singleValue(value: string | string[] | undefined) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function positionValue(value: string | string[] | undefined) {
+  const rawValue = singleValue(value);
+  if (!rawValue || !/^(?:0|[1-9]\d*)$/.test(rawValue)) return undefined;
+
+  const position = Number(rawValue);
+  return Number.isSafeInteger(position) ? position : undefined;
+}
+
+function toMistakeCard(mistake: {
+  id: string;
+  occurrenceCount: number;
+  lastOccurredAt: Date;
+  exercise: { question: string | null } | null;
+  lesson: {
+    title: string;
+    slug: string;
+    module: { course: { slug: string; title: string; level: { code: string } } };
+  } | null;
+}): MistakeCardItem {
+  return {
+    id: mistake.id,
+    occurrenceCount: mistake.occurrenceCount,
+    lastOccurredAt: mistake.lastOccurredAt.toISOString(),
+    question: mistake.exercise?.question ?? null,
+    lesson: mistake.lesson ? {
+      title: mistake.lesson.title,
+      slug: mistake.lesson.slug,
+      course: {
+        slug: mistake.lesson.module.course.slug,
+        title: mistake.lesson.module.course.title,
+        levelCode: mistake.lesson.module.course.level.code,
+      },
+    } : null,
+  };
+}
+
+export default async function ProfileMistakesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    resolved?: string | string[];
+    position?: string | string[];
+  }>;
+}) {
   const authenticated = await requireAuth();
   if (!authenticated) redirect("/login?next=/profile/mistakes");
-  const mistakes = await listUserMistakes(authenticated.user.id);
-  return <main className="mx-auto max-w-5xl px-6 py-12"><h1 className="text-4xl font-bold text-slate-900">My mistakes</h1><p className="mt-3 text-slate-600">Review incorrect answers and return to the relevant lesson.</p>{mistakes.length === 0 ? <p className="mt-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600">No mistakes recorded yet.</p> : <div className="mt-8 space-y-4">{mistakes.map((mistake) => <article key={mistake.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><p className="font-semibold text-slate-900">{mistake.exercise?.question ?? "Lesson activity"}</p>{mistake.lesson ? <p className="mt-2 text-sm text-slate-500">{mistake.lesson.module.course.level.code} · {mistake.lesson.module.course.title} · {mistake.lesson.title}</p> : null}{mistake.explanation ? <p className="mt-2 text-slate-600">{mistake.explanation}</p> : null}<p className="mt-3 text-sm text-slate-500">Occurrences: {mistake.occurrenceCount} · Last seen {mistake.lastOccurredAt.toLocaleDateString()}</p>{mistake.lesson ? <Link className="mt-4 inline-block text-sm font-semibold text-blue-700 hover:underline" href={`/courses/${mistake.lesson.module.course.slug}/lessons/${mistake.lesson.slug}`}>Open lesson →</Link> : null}</article>)}</div>}</main>;
+
+  const currentSearchParams = await searchParams;
+  const resolvedMistakeId = singleValue(currentSearchParams?.resolved);
+  const recentlyResolvedPosition = positionValue(currentSearchParams?.position);
+  const [mistakes, recentlyResolvedMistake] = await Promise.all([
+    listUserMistakes(authenticated.user.id),
+    resolvedMistakeId ? prisma.userMistake.findFirst({
+      where: { id: resolvedMistakeId, userId: authenticated.user.id, resolvedAt: { not: null } },
+      select: {
+        id: true,
+        occurrenceCount: true,
+        lastOccurredAt: true,
+        exercise: { select: { question: true } },
+        lesson: { select: { title: true, slug: true, module: { select: { course: { select: { slug: true, title: true, level: { select: { code: true } } } } } } } },
+      },
+    }) : Promise.resolve(null),
+  ]);
+  const mistakeCards = mistakes.map(toMistakeCard);
+  const resolvedCard = recentlyResolvedMistake ? toMistakeCard(recentlyResolvedMistake) : null;
+
+  return (
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.eyebrow}><span aria-hidden="true" />Review workspace</p>
+          <h1>My mistakes</h1>
+          <p>Turn recent mistakes into confident answers. Revisit any lesson whenever you are ready.</p>
+        </div>
+        <span className={styles.counter}><strong>{mistakes.length}</strong> {mistakes.length === 1 ? "item to review" : "items to review"}</span>
+      </header>
+
+      {mistakes.length === 0 && !resolvedCard ? (
+        <section className={styles.emptyState} aria-label="No mistakes to review">
+          <span className={styles.emptyIcon} aria-hidden="true">✓</span>
+          <h2>You are all caught up</h2>
+          <p>New mistakes will appear here with a clear explanation and a direct link back to the lesson.</p>
+        </section>
+      ) : (
+        <MistakesGrid
+          mistakes={mistakeCards}
+          recentlyResolvedMistake={resolvedCard}
+          recentlyResolvedPosition={recentlyResolvedPosition}
+        />
+      )}
+    </main>
+  );
 }

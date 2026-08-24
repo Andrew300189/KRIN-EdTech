@@ -16,12 +16,12 @@ import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHead
 export const metadata: Metadata = {
   title: "English course catalogue",
   description:
-    "Browse published English courses by CEFR level, focus, format and access type.",
+    "Browse published English courses by direction and CEFR level, or search for a topic.",
   alternates: { canonical: "/courses" },
   openGraph: {
     title: "English course catalogue",
     description:
-      "Browse published English courses by CEFR level, focus, format and access type.",
+      "Browse published English courses by direction and CEFR level, or search for a topic.",
     url: "/courses",
   },
 };
@@ -82,21 +82,28 @@ export default async function CoursesPage({
     Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const levelCode = first(params.level)?.toUpperCase();
   const categorySlug = first(params.category);
-  const access = first(params.access);
-  const sort = first(params.sort);
   const query = first(params.q);
-  const requestedType = first(params.type);
-  const courseType = courseTypes.find((type) => type === requestedType);
+  const requestedCourseType = first(params.type);
+  const courseType = courseTypes.find((type) => type === requestedCourseType);
+  const requestedAccessPlan = first(params.access);
+  const accessPlan =
+    requestedAccessPlan === "FREE" ||
+    requestedAccessPlan === "PREMIUM" ||
+    requestedAccessPlan === "CORPORATE"
+      ? requestedAccessPlan
+      : undefined;
+  const requestedSort = first(params.sort);
+  const sort =
+    requestedSort === "title" || requestedSort === "duration"
+      ? requestedSort
+      : "newest";
   const filters: CourseCatalogFilters = {
     query,
     levelCode,
     categorySlug,
     courseType,
-    accessPlan:
-      access === "FREE" || access === "PREMIUM" || access === "CORPORATE"
-        ? access
-        : undefined,
-    sort: sort === "title" || sort === "duration" ? sort : "newest",
+    accessPlan,
+    sort,
     page,
     pageSize,
   };
@@ -113,16 +120,11 @@ export default async function CoursesPage({
     level: levelCode,
     category: categorySlug,
     type: courseType,
-    access: filters.accessPlan,
-    sort: filters.sort === "newest" ? undefined : filters.sort,
+    access: accessPlan,
+    sort: sort === "newest" ? undefined : sort,
   };
   const hasActiveFilters = Boolean(
-    query ||
-    levelCode ||
-    categorySlug ||
-    courseType ||
-    filters.accessPlan ||
-    filters.sort !== "newest",
+    query || levelCode || categorySlug || courseType || accessPlan || sort !== "newest",
   );
 
   return (
@@ -145,115 +147,97 @@ export default async function CoursesPage({
             }
           />
         ) : null}
-        <header className={styles.header}>
-          <p className={styles.eyebrow}>Course catalogue</p>
-          <h1>Find a published English course.</h1>
-          <p>
-            Use level, focus, format and access filters to narrow the live
-            catalogue. Courses from one level are never used as a fallback for
-            another.
-          </p>
-        </header>
-
-        <form className={styles.filters} method="get">
-          <label className={styles.field}>
-            Search published courses
-            <input
-              name="q"
-              defaultValue={query}
-              placeholder="Course title, focus or topic"
-            />
+        <h1 className={styles.srOnly}>English course catalogue</h1>
+        <form className={styles.topSearch} method="get" role="search">
+          <label htmlFor="catalogue-keywords" className={styles.srOnly}>
+            Search courses by keyword
           </label>
-          <label className={styles.field}>
-            Level
-            <select name="level" defaultValue={levelCode ?? ""}>
-              <option value="">All levels</option>
-              {levels.map((level) => (
-                <option key={level.id} value={level.code}>
-                  {level.code} — {level.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            Focus or goal
-            <select name="category" defaultValue={categorySlug ?? ""}>
-              <option value="">All directions</option>
-              {categories
-                .filter((category) => category._count.courses > 0)
-                .map((category) => (
-                  <option key={category.id} value={category.slug}>
-                    {category.title}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            Format
-            <select name="type" defaultValue={courseType ?? ""}>
-              <option value="">All formats</option>
-              {courseTypes.map((type) => (
-                <option key={type} value={type}>
-                  {typeLabels[type]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            Access
-            <select name="access" defaultValue={filters.accessPlan ?? ""}>
-              <option value="">All access</option>
-              <option value="FREE">Free</option>
-              <option value="PREMIUM">Subscription</option>
-              <option value="CORPORATE">Corporate</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            Sort
-            <select name="sort" defaultValue={filters.sort}>
-              <option value="newest">Newest first</option>
-              <option value="title">Title A–Z</option>
-              <option value="duration">Shortest first</option>
-            </select>
-          </label>
-          <button className={styles.submit}>Apply</button>
-          <Link href="/courses" className={styles.reset}>
-            Reset
-          </Link>
+          <input
+            id="catalogue-keywords"
+            name="q"
+            defaultValue={query}
+            placeholder="Search courses, topics and skills"
+          />
+          {levelCode ? <input type="hidden" name="level" value={levelCode} /> : null}
+          {categorySlug ? <input type="hidden" name="category" value={categorySlug} /> : null}
+          {courseType ? <input type="hidden" name="type" value={courseType} /> : null}
+          {accessPlan ? <input type="hidden" name="access" value={accessPlan} /> : null}
+          {sort !== "newest" ? <input type="hidden" name="sort" value={sort} /> : null}
+          <button className={styles.submit}>Search</button>
         </form>
 
-        {categories.some((category) => category._count.courses > 0) ? (
-          <section
-            className={styles.directions}
-            aria-label="Published course directions"
-          >
-            <h2>Browse by direction</h2>
-            <div className={styles.directionList}>
-              {categories
-                .filter((category) => category._count.courses > 0)
-                .map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/courses${makeQuery({ category: category.slug })}`}
-                    className={styles.direction}
-                  >
-                    {category.icon ? (
-                      <span aria-hidden="true">{category.icon} </span>
-                    ) : null}
-                    {category.title}
-                  </Link>
-                ))}
+        <div className={styles.catalogLayout}>
+          <aside className={styles.filterSidebar} aria-label="Course filters">
+            <div className={styles.filterSidebarHeader}>
+              <p className={styles.filterEyebrow}>Find your course</p>
+              <h2>Filters</h2>
             </div>
-          </section>
-        ) : null}
+            <form className={styles.filterForm} method="get" role="search">
+              {query ? <input type="hidden" name="q" value={query} /> : null}
 
-        <section className={styles.catalogue} aria-label="Published courses">
-          <div className={styles.catalogueHeading}>
-            <h2>Available courses</h2>
-            <p>
-              {total} {total === 1 ? "course" : "courses"}
-            </p>
-          </div>
+              {categories.some((category) => category._count.courses > 0) ? (
+                <section className={styles.filterSection} aria-labelledby="direction-filter-title">
+                  <h3 id="direction-filter-title">Browse by direction</h3>
+                  <div className={styles.directionList}>
+                    <Link href={`/courses${makeQuery({ ...baseQuery, category: undefined, page: undefined })}`} className={`${styles.direction} ${!categorySlug ? styles.directionActive : ""}`}>All directions</Link>
+                    {categories.filter((category) => category._count.courses > 0).map((category) => (
+                      <Link key={category.id} href={`/courses${makeQuery({ ...baseQuery, category: category.slug, page: undefined })}`} className={`${styles.direction} ${category.slug === categorySlug ? styles.directionActive : ""}`}>
+                        {category.icon ? <span aria-hidden="true">{category.icon} </span> : null}
+                        {category.title}
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {levels.length ? (
+                <section className={styles.filterSection} aria-labelledby="level-filter-title">
+                  <h3 id="level-filter-title">Browse by level</h3>
+                  <div className={styles.directionList}>
+                    <Link href={`/courses${makeQuery({ ...baseQuery, level: undefined, page: undefined })}`} className={`${styles.direction} ${!levelCode ? styles.directionActive : ""}`}>All levels</Link>
+                    {levels.map((level) => (
+                      <Link key={level.id} href={`/courses${makeQuery({ ...baseQuery, level: level.code, page: undefined })}`} className={`${styles.direction} ${level.code === levelCode ? styles.directionActive : ""}`}>
+                        {level.code}
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className={styles.filterSection} aria-label="Additional course filters">
+                <label className={styles.field}>
+                  Course format
+                  <select name="type" defaultValue={courseType ?? ""}>
+                    <option value="">All formats</option>
+                    {courseTypes.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Access
+                  <select name="access" defaultValue={accessPlan ?? ""}>
+                    <option value="">All access types</option>
+                    <option value="FREE">Free</option>
+                    <option value="PREMIUM">Premium</option>
+                    <option value="CORPORATE">Corporate</option>
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Sort by
+                  <select name="sort" defaultValue={sort}>
+                    <option value="newest">Newest first</option>
+                    <option value="title">Title: A–Z</option>
+                    <option value="duration">Shortest first</option>
+                  </select>
+                </label>
+              </section>
+              <div className={styles.filterActions}>
+                <button className={styles.submit}>Apply filters</button>
+                {hasActiveFilters ? <Link href="/courses" className={styles.reset}>Reset</Link> : null}
+              </div>
+            </form>
+          </aside>
+
+          <section className={styles.catalogue} aria-label="Published courses">
           {courses.length ? (
             <div className={styles.grid}>
               {courses.map((course) => {
@@ -267,51 +251,42 @@ export default async function CoursesPage({
                     href={getPublicCourseHref(course.slug)}
                     className={styles.card}
                   >
-                    <div className={styles.chips}>
-                      <span>{course.level.code}</span>
-                      <span>{course.category.title}</span>
-                      <span>{typeLabels[course.courseType]}</span>
-                      <span
-                        className={
-                          course.accessPlan === "FREE"
-                            ? styles.free
-                            : styles.premium
-                        }
-                      >
-                        {accessLabel(course.accessPlan)}
-                      </span>
+                    <div className={styles.cover}>
+                      {course.coverImage ? (
+                        <img src={course.coverImage} alt={`Cover for ${course.title}`} />
+                      ) : (
+                        <div className={styles.coverFallback} aria-hidden="true">
+                          <span>{course.level.code}</span>
+                        </div>
+                      )}
+                      <div className={styles.coverMeta}>
+                        <span className={styles.levelChip}>{course.level.code}</span>
+                        <span className={course.accessPlan === "FREE" ? styles.free : styles.premium}>
+                          {accessLabel(course.accessPlan)}
+                        </span>
+                      </div>
                     </div>
-                    <h3>{course.title}</h3>
-                    <p className={styles.description}>
-                      {course.shortDescription}
-                    </p>
-                    <p className={styles.details}>
-                      {course.lessonCount}{" "}
-                      {course.lessonCount === 1 ? "lesson" : "lessons"}
-                      {course.estimatedDuration > 0
-                        ? ` · ${course.estimatedDuration} min`
-                        : ""}
-                      {price ? ` · ${price}` : ""}
-                    </p>
-                    {course.firstFreeLessonCount > 0 ? (
-                      <p className={styles.trial}>Free lesson available</p>
-                    ) : null}
-                    <span className={styles.cardCta}>
-                      View course and outline →
-                    </span>
+                    <div className={styles.cardContent}>
+                      <p className={styles.category}>{course.category.title}</p>
+                      <h3>{course.title}</h3>
+                      <div className={styles.details}>
+                        {course.estimatedDuration > 0 ? <span>{course.estimatedDuration} min</span> : null}
+                        {price ? <strong>{price}</strong> : null}
+                      </div>
+                    </div>
                   </Link>
                 );
               })}
             </div>
           ) : (
             <div className={styles.empty}>
-              <h3>No published courses match these filters.</h3>
+              <h3>No published courses match this search.</h3>
               <p>
-                Try another level, direction, format or search phrase. Results
-                are not filled with unrelated course content.
+                Try another keyword, direction or level. Results are not filled
+                with unrelated course content.
               </p>
               <Link href="/courses" className={styles.reset}>
-                Reset all filters
+                Show all courses
               </Link>
             </div>
           )}
@@ -338,7 +313,8 @@ export default async function CoursesPage({
               ) : null}
             </nav>
           ) : null}
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   );

@@ -1,4 +1,4 @@
-import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
 import { createCourseSchema, createExerciseSchema, saveLessonProgressSchema } from "@/modules/courses/schemas/content.schemas";
 
 describe("exercise evaluation", () => {
@@ -10,6 +10,15 @@ describe("exercise evaluation", () => {
   it("checks multiple-choice answers without relying on their order", () => {
     expect(answerMatches(["has", "have"], ["have", "has"], [], {})).toBe(true);
     expect(answerMatches(["has"], ["have", "has"], [], {})).toBe(false);
+  });
+
+  it("requires the exact sequence for sentence-builder answers, including old content records", () => {
+    const content = contentWithOrderSensitiveAnswerValidation(
+      { options: ["She", "is", "ready"] },
+      "sentence-builder",
+    );
+    expect(answerMatches(["She", "is", "ready"], ["She", "is", "ready"], [], content)).toBe(true);
+    expect(answerMatches(["ready", "is", "She"], ["She", "is", "ready"], [], content)).toBe(false);
   });
 
   it("supports configured alternatives and punctuation normalization", () => {

@@ -41,6 +41,7 @@ export default async function StudentLayout({
       searchContext="STUDENT"
       showCmsLink={showCmsLink}
       showExperience
+      lockDesktopViewport
     >
       {children}
     </WorkspaceShell>

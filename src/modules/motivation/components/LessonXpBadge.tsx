@@ -12,7 +12,7 @@ type LessonXpBadgeProps = {
 
 /**
  * A compact lesson-reward marker. Its ring shows the learner's latest result
- * for the lesson, while the displayed XP stays a first-completion reward.
+ * for the lesson, while the displayed XP is the amount actually earned.
  */
 export function LessonXpBadge({
   experience,
@@ -37,10 +37,10 @@ export function LessonXpBadge({
     <span
       className={`${styles.badge} ${className}`}
       style={{ "--lesson-xp-ring": ring } as CSSProperties}
-      aria-label={`${experience} XP for the lesson. ${summary}. XP is awarded only for the first completion.`}
-      title={`${experience} XP for first completion. ${summary}.`}
+      aria-label={`${experience} XP earned for this lesson. ${summary}.`}
+      title={`${experience} XP earned. ${summary}.`}
     >
-      <span className={styles.value}>+{experience}</span>
+      <span className={styles.value}>{experience > 0 ? `+${experience}` : "0"}</span>
       <span className={styles.unit}>XP</span>
     </span>
   );

@@ -10,7 +10,7 @@ import {
   normalizeExerciseEngineKey,
   type ExerciseEngineKey,
 } from "@/modules/cms/exercise-engines/registry";
-import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
 
 const exerciseTypes = [
   "SINGLE_CHOICE", "MULTIPLE_CHOICE", "TEXT_INPUT", "FILL_IN_THE_BLANK", "MATCHING", "WORD_ORDER",
@@ -181,7 +181,7 @@ export function CmsExerciseDetailsEditor({ exercise }: { exercise: Exercise }) {
   );
 }
 
-export function CmsExerciseStudentPreview({ exercise }: { exercise: Pick<Exercise, "instruction" | "question" | "content" | "correctAnswer" | "alternativeAnswers" | "hint" | "hintsEnabled"> }) {
+export function CmsExerciseStudentPreview({ exercise }: { exercise: Pick<Exercise, "instruction" | "question" | "content" | "correctAnswer" | "alternativeAnswers" | "hint" | "hintsEnabled" | "engineKey"> }) {
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const options = useMemo(() => {
@@ -198,7 +198,12 @@ export function CmsExerciseStudentPreview({ exercise }: { exercise: Pick<Exercis
     } catch {
       // Plain text remains a valid answer mode.
     }
-    setResult(answerMatches(submitted, exercise.correctAnswer, exercise.alternativeAnswers, exercise.content) ? "Correct answer" : "Incorrect answer");
+    setResult(answerMatches(
+      submitted,
+      exercise.correctAnswer,
+      exercise.alternativeAnswers,
+      contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
+    ) ? "Correct answer" : "Incorrect answer");
   }
 
   return (

@@ -115,6 +115,8 @@ async function achievementMetric(tx: Tx, userId: string, conditionType: string, 
   if (conditionType === "EXPERIENCE_EARNED") return lifetimeExperience;
   if (conditionType === "PERFECT_LESSONS") return tx.lessonProgress.count({ where: { userId, status: "COMPLETED", grade: 5, incorrectAnswers: 0 } });
   if (conditionType === "COURSES_COMPLETED") return tx.learningActivity.count({ where: { userId, type: "COURSE_COMPLETED" } });
+  if (conditionType === "MISTAKES_RESOLVED") return tx.userMistake.count({ where: { userId, resolvedAt: { not: null } } });
+  if (conditionType === "MISTAKE_REVIEW_RUNS_COMPLETED") return tx.mistakeReviewRun.count({ where: { userId, status: "COMPLETED" } });
   return 0;
 }
 
@@ -218,6 +220,26 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   const reward = input.isCorrect && input.isFirstCorrect ? await rewardForEvent(tx, input.userId, context.date, "EXERCISE_CORRECT", input.exerciseId, "First correct exercise attempt") : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
   return reward;
+}
+
+/** Awards a focused-review completion exactly once per persisted review run.
+ * The caller must first atomically mark the run COMPLETED. */
+export async function recordMistakeReviewRunCompletion(tx: Tx, input: { userId: string; runId: string; firstFocusedRun: boolean }) {
+  const context = await userContext(tx, input.userId);
+  const reward = await creditExperienceAndCoins(tx, {
+    userId: input.userId,
+    experienceAmount: input.firstFocusedRun ? 35 : 15,
+    coinAmount: input.firstFocusedRun ? 3 : 1,
+    experienceType: "ACHIEVEMENT_REWARD",
+    coinType: "ACHIEVEMENT_REWARD",
+    sourceType: "MISTAKE_REVIEW_RUN",
+    sourceId: input.runId,
+    idempotencyKey: `mistake-review-run:${input.runId}`,
+    description: "Focused mistake review completed",
+    date: context.date,
+  });
+  const achievements = await evaluateAchievements(tx, input.userId, context.date);
+  return { ...reward, achievements };
 }
 
 export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: string, courseId: string, firstCompletion: boolean) {

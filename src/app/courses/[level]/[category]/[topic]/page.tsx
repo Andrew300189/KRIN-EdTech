@@ -6,6 +6,7 @@ import { getPublishedCurriculumTopicPage, getPublishedLessonBySlug, getPublished
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { LessonPlayer } from "@/modules/lessons/components/LessonPlayer";
 import { prisma } from "@/core/server/prisma";
+import { getMistakeReviewLesson } from "@/modules/courses/services/mistake-review.service";
 import { createLessonWarmUp } from "@/modules/vocabulary/services/vocabulary.service";
 import { PublicCurriculumLayout } from "@/modules/courses/components/PublicCurriculumLayout";
 import curriculumStyles from "@/modules/courses/components/PublicCurriculumCards.module.css";
@@ -50,7 +51,17 @@ function AccessUpsell({ reason, returnTo, courseHref }: { reason: "AUTH_REQUIRED
   return <main className="mx-auto max-w-3xl px-6 py-12"><section className="rounded-2xl border border-amber-200 bg-amber-50 p-7"><h1 className="text-3xl font-bold text-amber-950">{title}</h1><p className="mt-3 text-amber-900">{message}</p><Link href={signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing"} className="mt-5 inline-flex rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">{signedOut ? "Sign in" : backToCourse ? "Back to course" : "View plans"}</Link></section></main>;
 }
 
-export default async function ModuleOrLessonPage({ params }: { params: Promise<{ level: string; category: string; topic: string }> }) {
+export default async function ModuleOrLessonPage({ params, searchParams }: {
+  params: Promise<{ level: string; category: string; topic: string }>;
+  searchParams: Promise<{
+    reviewMistake?: string | string[];
+    reviewPosition?: string | string[];
+    reviewRun?: string | string[];
+    reviewExercise?: string | string[];
+  }>;
+}) {
+  // This route intentionally serves both the typed CEFR hierarchy and the
+  // public course lesson URL: /courses/[courseSlug]/lessons/[lessonSlug].
   const { level: courseSlug, category, topic } = await params;
   const curriculumPage = isCefrLevelCode(courseSlug) ? await getPublishedCurriculumTopicPage(courseSlug, category, topic) : null;
   const curriculumLevel = curriculumPage ? { level: curriculumPage.level.code, title: curriculumPage.level.title, description: curriculumPage.level.description } : null;
@@ -104,13 +115,48 @@ export default async function ModuleOrLessonPage({ params }: { params: Promise<{
   if (category !== "lessons") notFound();
   const lesson = await getPublishedLessonBySlug(courseSlug, topic);
   if (!lesson) notFound();
+  const lessonSearchParams = await searchParams;
+  const reviewRunId = typeof lessonSearchParams.reviewRun === "string" ? lessonSearchParams.reviewRun : null;
+  const requestedReviewExerciseId = typeof lessonSearchParams.reviewExercise === "string" ? lessonSearchParams.reviewExercise : null;
+  const reviewRun = reviewRunId && authenticated
+    ? await getMistakeReviewLesson(authenticated.user.id, reviewRunId, courseSlug, topic)
+    : null;
   const access = await canAccessLesson(authenticated?.user.id ?? null, lesson.id);
-  if (!access.allowed) return <AccessUpsell reason={access.reason} returnTo={`/courses/${courseSlug}/lessons/${topic}`} courseHref={`/courses/${courseSlug}`} />;
+  // A verified review run may bypass only curriculum sequence locks. Its
+  // server-owned items prove that this learner previously reached the task;
+  // premium entitlement and authentication are never bypassed.
+  const canOpenForReview = Boolean(reviewRun && (access.reason === "SEQUENCE_LOCKED" || access.reason === "PREREQUISITE_LOCKED"));
+  if (!access.allowed && !canOpenForReview) return <AccessUpsell reason={access.reason} returnTo={`/courses/${courseSlug}/lessons/${topic}`} courseHref={`/courses/${courseSlug}`} />;
   const [warmUp, warmUpConfiguration] = authenticated ? await Promise.all([
     createLessonWarmUp(authenticated.user.id, lesson.id),
     prisma.warmUpConfiguration.findUnique({ where: { id: "default" }, select: { isRequired: true } }),
   ]) : [null, null];
   const firstCourseLessonId = lesson.module.course.modules.flatMap((courseModule) => courseModule.lessons).at(0)?.id;
   const isFirstCourseLesson = Boolean(authenticated && lesson.module.course.accessPlan !== "FREE" && firstCourseLessonId === lesson.id);
-  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={lesson.blocks} lessons={lesson.module.lessons} currentSlug={lesson.slug} canSaveProgress={Boolean(authenticated)} vocabulary={lesson.vocabulary} warmUpSessionId={warmUp?.id} warmUpRequired={warmUpConfiguration?.isRequired ?? false} autoUnlockNextLesson={lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} />;
+  const reviewMistakeId = typeof lessonSearchParams.reviewMistake === "string" ? lessonSearchParams.reviewMistake : null;
+  const reviewPositionRaw = typeof lessonSearchParams.reviewPosition === "string"
+    ? lessonSearchParams.reviewPosition
+    : null;
+  const reviewPosition = reviewPositionRaw && /^(?:0|[1-9]\d*)$/.test(reviewPositionRaw)
+    ? Number(reviewPositionRaw)
+    : null;
+  const safeReviewPosition = reviewPosition !== null && Number.isSafeInteger(reviewPosition)
+    ? reviewPosition
+    : null;
+  const reviewMistake = reviewMistakeId && authenticated ? await prisma.userMistake.findFirst({
+    where: { id: reviewMistakeId, userId: authenticated.user.id, lessonId: lesson.id, resolvedAt: null },
+    select: { id: true, exerciseId: true },
+  }) : null;
+  const reviewReturnHref = reviewMistake
+    ? `/student/mistakes?resolved=${encodeURIComponent(reviewMistake.id)}${safeReviewPosition !== null ? `&position=${safeReviewPosition}` : ""}`
+    : undefined;
+  const reviewBlocks = reviewRun ? lesson.blocks
+    .map((block) => ({ ...block, exercises: block.exercises.filter((exercise) => reviewRun.exerciseIds.includes(exercise.id)) }))
+    .filter((block) => block.exercises.length > 0)
+    : lesson.blocks;
+  if (reviewRun && !reviewBlocks.length) notFound();
+  const initialReviewExerciseId = reviewRun && requestedReviewExerciseId && reviewRun.exerciseIds.includes(requestedReviewExerciseId)
+    ? requestedReviewExerciseId
+    : reviewRun?.exerciseIds[0];
+  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={reviewBlocks} lessons={lesson.module.lessons} currentSlug={lesson.slug} canSaveProgress={Boolean(authenticated)} vocabulary={reviewRun ? [] : lesson.vocabulary} warmUpSessionId={reviewRun ? null : warmUp?.id} warmUpRequired={reviewRun ? false : (warmUpConfiguration?.isRequired ?? false)} autoUnlockNextLesson={reviewMistake || reviewRun ? false : lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} returnHref={reviewReturnHref} reviewMistake={reviewMistake ? { exerciseId: reviewMistake.exerciseId, returnHref: reviewReturnHref! } : undefined} reviewSession={reviewRun ? { runId: reviewRun.runId, exerciseIds: reviewRun.exerciseIds, initialMistakeCount: reviewRun.initialMistakeCount, initialExerciseId: initialReviewExerciseId } : undefined} />;
 }

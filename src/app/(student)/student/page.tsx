@@ -86,7 +86,11 @@ export default async function StudentHomePage({
       <CmsManagedSlotBanner slot={managedSlot} variant="compact" />
 
       <section className={styles.overviewGrid} aria-label="Learning overview">
-        <article className={styles.statCard}><p>Current course</p><h3>{next?.title ?? "No course selected"}</h3><span>{next?.level ?? "Choose a level when ready"}</span></article>
+        <article className={`${styles.statCard} ${styles.currentCourseCard}`}>
+          <p>Current course</p>
+          {next ? <Link href={`/student/courses/${next.slug}`} className={styles.courseTitle}>{next.title}</Link> : <h3>No course selected</h3>}
+          <span className={styles.levelBadge}>{next?.level ?? "Choose a level when ready"}</span>
+        </article>
         <article className={styles.statCard}><p>Overall progress</p><strong>{overallProgress}%</strong><span>{completedLessons} of {totalLessons} lessons</span></article>
         <article className={styles.statCard}><p>Today&apos;s pace</p><strong>{completedMinutes}/{dailyGoal} min</strong><span>{dailyProgress}% of your goal</span></article>
         <article className={styles.statCard}><p>Review queue</p><strong>{reviewCount}</strong><span>{reviewCount === 1 ? "word ready to review" : "words ready to review"}</span></article>

@@ -8,13 +8,14 @@ import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExe
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
-import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 
 type Feedback = { example: string | null; theoryHref: string | null; errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }> };
 type AttemptResult = {
   isCorrect: boolean; scoreAwarded: number; score: number; attemptNumber: number;
   explanation: string | null; correctAnswer: unknown; hint: string | null;
+  openMistakeCount?: number;
   feedback?: Feedback | null;
   solution?: { available: boolean; cost: number; opened: boolean } | null;
   motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean };
@@ -47,6 +48,10 @@ type ExerciseRendererProps = {
   hideContext?: boolean;
   hideContextText?: boolean;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean }) => void;
+  /** Server-validated review queue; never trusted as a general access bypass. */
+  reviewRunId?: string;
+  /** Lets a sequential lesson player continue after an incorrect answer. */
+  onContinueAfterAttempt?: () => void;
 };
 
 type ExerciseAnswer = string | string[] | JsonObject;
@@ -62,25 +67,51 @@ function hasAnswerValue(answer: ExerciseAnswer) {
  * not reveal the answer. The exercise id makes the shuffle stable during an
  * attempt, so a re-render never moves a token under the learner's cursor.
  */
-function shuffleTokens(tokens: string[], seed: string) {
+function shuffleTokens(tokens: string[], seed: string, protectedOrder: string[] = tokens) {
   if (tokens.length < 2) return [...tokens];
-  const shuffled = [...tokens];
-  let state = 2_166_136_261;
+  let initialState = 2_166_136_261;
   for (const character of seed) {
-    state ^= character.charCodeAt(0);
-    state = Math.imul(state, 16_777_619);
+    initialState ^= character.charCodeAt(0);
+    initialState = Math.imul(initialState, 16_777_619);
   }
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    const target = (state >>> 0) % (index + 1);
-    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+
+  const originalPairs = new Set(protectedOrder.slice(0, -1).map((token, index) => `${token}\u0000${protectedOrder[index + 1]}`));
+  const closeness = (candidate: string[]) => {
+    const fixedTokens = candidate.filter((token, index) => token === protectedOrder[index]).length;
+    const originalNeighbours = candidate.slice(0, -1)
+      .filter((token, index) => originalPairs.has(`${token}\u0000${candidate[index + 1]}`)).length;
+    // Keeping a correct neighbouring pair is a stronger clue than keeping a
+    // single word in its original position. Prefer breaking every source
+    // phrase fragment before optimising the remaining card positions.
+    return (originalNeighbours * 100) + fixedTokens;
+  };
+
+  let best = [...tokens].reverse();
+  let bestScore = closeness(best);
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const candidate = [...tokens];
+    let state = initialState ^ Math.imul(attempt + 1, 2_654_435_761);
+    for (let index = candidate.length - 1; index > 0; index -= 1) {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      const target = (state >>> 0) % (index + 1);
+      [candidate[index], candidate[target]] = [candidate[target], candidate[index]];
+    }
+    const score = closeness(candidate);
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+    // A deranged sequence without an original word pair gives no useful clue
+    // about the sentence while staying deterministic for the current attempt.
+    if (score === 0) return candidate;
   }
-  if (shuffled.every((token, index) => token === tokens[index])) {
-    shuffled.push(shuffled.shift()!);
+
+  if (best.every((token, index) => token === protectedOrder[index])) {
+    return [...tokens.slice(1), tokens[0]];
   }
-  return shuffled;
+  return best;
 }
 
 /** Keep punctuation in the validated answer, but not on a word card. */
@@ -88,7 +119,7 @@ function displaySentenceBuilderToken(token: string) {
   return token.replace(/\.+$/u, "");
 }
 
-export function ExerciseRenderer({ exercise, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved }: ExerciseRendererProps) {
+export function ExerciseRenderer({ exercise, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onContinueAfterAttempt, reviewRunId }: ExerciseRendererProps) {
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
   const context = useMemo(() => stepContext(exercise.content), [exercise.content]);
   const options = useMemo(() => asStringArray(content.options), [content]);
@@ -119,17 +150,45 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const submissionInFlightRef = useRef(false);
+  const textCheckTimerRef = useRef<number | null>(null);
+  const answerEvaluationContent = useMemo(
+    () => contentWithOrderSensitiveAnswerValidation(content, exercise.engineKey),
+    [content, exercise.engineKey],
+  );
+  const correctOrderedTokens = useMemo(
+    () => Array.isArray(exercise.correctAnswer)
+      ? exercise.correctAnswer.filter((token): token is string => typeof token === "string")
+      : options,
+    [exercise.correctAnswer, options],
+  );
   const orderedOptions = useMemo(() => (
-    ordered && content.preserveOrder !== true && content.shuffleOptions !== false
-      ? shuffleTokens(options, exercise.id)
+    ordered
+      ? shuffleTokens(options, exercise.id, correctOrderedTokens)
       : options
-  ), [content.preserveOrder, content.shuffleOptions, exercise.id, options, ordered]);
+  ), [correctOrderedTokens, exercise.id, options, ordered]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
 
   function changeAnswer(next: ExerciseAnswer) {
     setAnswer(next); setResult(null); setSolution(null); setConfirmSolution(false);
+  }
+
+  function clearTextCheckTimer() {
+    if (textCheckTimerRef.current === null) return;
+    window.clearTimeout(textCheckTimerRef.current);
+    textCheckTimerRef.current = null;
+  }
+
+  function scheduleTextCheck(value: string) {
+    clearTextCheckTimer();
+    if (!value.trim()) return;
+    // Short one-word answers have no explicit submit button. Check shortly
+    // after the learner stops typing, while Enter or blur still checks now.
+    textCheckTimerRef.current = window.setTimeout(() => {
+      textCheckTimerRef.current = null;
+      void checkAnswer(value);
+    }, 750);
   }
 
   function restartExercise() {
@@ -144,11 +203,12 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   }
 
   async function checkAnswer(answerToCheck: ExerciseAnswer = answer) {
+    clearTextCheckTimer();
     if (!hasAnswerValue(answerToCheck) || submissionInFlightRef.current) return;
     submissionInFlightRef.current = true;
     setSending(true); setError(null);
     if (previewMode) {
-      const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], content);
+      const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
       const hintPenalty = hintUsed && isCorrect ? Math.max(1, Math.ceil(exercise.basePoints * 0.2)) : 0;
       const scoreAwarded = isCorrect ? Math.max(0, exercise.basePoints - hintPenalty) : -exercise.basePoints;
       setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
@@ -159,11 +219,14 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     }
     const idempotencyKey = crypto.randomUUID();
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)) }) });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(reviewRunId ? { reviewRunId } : {}) }) });
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
       onAttemptResolved?.({ exerciseId: exercise.id, isCorrect: payload.data.isCorrect });
+      if (typeof payload.data.openMistakeCount === "number") {
+        window.dispatchEvent(new CustomEvent("mistakes:changed", { detail: { count: payload.data.openMistakeCount } }));
+      }
       if (payload.data.motivationReward?.awarded) {
         const reward = payload.data.motivationReward;
         setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "XP earned", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
@@ -221,13 +284,13 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       {matching && matchingLeft.map((leftItem) => <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[leftItem] ?? "")} onChange={(event) => { const next = { ...(answer as JsonObject), [leftItem]: event.target.value }; changeAnswer(next); if (matchingLeft.every((item) => typeof next[item] === "string" && next[item])) void checkAnswer(next); }}><option value="">Choose a match</option>{matchingRight.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>)}
       {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => { const next = [...answer as string[], option]; changeAnswer(next); if (next.length === options.length) void checkAnswer(next); }} className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className="lesson-exercise-token-answer list-none flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
       {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => { const next = { ...(answer as JsonObject), [item]: event.target.value }; changeAnswer(next); if (classificationItems.every((classificationItem) => typeof next[classificationItem] === "string" && next[classificationItem])) void checkAnswer(next); }}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
-      {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
+      {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => { changeAnswer(event.target.value); scheduleTextCheck(event.target.value); }} onBlur={(event) => { if (event.currentTarget.value.trim()) void checkAnswer(event.currentTarget.value); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
     </div>
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {result && !result.isCorrect && (result.hint ?? exercise.hint) ? <aside className="lesson-exercise-hint" role="status"><span className="lesson-exercise-hint-label">Hint</span><span>{result.hint ?? exercise.hint}</span></aside> : null}
     {!result && exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint · reduced points</summary><p className="mt-2">{exercise.hint}</p></details> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
-    {result ? <section className={`lesson-exercise-result ${result.isCorrect ? "lesson-exercise-result-success" : "lesson-exercise-result-error"}`} role="status"><div className="lesson-exercise-result-copy"><p className="lesson-exercise-result-title">{result.isCorrect ? `Well done — +${result.scoreAwarded} points` : `Not quite — ${result.scoreAwarded} points`}</p><p className="lesson-exercise-result-meta">Attempt {result.attemptNumber}</p>{taskXpLabel ? <p className="lesson-exercise-result-xp">{taskXpLabel}</p> : null}</div>{(!result.isCorrect || (result.solution?.available && !solution)) ? <div className="lesson-exercise-result-actions">{!result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-action lesson-exercise-action-retry">Redo</button> : null}{result.solution?.available && !solution ? confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>Open solution for {result.solution.cost} coins?</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Confirm"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">Solution · {result.solution.cost} coins</button> : null}</div> : null}</section> : null}
+    {result ? <section className={`lesson-exercise-result ${result.isCorrect ? "lesson-exercise-result-success" : "lesson-exercise-result-error"}`} role="status"><div className="lesson-exercise-result-copy"><p className="lesson-exercise-result-title">{result.isCorrect ? `Well done — +${result.scoreAwarded} points` : `Not quite — ${result.scoreAwarded} points`}</p><p className="lesson-exercise-result-meta">Attempt {result.attemptNumber}</p>{!result.isCorrect && onContinueAfterAttempt ? <p className="lesson-exercise-result-meta">The next task opens automatically, or continue now.</p> : null}{taskXpLabel ? <p className="lesson-exercise-result-xp">{taskXpLabel}</p> : null}</div>{(!result.isCorrect || (result.solution?.available && !solution)) ? <div className="lesson-exercise-result-actions">{!result.isCorrect && onContinueAfterAttempt ? <button type="button" onClick={onContinueAfterAttempt} className="lesson-exercise-action lesson-exercise-action-primary">Continue</button> : null}{!result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-action lesson-exercise-action-retry">Try again</button> : null}{result.solution?.available && !solution ? confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>Open solution for {result.solution.cost} coins?</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Confirm"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">Solution · {result.solution.cost} coins</button> : null}</div> : null}</section> : null}
     {visibleFeedback ? <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800">{visibleFeedback.correctAnswer !== null && !result?.isCorrect ? <p>Correct answer: {displayAnswer(visibleFeedback.correctAnswer)}</p> : null}{visibleFeedback.explanation ? <p className="mt-1">{visibleFeedback.explanation}</p> : null}{visibleFeedback.feedback?.example ? <p className="mt-2 rounded bg-blue-50 p-2">Example: {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="mt-2 inline-block font-semibold text-blue-700 hover:underline">Review the rule</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="mt-3"><summary className="cursor-pointer font-semibold">Show all errors</summary><ul className="mt-2 space-y-2">{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</div> : null}
     {result && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="mt-3 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{extraSending ? "Preparing extra practice…" : "Try another exercise in this lesson"}</button> : null}
     {extraExercise ? <div className="mt-5 border-t border-slate-200 pt-5"><h3 className="mb-3 text-base font-bold text-slate-900">Extra practice</h3><ExerciseRenderer exercise={extraExercise} /></div> : null}
