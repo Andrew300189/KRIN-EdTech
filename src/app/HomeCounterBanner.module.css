@@ -1,7 +1,10 @@
 .banner {
   position: relative;
   padding: 36px 0;
-  background: linear-gradient(135deg, #f4fbff 0%, #eefaf5 35%, #fffdf7 100%);
+  background:
+    radial-gradient(ellipse 56% 100% at 50% 50%, var(--border) 0%, color-mix(in srgb, var(--border) 84%, transparent) 42%, transparent 100%) center top / 100% 1px no-repeat,
+    radial-gradient(ellipse 56% 100% at 50% 50%, var(--border) 0%, color-mix(in srgb, var(--border) 84%, transparent) 42%, transparent 100%) center bottom / 100% 1px no-repeat,
+    linear-gradient(135deg, #f4fbff 0%, #eefaf5 35%, #fffdf7 100%);
   overflow: hidden;
 }
 

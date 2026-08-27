@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/core/server/auth";
 import { consumeRateLimit } from "@/core/server/rate-limit";
 import {
@@ -78,6 +78,23 @@ function clientIp(request: NextRequest) {
   return forwarded || request.headers.get("x-real-ip") || "anonymous";
 }
 
+function recordSearchAnalyticsLater(input: Parameters<typeof recordSearchQuery>[0]) {
+  const persist = async () => {
+    await recordSearchQuery(input).catch(() => {
+      console.warn("search_analytics_persist_failed");
+    });
+  };
+
+  try {
+    // `after` runs outside the critical response path in a real Route Handler.
+    after(persist);
+  } catch {
+    // Direct route-handler tests have no Next request async context. Running
+    // the same operation normally preserves deterministic test coverage.
+    void persist();
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -85,12 +102,6 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("q") ?? "",
     );
     const context = parseContext(request.nextUrl.searchParams.get("context"));
-    console.info("search_requested", {
-      query: query.toLocaleLowerCase("en"),
-      context,
-      userId: user?.id ?? null,
-    });
-
     const rate = consumeRateLimit(
       baseRateLimitKey(request, user?.id ?? null),
       user ? 120 : 80,
@@ -147,24 +158,10 @@ export async function GET(request: NextRequest) {
     });
 
     const tookMs = Date.now() - startedAt;
-    const normalizedQuery = query.toLocaleLowerCase("en");
-    console.info("search_completed", {
-      query: normalizedQuery,
-      context: response.context,
-      count: response.items.length,
-      total: response.total,
-      tookMs,
-      userId: user?.id ?? null,
-    });
-    if (response.total === 0) {
-      console.info("search_no_results", {
-        query: normalizedQuery,
-        context: response.context,
-        userId: user?.id ?? null,
-      });
-    }
-
-    await recordSearchQuery({
+    // Search telemetry must not delay the visible search response. Next keeps
+    // this task alive after responding, so analytics remain reliable without
+    // adding a database transaction to every keystroke.
+    recordSearchAnalyticsLater({
       query,
       context: response.context,
       resultCount: response.total,
@@ -173,8 +170,6 @@ export async function GET(request: NextRequest) {
       userId: user?.id ?? null,
       ip: clientIp(request),
       userAgent: request.headers.get("user-agent"),
-    }).catch(() => {
-      console.warn("search_analytics_persist_failed");
     });
 
     return NextResponse.json(response);

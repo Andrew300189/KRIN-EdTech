@@ -40,6 +40,11 @@ model User {
   targetLanguage                String?
   learningGoal                  String?
   currentLevel                  Level?
+  placementLevel                CefrLevel?
+  placementScore                Int?
+  placementQuestionCount        Int?
+  placementBreakdown            Json?
+  placementTestedAt             DateTime?
   dailyIntensityMinutes         Int?
   dailyGoalMinutes              Int                          @default(15)
   /// Learners opt in to the public leaderboard. Names, emails and other
@@ -134,6 +139,7 @@ model User {
   @@index([lastActiveAt])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([placementLevel, placementTestedAt])
 }
 
 model LanguageLevel {

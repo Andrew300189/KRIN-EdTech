@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- CMS previews accept author-supplied media URLs. */
-
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AppModal } from "@/core/components/AppModal";
@@ -13,6 +11,7 @@ import {
   type ExerciseEngineKey,
 } from "@/modules/cms/exercise-engines/registry";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
+import { estimateBlockSeconds, estimateExerciseSeconds } from "@/modules/lessons/utils/learning-duration";
 import styles from "./CmsLessonStepPlayer.module.css";
 
 type JsonRecord = Record<string, unknown>;
@@ -206,16 +205,30 @@ function draftFrom(exercise: Exercise, blockId: string): Draft {
   };
 }
 
-function automaticWeight(engineKey: ExerciseEngineKey) {
-  const renderer = getExerciseEngine(engineKey)?.renderer;
-  if (renderer === "ordering" || renderer === "word-bank") return 45;
-  if (renderer === "audio-choice" || renderer === "media" || renderer === "recording") return 60;
-  if (renderer === "choice" || renderer === "hotspot") return 20;
-  return 35;
+function durationExercise(draft: Draft) {
+  const pairs = pairsFrom(draft.matchingPairs);
+  const content: JsonRecord = {
+    authoringSource: draft.source,
+    ...(draft.duration === "auto" ? {} : { authoringDurationSeconds: Number(draft.duration) }),
+  };
+  if (draft.kind === "builder") content.options = draft.source.trim().split(/\s+/).filter(Boolean);
+  if (draft.kind === "choice") content.options = lines(draft.options);
+  if (draft.kind === "matching") {
+    content.left = Object.keys(pairs);
+    content.right = Object.values(pairs);
+  }
+  return {
+    engineKey: draft.engineKey,
+    instruction: draft.instruction,
+    question: draft.source,
+    content,
+    correctAnswer: draft.kind === "matching" ? pairs : draft.correctAnswer,
+    difficulty: 1,
+  };
 }
 
 function estimatedSeconds(draft: Draft) {
-  return draft.duration === "auto" ? automaticWeight(draft.engineKey) : Number(draft.duration);
+  return estimateExerciseSeconds(durationExercise(draft));
 }
 
 function gapData(source: string) {
@@ -325,7 +338,7 @@ function payloadFor(draft: Draft) {
   };
 }
 
-async function api<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+async function api<T>(url: string, method: "POST" | "PATCH" | "PUT" | "DELETE", body?: unknown): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -336,50 +349,27 @@ async function api<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?: u
   return payload.data;
 }
 
-function MediaDialog({
-  kind,
-  value,
-  onSave,
-  onClose,
-}: {
-  kind: "audio" | "video" | null;
-  value: string;
-  onSave: (value: string) => void;
-  onClose: () => void;
-}) {
-  const [url, setUrl] = useState(value);
-
-  useEffect(() => setUrl(value), [value, kind]);
-
-  const label = kind === "audio" ? "Audio" : "Video";
-  return <AppModal
-    open={kind !== null}
-    onOpenChange={(open) => { if (!open) onClose(); }}
-    title={`Add ${label.toLowerCase()}`}
-    description={`Attach a hosted ${label.toLowerCase()} file to the theory shown above this task.`}
-    size="medium"
-    footer={<><button type="button" onClick={onClose} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={() => { onSave(url.trim()); onClose(); }} className={styles.primaryButton}>Save {label.toLowerCase()}</button></>}
-  >
-    <label className={styles.fieldLabel}>
-      {label} URL
-      <input value={url} onChange={(event) => setUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} />
-    </label>
-    <p className={styles.fieldHint}>Use a direct, secure URL to the media file. You can replace or clear it later.</p>
-  </AppModal>;
-}
-
 function RichTextEditor({ value, onChange }: { value: string; onChange: (next: string) => void }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const selectionRef = useRef<Range | null>(null);
+  const lastEmittedValueRef = useRef<string | null>(null);
   const normalizedValue = sanitizeLessonRichText(value);
 
   useEffect(() => {
     const editor = editorRef.current;
-    if (editor && editor.innerHTML !== normalizedValue) editor.innerHTML = normalizedValue;
+    if (!editor || lastEmittedValueRef.current === normalizedValue) return;
+    // Do not reset innerHTML after the editor itself has emitted a change.
+    // Browsers represent Enter as a new paragraph/div; sanitising that markup
+    // during a React render used to overwrite the live DOM and move the caret.
+    // Only a genuinely external value change may replace its contents.
+    if (editor.innerHTML !== normalizedValue) editor.innerHTML = normalizedValue;
+    lastEmittedValueRef.current = normalizedValue;
   }, [normalizedValue]);
 
   function emitValue() {
-    onChange(sanitizeLessonRichText(editorRef.current?.innerHTML ?? ""));
+    const next = sanitizeLessonRichText(editorRef.current?.innerHTML ?? "");
+    lastEmittedValueRef.current = next;
+    onChange(next);
   }
 
   function rememberSelection() {
@@ -388,16 +378,38 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
     selectionRef.current = selection.getRangeAt(0).cloneRange();
   }
 
-  function restoreSelection() {
+  function currentEditorSelection() {
+    const editor = editorRef.current;
     const selection = window.getSelection();
-    if (!selection || !selectionRef.current) return;
+    if (!editor || !selection?.rangeCount) return null;
+    const range = selection.getRangeAt(0);
+    return editor.contains(range.commonAncestorContainer) ? range.cloneRange() : null;
+  }
+
+  function restoreSelection() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || !selectionRef.current) return;
+    if (!editor.contains(selectionRef.current.startContainer) || !editor.contains(selectionRef.current.endContainer)) {
+      selectionRef.current = null;
+      return;
+    }
     selection.removeAllRanges();
     selection.addRange(selectionRef.current);
   }
 
   function apply(command: string, commandValue?: string) {
-    editorRef.current?.focus();
-    restoreSelection();
+    const editor = editorRef.current;
+    if (!editor) return;
+    // A selection made immediately before pressing a toolbar button wins over
+    // any older remembered range. This makes Bold a true on/off action.
+    const activeRange = currentEditorSelection();
+    editor.focus({ preventScroll: true });
+    if (activeRange) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(activeRange);
+    } else restoreSelection();
     document.execCommand(command, false, commandValue);
     rememberSelection();
     emitValue();
@@ -405,20 +417,41 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
 
   return <div className={styles.richTextShell}>
     <div className={styles.richTextToolbar} role="toolbar" aria-label="Theory formatting">
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("undo")} aria-label="Undo" title="Undo">↶</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("redo")} aria-label="Redo" title="Redo">↷</button>
+      <span aria-hidden="true" />
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("bold")} aria-label="Bold text"><strong>B</strong></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("italic")} aria-label="Italic text"><em>I</em></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("underline")} aria-label="Underline text"><u>U</u></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("strikeThrough")} aria-label="Strikethrough text" title="Strikethrough"><s>S</s></button>
       <span aria-hidden="true" />
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h3")} aria-label="Section heading">H</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h1")} aria-label="Large heading" title="Heading 1">H1</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h2")} aria-label="Medium heading" title="Heading 2">H2</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h3")} aria-label="Section heading" title="Heading 3">H3</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "p")} aria-label="Normal paragraph" title="Paragraph">¶</button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertUnorderedList")} aria-label="Bulleted list">• List</button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertOrderedList")} aria-label="Numbered list">1. List</button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "blockquote")} aria-label="Quote">Quote</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertHorizontalRule")} aria-label="Divider" title="Divider">—</button>
+      <span aria-hidden="true" />
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyLeft")} aria-label="Align left" title="Align left">≡</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyCenter")} aria-label="Align centre" title="Align centre">≡</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyRight")} aria-label="Align right" title="Align right">≡</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("indent")} aria-label="Increase indent" title="Increase indent">⇥</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("outdent")} aria-label="Decrease indent" title="Decrease indent">⇤</button>
       <span aria-hidden="true" />
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#5148db")} aria-label="Purple text" title="Purple text"><span style={{ color: "#5148db" }}>●</span></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#0369a1")} aria-label="Blue text" title="Blue text"><span style={{ color: "#0369a1" }}>●</span></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#047857")} aria-label="Green text" title="Green text"><span style={{ color: "#047857" }}>●</span></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#c2410c")} aria-label="Orange text" title="Orange text"><span style={{ color: "#c2410c" }}>●</span></button>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#be123c")} aria-label="Red text" title="Red text"><span style={{ color: "#be123c" }}>●</span></button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#eeecff")} aria-label="Purple highlight" title="Purple highlight">▰</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#e8f8ef")} aria-label="Green highlight" title="Green highlight">▰</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff0f2")} aria-label="Red highlight" title="Red highlight">▰</button>
+      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff3d2")} aria-label="Amber highlight" title="Amber highlight">▰</button>
+      <select aria-label="Text size" defaultValue="" onChange={(event) => { if (event.currentTarget.value) apply("fontSize", event.currentTarget.value); event.currentTarget.value = ""; }}>
+        <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">Extra large</option>
+      </select>
       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("removeFormat")} aria-label="Clear formatting">Clear</button>
     </div>
     <div
@@ -429,12 +462,20 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
       contentEditable
       suppressContentEditableWarning
       onInput={emitValue}
+      onFocus={rememberSelection}
       onKeyUp={rememberSelection}
       onMouseUp={rememberSelection}
+      onMouseDown={() => { selectionRef.current = null; }}
+      onSelect={rememberSelection}
       onBlur={rememberSelection}
       onPaste={(event) => {
         event.preventDefault();
-        document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
+        const pastedHtml = event.clipboardData.getData("text/html");
+        const pastedText = event.clipboardData.getData("text/plain");
+        const safeHtml = pastedHtml ? sanitizeLessonRichText(pastedHtml) : "";
+        if (safeHtml) document.execCommand("insertHTML", false, safeHtml);
+        else document.execCommand("insertText", false, pastedText);
+        rememberSelection();
         emitValue();
       }}
       data-placeholder="Add a short rule, an example or a helpful note for this task."
@@ -454,16 +495,51 @@ function blockMediaUrl(content: unknown) {
   return text(source.url) || text(source.src);
 }
 
-function updatedBlockContent(original: unknown, body: string, mediaUrl: string) {
+function blockMediaDuration(content: unknown) {
+  const value = record(content).durationSeconds;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? String(Math.round(value)) : "";
+}
+
+/**
+ * A block can carry a concise learner-facing goal without mixing it into the
+ * theory text. It lives in settings so existing rich content and translated
+ * block bodies remain untouched.
+ */
+function lessonGoalFromSettings(settings: unknown) {
+  return text(record(settings).lessonGoal).trim();
+}
+
+function settingsWithLessonGoal(settingsText: string, lessonGoal: string) {
+  const parsed = settingsText.trim() ? JSON.parse(settingsText) : {};
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (lessonGoal.trim()) {
+      throw new Error("Advanced settings must be a JSON object when a lesson goal is set.");
+    }
+    return parsed;
+  }
+
+  const next = { ...(parsed as JsonRecord) };
+  if (lessonGoal.trim()) next.lessonGoal = lessonGoal.trim();
+  else delete next.lessonGoal;
+  return Object.keys(next).length ? next : null;
+}
+
+function updatedBlockContent(original: unknown, body: string, mediaUrl: string, mediaDuration = "") {
   const content = record(original);
   for (const key of ["text", "body", "description", "content"]) {
     if (typeof content[key] === "string") delete content[key];
   }
   if (body.trim()) content.text = body.trim();
-  if (mediaUrl.trim()) content.url = mediaUrl.trim();
+  const duration = Number(mediaDuration);
+  if (mediaUrl.trim()) {
+    content.url = mediaUrl.trim();
+    if (Number.isFinite(duration) && duration > 0) content.durationSeconds = Math.round(duration);
+    else delete content.durationSeconds;
+  }
   else {
     delete content.url;
     delete content.src;
+    delete content.durationSeconds;
   }
   return Object.keys(content).length ? content : null;
 }
@@ -474,11 +550,13 @@ function usesMediaUrl(type: string) {
 
 function ContentBlockDialog({
   open,
+  initialType,
   lessonId,
   onClose,
   onCreated,
 }: {
   open: boolean;
+  initialType?: ContentBlockType;
   lessonId: string;
   onClose: () => void;
   onCreated: (type: ContentBlockType) => void;
@@ -487,6 +565,8 @@ function ContentBlockDialog({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaDuration, setMediaDuration] = useState("");
+  const [lessonGoal, setLessonGoal] = useState("");
   const [required, setRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -494,13 +574,15 @@ function ContentBlockDialog({
 
   useEffect(() => {
     if (!open) return;
-    setType("THEORY");
+    setType(initialType ?? "THEORY");
     setTitle("");
     setBody("");
     setMediaUrl("");
+    setMediaDuration("");
+    setLessonGoal("");
     setRequired(false);
     setError(null);
-  }, [open]);
+  }, [initialType, open]);
 
   function create() {
     startTransition(async () => {
@@ -508,7 +590,8 @@ function ContentBlockDialog({
         await api(`/api/admin/lessons/${lessonId}/blocks`, "POST", {
           type,
           title: title.trim() || selected.title,
-          content: updatedBlockContent(null, body, mediaUrl) ?? undefined,
+          content: updatedBlockContent(null, body, mediaUrl, mediaDuration) ?? undefined,
+          settings: lessonGoal.trim() ? { lessonGoal: lessonGoal.trim() } : undefined,
           isRequired: required,
         });
         onCreated(type);
@@ -539,57 +622,23 @@ function ContentBlockDialog({
         </button>)}
       </div>
       <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={selected.title} className={styles.field} /></label>
-      <label className={styles.fieldLabel}>Learner-facing text<RichTextEditor value={body} onChange={setBody} /></label>
-      {usesMediaUrl(type) ? <label className={styles.fieldLabel}>{type === "IMAGE" ? "Image" : type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label> : null}
+      <label className={styles.lessonGoalField}><input value={lessonGoal} onChange={(event) => setLessonGoal(event.target.value)} maxLength={240} aria-label="Lesson goal shown to the learner" placeholder="Lesson goal shown to the learner" className={`${styles.field} ${styles.lessonGoalInput}`} /></label>
+      <div className={styles.fieldLabel}><span>Learner-facing text</span><RichTextEditor value={body} onChange={setBody} /></div>
+      {usesMediaUrl(type) ? <div className={styles.mediaFields}><label className={styles.fieldLabel}>{type === "IMAGE" ? "Image" : type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label>{type !== "IMAGE" ? <label className={styles.fieldLabel}>Duration, seconds<input value={mediaDuration} onChange={(event) => setMediaDuration(event.target.value)} type="number" min="1" max="7200" inputMode="numeric" placeholder="Auto" className={styles.field} /></label> : null}</div> : null}
       <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
       {error ? <p role="alert" className={styles.dialogError}>{error}</p> : null}
     </div>
   </AppModal>;
 }
 
-function TheoryEditor({
-  theory,
-  onChange,
-  onAddAudio,
-  onAddVideo,
-  onAddTask,
-  onAddContentBlock,
-  onNextStep,
-  nextStepPending,
-}: {
-  theory: Theory;
-  onChange: (next: Theory) => void;
-  onAddAudio: () => void;
-  onAddVideo: () => void;
-  onAddTask: () => void;
-  onAddContentBlock: () => void;
-  onNextStep: () => void;
-  nextStepPending: boolean;
+function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock, onRemoveBlock, isBusy = false }: {
+  draft: Draft;
+  onChange: (next: Draft) => void;
+  onChangeEngine: () => void;
+  onEditBlock?: () => void;
+  onRemoveBlock?: () => void;
+  isBusy?: boolean;
 }) {
-  return <section className={styles.theoryCard}>
-    <div className={styles.cardHeading}>
-      <div>
-        <p className={styles.eyebrow}>Step context</p>
-        <h2>Explanation / theory</h2>
-      </div>
-      <label className={styles.visibility}><input type="checkbox" checked={theory.visible} onChange={(event) => onChange({ ...theory, visible: event.target.checked })} />Show to learner</label>
-    </div>
-    <label className={styles.fieldLabel}>
-      What should help the learner solve this task?
-      <RichTextEditor value={theory.text} onChange={(textValue) => onChange({ ...theory, text: textValue })} />
-    </label>
-    <div className={styles.theoryActions}>
-      <button type="button" onClick={onAddAudio} className={styles.secondaryButton}>{theory.audioUrl ? "Edit audio" : "Add audio"}</button>
-      <button type="button" onClick={onAddVideo} className={styles.secondaryButton}>{theory.videoUrl ? "Edit video" : "Add video"}</button>
-      <button type="button" onClick={onAddContentBlock} className={styles.secondaryButton}>+ Content block</button>
-      <button type="button" onClick={onAddTask} className={styles.primaryButton}>+ Add task</button>
-      <button type="button" onClick={onNextStep} disabled={nextStepPending} className={styles.secondaryButton}>{nextStepPending ? "Creating…" : "Next step →"}</button>
-    </div>
-    {(theory.audioUrl || theory.videoUrl) ? <p className={styles.mediaSummary}>{theory.audioUrl ? "Audio attached" : ""}{theory.audioUrl && theory.videoUrl ? " · " : ""}{theory.videoUrl ? "Video attached" : ""}</p> : null}
-  </section>;
-}
-
-function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock }: { draft: Draft; onChange: (next: Draft) => void; onChangeEngine: () => void; onEditBlock?: () => void }) {
   const set = <Key extends keyof Draft>(key: Key, value: Draft[Key]) => onChange({ ...draft, [key]: value });
   const engine = getExerciseEngine(draft.engineKey);
   const isGapFill = draft.engineKey === "fill-in-the-blanks";
@@ -603,6 +652,7 @@ function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock }: { draft: D
       </div>
       <div className={styles.taskCardActions}>
         {draft.blockId ? <button type="button" onClick={onEditBlock} className={styles.tertiaryButton}>Block settings</button> : null}
+        {draft.blockId && onRemoveBlock ? <button type="button" onClick={onRemoveBlock} disabled={isBusy} className={styles.dangerButton}>Remove task block</button> : null}
         <button type="button" onClick={onChangeEngine} className={styles.tertiaryButton}>Change engine</button>
       </div>
     </div>
@@ -625,7 +675,7 @@ function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock }: { draft: D
         <label className={styles.fieldLabel}>Task prompt<input value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder="Match each phrase to its meaning." className={styles.field} /></label>
         <label className={styles.fieldLabel}>Pairs — one per line, left = right<textarea value={draft.matchingPairs} onChange={(event) => set("matchingPairs", event.target.value)} placeholder={'hello = hi\ngoodbye = see you'} className={`${styles.field} ${styles.compactArea}`} /></label>
       </> : null}
-      <label className={`${styles.fieldLabel} ${styles.durationField}`}>Step time<select value={draft.duration} onChange={(event) => set("duration", event.target.value as Draft["duration"])} className={styles.field}><option value="auto">Automatic ({automaticWeight(draft.engineKey)} sec)</option><option value="20">20 sec</option><option value="35">35 sec</option><option value="45">45 sec</option><option value="60">1 min</option><option value="90">1.5 min</option></select></label>
+      <label className={`${styles.fieldLabel} ${styles.durationField}`}>Step time<select value={draft.duration} onChange={(event) => set("duration", event.target.value as Draft["duration"])} className={styles.field}><option value="auto">Automatic — based on content</option><option value="20">20 sec</option><option value="35">35 sec</option><option value="45">45 sec</option><option value="60">1 min</option><option value="90">1.5 min</option></select></label>
     </div>
   </section>;
 }
@@ -638,6 +688,7 @@ function TaskAuthoringPanel({
   onChooseEngine,
   onChangeEngine,
   onEditBlock,
+  onRemoveBlock,
   onClose,
   onSave,
   isPending,
@@ -649,20 +700,31 @@ function TaskAuthoringPanel({
   onChooseEngine: (engineKey: ExerciseEngineKey) => void;
   onChangeEngine: () => void;
   onEditBlock: () => void;
+  onRemoveBlock: () => void;
   onClose: () => void;
   onSave: () => void;
   isPending: boolean;
 }) {
-  if (!open) return null;
   const engine = getExerciseEngine(draft.engineKey);
-  return <section className={styles.taskPanel} role="dialog" aria-modal="false" aria-label="Task authoring panel">
-    <header className={styles.taskPanelHeader}>
-      <div><p className={styles.eyebrow}>{choosingEngine ? "Choose an interaction" : "Task authoring"}</p><h2>{choosingEngine ? "Add a task" : engine?.title ?? "Task"}</h2></div>
-      <button type="button" onClick={onClose} className={styles.panelClose}>Close</button>
-    </header>
-    <div className={styles.taskPanelBody}>
+  return <AppModal
+    open={open}
+    onOpenChange={(nextOpen) => {
+      if (!nextOpen) onClose();
+    }}
+    title={choosingEngine ? "Add a task" : engine?.title ?? "Task authoring"}
+    description={choosingEngine
+      ? "Choose the learning interaction you want to add to this lesson step."
+      : "Configure the learner task, then save it as the next part of this lesson."}
+    size="fullscreen"
+    loading={isPending}
+    ariaLabel="Task authoring"
+    footer={!choosingEngine ? <div className={styles.taskModalFooter}>
+      <p>Configure the task, then save it as the next lesson step.</p>
+      <button type="button" disabled={isPending} onClick={onSave} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button>
+    </div> : undefined}
+  >
       {choosingEngine ? <>
-        <p className={styles.taskPanelIntro}>Choose a learning interaction. Its form stays here while the learner view updates live on the right.</p>
+        <p className={styles.taskModalIntro}>Every option opens the same learner-facing task editor, so you can enter your own language content and test the result before publishing.</p>
         <div className={styles.engineGrid}>
           {EXERCISE_ENGINES.map((engineOption) => <button
             key={engineOption.key}
@@ -676,118 +738,37 @@ function TaskAuthoringPanel({
           </button>)}
         </div>
       </> : <>
-        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} onEditBlock={onEditBlock} />
-        <div className={styles.saveBar}><p>Configure the task, test it on the right, then save.</p><button type="button" disabled={isPending} onClick={onSave} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div>
+        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} onEditBlock={onEditBlock} onRemoveBlock={onRemoveBlock} isBusy={isPending} />
       </>}
-    </div>
-  </section>;
-}
-
-function LearnerSlidePreview({ draft }: { draft: Draft }) {
-  const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<"correct" | "incorrect" | null>(null);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [ordered, setOrdered] = useState<string[]>([]);
-  const [mapped, setMapped] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setAnswer("");
-    setResult(null);
-    setSelected([]);
-    setOrdered([]);
-    setMapped({});
-  }, [draft.id, draft.engineKey, draft.kind, draft.source, draft.options, draft.correctAnswer, draft.matchingPairs]);
-
-  const gap = gapData(draft.source);
-  const isGapFill = draft.engineKey === "fill-in-the-blanks";
-  const expectedGap = isGapFill ? gap.answer : draft.correctAnswer.trim();
-  const promptGap = isGapFill ? gap.learnerText : draft.source;
-  const pairs = pairsFrom(draft.matchingPairs);
-  const left = Object.keys(pairs);
-  const right = Array.from(new Set(Object.values(pairs)));
-  const options = lines(draft.options);
-  const expectedChoices = draft.engineKey === "multiple-choice" ? lines(draft.correctAnswer) : [draft.correctAnswer.trim()].filter(Boolean);
-  const tokens = draft.source.trim().split(/\s+/).filter(Boolean);
-  const multiple = draft.engineKey === "multiple-choice";
-  const hasLiveTaskContent = draft.kind === "gap" ? Boolean(promptGap || expectedGap || draft.correctAnswer.trim()) : draft.kind === "choice" ? options.length > 0 : draft.kind === "builder" ? tokens.length > 0 : left.length > 0 || right.length > 0;
-
-  function check() {
-    if (draft.kind === "gap") setResult(answer.trim().toLowerCase() === expectedGap.toLowerCase() ? "correct" : "incorrect");
-    else if (draft.kind === "choice") setResult(selected.length === expectedChoices.length && selected.every((item) => expectedChoices.includes(item)) ? "correct" : "incorrect");
-    else if (draft.kind === "builder") setResult(ordered.join(" ") === tokens.join(" ") ? "correct" : "incorrect");
-    else setResult(left.every((item) => mapped[item] === pairs[item]) ? "correct" : "incorrect");
-  }
-
-  function toggleChoice(option: string) {
-    setResult(null);
-    setSelected((current) => multiple
-      ? current.includes(option) ? current.filter((item) => item !== option) : [...current, option]
-      : [option]);
-  }
-
-  return <section className={styles.previewCard}>
-    <div className={styles.previewHeading}><p className={styles.eyebrow}>Learner view</p><span>Live preview</span></div>
-    <div className={styles.previewScroll}>
-      {draft.theory.visible && (draft.theory.text || draft.theory.audioUrl || draft.theory.imageUrl || draft.theory.videoUrl) ? <section className={styles.previewTheory}>
-        <p className={styles.eyebrow}>Before you answer</p>
-        {draft.theory.text ? <div className={styles.theoryCopy} dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(draft.theory.text) }} /> : null}
-        {draft.theory.imageUrl ? <img src={draft.theory.imageUrl} alt="Theory illustration" className={styles.previewImage} /> : null}
-        {draft.theory.audioUrl ? <audio className={styles.previewMedia} controls src={draft.theory.audioUrl}>Audio is not supported.</audio> : null}
-        {draft.theory.videoUrl ? <video className={styles.previewVideo} controls src={draft.theory.videoUrl}>Video is not supported.</video> : null}
-      </section> : <p className={styles.previewHint}>Add a theory note, audio or video to see it here.</p>}
-      <section className={styles.previewTask}>
-        <p className={styles.previewInstruction}>{draft.instruction || "Complete the task."}</p>
-        {draft.kind === "gap" ? (
-          <>
-            <p className={styles.previewPrompt}>{promptGap || "Your prompt appears here."}</p>
-            <input value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} className={styles.field} placeholder="Type your answer" />
-          </>
-        ) : null}
-        {draft.kind === "choice" ? (
-          <>
-            <p className={styles.previewPrompt}>{draft.source || "Your question appears here."}</p>
-            {hasLiveTaskContent ? (
-              <div className={styles.answerStack}>{options.map((option) => <label key={option} className={styles.answerOption}><input type={multiple ? "checkbox" : "radio"} checked={selected.includes(option)} onChange={() => toggleChoice(option)} />{option}</label>)}</div>
-            ) : (
-              <div className={styles.previewEmptyState}>Add options to preview the task.</div>
-            )}
-          </>
-        ) : null}
-        {draft.kind === "builder" ? (
-          <>
-            <p className={styles.previewPrompt}>Build the sentence.</p>
-            {hasLiveTaskContent ? (
-              <>
-                <div className={styles.tokenRow}>{tokens.map((token, index) => <button key={`${token}-${index}`} type="button" onClick={() => { setOrdered((items) => [...items, token]); setResult(null); }} className={styles.token}>{token}</button>)}</div>
-                <div className={styles.answerTray}>{ordered.join(" ")}</div>
-              </>
-            ) : (
-              <div className={styles.previewEmptyState}>Add a sentence to preview the builder.</div>
-            )}
-          </>
-        ) : null}
-        {draft.kind === "matching" ? (
-          <>
-            <p className={styles.previewPrompt}>{draft.source || "Match each pair."}</p>
-            {hasLiveTaskContent ? (
-              <div className={styles.matchList}>{left.map((item) => <label key={item} className={styles.matchRow}><span>{item}</span><select value={mapped[item] ?? ""} onChange={(event) => { setMapped({ ...mapped, [item]: event.target.value }); setResult(null); }} className={styles.field}><option value="">Choose</option>{right.map((value) => <option key={value}>{value}</option>)}</select></label>)}</div>
-            ) : (
-              <div className={styles.previewEmptyState}>Add matching pairs to preview the task.</div>
-            )}
-          </>
-        ) : null}
-        {draft.kind === "gap" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
-        {draft.kind === "choice" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
-        {draft.kind === "builder" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
-        {draft.kind === "matching" && hasLiveTaskContent ? <button type="button" onClick={check} className={styles.primaryButton}>Check answer</button> : null}
-        {result ? <p role="status" className={`${styles.result} ${result === "correct" ? styles.correct : styles.incorrect}`}>{result === "correct" ? "Correct — this configuration works." : "Not correct — test the expected answer."}</p> : null}
-      </section>
-    </div>
-  </section>;
+  </AppModal>;
 }
 
 function stringifyJson(value: unknown) {
   return value == null ? "" : JSON.stringify(value, null, 2);
+}
+
+type BlockUpdatePayload = {
+  title?: string;
+  content: unknown;
+  settings: unknown;
+  isRequired: boolean;
+};
+
+function makeBlockUpdatePayload(block: CmsLessonStepBlock, values: {
+  title: string;
+  body: string;
+  mediaUrl: string;
+  mediaDuration: string;
+  settings: string;
+  lessonGoal: string;
+  required: boolean;
+}): BlockUpdatePayload {
+  return {
+    title: values.title.trim() || undefined,
+    content: updatedBlockContent(block.content, values.body, values.mediaUrl, values.mediaDuration),
+    settings: settingsWithLessonGoal(values.settings, values.lessonGoal),
+    isRequired: values.required,
+  };
 }
 
 function BlockEditorDialog({
@@ -803,32 +784,112 @@ function BlockEditorDialog({
   const [title, setTitle] = useState(block?.title ?? "");
   const [body, setBody] = useState(blockBody(block?.content));
   const [mediaUrl, setMediaUrl] = useState(blockMediaUrl(block?.content));
+  const [mediaDuration, setMediaDuration] = useState(blockMediaDuration(block?.content));
   const [settings, setSettings] = useState(stringifyJson(block?.settings));
+  const [lessonGoal, setLessonGoal] = useState(lessonGoalFromSettings(block?.settings));
   const [required, setRequired] = useState(block?.isRequired ?? false);
   const [confirmRemoval, setConfirmRemoval] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved" | "paused">("idle");
+  const [loadedBlockId, setLoadedBlockId] = useState(block?.id ?? null);
+  const [autoSaveCycle, setAutoSaveCycle] = useState(0);
+  const lastSavedPayloadRef = useRef<string | null>(null);
+  const autoSaveBusyRef = useRef(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setTitle(block?.title ?? "");
-    setBody(blockBody(block?.content));
-    setMediaUrl(blockMediaUrl(block?.content));
-    setSettings(stringifyJson(block?.settings));
-    setRequired(block?.isRequired ?? false);
+    const nextTitle = block?.title ?? "";
+    const nextBody = blockBody(block?.content);
+    const nextMediaUrl = blockMediaUrl(block?.content);
+    const nextMediaDuration = blockMediaDuration(block?.content);
+    const nextSettings = stringifyJson(block?.settings);
+    const nextLessonGoal = lessonGoalFromSettings(block?.settings);
+    const nextRequired = block?.isRequired ?? false;
+    setTitle(nextTitle);
+    setBody(nextBody);
+    setMediaUrl(nextMediaUrl);
+    setMediaDuration(nextMediaDuration);
+    setSettings(nextSettings);
+    setLessonGoal(nextLessonGoal);
+    setRequired(nextRequired);
     setConfirmRemoval(false);
     setError(null);
+    setAutoSaveState("idle");
+    setLoadedBlockId(block?.id ?? null);
+    autoSaveBusyRef.current = false;
+    try {
+      lastSavedPayloadRef.current = block
+        ? JSON.stringify(makeBlockUpdatePayload(block, {
+          title: nextTitle,
+          body: nextBody,
+          mediaUrl: nextMediaUrl,
+          mediaDuration: nextMediaDuration,
+          settings: nextSettings,
+          lessonGoal: nextLessonGoal,
+          required: nextRequired,
+        }))
+        : null;
+    } catch {
+      lastSavedPayloadRef.current = null;
+    }
   }, [block]);
 
+  const currentPayload = useMemo(() => {
+    if (!block) return null;
+    try {
+      return makeBlockUpdatePayload(block, { title, body, mediaUrl, mediaDuration, settings, lessonGoal, required });
+    } catch {
+      return null;
+    }
+  }, [block, body, lessonGoal, mediaDuration, mediaUrl, required, settings, title]);
+  const currentPayloadKey = currentPayload ? JSON.stringify(currentPayload) : null;
+
+  useEffect(() => {
+    if (!block || loadedBlockId !== block.id || confirmRemoval) return;
+    if (!currentPayload || !currentPayloadKey) {
+      if (settings.trim()) setAutoSaveState("paused");
+      return;
+    }
+    if (lastSavedPayloadRef.current === currentPayloadKey || autoSaveBusyRef.current) return;
+
+    setAutoSaveState("idle");
+    const timer = window.setTimeout(() => {
+      autoSaveBusyRef.current = true;
+      setAutoSaveState("saving");
+      void api(`/api/admin/blocks/${block.id}`, "PATCH", currentPayload)
+        .then(() => {
+          lastSavedPayloadRef.current = currentPayloadKey;
+          setError(null);
+          setAutoSaveState("saved");
+        })
+        .catch((reason) => {
+          setAutoSaveState("paused");
+          setError(reason instanceof Error ? reason.message : "Auto-save could not save this lesson block.");
+        })
+        .finally(() => {
+          autoSaveBusyRef.current = false;
+          setAutoSaveCycle((value) => value + 1);
+        });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [autoSaveCycle, block, confirmRemoval, currentPayload, currentPayloadKey, loadedBlockId, settings]);
+
+  function closeEditor() {
+    router.refresh();
+    onClose();
+  }
+
   function save() {
-    if (!block) return;
+    if (!block || !currentPayload || !currentPayloadKey) {
+      setAutoSaveState("paused");
+      setError("Check the advanced settings JSON before saving this lesson block.");
+      return;
+    }
     startTransition(async () => {
       try {
-        await api(`/api/admin/blocks/${block.id}`, "PATCH", {
-          title: title.trim() || undefined,
-          content: updatedBlockContent(block.content, body, mediaUrl),
-          settings: settings.trim() ? JSON.parse(settings) : null,
-          isRequired: required,
-        });
+        await api(`/api/admin/blocks/${block.id}`, "PATCH", currentPayload);
+        lastSavedPayloadRef.current = currentPayloadKey;
+        setAutoSaveState("saved");
         router.refresh();
         onClose();
       } catch (reason) {
@@ -853,11 +914,11 @@ function BlockEditorDialog({
 
   const footer = confirmRemoval
     ? <><button type="button" onClick={() => setConfirmRemoval(false)} disabled={isPending} className={styles.secondaryButton}>Keep block</button><button type="button" onClick={remove} disabled={isPending} className={styles.dangerButton}>{isPending ? "Removing…" : "Remove block"}</button></>
-    : <><button type="button" onClick={() => setConfirmRemoval(true)} disabled={isPending} className={styles.dangerButton}>Remove block</button><span className={styles.footerSpacer} /><button type="button" onClick={onClose} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>;
+    : <><button type="button" onClick={() => setConfirmRemoval(true)} disabled={isPending || autoSaveState === "saving"} className={styles.dangerButton}>Remove block</button><span className={styles.footerSpacer} /><span aria-live="polite" data-state={autoSaveState} className={styles.autoSaveStatus}>{autoSaveState === "saving" ? "Saving…" : autoSaveState === "saved" ? "Saved" : autoSaveState === "paused" ? "Auto-save paused" : "Autosaves after a short pause"}</span><button type="button" onClick={closeEditor} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending || autoSaveState === "saving"} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>;
 
   return <AppModal
     open={block !== null}
-    onOpenChange={(open) => { if (!open) onClose(); }}
+    onOpenChange={(open) => { if (!open) closeEditor(); }}
     title={block?.title ?? block?.type ?? "Edit lesson block"}
     description="Edit the learner-facing content with rich formatting. Exercise blocks retain their tasks and open in the visual task editor."
     size="large"
@@ -865,8 +926,9 @@ function BlockEditorDialog({
   >
     <div className={styles.blockDialogFields}>
       <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} className={styles.field} /></label>
-      <label className={styles.fieldLabel}>Learner-facing text<RichTextEditor value={body} onChange={setBody} /></label>
-      {block && usesMediaUrl(block.type) ? <label className={styles.fieldLabel}>{block.type === "IMAGE" ? "Image" : block.type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label> : null}
+      <label className={styles.lessonGoalField}><input value={lessonGoal} onChange={(event) => setLessonGoal(event.target.value)} maxLength={240} aria-label="Lesson goal shown to the learner" placeholder="Lesson goal shown to the learner" className={`${styles.field} ${styles.lessonGoalInput}`} /></label>
+      <div className={styles.fieldLabel}><span>Learner-facing text</span><RichTextEditor value={body} onChange={setBody} /></div>
+      {block && usesMediaUrl(block.type) ? <div className={styles.mediaFields}><label className={styles.fieldLabel}>{block.type === "IMAGE" ? "Image" : block.type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label>{block.type !== "IMAGE" ? <label className={styles.fieldLabel}>Duration, seconds<input value={mediaDuration} onChange={(event) => setMediaDuration(event.target.value)} type="number" min="1" max="7200" inputMode="numeric" placeholder="Auto" className={styles.field} /></label> : null}</div> : null}
       <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
       <details className={styles.advancedFields}>
         <summary>Advanced settings</summary>
@@ -893,23 +955,34 @@ function timelineToneIndex(id: string) {
   return Math.abs(value) % 8;
 }
 
-function staticBlockSeconds(type: string) {
-  if (type === "VIDEO" || type === "LISTENING") return 60;
-  if (type === "THEORY" || type === "GRAMMAR" || type === "READING") return 45;
-  return 20;
-}
-
 function LessonTimeline({
   items,
   totalSeconds,
   activeId,
   onSelect,
+  onAddTheory,
+  onAddAudio,
+  onAddVideo,
+  onAddContentBlock,
+  onAddTask,
+  onNextStep,
+  onReorder,
+  isPending,
 }: {
   items: TimelineItem[];
   totalSeconds: number;
   activeId: string;
   onSelect: (item: TimelineItem) => void;
+  onAddTheory: () => void;
+  onAddAudio: () => void;
+  onAddVideo: () => void;
+  onAddContentBlock: () => void;
+  onAddTask: () => void;
+  onNextStep: () => void;
+  onReorder: (sourceBlockId: string, targetBlockId: string) => void;
+  isPending: boolean;
 }) {
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const minutes = Math.max(0, Math.round(totalSeconds / 60));
   const phase = totalSeconds < 900 ? "short" : totalSeconds <= 1500 ? "ideal" : "long";
   const copy = phase === "short"
@@ -920,9 +993,46 @@ function LessonTimeline({
   return <section className={`${styles.timerCard} ${styles[phase]}`}>
     <div className={styles.timerHeading}><div><p className={styles.eyebrow}>Smart lesson timer</p><strong>~{minutes} min</strong></div></div>
     <div className={styles.timerCopy}><div className={styles.timerTrack}><span style={{ width: `${Math.min(100, Math.round((totalSeconds / 1500) * 100))}%` }} /></div><p>{copy}</p></div>
+    <div className={styles.timelineActions} aria-label="Add a lesson block">
+      <button type="button" onClick={onAddTheory} className={styles.secondaryButton}>+ Theory</button>
+      <button type="button" onClick={onAddAudio} className={styles.secondaryButton}>+ Audio</button>
+      <button type="button" onClick={onAddVideo} className={styles.secondaryButton}>+ Video</button>
+      <button type="button" onClick={onAddContentBlock} className={styles.secondaryButton}>+ Content block</button>
+      <button type="button" onClick={onAddTask} className={styles.primaryButton}>+ Add task</button>
+      <button type="button" onClick={onNextStep} disabled={isPending} className={styles.secondaryButton}>{isPending ? "Creating…" : "Next step →"}</button>
+    </div>
     <nav className={styles.timeline} aria-label="Lesson block timeline">
-      {items.map((item, index) => <button key={item.id} type="button" onClick={() => onSelect(item)} data-tone={timelineToneIndex(item.id)} className={`${styles.timelineItem} ${item.exercise?.id === activeId || (item.kind === "draft" && activeId === "new") ? styles.timelineItemActive : ""}`}><span>{index + 1} · ~{item.seconds} sec</span><strong>{item.label}</strong><em>{item.kind === "exercise" ? "Task" : item.kind === "draft" ? "Draft" : item.block?.type}</em></button>)}
-      {items.length === 0 ? <p className={styles.emptySteps}>No lesson blocks yet. Create the first task from Explanation / theory.</p> : null}
+      {items.map((item, index) => {
+        const blockId = item.block?.id;
+        const draggable = Boolean(blockId) && !isPending;
+        return <button
+          key={item.id}
+          type="button"
+          draggable={draggable}
+          onClick={() => onSelect(item)}
+          onDragStart={(event) => {
+            if (!blockId) return;
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", blockId);
+            setDraggedBlockId(blockId);
+          }}
+          onDragEnd={() => setDraggedBlockId(null)}
+          onDragOver={(event) => {
+            if (draggable && draggedBlockId && draggedBlockId !== blockId) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const sourceBlockId = draggedBlockId ?? event.dataTransfer.getData("text/plain");
+            if (sourceBlockId && blockId && sourceBlockId !== blockId) onReorder(sourceBlockId, blockId);
+            setDraggedBlockId(null);
+          }}
+          data-tone={timelineToneIndex(item.id)}
+          data-dragging={draggedBlockId === blockId || undefined}
+          title={draggable ? "Drag to change this block's position" : undefined}
+          className={`${styles.timelineItem} ${item.exercise?.id === activeId || (item.kind === "draft" && activeId === "new") ? styles.timelineItemActive : ""}`}
+        ><span>{index + 1} · {item.seconds ? `~${item.seconds} sec` : "not estimated"}</span><strong>{item.label}</strong><em>{item.kind === "exercise" ? "Task" : item.kind === "draft" ? "Draft" : item.block?.type}</em></button>;
+      })}
+      {items.length === 0 ? <p className={styles.emptySteps}>No lesson blocks yet. Add theory, media or the first task above.</p> : null}
     </nav>
   </section>;
 }
@@ -937,37 +1047,40 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   const [editingNewTask, setEditingNewTask] = useState(false);
   const [hasPendingStep, setHasPendingStep] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<CmsLessonStepBlock | null>(null);
-  const [contentBlockCreatorOpen, setContentBlockCreatorOpen] = useState(false);
-  const [mediaDialog, setMediaDialog] = useState<"audio" | "video" | null>(null);
+  const [contentBlockType, setContentBlockType] = useState<ContentBlockType | null>(null);
   const [isPending, startTransition] = useTransition();
   const steps = useMemo(() => blocks.filter((block) => block.type === "EXERCISE").flatMap((block) => block.exercises.map((exercise) => ({ exercise, blockId: block.id }))), [blocks]);
   const activeStep = steps.find((step) => step.exercise.id === activeId);
   const timelineItems = useMemo<TimelineItem[]>(() => {
     const savedItems = blocks.flatMap<TimelineItem>((block) => {
     if (block.exercises.length) {
-      return block.exercises.map((exercise): TimelineItem => ({
+      return block.exercises.map((exercise, exerciseIndex): TimelineItem => ({
         id: `exercise-${exercise.id}`,
         label: exercise.question || block.title || "Untitled task",
         kind: "exercise",
         block,
         exercise,
-        seconds: estimatedSeconds(draftFrom(exercise, block.id)),
+        // The shared theory is counted exactly once: alongside the first task
+        // that follows it. All remaining tasks use their own authored data.
+        seconds: exerciseIndex === 0
+          ? estimateBlockSeconds({ ...block, exercises: [exercise] })
+          : estimateExerciseSeconds(exercise),
       }));
     }
-    return [{
-      id: `block-${block.id}`,
-      label: block.title || block.type.replace(/_/g, " "),
-      kind: "block",
-      block,
-      seconds: staticBlockSeconds(block.type),
-    }];
+      return [{
+        id: `block-${block.id}`,
+        label: block.title || block.type.replace(/_/g, " "),
+        kind: "block",
+        block,
+        seconds: estimateBlockSeconds(block),
+      }];
     });
     if (!hasPendingStep) return savedItems;
     return [...savedItems, {
       id: "draft-next-step",
       label: "New lesson step",
       kind: "draft",
-      seconds: editingNewTask ? estimatedSeconds(draft) : 20,
+      seconds: editingNewTask ? estimatedSeconds(draft) : 0,
     }];
   }, [blocks, draft, editingNewTask, hasPendingStep]);
   const totalSeconds = timelineItems.reduce((total, item) => total + item.seconds, 0);
@@ -994,6 +1107,12 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     if (!targetBlockId) setHasPendingStep(true);
     setTaskPanelOpen(true);
     setEnginePickerOpen(true);
+  }
+
+  function openContentBlockCreator(type: ContentBlockType = "THEORY") {
+    setTaskPanelOpen(false);
+    setEnginePickerOpen(false);
+    setContentBlockType(type);
   }
 
   function chooseEngine(engineKey: ExerciseEngineKey) {
@@ -1033,6 +1152,29 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setSelectedBlock(block);
   }
 
+  function removeActiveTaskBlock() {
+    const blockId = draft.blockId;
+    if (!blockId) return;
+    startTransition(async () => {
+      try {
+        const result = await api<{ action: "DELETED" | "ARCHIVED" }>(`/api/admin/blocks/${blockId}`, "DELETE");
+        setActiveId("new");
+        setDraft(defaultDraft());
+        setEditingNewTask(false);
+        setHasPendingStep(false);
+        setTaskPanelOpen(false);
+        setEnginePickerOpen(false);
+        setMessage(result.action === "DELETED"
+          ? "Task block removed from the lesson."
+          : "Task block archived because learner history exists.");
+        onContentChanged?.();
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Unable to remove this task block.");
+      }
+    });
+  }
+
   function closeTaskPanel() {
     setTaskPanelOpen(false);
     setEnginePickerOpen(false);
@@ -1044,8 +1186,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setEnginePickerOpen(false);
     if (item.kind === "draft") {
       setMessage(null);
-      setActiveId("new");
-      setEditingNewTask(false);
+      openTaskPicker();
       return;
     }
     if (item.exercise) {
@@ -1060,16 +1201,31 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
         selectStep(block.exercises[0].id);
         return;
       }
-      setActiveId("new");
-      setDraft((current) => ({
-        ...defaultDraft(current.theory),
-        blockId: block.id,
-        duration: current.duration,
-      }));
-      setEditingNewTask(true);
+      openTaskPicker(block.id);
       return;
     }
     setSelectedBlock(block);
+  }
+
+  function reorderLessonBlocks(sourceBlockId: string, targetBlockId: string) {
+    if (sourceBlockId === targetBlockId) return;
+    const sourceIndex = blocks.findIndex((block) => block.id === sourceBlockId);
+    const targetIndex = blocks.findIndex((block) => block.id === targetBlockId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const ordered = [...blocks];
+    const [source] = ordered.splice(sourceIndex, 1);
+    ordered.splice(targetIndex, 0, source);
+
+    startTransition(async () => {
+      try {
+        await api("/api/admin/cms/content/LESSON_BLOCK/reorder", "PUT", { orderedIds: ordered.map((block) => block.id) });
+        setMessage("Lesson block order saved.");
+        onContentChanged?.();
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Unable to reorder lesson blocks.");
+      }
+    });
   }
 
   function saveAndNext() {
@@ -1094,37 +1250,37 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   }
 
   return <section className={styles.player} aria-label="WYSIWYG lesson builder">
-    <LessonTimeline items={timelineItems} totalSeconds={totalSeconds} activeId={activeId} onSelect={selectTimelineItem} />
+    <LessonTimeline
+      items={timelineItems}
+      totalSeconds={totalSeconds}
+      activeId={activeId}
+      onSelect={selectTimelineItem}
+      onAddTheory={() => openContentBlockCreator("THEORY")}
+      onAddAudio={() => openContentBlockCreator("LISTENING")}
+      onAddVideo={() => openContentBlockCreator("VIDEO")}
+      onAddContentBlock={() => openContentBlockCreator()}
+      onAddTask={() => openTaskPicker()}
+      onNextStep={createNextStep}
+      onReorder={reorderLessonBlocks}
+      isPending={isPending}
+    />
     <div className={styles.workspace}>
-      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onEditBlock={openDraftBlockSettings} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
+      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
       <div className={styles.authorColumn}>
-      <TheoryEditor
-        theory={draft.theory}
-        onChange={(theory) => setDraft({ ...draft, theory })}
-        onAddAudio={() => setMediaDialog("audio")}
-        onAddVideo={() => setMediaDialog("video")}
-        onAddContentBlock={() => setContentBlockCreatorOpen(true)}
-        onAddTask={() => openTaskPicker()}
-        onNextStep={createNextStep}
-        nextStepPending={isPending}
-      />
       <div className={styles.authorScroll}>
-        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} onEditBlock={openDraftBlockSettings} />)}
-        {!taskPanelOpen && (activeId !== "new" || editingNewTask) ? <div className={styles.saveBar}><p>{activeStep ? "Changes update this learner slide." : "Configure the task, test it on the right, then save."}</p><button type="button" disabled={isPending} onClick={saveAndNext} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div> : null}
+        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} isBusy={isPending} />)}
+        {!taskPanelOpen && (activeId !== "new" || editingNewTask) ? <div className={styles.saveBar}><p>{activeStep ? "Changes update this task." : "Configure the task, then save."}</p><button type="button" disabled={isPending} onClick={saveAndNext} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div> : null}
         {message ? <p role="status" className={styles.statusMessage}>{message}</p> : null}
       </div>
       </div>
-      <aside className={styles.previewColumn}>
-      <LearnerSlidePreview key={`${activeId}-${draft.engineKey}`} draft={draft} />
-    </aside>
     </div>
-    <MediaDialog kind={mediaDialog} value={mediaDialog === "audio" ? draft.theory.audioUrl : draft.theory.videoUrl} onClose={() => setMediaDialog(null)} onSave={(value) => setDraft((current) => ({ ...current, theory: mediaDialog === "audio" ? { ...current.theory, audioUrl: value } : { ...current.theory, videoUrl: value } }))} />
     <ContentBlockDialog
-      open={contentBlockCreatorOpen}
+      open={contentBlockType !== null}
+      initialType={contentBlockType ?? "THEORY"}
       lessonId={lessonId}
-      onClose={() => setContentBlockCreatorOpen(false)}
+      onClose={() => setContentBlockType(null)}
       onCreated={(type) => {
-        setContentBlockCreatorOpen(false);
+        setContentBlockType(null);
         setMessage(`${type.replace(/_/g, " ")} block added. Select it on the timeline to continue editing.`);
         onContentChanged?.();
         router.refresh();

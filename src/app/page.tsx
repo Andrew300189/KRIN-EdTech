@@ -101,9 +101,8 @@ export default async function Home() {
       <section className={styles.hero}>
         <div className={`${styles.shell} ${styles.heroGrid}`}>
           <div>
-            <p className={styles.eyebrow}>English courses A1–C2</p>
             <h1 className={styles.heroTitle}>
-              Choose an English course with a clear next step.
+              Master your skills. Grow. Win. Get results.
             </h1>
             <p className={styles.heroCopy}>
               Explore published courses by level and focus, try a real lesson
@@ -156,7 +155,6 @@ export default async function Home() {
       <section className={`${styles.section} ${styles.whiteSection}`}>
         <div className={styles.shell}>
           <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>How it works</p>
             <h2>A practical route from choosing to learning.</h2>
           </div>
           <div className={styles.stepsV2}>
@@ -195,7 +193,6 @@ export default async function Home() {
         <section className={styles.section}>
           <div className={styles.shell}>
             <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>Choose a focus</p>
               <h2>Start with the part of English you want to improve.</h2>
               <p>
                 These directions are managed in the CMS and shown only when they
@@ -233,7 +230,6 @@ export default async function Home() {
       >
         <div className={styles.shell}>
           <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>All courses</p>
             <h2>Choose the direction that fits your goal.</h2>
             <p>
               Start with the complete catalogue or open a focused collection.
@@ -243,7 +239,6 @@ export default async function Home() {
           </div>
           <div className={styles.productCollections}>
             <Link href="/courses" className={styles.productCollectionCard} data-ao="fade-left" data-ao-delay="1">
-              <span className={styles.collectionLabel}>All courses</span>
               <h3>Browse every published English course.</h3>
               <p>
                 Filter the live catalogue by level, direction, format and
@@ -252,7 +247,6 @@ export default async function Home() {
               <span className={styles.linkArrow}>Browse all courses →</span>
             </Link>
             <Link href="/courses?category=general-english" className={styles.productCollectionCard} data-ao="fade-up" data-ao-delay="2">
-              <span className={styles.collectionLabel}>School &amp; General English</span>
               <h3>Strengthen the English you use in everyday study.</h3>
               <p>
                 Practise core grammar, vocabulary and communication through
@@ -261,7 +255,6 @@ export default async function Home() {
               <span className={styles.linkArrow}>Explore General English →</span>
             </Link>
             <Link href="/professional" className={styles.productCollectionCard} data-ao="fade-up" data-ao-delay="3">
-              <span className={styles.collectionLabel}>Professional English</span>
               <h3>Use English with more confidence at work.</h3>
               <p>
                 Browse courses authored for professional contexts, each with a
@@ -270,7 +263,6 @@ export default async function Home() {
               <span className={styles.linkArrow}>Explore Professional English →</span>
             </Link>
             <Link href="/tests" className={styles.productCollectionCard} data-ao="fade-right" data-ao-delay="4">
-              <span className={styles.collectionLabel}>English tests</span>
               <h3>Prepare with a clear published course structure.</h3>
               <p>
                 Open test and exam-preparation courses, then review access and
@@ -291,7 +283,6 @@ export default async function Home() {
         >
           <div className={styles.shell}>
             <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="1">
-              <p className={styles.eyebrow}>Levels</p>
               <h2>
                 Stay within the level that matches your current learning stage.
               </h2>
@@ -325,7 +316,6 @@ export default async function Home() {
       <section className={styles.section}>
         <div className={`${styles.shell} ${styles.structure}`} data-ao="fade-up" data-ao-delay="1">
           <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="2">
-            <p className={styles.eyebrow}>Before you enrol</p>
             <h2>See what a course contains before you choose access.</h2>
             <p>
               Every public course page shows its published outline. Where a
@@ -389,7 +379,6 @@ export default async function Home() {
         <section className={`${styles.section} ${styles.whiteSection}`}>
           <div className={styles.shell}>
             <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>Selected in CMS</p>
               <h2>Featured courses</h2>
               <p>
                 Only courses selected by the platform owner appear in this
@@ -424,7 +413,6 @@ export default async function Home() {
         <section className={styles.section}>
           <div className={styles.shell}>
             <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>Curriculum</p>
               <h2>Explore published subjects inside each level.</h2>
             </div>
             <div className={styles.curriculumGrid}>
@@ -465,7 +453,6 @@ export default async function Home() {
         <div className={styles.shell}>
           <div className={styles.pricingBandInner}>
             <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>Access and pricing</p>
               <h2>Choose from the essential access options.</h2>
               <p>
                 Only up to four active public options are shown here. The exact
@@ -510,7 +497,6 @@ export default async function Home() {
             </div>
           ) : (
             <div className={styles.pricingBand}>
-              <p className={styles.eyebrow}>Access and pricing</p>
               <h2>Pricing is being prepared.</h2>
               <p>
                 Public price options will appear here as soon as the owner
@@ -524,7 +510,6 @@ export default async function Home() {
       <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.sectionHeading} data-ao="fade-up" data-ao-delay="1">
-            <p className={styles.eyebrow}>Questions</p>
             <h2>Clear information before you start.</h2>
           </div>
           <FaqAccordion className={styles.faqV2}>
@@ -615,25 +600,6 @@ export default async function Home() {
               </details>
             </div>
           </FaqAccordion>
-        </div>
-      </section>
-
-      <section className={styles.finalCtaV2}>
-        <div className={styles.shell}>
-          <p className={styles.eyebrow}>Your next step</p>
-          <h2>Find a course that fits the level and focus you choose.</h2>
-          <p>
-            The finder is a transparent catalogue guide, not a simulated
-            placement test.
-          </p>
-          <div className={styles.actions}>
-            <Link href="/course-finder" className={styles.heroPrimaryBtn}>
-              🎯 Find my course
-            </Link>
-            <Link href="/courses" className={styles.secondaryButton}>
-              Open catalogue
-            </Link>
-          </div>
         </div>
       </section>
 

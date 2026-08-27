@@ -14,6 +14,23 @@
   box-sizing: border-box;
 }
 
+/* Keep scrolling available for mouse wheels, touchpads, touch and keyboards,
+   while removing the visual browser chrome from every scrollable surface.
+   Components may still opt into a visible scrollbar only when it is an
+   essential part of their interaction. */
+*,
+*::before,
+*::after {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--background);
@@ -69,6 +86,38 @@ button {
   outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
+
+/* Safe rich text authored in the CMS. The sanitizer keeps only document
+   semantics and an allow-list of inline formatting, so these styles can be
+   shared by the editor preview and the learner-facing lesson. */
+.lesson-rich-content {
+  overflow-wrap: anywhere;
+}
+
+.lesson-rich-content :is(h1, h2, h3, h4, h5, h6) {
+  color: inherit;
+  line-height: 1.22;
+  margin: 0.8em 0 0.35em;
+}
+
+.lesson-rich-content :is(h1, h2, h3) {
+  font-weight: 800;
+}
+
+.lesson-rich-content h1 { font-size: 1.45em; }
+.lesson-rich-content h2 { font-size: 1.28em; }
+.lesson-rich-content h3 { font-size: 1.12em; }
+.lesson-rich-content :is(h4, h5, h6) { font-size: 1em; font-weight: 750; }
+.lesson-rich-content :is(p, div, ul, ol, blockquote, pre) { margin: 0.55em 0; }
+.lesson-rich-content :is(ul, ol) { padding-left: 1.4em; }
+.lesson-rich-content ul { list-style: disc; }
+.lesson-rich-content ol { list-style: decimal; }
+.lesson-rich-content blockquote { border-left: 3px solid color-mix(in srgb, var(--primary) 45%, transparent); padding-left: 0.8em; }
+.lesson-rich-content pre { overflow: auto; border-radius: 0.65rem; background: var(--surface-secondary); padding: 0.75rem; white-space: pre-wrap; }
+.lesson-rich-content table { width: 100%; max-width: 100%; border-collapse: collapse; margin: 0.85em 0; }
+.lesson-rich-content :is(th, td) { border: 1px solid var(--border); padding: 0.5em 0.65em; text-align: left; vertical-align: top; }
+.lesson-rich-content th { background: var(--surface-secondary); font-weight: 800; }
+.lesson-rich-content caption { color: var(--text-secondary); font-size: 0.9em; font-weight: 700; margin-bottom: 0.35em; text-align: left; }
 
 @media (max-width: 640px) {
   h1 {

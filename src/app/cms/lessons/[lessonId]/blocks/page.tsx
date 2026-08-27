@@ -22,6 +22,7 @@ export default async function CmsLessonBlocksPage({
       where: { id: lessonId },
       include: {
         blocks: {
+          where: { contentStatus: { not: "ARCHIVED" } },
           orderBy: { order: "asc" },
           include: {
             exercises: {
