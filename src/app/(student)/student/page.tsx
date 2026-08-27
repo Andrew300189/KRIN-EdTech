@@ -5,8 +5,10 @@ import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBan
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
 import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
 import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
+import { getPlacementDashboardResult } from "@/modules/courses/services/placement-test.service";
 import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
+import { PlacementResultSync } from "./PlacementResultSync";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -31,7 +33,7 @@ export default async function StudentHomePage({
   if (!guard.ok) return null;
   const isFirstVisit = (await searchParams).firstVisit === "1";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -48,6 +50,7 @@ export default async function StudentHomePage({
         lesson: { select: { title: true, slug: true, module: { select: { course: { select: { slug: true } } } } } },
       },
     }),
+    getPlacementDashboardResult(guard.user.id),
   ]);
 
   const next = courses.find((course) => course.nextLesson) ?? courses[0];
@@ -71,6 +74,7 @@ export default async function StudentHomePage({
   return (
     <section className={styles.page}>
       <FirstVisitQueryCleaner active={isFirstVisit} />
+      <PlacementResultSync />
       <header className={styles.hero}>
         <div>
           <p className={styles.eyebrow}>Your learning space</p>
@@ -82,6 +86,26 @@ export default async function StudentHomePage({
           <Link href="/profile/support" className={styles.secondaryAction}>Help</Link>
         </div>
       </header>
+
+      {placementResult ? <section className={styles.placementPanel} aria-label="Your placement test result">
+        <div className={styles.placementSummary}>
+          <p className={styles.eyebrow}>Your placement result</p>
+          <div className={styles.placementHeading}>
+            <span className={styles.placementLevel}>{placementResult.level ?? "A1"}</span>
+            <div>
+              <h3>{placementResult.level ? `You are ready to start at ${placementResult.level}` : "Start with an A1 foundation"}</h3>
+              <p>{placementResult.level ? `${placementResult.correctAnswers} of ${placementResult.questionCount} answers correct · ${placementResult.scorePercent}% overall` : `Your first result was ${placementResult.scorePercent}%. Build the basics with an A1 route, then retake the test when you are ready.`}</p>
+            </div>
+          </div>
+        </div>
+        <div className={styles.placementRecommendations}>
+          <div className={styles.placementRecommendationsHeading}>
+            <div><p>Recommended for {placementResult.recommendationLevel}</p><span>Published courses matched to your result</span></div>
+            <Link href={`/student/catalog?level=${placementResult.recommendationLevel}`} className={styles.placementCatalogLink}>My {placementResult.recommendationLevel} courses</Link>
+          </div>
+          {placementResult.recommendations.length ? <div className={styles.placementCourseList}>{placementResult.recommendations.map((course) => <Link key={course.id} href={`/courses/catalog/${course.slug}`} className={styles.placementCourse}><span>{course.category}</span><strong>{course.title}</strong><small>{course.accessPlan === "FREE" ? "Free to start" : "Access available"}</small></Link>)}</div> : <div className={styles.placementEmpty}><p>Courses for {placementResult.recommendationLevel} are being prepared. You can still browse the available catalogue.</p><Link href={`/student/catalog?level=${placementResult.recommendationLevel}`}>Browse my level</Link></div>}
+        </div>
+      </section> : null}
 
       <CmsManagedSlotBanner slot={managedSlot} variant="compact" />
 

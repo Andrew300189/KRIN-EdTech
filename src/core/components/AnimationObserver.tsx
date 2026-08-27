@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 
 /**
- * Watches [data-ao] elements and reveals them on scroll via inline styles.
+ * Reveals [data-ao] elements as they enter the viewport.
  * Reads data-ao-delay (integer index) for stagger: each step = 80ms.
- * Uses JS to hide elements so SSR renders them visible (no layout flash).
- * Replays the animation every time the element leaves and re-enters the viewport.
+ * Uses IntersectionObserver instead of running layout reads for every element
+ * on every scroll event. Elements remain visible after their first reveal.
  */
 export function AnimationObserver() {
   useEffect(() => {
@@ -43,43 +43,22 @@ export function AnimationObserver() {
       el.dataset.aoActive = "true";
     };
 
-    const updateVisibility = () => {
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    els.forEach(resetHiddenState);
 
-      els.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        const inViewport = rect.top < viewportHeight && rect.bottom > 0;
-        const delay = Number(el.dataset.aoDelay ?? 0) * 80;
-        el.style.transition = `opacity 0.55s cubic-bezier(0.4,0,0.2,1) ${delay}ms, transform 0.55s cubic-bezier(0.4,0,0.2,1) ${delay}ms`;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const element = entry.target as HTMLElement;
+          revealElement(element);
+          observer.unobserve(element);
+        });
+      },
+      { threshold: 0.02, rootMargin: "0px 0px -2%" },
+    );
 
-        if (inViewport) {
-          if (el.dataset.aoActive !== "true") {
-            revealElement(el);
-          }
-          return;
-        }
-
-        if (el.dataset.aoActive === "true") {
-          resetHiddenState(el);
-        }
-      });
-    };
-
-    els.forEach((el) => {
-      resetHiddenState(el);
-    });
-
-    updateVisibility();
-
-    window.addEventListener("scroll", updateVisibility, { passive: true });
-    window.addEventListener("resize", updateVisibility);
-    document.addEventListener("visibilitychange", updateVisibility);
-
-    return () => {
-      window.removeEventListener("scroll", updateVisibility);
-      window.removeEventListener("resize", updateVisibility);
-      document.removeEventListener("visibilitychange", updateVisibility);
-    };
+    els.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
   }, []);
 
   return null;

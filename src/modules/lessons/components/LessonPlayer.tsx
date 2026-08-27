@@ -75,6 +75,12 @@ function exerciseTheory(block: LessonBlock) {
   return context.text.trim();
 }
 
+/** A CMS author can set a concise, step-specific goal separately from theory. */
+function learnerGoalForBlock(block: LessonBlock) {
+  const goal = asObject(block.settings).lessonGoal;
+  return typeof goal === "string" && goal.trim() ? goal.trim() : null;
+}
+
 /** A lesson may be edited after someone has started it. Never let a removed
  * block id from an older progress snapshot inflate the percentage or lock the
  * current lesson. */
@@ -167,15 +173,13 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
+  const isFinalBlock = Boolean(activeBlock && activeIndex === blocks.length - 1);
   const isReviewSession = Boolean(reviewSession);
   const reviewDialogOpen = Boolean(reviewIntroOpen || reviewTransition || reviewComplete);
   const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
   const isInteractiveStep = Boolean(activeBlock?.type === "EXERCISE" && activeBlock.exercises.length);
   const lessonIsCompleted = storedProgress?.status === "COMPLETED";
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
-  const canFinishAfterActiveStep = useMemo(() => blocks
-    .filter((block) => block.isRequired)
-    .every((block) => completedBlocks.includes(block.id) || block.id === activeBlock?.id), [activeBlock?.id, blocks, completedBlocks]);
   const attemptedExerciseIds = useMemo(() => new Set(visitExerciseIds), [visitExerciseIds]);
   const progressPercent = useMemo(() => {
     if (blocks.length === 0) return 0;
@@ -476,6 +480,16 @@ export function LessonPlayer({
     setFinished(true);
   }
 
+  function goToPreviousBlock() {
+    const previousBlock = blocks[activeIndex - 1];
+    if (!previousBlock) return;
+    if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
+    autoAdvanceTimerRef.current = null;
+    setAutoAdvanceRequested(false);
+    setCurrentBlockId(previousBlock.id);
+    void persistProgress(false, { completed: completedBlocks, current: previousBlock.id });
+  }
+
   advanceStepRef.current = () => { void advanceStep(); };
 
   async function leaveLesson() {
@@ -497,15 +511,35 @@ export function LessonPlayer({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      void leaveLesson();
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      const isEditingText = target instanceof HTMLElement && Boolean(
+        target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'),
+      );
+      if (isEditingText) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void leaveLesson();
+        return;
+      }
+
+      if (isReviewSession) return;
+      if (event.key === "ArrowLeft" && activeIndex > 0) {
+        event.preventDefault();
+        goToPreviousBlock();
+        return;
+      }
+      if (event.key === "ArrowRight" && canAdvance) {
+        event.preventDefault();
+        void advanceStep();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  // `leaveLesson` intentionally reads the latest saved state from this render.
+  // The callback deliberately uses the latest player state for navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBlockId, completedBlocks, canSaveProgress, previewMode]);
+  }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, isReviewSession, previewMode]);
 
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
@@ -513,6 +547,30 @@ export function LessonPlayer({
   return (
     <main className={styles.player}>
       <RewardNotification events={rewardEvents} />
+      {!isReviewSession && activeBlock ? (
+        <nav className={styles.sideNavigation} aria-label="Lesson step navigation">
+          <button
+            type="button"
+            className={`${styles.sideNavigationButton} ${styles.sideNavigationPrevious}`}
+            disabled={activeIndex === 0}
+            onClick={goToPreviousBlock}
+            aria-label="Previous lesson step"
+            title="Previous step"
+          >
+            <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className={`${styles.sideNavigationButton} ${styles.sideNavigationNext} ${isFinalBlock ? styles.sideNavigationFinish : ""}`}
+            disabled={!canAdvance}
+            onClick={() => void advanceStep()}
+            aria-label={isFinalBlock ? "Finish lesson" : "Next lesson step"}
+            title={isFinalBlock ? "Finish lesson" : "Next step"}
+          >
+            {isFinalBlock ? <span>Finish</span> : <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />}
+          </button>
+        </nav>
+      ) : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and exit lesson">Save & exit</button>
@@ -560,7 +618,6 @@ export function LessonPlayer({
           </div>
           <div className={styles.stepArea}>
             <ExperienceStatus />
-            <span className={styles.stepCounter}>{lessonIsCompleted ? "Review " : ""}step {blocks.length ? activeIndex + 1 : 0} of {blocks.length}</span>
           </div>
         </header>
 
@@ -627,14 +684,14 @@ export function LessonPlayer({
               </section>
             ) : null}
 
-            <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""}`}>
-              {activeBlock.type !== "EXERCISE" ? <div className={styles.taskTopline}>
-                <span className={styles.taskType}>{activeBlock.type === "INTRO" ? "Lesson goal" : activeBlock.type.replace(/_/g, " ")}</span>
+            <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""}`}>
+              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" ? <div className={styles.taskTopline}>
+                <span className={styles.taskType}>{activeBlock.type.replace(/_/g, " ")}</span>
                 {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
               </div> : null}
               <div className={styles.lessonGoalTop}>
-                <span className={styles.lessonGoalTopLabel}>Lesson goal</span>
-                <p>{objectiveItems[0] ?? "Take one focused step at a time."}</p>
+                <span className={styles.lessonGoalTopLabel}>Цель урока</span>
+                <p>{learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
               </div>
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
@@ -692,12 +749,9 @@ export function LessonPlayer({
               </div>
             </article>
 
-            <footer className={styles.footer}>
-              {reviewReturnPending ? <p className={styles.footerNote} role="status">Mistake fixed. Returning to your review list…</p> : isReviewSession ? <p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p> : isInteractiveStep && !stepVerified ? <p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p> : <span />}
-              <div className={styles.footerActions}>
-                {!isReviewSession ? <button type="button" className={activeIndex === blocks.length - 1 ? styles.finishButton : styles.nextButton} disabled={!canAdvance} onClick={() => void advanceStep()}>{activeIndex === blocks.length - 1 ? canFinishAfterActiveStep ? "Finish lesson" : "Finish for now" : "Next step"}</button> : null}
-              </div>
-            </footer>
+            {reviewReturnPending ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Mistake fixed. Returning to your review list…</p></footer> : null}
+            {!reviewReturnPending && isReviewSession ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p></footer> : null}
+            {!reviewReturnPending && !isReviewSession && isInteractiveStep && !stepVerified ? <footer className={styles.footer}><p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p></footer> : null}
           </section>
         )}
 

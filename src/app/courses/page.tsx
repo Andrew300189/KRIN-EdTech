@@ -253,7 +253,12 @@ export default async function CoursesPage({
                   >
                     <div className={styles.cover}>
                       {course.coverImage ? (
-                        <img src={course.coverImage} alt={`Cover for ${course.title}`} />
+                        <img
+                          src={course.coverImage}
+                          alt={`Cover for ${course.title}`}
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : (
                         <div className={styles.coverFallback} aria-hidden="true">
                           <span>{course.level.code}</span>

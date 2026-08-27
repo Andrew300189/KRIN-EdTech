@@ -1,7 +1,20 @@
 .section {
+  position: relative;
   padding: 88px 0;
   background: #fff;
   overflow: hidden;
+}
+
+.section::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  height: 1px;
+  pointer-events: none;
+  background: radial-gradient(ellipse 56% 100% at 50% 50%, var(--border) 0%, color-mix(in srgb, var(--border) 84%, transparent) 42%, transparent 100%);
 }
 
 .shell {
@@ -16,15 +29,6 @@
 .header {
   position: sticky;
   top: 100px;
-}
-
-.eyebrow {
-  margin: 0;
-  color: #5148db;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
 }
 
 .heading {

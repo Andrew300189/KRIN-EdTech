@@ -116,7 +116,9 @@ export function HomeCounterBanner({
   useEffect(() => {
     if (!isVisible) return;
 
-    void refreshStatistics();
+    // The server-rendered value is already fresh for this page visit. Waiting
+    // for the regular refresh avoids immediately repeating four aggregate
+    // database counts as soon as this decorative banner enters the viewport.
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") {
         void refreshStatistics();

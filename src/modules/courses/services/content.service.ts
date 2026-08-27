@@ -28,7 +28,7 @@ import { notificationService } from "@/modules/communications/services/notificat
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
-import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration } from "@/modules/cms/services/course-duration.service";
+import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLessonEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
 
@@ -1109,6 +1109,8 @@ export async function removeLessonBlock(actorId: string, blockId: string) {
       snapshot: archived,
       note: "Archived instead of deletion because learner history exists.",
     });
+    await syncLessonEstimatedDuration(archived.lessonId);
+    await syncCourseEstimatedDuration(block.lesson.module.courseId);
     return { action: "ARCHIVED" as const, id: archived.id };
   }
 
@@ -1133,6 +1135,7 @@ export async function removeLessonBlock(actorId: string, blockId: string) {
     snapshot: block,
     note: "Removed before learners created history.",
   });
+  await syncLessonEstimatedDuration(block.lessonId);
   await syncCourseEstimatedDuration(block.lesson.module.courseId);
   return { action: "DELETED" as const, id: block.id };
 }

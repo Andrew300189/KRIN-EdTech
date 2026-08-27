@@ -4,15 +4,39 @@ const allowedTags = new Set([
   "i",
   "em",
   "u",
+  "s",
+  "strike",
+  "del",
+  "mark",
+  "small",
+  "sub",
+  "sup",
   "p",
+  "div",
   "br",
   "ul",
   "ol",
   "li",
   "blockquote",
+  "pre",
+  "code",
+  "hr",
+  "h1",
+  "h2",
   "h3",
+  "h4",
+  "h5",
+  "h6",
   "span",
   "font",
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "th",
+  "td",
+  "caption",
 ]);
 
 const dropWithContents = new Set(["script", "style", "iframe", "object", "embed", "link", "meta"]);
@@ -28,20 +52,81 @@ function escapeHtml(value: string) {
 
 function safeTextColor(value: string | null) {
   const color = value?.trim() ?? "";
-  // The editor supplies hex values. Keeping this deliberately narrow means a
-  // lesson author can colour text without being able to inject arbitrary CSS.
-  return /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/iu.test(color) ? color.toLowerCase() : null;
+  // Word and Google Docs usually paste colours as hex or rgb(). Named colours
+  // are also harmless CSS values; URLs and arbitrary CSS functions are not.
+  return /^(?:#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%deg]+\)|transparent|currentcolor|[a-z]{3,20})$/iu.test(color)
+    ? color.toLowerCase()
+    : null;
 }
 
-function safeInlineTextColor(value: string | null) {
-  const match = value?.match(/^\s*color\s*:\s*(#[0-9a-f]{3}(?:[0-9a-f]{3})?)\s*;?\s*$/iu);
-  return safeTextColor(match?.[1] ?? null);
+function safeLength(value: string | null, { allowAuto = false, allowNegative = false }: { allowAuto?: boolean; allowNegative?: boolean } = {}) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  if (allowAuto && normalized === "auto") return normalized;
+  const sign = allowNegative ? "-?" : "";
+  return new RegExp(`^${sign}(?:\\d+|\\d*\\.\\d+)(?:px|pt|pc|em|rem|ex|ch|vh|vw|vmin|vmax|%)?$`, "u").test(normalized)
+    ? normalized
+    : null;
+}
+
+function safeFontFamily(value: string | null) {
+  const normalized = value?.trim() ?? "";
+  return /^[a-z0-9 ,"'_-]{1,160}$/iu.test(normalized) ? normalized : null;
+}
+
+function safeTextAlign(value: string | null) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return /^(?:left|right|center|justify|start|end)$/u.test(normalized) ? normalized : null;
+}
+
+function safeStyle(element: Element) {
+  const read = (property: string) => element.getAttribute("style")
+    ? (element as HTMLElement).style.getPropertyValue(property)
+    : "";
+  const styles: string[] = [];
+  const add = (property: string, value: string | null) => { if (value) styles.push(`${property}: ${value}`); };
+
+  add("color", safeTextColor(read("color") || element.getAttribute("color")));
+  add("background-color", safeTextColor(read("background-color") || element.getAttribute("bgcolor")));
+  add("text-align", safeTextAlign(read("text-align") || element.getAttribute("align")));
+  add("font-family", safeFontFamily(read("font-family") || element.getAttribute("face")));
+  add("font-size", safeLength(read("font-size") || element.getAttribute("size")));
+  add("line-height", safeLength(read("line-height")) || (/^(?:normal|[\d.]+)$/u.test(read("line-height").trim()) ? read("line-height").trim() : null));
+  add("letter-spacing", read("letter-spacing").trim() === "normal" ? "normal" : safeLength(read("letter-spacing"), { allowNegative: true }));
+  add("word-spacing", read("word-spacing").trim() === "normal" ? "normal" : safeLength(read("word-spacing"), { allowNegative: true }));
+  add("text-indent", safeLength(read("text-indent"), { allowNegative: true }));
+  add("margin-top", safeLength(read("margin-top"), { allowAuto: true, allowNegative: true }));
+  add("margin-bottom", safeLength(read("margin-bottom"), { allowAuto: true, allowNegative: true }));
+  add("margin-left", safeLength(read("margin-left"), { allowAuto: true, allowNegative: true }));
+  add("padding-left", safeLength(read("padding-left")));
+  add("padding-right", safeLength(read("padding-right")));
+  add("vertical-align", /^(?:baseline|sub|super|top|middle|bottom|text-top|text-bottom)$/u.test(read("vertical-align").trim()) ? read("vertical-align").trim() : null);
+
+  const weight = read("font-weight").trim().toLowerCase();
+  add("font-weight", /^(?:normal|bold|bolder|lighter|[1-9]00)$/u.test(weight) ? weight : null);
+  const fontStyle = read("font-style").trim().toLowerCase();
+  add("font-style", /^(?:normal|italic|oblique)$/u.test(fontStyle) ? fontStyle : null);
+  const decoration = read("text-decoration").trim().toLowerCase();
+  add("text-decoration", /^(?:none|underline|line-through|underline line-through|line-through underline)$/u.test(decoration) ? decoration : null);
+
+  const width = safeLength(read("width"), { allowAuto: true });
+  add("width", width);
+  if (element.tagName.toLowerCase() === "table") {
+    add("border-collapse", /^(?:collapse|separate)$/u.test(read("border-collapse").trim()) ? read("border-collapse").trim() : null);
+    add("border-spacing", safeLength(read("border-spacing")));
+  }
+
+  return styles.join("; ");
+}
+
+function safeSpan(value: string | null) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 50 ? String(parsed) : null;
 }
 
 /**
  * Theory is owner-authored but still crosses a database boundary before it is
- * rendered for learners. Keep formatting intentionally small and strip every
- * attribute so that saved HTML cannot execute code or load remote resources.
+ * rendered for learners. Preserve useful document formatting from Word/Docs,
+ * while stripping executable markup, URLs and arbitrary CSS.
  */
 export function sanitizeLessonRichText(value: string | null | undefined) {
   const source = value?.trim() ?? "";
@@ -61,11 +146,15 @@ export function sanitizeLessonRichText(value: string | null | undefined) {
         child.replaceWith(...Array.from(child.childNodes));
         continue;
       }
-      const fontColor = safeTextColor(child.getAttribute("color"));
-      const inlineColor = safeInlineTextColor(child.getAttribute("style"));
+      const style = safeStyle(child);
+      const colSpan = tag === "td" || tag === "th" ? safeSpan(child.getAttribute("colspan")) : null;
+      const rowSpan = tag === "td" || tag === "th" ? safeSpan(child.getAttribute("rowspan")) : null;
+      const listStart = tag === "ol" ? safeSpan(child.getAttribute("start")) : null;
       for (const attribute of Array.from(child.attributes)) child.removeAttribute(attribute.name);
-      if (tag === "font" && fontColor) child.setAttribute("color", fontColor);
-      if (tag === "span" && inlineColor) child.setAttribute("style", `color: ${inlineColor}`);
+      if (style) child.setAttribute("style", style);
+      if (colSpan) child.setAttribute("colspan", colSpan);
+      if (rowSpan) child.setAttribute("rowspan", rowSpan);
+      if (listStart) child.setAttribute("start", listStart);
     }
   };
 

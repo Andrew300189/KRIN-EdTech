@@ -11,6 +11,11 @@ const nextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  experimental: {
+    // These libraries expose large barrel exports. Let Next rewrite the
+    // imports to the exact icons/chart modules used by each client route.
+    optimizePackageImports: ["lucide-react", "recharts"],
+  },
   async rewrites() {
     return {
       beforeFiles: [

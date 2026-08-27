@@ -369,6 +369,47 @@
   font-size: 0.85rem;
 }
 
+.ptResultGate {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.ptResultGateIcon {
+  display: grid;
+  width: 4.4rem;
+  height: 4.4rem;
+  place-items: center;
+  margin-bottom: 0.8rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 1.35rem;
+  background: linear-gradient(145deg, #eef2ff, #f8faff);
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.14);
+  font-size: 1.8rem;
+}
+
+.ptResultGate .ptResultSub {
+  max-width: 26rem;
+  line-height: 1.55;
+}
+
+.ptResultGate .ptCta {
+  width: min(100%, 24rem);
+  margin-top: 1.25rem;
+}
+
+.ptResultGateError {
+  width: min(100%, 24rem);
+  margin: 0.85rem 0 0;
+  border: 1px solid #fecaca;
+  border-radius: 0.8rem;
+  background: #fff1f2;
+  color: #9f1239;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 /* ── Score bar ───────────────────────────────────────────────────────── */
 .ptScoreGrid {
   display: grid;
@@ -475,6 +516,12 @@
 .ptCtaBtnPrimary:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 26px rgba(79, 70, 229, 0.42);
+}
+
+.ptCtaBtn:disabled {
+  cursor: wait;
+  opacity: 0.62;
+  transform: none;
 }
 
 .ptCtaBtnSecondary {
@@ -764,4 +811,5 @@
   background: #fff1f2;
   color: #b91c1c;
 }
+
 

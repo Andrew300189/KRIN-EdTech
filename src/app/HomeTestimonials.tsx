@@ -47,7 +47,6 @@ export function HomeTestimonials() {
       <div className={s.shell}>
         {/* Sticky header column */}
         <div className={s.header}>
-          <p className={s.eyebrow}>Student stories</p>
           <h2 className={s.heading}>Real results from real learners.</h2>
           <p className={s.subtext}>
             Join thousands of students who have levelled up their English on

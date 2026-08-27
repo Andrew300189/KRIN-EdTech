@@ -1,8 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useRouter } from "next/navigation";
+import { LoginModal } from "@/modules/auth/components/LoginModal";
+import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
+import {
+  PENDING_PLACEMENT_RESULT_KEY,
+  PLACEMENT_DASHBOARD_PATH,
+  PLACEMENT_LEVEL_RANGES as LEVEL_RANGES,
+  PLACEMENT_LEVELS as LEVELS,
+  type PlacementCefrLevel as CefrLevel,
+} from "@/modules/courses/services/placement-test-result";
 import s from "./PlacementTest.module.css";
+
+export { getPlacementState } from "@/modules/courses/services/placement-test-result";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +63,20 @@ type Action =
   | { type: "FINISH" }
   | { type: "DISMISS_MODAL" }
   | { type: "RESTART" };
+
+type AuthState = "checking" | "authenticated" | "anonymous";
+
+function savePendingPlacementResult(results: boolean[]) {
+  try {
+    window.sessionStorage.setItem(
+      PENDING_PLACEMENT_RESULT_KEY,
+      JSON.stringify({ results: results.slice(0, 100), completedAt: Date.now() }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ─── Question bank (100 questions, A1→C1) ────────────────────────────────
 
@@ -176,69 +201,6 @@ const QUESTIONS: Question[] = [
   { id: 99, type: "multiple_choice", prompt: "Which sentence uses a participle clause correctly?", options: ["Having submitted the report, she felt relieved.", "Submitted the report, she felt relieved.", "Having been submitted the report, she felt.", "After submitted the report she felt relieved."], answer: "Having submitted the report, she felt relieved." },
   { id: 100, type: "fill_the_gaps",  prompt: "The initiative was ___ as a direct response to the crisis.", options: ["conceived", "perceived", "deceived", "received"], answer: "conceived" },
 ];
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const LEVELS = ["A1", "A2", "B1", "B2", "C1"] as const;
-type CefrLevel = (typeof LEVELS)[number];
-
-const LEVEL_RANGES: Record<CefrLevel, [number, number]> = {
-  A1: [0, 19], A2: [20, 39], B1: [40, 59], B2: [60, 79], C1: [80, 99],
-};
-
-const LEVEL_DESCRIPTIONS: Record<CefrLevel, string> = {
-  A1: "Beginner — Can use very basic expressions and introduce themselves.",
-  A2: "Elementary — Can communicate in simple, routine tasks.",
-  B1: "Intermediate — Can deal with most everyday situations while travelling.",
-  B2: "Upper-intermediate — Can interact with a degree of fluency and spontaneity.",
-  C1: "Advanced — Can express ideas fluently and use language flexibly.",
-};
-
-// ─── Pure helpers ─────────────────────────────────────────────────────────────
-
-/** 70 % threshold (≥14/20) per block; sequential — breaks on first failure. */
-function computeLevel(results: boolean[]): CefrLevel | null {
-  const passed: CefrLevel[] = [];
-  for (const lvl of LEVELS) {
-    const [from, to] = LEVEL_RANGES[lvl];
-    const slice = results.slice(from, to + 1);
-    if (slice.length < 20) break;
-    if (slice.filter(Boolean).length >= 14) passed.push(lvl);
-    else break;
-  }
-  return passed.length ? passed[passed.length - 1] : null;
-}
-
-export function getPlacementState(results: boolean[]) {
-  const level = computeLevel(results);
-  if (!level) {
-    return {
-      level: null,
-      belowA1: true,
-      message: "See you next time",
-    };
-  }
-
-  return {
-    level,
-    belowA1: false,
-    message: LEVEL_DESCRIPTIONS[level],
-  };
-}
-
-function computeBreakdown(results: boolean[]) {
-  return (Object.keys(LEVEL_RANGES) as CefrLevel[]).map((level) => {
-    const [from, to] = LEVEL_RANGES[level];
-    const slice = results.slice(from, to + 1);
-    const attempted = slice.length > 0;
-    const correct = slice.filter(Boolean).length;
-    return {
-      level, correct, total: slice.length,
-      pct: attempted ? Math.round((correct / slice.length) * 100) : 0,
-      attempted,
-    };
-  });
-}
 
 function getBlockModal(
   results: boolean[],
@@ -404,7 +366,12 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PlacementTest() {
+  const router = useRouter();
   const [state, dispatch] = useReducer(reducer, undefined, init);
+  const [authState, setAuthState] = useState<AuthState>("checking");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authInitialView, setAuthInitialView] = useState<"login" | "register">("register");
+  const [handoffError, setHandoffError] = useState("");
   const { phase, current, selected, builderOrder, feedback, results, modal } = state;
 
   const q = QUESTIONS[current];
@@ -430,6 +397,43 @@ export function PlacementTest() {
   const handleCheck   = useCallback(() => dispatch({ type: "CHECK_BUILDER" }), []);
   const handleDismiss = useCallback(() => dispatch({ type: "DISMISS_MODAL" }), []);
 
+  useEffect(() => {
+    if (phase !== "result") return;
+    let active = true;
+
+    void fetch("/api/auth/me", { method: "GET", credentials: "same-origin" })
+      .then(async (response) => ({ response, payload: await response.json().catch(() => null) }))
+      .then(({ response, payload }) => {
+        if (!active) return;
+        setAuthState(response.ok && payload?.authenticated === true ? "authenticated" : "anonymous");
+      })
+      .catch(() => {
+        if (active) setAuthState("anonymous");
+      });
+
+    return () => { active = false; };
+  }, [phase]);
+
+  const continueWithAccount = (view: "login" | "register") => {
+    setHandoffError("");
+    if (!results.length) {
+      dispatch({ type: "RESTART" });
+      return;
+    }
+    if (!savePendingPlacementResult(results)) {
+      setHandoffError("We could not safely save this result in this browser. Please allow site storage and try again.");
+      return;
+    }
+
+    if (authState === "authenticated") {
+      router.push(PLACEMENT_DASHBOARD_PATH);
+      return;
+    }
+
+    setAuthInitialView(view);
+    setAuthModalOpen(true);
+  };
+
   // ── Intro ────────────────────────────────────────────────────────────
   if (phase === "intro") {
     return (
@@ -448,7 +452,7 @@ export function PlacementTest() {
               <span className={s.ptIntroChip}>⏱ ~15 min</span>
             </div>
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`}
-              onClick={() => dispatch({ type: "START" })}>
+              onClick={() => { reportFunnelEvent("PLACEMENT_TEST_START"); dispatch({ type: "START" }); }}>
               Start the test
             </button>
           </div>
@@ -459,77 +463,34 @@ export function PlacementTest() {
 
   // ── Result ───────────────────────────────────────────────────────────
   if (phase === "result") {
-    const placement = getPlacementState(results);
-    const level = placement.level;
-    const breakdown = computeBreakdown(results).filter((b) => b.attempted);
-    const strengths  = breakdown.filter((b) => b.pct >= 70).map((b) => b.level);
-    const weaknesses = breakdown.filter((b) => b.pct < 70).map((b) => b.level);
-    const totalCorrect = results.filter(Boolean).length;
+    const hasAnswers = results.length > 0;
 
     return (
       <div className={s.ptWrap}>
         <div className={s.ptCard}>
           <div className={s.ptProgressTrack}><div className={s.ptProgressFill} style={{ width: "100%" }} /></div>
-          <div className={s.ptResult}>
-            <div className={s.ptResultHeader}>
-              {level ? (
-                <>
-                  <div className={s.ptResultLevel}>{level}</div>
-                  <h2 className={s.ptResultTitle}>Your level: {level}</h2>
-                  <p className={s.ptResultSub}>{LEVEL_DESCRIPTIONS[level]}</p>
-                </>
-              ) : (
-                <>
-                  <div className={s.ptResultLevel} style={{ background: "#fef2f2", color: "#b91c1c" }}>—</div>
-                  <h2 className={s.ptResultTitle}>See you next time</h2>
-                  <p className={s.ptResultSub}>You did not reach the A1 threshold yet. Keep practising and come back when you are ready.</p>
-                </>
-              )}
-              <p className={s.ptResultSub} style={{ marginTop: 6 }}>
-                <strong style={{ color: "#1e293b" }}>{totalCorrect} / {results.length}</strong> correct answers
-              </p>
-            </div>
-
-            {level && (
-              <>
-                <div className={s.ptScoreGrid}>
-                  {breakdown.map(({ level: lvl, correct, total, pct }) => (
-                    <div key={lvl} className={s.ptScoreRow}>
-                      <span className={s.ptScoreLabel}>{lvl}</span>
-                      <div className={s.ptScoreTrack}>
-                        <div className={`${s.ptScoreBar} ${pct < 70 ? s.ptScoreBarWeak : ""}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className={s.ptScoreNum}>{correct}/{total}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {(strengths.length > 0 || weaknesses.length > 0) && (
-                  <div className={s.ptTags}>
-                    {strengths.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagStrong}`}>✓0 Strong at {l}</span>)}
-                    {weaknesses.map((l) => <span key={l} className={`${s.ptTag} ${s.ptTagWeak}`}>✓1 Review {l}</span>)}
-                  </div>
-                )}
-              </>
-            )}
-
+          {hasAnswers ? <div className={`${s.ptResult} ${s.ptResultGate}`}>
+            <span className={s.ptResultGateIcon}>🔐</span>
+            <h2 className={s.ptResultTitle}>Your personal result is ready.</h2>
+            <p className={s.ptResultSub}>Create a free account to save it, see your CEFR level and get a course plan matched to it in your dashboard.</p>
             <div className={s.ptCta}>
-              {level ? (
-                <Link href={`/levels/${level.toLowerCase()}`} className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`}>
-                  🚀 Explore {level} courses
-                </Link>
-              ) : (
-                <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => dispatch({ type: "RESTART" })}>
-                  🔁 Try again
-                </button>
-              )}
-              <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`}
-                onClick={() => dispatch({ type: "RESTART" })}>
-                \u21ba Retake the test
+              <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => continueWithAccount("register")} disabled={authState === "checking"}>
+                {authState === "authenticated" ? "Open my dashboard" : authState === "checking" ? "Preparing your result…" : "Create free account"}
               </button>
+              {authState === "anonymous" ? <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => continueWithAccount("login")}>I already have an account</button> : null}
+              <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => dispatch({ type: "RESTART" })}>Retake the test</button>
             </div>
-          </div>
+            {handoffError ? <p className={s.ptResultGateError} role="alert">{handoffError}</p> : null}
+          </div> : <div className={s.ptResult}>
+            <div className={s.ptResultHeader}>
+              <div className={s.ptResultLevel} style={{ background: "#fef2f2", color: "#b91c1c" }}>—</div>
+              <h2 className={s.ptResultTitle}>No result to save yet</h2>
+              <p className={s.ptResultSub}>Answer at least one question to receive a personalised course recommendation.</p>
+            </div>
+            <div className={s.ptCta}><button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => dispatch({ type: "RESTART" })}>Try the test again</button></div>
+          </div>}
         </div>
+        <LoginModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} nextPath={PLACEMENT_DASHBOARD_PATH} initialView={authInitialView} />
       </div>
     );
   }

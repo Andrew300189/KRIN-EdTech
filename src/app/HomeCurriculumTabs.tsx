@@ -7,29 +7,29 @@ import s from "./HomeCurriculumTabs.module.css";
 const CEFR = ["A1", "A2", "B1", "B2", "C1"] as const;
 type Cefr = (typeof CEFR)[number];
 
-const CONTENT: Record<Cefr, { emoji: string; tagline: string; skills: string[]; color: string }> = {
+const CONTENT: Record<Cefr, { emoji: string; tagline: string; skills: string[] }> = {
   A1: {
-    emoji: "🌱", color: "#10b981",
+    emoji: "🌱",
     tagline: "Build your first English foundation with confidence.",
     skills: ["Greet people and introduce yourself", "Count, describe colours and tell the time", "Talk about family, routines and everyday objects", "Ask and answer simple questions about yourself"],
   },
   A2: {
-    emoji: "🚀", color: "#3b82f6",
+    emoji: "🚀",
     tagline: "Handle everyday situations wherever you travel.",
     skills: ["Order food, shop and navigate transport", "Describe past events and recent experiences", "Talk about plans and the near future", "Write short messages, notes and emails"],
   },
   B1: {
-    emoji: "🎯", color: "#8b5cf6",
+    emoji: "🎯",
     tagline: "Navigate real conversations with growing confidence.",
     skills: ["Express opinions, preferences and feelings clearly", "Follow news broadcasts and authentic texts", "Deal with travel problems and unexpected situations", "Write straightforward, well-connected texts"],
   },
   B2: {
-    emoji: "⚡", color: "#f59e0b",
+    emoji: "⚡",
     tagline: "Communicate fluently and spontaneously on most topics.",
     skills: ["Discuss complex topics in clear, detailed language", "Understand implicit meaning and tone", "Produce clear, formal and informal documents", "Argue, persuade and debate effectively"],
   },
   C1: {
-    emoji: "🏆", color: "#ec4899",
+    emoji: "🏆",
     tagline: "Use English with precision at near-native level.",
     skills: ["Express yourself spontaneously and fluently", "Read and write dense, complex academic texts", "Achieve professional and academic language goals", "Understand virtually any non-specialist English content"],
   },
@@ -52,7 +52,6 @@ export function HomeCurriculumTabs({ levels }: Props) {
     <section className={s.section} data-ao="fade-up" data-ao-delay="1">
       <div className={s.shell}>
         <div className={s.header} data-ao="fade-up" data-ao-delay="2">
-          <p className={s.eyebrow}>Curriculum preview</p>
           <h2 className={s.heading}>Explore what you will achieve at each level.</h2>
           <p className={s.sub}>
             Click a CEFR level to preview the skills and outcomes you will gain
@@ -81,17 +80,14 @@ export function HomeCurriculumTabs({ levels }: Props) {
         <div className={s.panel} key={active} role="tabpanel" aria-label={`${active} level overview`} data-ao="fade-up" data-ao-delay="3">
           <div>
             <span className={s.levelEmoji}>{data.emoji}</span>
-            <span
-              className={s.levelBadge}
-              style={{ color: data.color, borderColor: `${data.color}40`, background: `${data.color}10` }}
-            >
+            <span className={s.levelBadge}>
               {active} · {levelInfo?.title ?? "Level"}
             </span>
             <p className={s.tagline}>{data.tagline}</p>
             <ul className={s.skillList}>
               {data.skills.map((skill) => (
                 <li key={skill} className={s.skillItem}>
-                  <span className={s.skillCheck} style={{ color: data.color }}>✓</span>
+                  <span className={s.skillCheck}>✓</span>
                   {skill}
                 </li>
               ))}
@@ -104,14 +100,11 @@ export function HomeCurriculumTabs({ levels }: Props) {
             )}
           </div>
 
-          <div className={s.previewCard} style={{ borderTopColor: data.color }}>
+          <div className={s.previewCard}>
             <p className={s.previewLabel}>Sample learning path</p>
             {["Placement & orientation", "Core grammar foundations", "Vocabulary & reading skills", "Speaking & listening practice", "Final assessment & certificate"].map((step, i) => (
               <div key={i} className={s.pathItem}>
-                <span
-                  className={s.pathNum}
-                  style={{ background: `${data.color}18`, color: data.color }}
-                >
+                <span className={s.pathNum}>
                   {i + 1}
                 </span>
                 <span>{step}</span>
