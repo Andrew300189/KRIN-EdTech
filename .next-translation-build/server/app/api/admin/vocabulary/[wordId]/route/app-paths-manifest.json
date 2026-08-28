@@ -1,0 +1,3 @@
+{
+  "/api/admin/vocabulary/[wordId]/route": "app/api/admin/vocabulary/[wordId]/route.js"
+}

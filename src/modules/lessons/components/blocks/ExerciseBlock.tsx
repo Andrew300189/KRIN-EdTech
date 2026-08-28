@@ -128,7 +128,6 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
         hideContextText={hideContextText}
         reviewRunId={reviewRunId}
         onAttemptResolved={({ exerciseId, isCorrect }) => resolveAttempt(index, exerciseId, isCorrect)}
-        onContinueAfterAttempt={index < exercises.length - 1 && !requireCorrectForNext ? () => openNextExercise(index) : undefined}
       />
     </div>
   ));

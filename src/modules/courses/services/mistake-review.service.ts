@@ -71,13 +71,23 @@ function firstPerLesson(locations: ReviewLocation[]) {
   });
 }
 
-async function activeLocations(tx: Tx, userId: string, scope: ReviewScope, courseSlug?: string) {
+async function activeLocations(
+  tx: Tx,
+  userId: string,
+  scope: ReviewScope,
+  courseSlug?: string,
+  lessonSlug?: string,
+) {
   const items = await tx.userMistake.findMany({
     where: {
       userId,
       resolvedAt: null,
       exerciseId: { not: null },
-      lesson: courseSlug ? { module: { course: { slug: courseSlug } } } : { isPublished: true, module: { course: { isPublished: true } } },
+      lesson: lessonSlug && courseSlug
+        ? { slug: lessonSlug, module: { course: { slug: courseSlug } } }
+        : courseSlug
+          ? { module: { course: { slug: courseSlug } } }
+          : { isPublished: true, module: { course: { isPublished: true } } },
     },
     select: {
       id: true,
@@ -93,16 +103,50 @@ async function activeLocations(tx: Tx, userId: string, scope: ReviewScope, cours
   return items.map((mistake) => toLocation({ mistakeId: mistake.id, mistake })).filter((location): location is ReviewLocation => Boolean(location)).sort(compareLocation);
 }
 
+/**
+ * A lightweight availability check for learner-facing review actions. It uses
+ * the same eligibility rules as a review run, so we never advertise a button
+ * that opens an empty review queue.
+ */
+export async function hasUnresolvedMistakesForReview(
+  userId: string,
+  filter?: { courseSlug?: string; lessonSlug?: string },
+) {
+  const lesson = filter?.courseSlug && filter.lessonSlug
+    ? { slug: filter.lessonSlug, module: { course: { slug: filter.courseSlug } } }
+    : filter?.courseSlug
+      ? { module: { course: { slug: filter.courseSlug } } }
+      : { isPublished: true, module: { course: { isPublished: true } } };
+  const mistake = await prisma.userMistake.findFirst({
+    where: {
+      userId,
+      resolvedAt: null,
+      exerciseId: { not: null },
+      lesson,
+    },
+    select: { id: true },
+  });
+
+  return Boolean(mistake);
+}
+
 export async function startMistakeReviewRun(userId: string, input: {
   scope: ReviewScope;
   courseSlug?: string;
+  lessonSlug?: string;
   startMistakeId?: string;
   afterLessonSlug?: string;
 }) {
   if (input.scope === "COURSE" && !input.courseSlug) throw new Error("A course is required for this review.");
 
   return prisma.$transaction(async (tx) => {
-    const locations = await activeLocations(tx, userId, input.scope, input.scope === "COURSE" ? input.courseSlug : undefined);
+    const locations = await activeLocations(
+      tx,
+      userId,
+      input.scope,
+      input.scope === "COURSE" ? input.courseSlug : undefined,
+      input.lessonSlug,
+    );
     if (!locations.length) return null;
 
     if (input.startMistakeId && !locations.some((location) => location.mistakeId === input.startMistakeId)) {

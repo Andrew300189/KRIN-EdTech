@@ -1,0 +1,3 @@
+{
+  "/api/profile/vocabulary/session-items/[itemId]/answer/route": "app/api/profile/vocabulary/session-items/[itemId]/answer/route.js"
+}

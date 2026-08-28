@@ -1,0 +1,3 @@
+{
+  "/api/profile/mistakes/[mistakeId]/route": "app/api/profile/mistakes/[mistakeId]/route.js"
+}

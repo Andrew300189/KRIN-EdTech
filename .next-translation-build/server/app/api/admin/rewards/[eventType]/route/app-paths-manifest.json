@@ -1,0 +1,3 @@
+{
+  "/api/admin/rewards/[eventType]/route": "app/api/admin/rewards/[eventType]/route.js"
+}

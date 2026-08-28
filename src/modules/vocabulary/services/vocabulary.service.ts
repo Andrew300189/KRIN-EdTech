@@ -240,10 +240,41 @@ export async function addCustomWordToUserDictionary(userId: string, input: unkno
   const existing = await prisma.userCustomWord.findUnique({ where: { userId_normalizedTerm: { userId, normalizedTerm } } });
   const now = new Date();
   if (existing) {
-    if (existing.status === "ARCHIVED" || existing.status === "SUSPENDED") return prisma.userCustomWord.update({ where: { id: existing.id }, data: { status: "LEARNING", archivedAt: null, nextReviewAt: now } });
-    return existing;
+    // A learner may change a suggested translation before or after saving it.
+    // Keep one personal card per normalized word instead of creating duplicates.
+    return prisma.userCustomWord.update({
+      where: { id: existing.id },
+      data: {
+        term: value.term.trim(),
+        translation: value.translation.trim(),
+        partOfSpeech: value.partOfSpeech ?? existing.partOfSpeech,
+        example: value.example ?? existing.example,
+        note: value.note ?? existing.note,
+        ...(existing.status === "ARCHIVED" || existing.status === "SUSPENDED"
+          ? { status: "LEARNING", archivedAt: null, nextReviewAt: now }
+          : {}),
+      },
+    });
   }
   return prisma.userCustomWord.create({ data: { userId, term: value.term.trim(), normalizedTerm, translation: value.translation.trim(), partOfSpeech: value.partOfSpeech, example: value.example, note: value.note, status: "NEW", nextReviewAt: now } });
+}
+
+/** A lightweight exact lookup used by the lesson hover card. */
+export async function hasUserVocabularyTerm(userId: string, termInput: string) {
+  const normalizedTerm = normalizeWord(termInput);
+  if (!normalizedTerm) return false;
+  const [custom, global] = await Promise.all([
+    prisma.userCustomWord.findUnique({ where: { userId_normalizedTerm: { userId, normalizedTerm } }, select: { id: true } }),
+    prisma.userWord.findFirst({
+      where: {
+        userId,
+        word: { normalizedLemma: { in: [normalizedTerm, `to ${normalizedTerm}`] } },
+        status: { notIn: ["ARCHIVED", "SUSPENDED"] },
+      },
+      select: { id: true },
+    }),
+  ]);
+  return Boolean(custom || global);
 }
 
 function globalWordWhere(userId: string, query: VocabularyQuery): Prisma.UserWordWhereInput {

@@ -1,0 +1,3 @@
+{
+  "/api/admin/lessons/[lessonId]/vocabulary/[wordId]/route": "app/api/admin/lessons/[lessonId]/vocabulary/[wordId]/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/admin/grammar/[topicId]/rules/[ruleId]/route": "app/api/admin/grammar/[topicId]/rules/[ruleId]/route.js"
+}
