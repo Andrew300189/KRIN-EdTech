@@ -1,0 +1,3 @@
+module.exports=[287445,a=>{"use strict";var b=a.i(187924),c=a.i(238246);a.s(["SearchTrackedLink",0,function({href:a,className:d,context:e,query:f,resultType:g,resultId:h,position:i,children:j}){return(0,b.jsx)(c.default,{href:a,className:d,onClick:()=>{let b={query:f,context:e,resultType:g,resultId:h,resultUrl:a,position:i};if("u">typeof navigator&&"function"==typeof navigator.sendBeacon){let a=new Blob([JSON.stringify(b)],{type:"application/json"});navigator.sendBeacon("/api/search/click",a);return}fetch("/api/search/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b),keepalive:!0}).catch(()=>void 0)},children:j})}])}];
+
+//# sourceMappingURL=src_modules_search_components_SearchTrackedLink_tsx_1upqjzl._.js.map

@@ -1,0 +1,12 @@
+var R=require("../../../../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/cms/lesson-template-sections/[sectionId]/templates/route.js")
+R.c("server/chunks/[root-of-the-server]__0e9t5ja._.js")
+R.c("server/chunks/[root-of-the-server]__1t87t7g._.js")
+R.c("server/chunks/src_modules_0q-ta5x._.js")
+R.c("server/chunks/node_modules_zod_v3_0yu8w9e._.js")
+R.c("server/chunks/[root-of-the-server]__163w3q6._.js")
+R.c("server/chunks/_0n9kker._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/src_03wkbef._.js")
+R.c("server/chunks/07_e_admin_cms_lesson-template-sections_[sectionId]_templates_route_actions_0-evqcv.js")
+R.m(144084)
+module.exports=R.m(144084).exports

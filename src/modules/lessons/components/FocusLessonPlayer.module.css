@@ -101,23 +101,23 @@
 
 .blockSegmentCompleted {
   cursor: pointer;
-  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 62%, #9d7cf8));
+  background: #22c55e;
 }
 
 .blockSegmentCurrent {
   cursor: pointer;
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 26%, var(--surface-elevated));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+  border-color: #94a3b8;
+  background: #f1f5f9;
+  box-shadow: 0 0 0 2px rgb(148 163 184 / 20%);
 }
 
 .blockSegment:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 16%);
 }
 
 .blockSegment:focus-visible {
-  outline: 2px solid var(--focus-ring, var(--primary));
+  outline: 2px solid #16a34a;
   outline-offset: 2px;
 }
 
@@ -444,6 +444,42 @@
 .completion h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.04em; }
 .completion p { max-width: 32rem; margin: 0; color: var(--text-secondary); line-height: 1.55; }
 
+.completionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .75rem;
+  margin-top: .3rem;
+}
+
+.nextLessonButton,
+.reviewAllButton {
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #a5b4fc;
+  border-radius: 999px;
+  background: #fff;
+  color: #4338ca;
+  font-size: .82rem;
+  font-weight: 850;
+  padding: .6rem 1rem;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.nextLessonButton:hover:not(:disabled),
+.reviewAllButton:hover:not(:disabled) {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #312e81;
+  transform: translateY(-1px);
+}
+
+.nextLessonButton:focus-visible,
+.reviewAllButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.reviewAllButton:disabled { cursor: wait; opacity: .62; }
+
 .reviewDialog {
   display: grid;
   gap: .8rem;
@@ -549,9 +585,9 @@
 }
 
 .blockTimeline { gap: .38rem; min-height: .7rem; }
-.blockSegment { min-height: .62rem; background: #e9d5ff; }
-.blockSegmentCompleted { background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%); }
-.blockSegmentCurrent { border-color: #4f46e5; background: #c7d2fe; }
+.blockSegment { min-height: .62rem; background: #e5e7eb; }
+.blockSegmentCompleted { background: #22c55e; }
+.blockSegmentCurrent { border-color: #94a3b8; background: #f1f5f9; }
 
 .lessonContext {
   position: relative;
@@ -787,6 +823,38 @@
   border-color: #fecdd3;
   background: #fff1f2;
   color: #881337;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-card.focus-answer-incorrect) {
+  border-color: #fecdd3 !important;
+  background: #fffafb !important;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-status) {
+  color: #be123c;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry) {
+  margin-left: .3rem;
+  border: 0;
+  background: transparent;
+  color: #9f1239;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry:hover) { color: #4c0519; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-hint) {
+  margin: .65rem 0 0;
+  color: #9a4a08;
+  font-size: .82rem;
+  line-height: 1.45;
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-result-copy p) {
@@ -1190,22 +1258,20 @@
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open] summary) { padding-left: 0; }
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger p) { color: #78350f; font-size: .84rem; font-weight: 600; line-height: 1.45; }
 
-/* Keep the learner player on one desktop screen. Long theory and the optional
-   all-tasks view scroll inside their own card instead of moving the lesson
-   header and progress timeline away from the learner. */
+/* Let the document grow naturally on desktop. A lesson can contain lengthy
+   theory or a full exercise, and clipping it into a viewport-sized canvas
+   makes controls overlap and prevents the learner from reaching the end. */
 @media (min-width: 651px) {
   .player {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
   .frame {
-    display: flex;
-    height: 100dvh;
-    min-height: 0;
-    flex-direction: column;
-    overflow: hidden;
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
     padding: .55rem 1rem;
   }
 
@@ -1231,47 +1297,36 @@
   .lessonContext p { margin-top: .42rem; font-size: .74rem; }
 
   .workspace {
-    display: flex;
-    min-height: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
+    display: grid;
+    min-height: initial;
     gap: .5rem;
     margin-top: .55rem;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .theory {
-    flex: 0 0 auto;
+    display: block;
+    min-height: initial;
+    max-height: none;
   }
 
-  .theoryPanel { overflow: hidden; }
+  .theoryPanel {
+    min-height: initial;
+    overflow: visible;
+  }
 
   .taskCard {
-    display: flex;
-    min-height: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
+    display: block;
+    min-height: min(33rem, 58dvh);
   }
 
   .focusContent {
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow: hidden;
+    min-height: initial;
+    overflow: visible;
   }
 
   .readingTaskCard .focusContent {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-color: rgb(99 102 241 / 58%) transparent;
-    scrollbar-gutter: stable;
-  }
-
-  .readingTaskCard .focusContent::-webkit-scrollbar { width: .62rem; }
-  .readingTaskCard .focusContent::-webkit-scrollbar-track { background: transparent; }
-  .readingTaskCard .focusContent::-webkit-scrollbar-thumb {
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background: linear-gradient(#a5b4fc, #6366f1) padding-box;
+    overflow: visible;
   }
 
   .lessonGoalTop {
@@ -1328,11 +1383,11 @@
     padding: 6px 9px;
   }
 
-  .footer { flex: 0 0 auto; }
+  .footer { display: flex; }
 }
 
-/* The task overview is a fixed modal. While it is open, the regular lesson
-   canvas must not clip the modal even though it normally has no page scroll. */
+/* The task overview is a fixed modal, so it stays above the normal lesson
+   document without affecting its page scroll. */
 @media (min-width: 651px) {
   .workspace:has([data-exercise-task-modal]),
   .taskCard:has([data-exercise-task-modal]),

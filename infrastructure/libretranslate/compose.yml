@@ -1,0 +1,51 @@
+services:
+  translation-cache:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:${TRANSLATION_REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - translation_cache_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  libretranslate:
+    # Track a tested release deliberately; upgrade it as a planned operation.
+    image: libretranslate/libretranslate:v1.9.6
+    restart: unless-stopped
+    command: >-
+      --load-only en,ru
+      --api-keys
+      --req-limit 0
+      --char-limit 500
+      --batch-limit 1
+      --threads ${LIBRETRANSLATE_THREADS:-4}
+      --disable-web-ui
+      --disable-files-translation
+      --translation-cache all
+      --metrics
+    environment:
+      LT_API_KEYS_DB_PATH: /app/db/api_keys.db
+      LT_UPDATE_MODELS: "true"
+    # Local development only: expose the service to the same machine, never
+    # to the LAN or public internet. Production should use a private network.
+    ports:
+      - "127.0.0.1:${LIBRETRANSLATE_HOST_PORT:-5000}:5000"
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local:rw
+      - libretranslate_api_keys:/app/db
+    healthcheck:
+      test: ["CMD-SHELL", "./venv/bin/python scripts/healthcheck.py"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+
+volumes:
+  translation_cache_data:
+  libretranslate_models:
+  libretranslate_api_keys:

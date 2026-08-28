@@ -1,0 +1,118 @@
+.root { position: relative; }
+
+.tooltip {
+  position: fixed;
+  z-index: 80;
+  width: min(18rem, calc(100vw - 2rem));
+  border: 1px solid #c7d2fe;
+  border-radius: 18px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 18px 42px rgb(49 46 129 / 20%);
+  color: #17233e;
+  padding: .8rem;
+  backdrop-filter: blur(14px);
+  animation: dictionary-tooltip-materialize 620ms cubic-bezier(.22, 1, .36, 1) both;
+  transform-origin: top left;
+  will-change: opacity, filter, transform;
+}
+
+.tooltip::before {
+  position: absolute;
+  inset: -8px 0 auto;
+  height: 8px;
+  content: "";
+}
+
+@keyframes dictionary-tooltip-materialize {
+  0% {
+    opacity: 0;
+    filter: blur(9px);
+    transform: translateY(2px) scale(.99);
+  }
+  42% {
+    opacity: .48;
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.word { margin: 0; color: #312e81; font-size: .78rem; font-weight: 820; letter-spacing: .04em; text-transform: lowercase; }
+.translationButton {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-top: .45rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #17233e;
+  cursor: text;
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 760;
+  padding: .62rem .68rem;
+  text-align: left;
+}
+.translationButton:hover:not(:disabled) { border-color: #a5b4fc; background: #fff; }
+.translationButton:focus-visible { outline: 3px solid rgb(99 102 241 / 18%); outline-offset: 2px; }
+.translationButton:disabled { color: #64748b; cursor: wait; }
+.editHint { color: #6366f1; font-size: .68rem; font-weight: 820; }
+.translationLabel { display: block; margin-top: .45rem; }
+.translationInput {
+  width: 100%;
+  min-height: 2.3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 11px;
+  background: #fff;
+  color: #17233e;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 650;
+  padding: .46rem .62rem;
+}
+.translationInput:focus { border-color: #6366f1; outline: 3px solid rgb(99 102 241 / 18%); }
+.translationInput:disabled { background: #f8fafc; color: #64748b; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .7rem; }
+.addButton {
+  min-height: 2.25rem;
+  border: 1px solid #4f46e5;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  box-shadow: 0 7px 16px rgb(79 70 229 / 20%);
+  color: #fff;
+  cursor: pointer;
+  font-size: .76rem;
+  font-weight: 850;
+  padding: .45rem .76rem;
+}
+.addButton:hover:not(:disabled) { background: linear-gradient(135deg, #4338ca, #1d4ed8); transform: translateY(-1px); }
+.addButton:disabled { cursor: wait; opacity: .64; }
+.dismissButton {
+  min-height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: .76rem;
+  font-weight: 760;
+  padding: .45rem .3rem;
+}
+.dismissButton:hover { color: #334155; text-decoration: underline; }
+.status { margin: 0; color: #15803d; font-size: .72rem; font-weight: 760; }
+.error { margin: .5rem 0 0; color: #be123c; font-size: .72rem; font-weight: 720; line-height: 1.35; }
+
+@media (max-width: 650px) {
+  .tooltip { width: min(19rem, calc(100vw - 1rem)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip { animation-duration: 1ms; }
+}

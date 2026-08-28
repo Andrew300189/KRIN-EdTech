@@ -1,0 +1,3 @@
+module.exports=[162969,a=>{"use strict";a.i(254799);var b=a.i(711964);a.i(179997),a.i(302404);let c={in:["ACTIVE","INVITED","PAUSED"]};async function d(a,c){return!!await b.prisma.learningGroup.findFirst({where:{id:c,OR:[{teacherId:a},{teachers:{some:{teacherId:a}}}]},select:{id:!0}})}async function e(a){return b.prisma.learningGroup.findMany({where:{OR:[{teacherId:a},{teachers:{some:{teacherId:a}}}]},orderBy:{updatedAt:"desc"},select:{id:!0,name:!0,status:!0,updatedAt:!0,maxStudents:!0,_count:{select:{students:{where:{status:c}},courseAssignments:{where:{status:"ACTIVE"}},assignments:{where:{status:"ACTIVE"}}}}}})}a.s(["listTeacherGroups",0,e,"teacherHasAccessToGroup",0,d])}];
+
+//# sourceMappingURL=src_modules_teaching_services_teaching_service_ts_1wdimiw._.js.map

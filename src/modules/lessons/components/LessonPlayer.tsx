@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { LessonVocabularyPanel } from "@/modules/vocabulary/components/LessonVocabularyPanel";
+import { LessonWordHoverDictionary } from "@/modules/vocabulary/components/LessonWordHoverDictionary";
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
@@ -95,7 +96,11 @@ function validCurrentBlockId(value: unknown, blocks: LessonBlock[]) {
     : blocks[0]?.id ?? null;
 }
 
-function getBlockAttemptVisual(block: LessonBlock, exerciseResults: Record<string, boolean>) {
+function getBlockAttemptVisual(
+  block: LessonBlock,
+  exerciseResults: Record<string, boolean>,
+  fallbackToCompletedColour = false,
+) {
   if (block.exercises.length === 0) return null;
   let correct = 0;
   let incorrect = 0;
@@ -105,7 +110,17 @@ function getBlockAttemptVisual(block: LessonBlock, exerciseResults: Record<strin
     if (result === false) incorrect += 1;
     const start = (index / block.exercises.length) * 100;
     const end = ((index + 1) / block.exercises.length) * 100;
-    const colour = result === true ? "#34d399" : result ===false ? "#fb7185" : "#e9d5ff";
+    // A completed step may contain newly added prompts or an older attempt
+    // snapshot may not include every exercise yet. Those prompts are already
+    // part of a passed lesson, not unfinished work, so keep the completed
+    // green rather than drawing a misleading grey gap.
+    const colour = result === true
+      ? "#22c55e"
+      : result === false
+        ? "#fb7185"
+        : fallbackToCompletedColour
+          ? "#22c55e"
+          : "#e5e7eb";
     return `${colour} ${start}% ${end}%`;
   });
   if (correct + incorrect === 0) return null;
@@ -156,6 +171,8 @@ export function LessonPlayer({
   const [reviewTransition, setReviewTransition] = useState<null | { state: "NEXT" | "WRAP"; nextUrl: string; nextLessonTitle: string; nextCourseTitle: string; remainingLessons: number }>(null);
   const [reviewComplete, setReviewComplete] = useState<null | { experience: number; coins: number; firstFocusedRun: boolean; achievements: string[] }>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [startingAllMistakesReview, setStartingAllMistakesReview] = useState(false);
+  const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
@@ -212,6 +229,29 @@ export function LessonPlayer({
     }
     reportFunnelEvent("PREVIEW_LESSON_START");
   }, [canSaveProgress, isFirstCourseLesson, previewMode]);
+
+  useEffect(() => {
+    if (previewMode || !canSaveProgress) {
+      setHasUnresolvedMistakes(false);
+      return;
+    }
+
+    let current = true;
+    const reviewAvailabilityUrl = new URL("/api/profile/mistakes/review-runs", window.location.origin);
+    reviewAvailabilityUrl.searchParams.set("courseSlug", courseSlug);
+    reviewAvailabilityUrl.searchParams.set("lessonSlug", currentSlug);
+
+    void fetch(reviewAvailabilityUrl, { cache: "no-store" })
+      .then(async (response) => response.ok ? await response.json() as { data?: { hasUnresolvedMistakes?: boolean } } : null)
+      .then((payload) => {
+        if (current) setHasUnresolvedMistakes(Boolean(payload?.data?.hasUnresolvedMistakes));
+      })
+      .catch(() => {
+        if (current) setHasUnresolvedMistakes(false);
+      });
+
+    return () => { current = false; };
+  }, [canSaveProgress, courseSlug, currentSlug, finished, previewMode]);
 
   useEffect(() => {
     if (previewMode || !canSaveProgress || isReviewSession) return;
@@ -498,6 +538,33 @@ export function LessonPlayer({
     router.push(destination);
   }
 
+  async function startAllMistakesReview() {
+    if (startingAllMistakesReview || !canSaveProgress || previewMode) return;
+    setStartingAllMistakesReview(true);
+    setReviewError(null);
+    try {
+      const response = await fetch("/api/profile/mistakes/review-runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: "COURSE", courseSlug, lessonSlug: currentSlug }),
+      });
+      const payload = await response.json().catch(() => null) as {
+        data?: { nextUrl?: string } | null;
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "Unable to start your mistake review.");
+      if (!payload?.data?.nextUrl) {
+        setHasUnresolvedMistakes(false);
+        return;
+      }
+      router.push(payload.data.nextUrl);
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : "Unable to start your mistake review.");
+    } finally {
+      setStartingAllMistakesReview(false);
+    }
+  }
+
   async function skipWarmUp() {
     if (!warmUpSessionId) return;
     setSkippingWarmUp(true);
@@ -588,7 +655,9 @@ export function LessonPlayer({
                 const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent;
                 const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : "locked";
                 const label = block.title?.trim() || `${block.type.replace(/_/g, " ")} step`;
-                const attemptVisual = canOpenBlock ? getBlockAttemptVisual(block, exerciseResults) : null;
+                const attemptVisual = canOpenBlock
+                  ? getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
+                  : null;
                 const performance = attemptVisual
                   ? `${attemptVisual.correct} correct, ${attemptVisual.incorrect} incorrect`
                   : "No checked exercise yet";
@@ -667,11 +736,16 @@ export function LessonPlayer({
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>First-completion reward: +{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
-            <button type="button" className={styles.finishButton} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : "Back to course"}</button>
+            <div className={styles.completionActions}>
+              <button type="button" className={styles.finishButton} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : "Back to course"}</button>
+              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>Next lesson</button> : null}
+              {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
+            </div>
           </section>
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>No lesson steps yet</h2><p>Add content blocks in the lesson editor to build the learner flow.</p></section>
         ) : (
+          <LessonWordHoverDictionary sourceLessonId={lessonId} words={vocabulary}>
           <section className={`${styles.workspace} ${reviewDialogOpen ? styles.workspacePaused : ""}`} aria-label="Current lesson step" aria-hidden={reviewDialogOpen}>
             {!previewMode && vocabulary.length > 0 ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
             {activeTheory ? (
@@ -753,6 +827,7 @@ export function LessonPlayer({
             {!reviewReturnPending && isReviewSession ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p></footer> : null}
             {!reviewReturnPending && !isReviewSession && isInteractiveStep && !stepVerified ? <footer className={styles.footer}><p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p></footer> : null}
           </section>
+          </LessonWordHoverDictionary>
         )}
 
         {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}

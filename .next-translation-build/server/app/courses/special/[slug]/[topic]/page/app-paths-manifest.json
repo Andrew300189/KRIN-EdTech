@@ -1,0 +1,3 @@
+{
+  "/courses/special/[slug]/[topic]/page": "app/courses/special/[slug]/[topic]/page.js"
+}

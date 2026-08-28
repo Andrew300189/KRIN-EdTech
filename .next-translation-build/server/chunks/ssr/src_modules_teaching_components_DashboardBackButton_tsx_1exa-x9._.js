@@ -1,0 +1,3 @@
+module.exports=[368435,a=>{"use strict";var b=a.i(187924),c=a.i(50944);a.s(["DashboardBackButton",0,function({fallbackHref:a,label:d="Back"}){let e=(0,c.useRouter)();return(0,b.jsxs)("button",{type:"button",onClick:()=>{window.history.length>1&&document.referrer.startsWith(window.location.origin)?e.back():e.push(a)},className:"inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",children:[(0,b.jsx)("span",{"aria-hidden":"true",children:"←"}),d]})}])}];
+
+//# sourceMappingURL=src_modules_teaching_components_DashboardBackButton_tsx_1exa-x9._.js.map

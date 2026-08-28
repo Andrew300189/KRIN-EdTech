@@ -1,0 +1,3 @@
+{
+  "/api/learning/exercises/[exerciseId]/attempts/route": "app/api/learning/exercises/[exerciseId]/attempts/route.js"
+}

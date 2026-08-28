@@ -1,0 +1,3 @@
+{
+  "/(admin)/admin/vocabulary/[wordId]/page": "app/(admin)/admin/vocabulary/[wordId]/page.js"
+}

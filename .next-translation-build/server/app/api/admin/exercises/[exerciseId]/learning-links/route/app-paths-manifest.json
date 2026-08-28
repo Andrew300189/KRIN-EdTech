@@ -1,0 +1,3 @@
+{
+  "/api/admin/exercises/[exerciseId]/learning-links/route": "app/api/admin/exercises/[exerciseId]/learning-links/route.js"
+}

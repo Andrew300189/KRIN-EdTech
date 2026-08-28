@@ -1,0 +1,3 @@
+{
+  "/api/profile/vocabulary/sessions/[sessionId]/route": "app/api/profile/vocabulary/sessions/[sessionId]/route.js"
+}

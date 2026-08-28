@@ -1,0 +1,3 @@
+{
+  "/api/payments/liqpay/callback/route": "app/api/payments/liqpay/callback/route.js"
+}

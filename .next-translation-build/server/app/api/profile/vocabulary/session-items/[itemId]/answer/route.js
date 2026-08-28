@@ -1,0 +1,13 @@
+var R=require("../../../../../../../chunks/[turbopack]_runtime.js")("server/app/api/profile/vocabulary/session-items/[itemId]/answer/route.js")
+R.c("server/chunks/[root-of-the-server]__1ntwx98._.js")
+R.c("server/chunks/_0s5se1-._.js")
+R.c("server/chunks/node_modules_zod_v3_0ili1u9._.js")
+R.c("server/chunks/src_modules_motivation_services_motivation_service_ts_1nn2cbc._.js")
+R.c("server/chunks/_0n9kker._.js")
+R.c("server/chunks/src_03wkbef._.js")
+R.c("server/chunks/[root-of-the-server]__163w3q6._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/src_modules_vocabulary_0hngs5m._.js")
+R.c("server/chunks/1jng_app_api_profile_vocabulary_session-items_[itemId]_answer_route_actions_0otrwkh.js")
+R.m(110774)
+module.exports=R.m(110774).exports

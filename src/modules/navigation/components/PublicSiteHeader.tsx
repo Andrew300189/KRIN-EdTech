@@ -1,5 +1,8 @@
 "use client";
 
+/* Profile photos may be HTTPS URLs or database-backed data URLs. */
+/* eslint-disable @next/next/no-img-element */
+
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AppModal } from "@/core/components/AppModal";
@@ -41,6 +44,19 @@ const moreLinks = [
 
 type CourseSkill = (typeof courseSkillCatalog)[number];
 type CefrLevel = (typeof courseSkillLevels)[number];
+type HeaderUser = {
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatar?: string | null;
+};
+
+function userInitials(user: HeaderUser | null) {
+  if (!user) return "";
+  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.trim();
+  if (initials) return initials.toUpperCase();
+  return user.name?.trim().slice(0, 1).toUpperCase() || "U";
+}
 
 function getSkillHref(skillSlug: CourseSkillSlug, level?: CefrLevel) {
   const pathname = `/courses/skills/${skillSlug}`;
@@ -73,6 +89,7 @@ export function PublicSiteHeader() {
   const [loginIntent, setLoginIntent] = useState<"learner" | "teacher">("learner");
   const [loginInitialView, setLoginInitialView] = useState<"login" | "register">("login");
   const [canAccessCms, setCanAccessCms] = useState(false);
+  const [headerUser, setHeaderUser] = useState<HeaderUser | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -87,10 +104,15 @@ export function PublicSiteHeader() {
         const payload = (await response.json()) as {
           authenticated?: boolean;
           canAccessCms?: boolean;
+          user?: HeaderUser | null;
         };
 
         if (active && response.ok && payload.authenticated) {
           setCanAccessCms(payload.canAccessCms === true);
+          setHeaderUser(payload.user ?? null);
+        } else if (active) {
+          setCanAccessCms(false);
+          setHeaderUser(null);
         }
       } catch {
         // The header remains public if the session check is temporarily unavailable.
@@ -134,7 +156,9 @@ export function PublicSiteHeader() {
         <button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>{t("header.iTeach")}</button>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
-        <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>
+        {headerUser ? <Link href="/dashboard/profile" className={styles.profileLink} aria-label="Open profile" title="Profile">
+          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
+        </Link> : <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <label className={styles.localeSelectWrap}>
           <select
             aria-label="Language"
@@ -153,7 +177,9 @@ export function PublicSiteHeader() {
       <div className={styles.mobileActions}>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
-        <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>
+        {headerUser ? <Link href="/dashboard/profile" className={styles.profileLink} aria-label="Open profile" title="Profile">
+          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
+        </Link> : <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <label className={styles.localeSelectWrapMobile}>
           <select
             aria-label="Language"

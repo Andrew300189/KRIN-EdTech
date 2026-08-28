@@ -1,0 +1,3 @@
+{
+  "/api/admin/achievements/[achievementId]/route": "app/api/admin/achievements/[achievementId]/route.js"
+}

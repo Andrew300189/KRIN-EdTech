@@ -1,0 +1,11 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/profile/achievements/route.js")
+R.c("server/chunks/[root-of-the-server]__0r76n9b._.js")
+R.c("server/chunks/node_modules_next_1zdbrne._.js")
+R.c("server/chunks/src_modules_motivation_services_motivation_service_ts_1nn2cbc._.js")
+R.c("server/chunks/[root-of-the-server]__163w3q6._.js")
+R.c("server/chunks/src_03wkbef._.js")
+R.c("server/chunks/_0n9kker._.js")
+R.c("server/chunks/node_modules_zod_v3_0yu8w9e._.js")
+R.c("server/chunks/_next-internal_server_app_api_profile_achievements_route_actions_018e8so.js")
+R.m(792996)
+module.exports=R.m(792996).exports
