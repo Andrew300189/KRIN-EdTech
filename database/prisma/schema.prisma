@@ -1323,6 +1323,8 @@ model UserWallet {
   userId         String            @unique
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   balance        Int               @default(0)
+  /// Fractional KRIN Coin balance stored as hundredths (0-99).
+  fractionalBalance Int            @default(0)
   lifetimeEarned Int               @default(0)
   lifetimeSpent  Int               @default(0)
   transactions   CoinTransaction[]
@@ -1336,8 +1338,12 @@ model CoinTransaction {
   walletId       String
   wallet         UserWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
   amount         Int
+  /// Exact exchange amount in hundredths when a transaction contains fractional coins.
+  amountMinor    Int?
   balanceBefore  Int
   balanceAfter   Int
+  balanceBeforeMinor Int?
+  balanceAfterMinor  Int?
   type           CoinTransactionType
   sourceType     String
   sourceId       String
@@ -3378,6 +3384,7 @@ enum ExperienceTransactionType {
   COURSE_COMPLETED
   ACHIEVEMENT_REWARD
   ADMIN_ADJUSTMENT
+  XP_EXCHANGE
   REVERSAL
 }
 
@@ -3391,6 +3398,7 @@ enum CoinTransactionType {
   SOLUTION_PURCHASE
   REFUND
   ADMIN_ADJUSTMENT
+  XP_EXCHANGE
   REVERSAL
 }
 

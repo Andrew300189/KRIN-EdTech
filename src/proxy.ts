@@ -199,6 +199,23 @@ export async function proxy(request: NextRequest) {
   const session = await getSessionIdentity(request);
   const hasSession = Boolean(session?.userId);
 
+  // Retire the legacy dashboard shell for profile/settings. Bookmarks and
+  // older links are resolved into the current role-specific workspace before
+  // any page from the old layout can render.
+  if (
+    session &&
+    (pathname === "/dashboard/profile" || pathname === "/dashboard/settings")
+  ) {
+    return NextResponse.redirect(
+      new URL(
+        normalizeRole(session.role) === "teacher"
+          ? "/teacher/settings"
+          : "/student/settings",
+        request.url,
+      ),
+    );
+  }
+
   if (pathname === "/cms" || pathname.startsWith("/cms/")) {
     if (!session) {
       const url = new URL("/login", request.url);

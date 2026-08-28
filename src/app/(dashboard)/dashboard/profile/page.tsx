@@ -185,19 +185,18 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={`${styles.page} max-w-3xl space-y-6`}>
+    <div className={styles.page}>
       <div className={styles.header}>
-        <h2 className="text-3xl font-bold text-slate-900">Profile settings</h2>
-        <p className="mt-2 text-slate-600">
-          Manage your personal details and application preferences.
-        </p>
+        <div><h2>Profile settings</h2></div>
+        <p>Personal details, photo and sign-in preferences.</p>
       </div>
 
+      <div className={styles.settingsGrid}>
       <form
-        className={`${styles.card} space-y-6 rounded-xl bg-white p-6 shadow-sm`}
+        className={`${styles.card} ${styles.profileCard} space-y-6 rounded-xl bg-white p-6 shadow-sm`}
         onSubmit={handleSubmit}
       >
-        <section className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center">
+        <section className={`${styles.avatarSection} flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center`}>
           {profile.avatar ? (
             <img
               alt={avatarLabel}
@@ -216,11 +215,12 @@ export default function ProfilePage() {
           <div className="space-y-2">
             <p className="font-medium text-slate-900">Profile photo</p>
             <div className="flex flex-wrap gap-3">
-              <label className="cursor-pointer rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+              <label className={styles.photoButton}>
+                <span aria-hidden="true">＋</span>
                 Choose photo
                 <input
                   accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="sr-only"
+                  className={styles.photoInput}
                   onChange={handlePhotoChange}
                   type="file"
                 />
@@ -239,7 +239,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="grid gap-5 sm:grid-cols-2">
+        <section className={`${styles.detailsGrid} grid gap-5 sm:grid-cols-2`}>
           <div className="space-y-2">
             <label className="font-medium text-slate-900" htmlFor="firstName">
               First name
@@ -285,7 +285,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="grid gap-5 border-t border-slate-200 pt-6 sm:grid-cols-2">
+        <section className={`${styles.preferenceGrid} grid gap-5 border-t border-slate-200 pt-6 sm:grid-cols-2`}>
           <div className="space-y-2">
             <label className="font-medium text-slate-900" htmlFor="interfaceLanguage">
               Interface language
@@ -351,7 +351,7 @@ export default function ProfilePage() {
         ) : null}
 
         <button
-          className="btn btn-primary rounded-full px-6 py-3 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`${styles.saveButton} btn btn-primary rounded-full px-6 py-3 disabled:cursor-not-allowed disabled:opacity-60`}
           disabled={saving}
           type="submit"
         >
@@ -360,7 +360,7 @@ export default function ProfilePage() {
       </form>
 
       <form
-        className={`${styles.card} space-y-5 rounded-xl bg-white p-6 shadow-sm`}
+        className={`${styles.card} ${styles.passwordCard} space-y-5 rounded-xl bg-white p-6 shadow-sm`}
         onSubmit={handlePasswordSubmit}
       >
         <div>
@@ -417,6 +417,7 @@ export default function ProfilePage() {
           {passwordSaving ? "Updating…" : "Save password"}
         </button>
       </form>
+      </div>
     </div>
   );
 }

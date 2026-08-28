@@ -5,6 +5,7 @@ import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { recordVocabularyReview, recordWordAdded } from "@/modules/motivation/services/motivation.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
+import { invalidatePublicLearningStatistics } from "@/modules/analytics/services/platform-statistics.service";
 import { determineReviewQuality, isEligibleForMastery, scheduleNextReview } from "@/modules/vocabulary/services/review-scheduler";
 import {
   addCustomDictionaryWordSchema,
@@ -378,6 +379,45 @@ export function buildVocabularyExercise(entry: { lemma: string; meanings: Array<
   return { exerciseType: "WORD_TO_TRANSLATION", payload: { prompt: `Translate “${entry.lemma}”.`, mode: "text", audioUrl: custom ? null : undefined }, answerKey: { acceptedAnswers: [meaning], display: meaning } };
 }
 
+function shuffledTiles(answer: string) {
+  const separator = answer.trim().includes(" ") ? " " : "";
+  const original = separator ? answer.trim().split(/\s+/) : Array.from(answer.trim());
+  if (original.length < 2) return { tiles: original, separator };
+  let tiles = shuffle(original);
+  if (tiles.join(separator).toLocaleLowerCase() === original.join(separator).toLocaleLowerCase()) {
+    tiles = [...tiles.slice(1), tiles[0]];
+  }
+  return { tiles, separator };
+}
+
+function buildVocabularyDrillExercise(
+  entry: { lemma: string; meanings: Array<{ translation: string | null; definition: string }> },
+  ordinal: number,
+) {
+  const translation = primaryMeaning(entry);
+  const mode = ordinal % 3;
+  if (mode === 0) {
+    return {
+      exerciseType: "WORD_TO_TRANSLATION",
+      payload: { prompt: `Переведите на русский: ${entry.lemma}`, mode: "text", direction: "EN_RU" },
+      answerKey: { acceptedAnswers: [translation], display: translation },
+    };
+  }
+  if (mode === 1) {
+    return {
+      exerciseType: "TRANSLATION_TO_WORD",
+      payload: { prompt: `Переведите на английский: ${translation}`, mode: "text", direction: "RU_EN" },
+      answerKey: { acceptedAnswers: [entry.lemma, normalizeWord(entry.lemma)], display: entry.lemma },
+    };
+  }
+  const { tiles, separator } = shuffledTiles(entry.lemma);
+  return {
+    exerciseType: "TEXT_INPUT",
+    payload: { prompt: `Соберите английский перевод: ${translation}`, mode: "tiles", direction: "RU_EN", tiles, separator },
+    answerKey: { acceptedAnswers: [entry.lemma, normalizeWord(entry.lemma)], display: entry.lemma },
+  };
+}
+
 async function sessionForUser(userId: string, sessionId: string, includeAnswers = false) {
   return prisma.vocabularyTrainingSession.findFirst({
     where: { id: sessionId, userId },
@@ -396,22 +436,80 @@ export async function createVocabularyTrainingSession(userId: string, input: unk
   let custom = due.custom;
   if (value.userWordIds?.length) global = await prisma.userWord.findMany({ where: { id: { in: value.userWordIds }, userId, word: { isActive: true } }, include: { word: { include: { meanings: { orderBy: { order: "asc" } }, examples: { orderBy: { order: "asc" }, take: 1 }, collocations: { take: 5 }, sourceRelations: { include: { targetWord: { include: { meanings: { take: 1 } } } } } } } } });
   if (value.userCustomWordIds?.length) custom = await prisma.userCustomWord.findMany({ where: { id: { in: value.userCustomWordIds }, userId } });
+  if (value.source === "USER_SELECTED" && !value.userWordIds?.length && !value.userCustomWordIds?.length) {
+    global = await prisma.userWord.findMany({
+      where: { userId, status: { in: [...activeStatuses] }, word: { isActive: true } },
+      orderBy: [{ isDifficult: "desc" }, { masteryLevel: "asc" }, { addedAt: "asc" }],
+      take: 20,
+      include: { word: { include: { meanings: { orderBy: { order: "asc" } }, examples: { take: 1 }, collocations: { take: 5 }, sourceRelations: { include: { targetWord: { include: { meanings: { take: 1 } } } } } } } },
+    });
+    custom = await prisma.userCustomWord.findMany({
+      where: { userId, status: { in: [...activeStatuses] } },
+      orderBy: [{ isDifficult: "desc" }, { masteryLevel: "asc" }, { createdAt: "asc" }],
+      take: Math.max(0, 20 - global.length),
+    });
+  }
   if (value.source === "DIFFICULT_WORDS" || (global.length + custom.length < Math.min(5, limit) && settings.includeDifficultWords)) {
     const difficult = await prisma.userWord.findMany({ where: { userId, isDifficult: true, status: { in: [...activeStatuses] }, word: { isActive: true }, id: { notIn: global.map((item) => item.id) } }, take: limit - global.length, include: { word: { include: { meanings: { orderBy: { order: "asc" } }, examples: { take: 1 }, collocations: { take: 5 }, sourceRelations: { include: { targetWord: { include: { meanings: { take: 1 } } } } } } } } });
     global = [...global, ...difficult];
   }
-  const entries = [...global.flatMap((item) => item.word ? [{ kind: "GLOBAL" as const, item: { ...item, word: item.word } }] : []), ...custom.map((item) => ({ kind: "CUSTOM" as const, item }))].slice(0, limit);
+  const entries = [...global.flatMap((item) => item.word ? [{ kind: "GLOBAL" as const, item: { ...item, word: item.word } }] : []), ...custom.map((item) => ({ kind: "CUSTOM" as const, item }))].slice(0, value.source === "USER_SELECTED" ? 20 : limit);
   if (!entries.length) return null;
   const candidateWords = await prisma.word.findMany({ where: { isActive: true }, take: 100, include: { meanings: { orderBy: { order: "asc" }, take: 1 } } });
   const candidates = candidateWords.map((word) => ({ value: primaryMeaning(word), wordId: word.id })).filter((candidate) => candidate.value);
-  const exercises = entries.map((entry, index) => {
+  const taskEntries = value.source === "USER_SELECTED"
+    ? Array.from({ length: 20 }, (_, index) => entries[index % entries.length])
+    : entries;
+  const exercises = taskEntries.map((entry, index) => {
+    if (value.source === "USER_SELECTED") {
+      const vocabularyEntry = entry.kind === "GLOBAL"
+        ? entry.item.word
+        : { lemma: entry.item.term, meanings: [{ translation: entry.item.translation, definition: entry.item.translation }] };
+      return buildVocabularyDrillExercise(vocabularyEntry, index);
+    }
     if (entry.kind === "GLOBAL") return buildVocabularyExercise(entry.item.word, candidates, [], index);
     return buildVocabularyExercise({ lemma: entry.item.term, meanings: [{ translation: entry.item.translation, definition: entry.item.translation }], examples: entry.item.example ? [{ sentence: entry.item.example }] : [], collocations: [] }, candidates, [], index, true);
   });
   const session = await prisma.vocabularyTrainingSession.create({
-    data: { userId, lessonId: value.lessonId, source: value.source, status: "IN_PROGRESS", totalItems: entries.length, startedAt: new Date(), items: { create: entries.map((entry, index) => ({ userWordId: entry.kind === "GLOBAL" ? entry.item.id : undefined, userCustomWordId: entry.kind === "CUSTOM" ? entry.item.id : undefined, exerciseType: exercises[index].exerciseType as never, payload: toJson(exercises[index].payload), answerKey: toJson(exercises[index].answerKey), order: index + 1 })) } },
+    data: { userId, lessonId: value.lessonId, source: value.source, status: "IN_PROGRESS", totalItems: taskEntries.length, startedAt: new Date(), items: { create: taskEntries.map((entry, index) => ({ userWordId: entry.kind === "GLOBAL" ? entry.item.id : undefined, userCustomWordId: entry.kind === "CUSTOM" ? entry.item.id : undefined, exerciseType: exercises[index].exerciseType as never, payload: toJson(exercises[index].payload), answerKey: toJson(exercises[index].answerKey), order: index + 1 })) } },
   });
   return sessionForUser(userId, session.id);
+}
+
+export async function markVocabularyTrainingItemMastered(userId: string, sessionItemId: string) {
+  const result = await prisma.$transaction(async (tx) => {
+    const item = await tx.vocabularyTrainingItem.findFirst({
+      where: { id: sessionItemId, session: { userId, status: "IN_PROGRESS" } },
+      include: { session: true },
+    });
+    if (!item) throw new Error("Active vocabulary exercise not found");
+    const now = new Date();
+    if (item.userWordId) {
+      await tx.userWord.update({ where: { id: item.userWordId, userId }, data: { status: "MASTERED", masteryLevel: 100, masteredAt: now, nextReviewAt: null, isDifficult: false } });
+    } else if (item.userCustomWordId) {
+      await tx.userCustomWord.update({ where: { id: item.userCustomWordId, userId }, data: { status: "MASTERED", masteryLevel: 100, masteredAt: now, nextReviewAt: null, isDifficult: false } });
+    } else {
+      throw new Error("Vocabulary word is no longer available");
+    }
+    const pending = await tx.vocabularyTrainingItem.findMany({
+      where: {
+        sessionId: item.sessionId,
+        status: "PENDING",
+        ...(item.userWordId ? { userWordId: item.userWordId } : { userCustomWordId: item.userCustomWordId }),
+      },
+      select: { id: true },
+    });
+    if (pending.length) await tx.vocabularyTrainingItem.updateMany({ where: { id: { in: pending.map(({ id }) => id) } }, data: { status: "SKIPPED", submittedAt: now } });
+    const completedItems = Math.min(item.session.totalItems, item.session.completedItems + pending.length);
+    const sessionCompleted = completedItems >= item.session.totalItems;
+    await tx.vocabularyTrainingSession.update({
+      where: { id: item.sessionId },
+      data: { completedItems, ...(sessionCompleted ? { status: "COMPLETED", completedAt: now } : {}) },
+    });
+    return { mastered: true, skippedItems: pending.length, sessionCompleted };
+  });
+  invalidatePublicLearningStatistics();
+  return result;
 }
 
 export async function getVocabularyTrainingSession(userId: string, sessionId: string) {
@@ -455,8 +553,9 @@ export async function submitVocabularyAnswer(userId: string, sessionItemId: stri
     const sessionUpdate = { completedItems, correctItems: item.session.correctItems + (isCorrect ? 1 : 0), incorrectItems: item.session.incorrectItems + (isCorrect ? 0 : 1), ...(completedItems >= item.session.totalItems ? { status: "COMPLETED" as const, completedAt: new Date() } : {}) };
     await tx.vocabularyTrainingSession.update({ where: { id: item.sessionId }, data: sessionUpdate });
     const motivationReward = await recordVocabularyReview(tx, { userId, vocabularySessionId: item.sessionId, reviewId: reviewAttempt.id, isCorrect, sessionCompleted: completedItems >= item.session.totalItems, warmUp: item.session.source === "LESSON_WARM_UP" });
-    return { alreadySubmitted: false, isCorrect, quality, correctAnswer: answerKey.display ?? null, nextReviewAt: scheduled.nextReviewAt, masteryLevel: scheduled.masteryLevel, sessionCompleted: completedItems >= item.session.totalItems, sessionId: item.sessionId, motivationReward };
+    return { alreadySubmitted: false, isCorrect, quality, correctAnswer: answerKey.display ?? null, nextReviewAt: scheduled.nextReviewAt, masteryLevel: scheduled.masteryLevel, mastered: becomesMastered, sessionCompleted: completedItems >= item.session.totalItems, sessionId: item.sessionId, motivationReward };
   });
+  if (!result.alreadySubmitted && result.mastered) invalidatePublicLearningStatistics();
   if (!result.alreadySubmitted && result.sessionCompleted) {
     try { await notificationService.createNotification({ userId, type: "VOCABULARY_SESSION_COMPLETED", idempotencyKey: `vocabulary-session-completed:${userId}:${result.sessionId}`, entityType: "VocabularyTrainingSession", entityId: result.sessionId, title: "Vocabulary session completed", message: "Your vocabulary practice has been recorded.", actionUrl: "/dashboard/vocabulary", actionLabel: "Continue vocabulary" }); }
     catch (error) { console.error("[communications] vocabulary notification failed", error); }

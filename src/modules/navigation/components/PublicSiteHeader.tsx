@@ -45,11 +45,16 @@ const moreLinks = [
 type CourseSkill = (typeof courseSkillCatalog)[number];
 type CefrLevel = (typeof courseSkillLevels)[number];
 type HeaderUser = {
+  role?: string | null;
   name?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   avatar?: string | null;
 };
+
+function profileHref(user: HeaderUser) {
+  return user.role?.toLowerCase() === "teacher" ? "/teacher" : "/student";
+}
 
 function userInitials(user: HeaderUser | null) {
   if (!user) return "";
@@ -156,7 +161,7 @@ export function PublicSiteHeader() {
         <button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>{t("header.iTeach")}</button>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
-        {headerUser ? <Link href="/dashboard/profile" className={styles.profileLink} aria-label="Open profile" title="Profile">
+        {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label="Open profile" title="Profile">
           {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <label className={styles.localeSelectWrap}>
@@ -177,7 +182,7 @@ export function PublicSiteHeader() {
       <div className={styles.mobileActions}>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
-        {headerUser ? <Link href="/dashboard/profile" className={styles.profileLink} aria-label="Open profile" title="Profile">
+        {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label="Open profile" title="Profile">
           {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <label className={styles.localeSelectWrapMobile}>
