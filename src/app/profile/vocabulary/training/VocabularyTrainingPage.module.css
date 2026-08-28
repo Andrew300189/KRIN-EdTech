@@ -1,0 +1,14 @@
+.page { display: grid; width: min(100% - 2rem, 70rem); min-height: calc(100dvh - 5rem); align-content: center; gap: 1rem; margin-inline: auto; padding-block: 1rem; }
+.header { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; }
+.backLink { color: var(--primary); font-size: 0.78rem; font-weight: 800; text-decoration: none; }
+.backLink:hover { text-decoration: underline; }
+.header h1 { margin: 0.35rem 0 0; color: var(--text-primary); font-size: clamp(1.65rem, 4vw, 2.35rem); letter-spacing: -0.04em; }
+.header p { max-width: 46rem; margin: 0.35rem 0 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.45; }
+.cycleBadge { display: grid; width: 4.6rem; height: 4.6rem; flex: 0 0 auto; place-items: center; align-content: center; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 50%; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); color: var(--primary); }
+.cycleBadge strong { font-size: 1.35rem; line-height: 1; }
+.cycleBadge span { margin-top: 0.18rem; font-size: 0.62rem; font-weight: 800; }
+.empty { display: grid; min-height: 22rem; place-items: center; align-content: center; gap: 0.65rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-elevated); padding: 2rem; text-align: center; }
+.empty h2, .empty p { margin: 0; }
+.empty p { max-width: 35rem; color: var(--text-secondary); }
+.empty a { border-radius: var(--radius-pill); background: var(--primary); padding: 0.7rem 1rem; color: var(--primary-contrast); font-weight: 800; text-decoration: none; }
+@media (max-width: 620px) { .page { width: min(100% - 1rem, 70rem); align-content: start; } .header { align-items: center; } .cycleBadge { width: 3.8rem; height: 3.8rem; } .header p { font-size: 0.8rem; } }

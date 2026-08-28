@@ -1,24 +1,25 @@
-.status {
-  display: inline-flex;
-  min-height: 2.25rem;
-  align-items: center;
-  gap: .35rem;
-  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated));
-  color: var(--primary);
-  padding: .42rem .62rem;
-  font-size: .72rem;
-  font-weight: 800;
-  line-height: 1;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.status strong { color: var(--text-primary); font-size: .76rem; }
-.status:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-elevated)); }
-.status:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .status { transition: background-color 150ms ease, border-color 150ms ease; }
-}
+.root { position: relative; z-index: 20; }
+.status { display: inline-flex; min-height: 2.4rem; align-items: stretch; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)); white-space: nowrap; }
+.xpButton { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; color: var(--primary); padding: .48rem .7rem; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.xpButton strong { color: var(--text-primary); font-size: .77rem; }
+.coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .68rem; color: #8b5a00; font-size: .75rem; font-weight: 900; }
+.status:has(.xpButton:hover) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, var(--surface-elevated)); }
+.xpButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; border-radius: 999px 0 0 999px; }
+.popover { position: absolute; top: calc(100% + .6rem); right: 0; width: min(20rem, calc(100vw - 2rem)); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: var(--surface-elevated); box-shadow: 0 22px 55px rgba(28, 35, 70, .18); padding: 1rem; color: var(--text-primary); }
+.popoverHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.popoverHeading > div { display: grid; gap: .2rem; }
+.popoverHeading strong { font-size: 1rem; }
+.popoverHeading span { color: var(--text-secondary); font-size: .75rem; }
+.popoverHeading button { width: 1.9rem; height: 1.9rem; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-primary); font-size: 1.15rem; cursor: pointer; }
+.available { margin: .8rem 0; color: var(--text-secondary); font-size: .78rem; }
+.popover form { display: grid; gap: .55rem; }
+.popover label { font-size: .75rem; font-weight: 800; }
+.amountRow { display: grid; grid-template-columns: 1fr auto; gap: .45rem; }
+.amountRow input { min-width: 0; height: 2.7rem; border: 1px solid var(--border); border-radius: .8rem; background: var(--surface); color: var(--text-primary); padding: 0 .8rem; font: inherit; font-weight: 800; }
+.amountRow button { border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: .8rem; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); color: var(--primary); padding: 0 .75rem; font-weight: 800; cursor: pointer; }
+.preview { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border-radius: .8rem; background: color-mix(in srgb, #f0b429 12%, var(--surface)); padding: .65rem .75rem; font-size: .76rem; }
+.preview strong { color: #8b5a00; }
+.exchangeButton { min-height: 2.7rem; border: 0; border-radius: .85rem; background: var(--primary); color: white; font-weight: 900; cursor: pointer; }
+.exchangeButton:disabled { cursor: not-allowed; opacity: .48; }
+.message { margin: .65rem 0 0; color: var(--text-secondary); font-size: .74rem; line-height: 1.4; }
+@media (prefers-reduced-motion: no-preference) { .status { transition: background-color 150ms ease, border-color 150ms ease; } .popover { animation: enter 160ms ease-out; } @keyframes enter { from { opacity: 0; transform: translateY(-.25rem) scale(.98); } } }

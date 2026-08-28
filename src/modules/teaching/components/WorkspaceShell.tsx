@@ -242,7 +242,7 @@ export function WorkspaceShell({
       ) : null}
 
       <main className={`${styles.main} ${shouldLockDesktopViewport ? styles.viewportLockedMain : ""}`}>
-        <header className={`${styles.header} ${shouldLockDesktopViewport ? styles.viewportLockedHeader : ""}`}>
+        <header className={`${styles.header} ${shouldLockDesktopViewport ? styles.viewportLockedHeader : ""} ${title.trim() ? "" : styles.headerCompact}`}>
           <div className={styles.headerRow}>
             <div className={styles.headerTitle}>
               <button
@@ -255,7 +255,7 @@ export function WorkspaceShell({
               >
                 <MenuIcon />
               </button>
-              <h1>{title}</h1>
+              {title.trim() ? <h1>{title}</h1> : null}
             </div>
 
             <div className={styles.headerActions}>

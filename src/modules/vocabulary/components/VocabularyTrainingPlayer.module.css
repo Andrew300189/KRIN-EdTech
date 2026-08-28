@@ -1,0 +1,47 @@
+.player, .completeCard, .loading { border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-md); }
+.player { display: grid; gap: 1rem; padding: 1.15rem; }
+.compact { box-shadow: var(--shadow-sm); }
+.topline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.topline strong { display: block; margin-top: 0.16rem; color: var(--text-primary); font-size: 0.95rem; }
+.kicker { margin: 0; color: var(--primary); font-size: 0.7rem; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; }
+.learnedButton, .primaryButton { border: 0; border-radius: var(--radius-pill); font: inherit; font-weight: 800; cursor: pointer; transition: transform 150ms ease, background-color 150ms ease, box-shadow 150ms ease; }
+.learnedButton { min-height: 2.4rem; padding: 0.55rem 0.9rem; background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: color-mix(in srgb, var(--success) 75%, var(--text-primary)); }
+.learnedButton:hover { background: color-mix(in srgb, var(--success) 22%, var(--surface)); transform: translateY(-1px); }
+.progressTrack { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 0.22rem; }
+.progressTrack span { height: 0.42rem; border-radius: var(--radius-pill); background: var(--surface-tertiary); }
+.progressTrack .progressDone { background: var(--success); }
+.progressTrack .progressCurrent { background: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent); }
+.taskCard { display: grid; min-height: 21rem; align-content: center; gap: 1.1rem; border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); border-radius: var(--radius-xl); background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 5%, var(--surface-elevated)), var(--surface-elevated)); padding: clamp(1.25rem, 4vw, 2.5rem); }
+.direction { width: fit-content; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 10%, transparent); padding: 0.32rem 0.66rem; color: var(--primary); font-size: 0.72rem; font-weight: 800; }
+.taskCard h2 { max-width: 44rem; margin: 0; color: var(--text-primary); font-size: clamp(1.25rem, 3vw, 1.8rem); line-height: 1.25; }
+.textExercise { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.65rem; }
+.textExercise label { grid-column: 1 / -1; color: var(--text-secondary); font-size: 0.78rem; font-weight: 750; }
+.textExercise input { min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); padding: 0.8rem 0.95rem; color: var(--text-primary); font: inherit; outline: none; }
+.textExercise input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+.primaryButton { min-height: 2.75rem; padding: 0.65rem 1.15rem; background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-sm); }
+.primaryButton:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.primaryButton:disabled, .learnedButton:disabled { cursor: wait; opacity: 0.55; transform: none; }
+.tilesExercise { display: grid; gap: 0.8rem; }
+.answerTray, .tileBank { display: flex; min-height: 4.3rem; flex-wrap: wrap; align-items: center; gap: 0.5rem; border-radius: var(--radius-lg); padding: 0.7rem; }
+.answerTray { border: 1px dashed color-mix(in srgb, var(--primary) 42%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.answerTray > span { color: var(--text-muted); font-size: 0.82rem; }
+.tileBank { border: 1px solid var(--border); background: var(--surface-secondary); }
+.answerTray button, .tileBank button { min-width: 2.65rem; min-height: 2.55rem; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: var(--radius-md); background: var(--surface-elevated); padding: 0.48rem 0.68rem; color: var(--text-primary); font: inherit; font-weight: 800; box-shadow: var(--shadow-sm); cursor: grab; }
+.answerTray button:active, .tileBank button:active { cursor: grabbing; }
+.tileBank button:disabled { visibility: hidden; }
+.optionGrid { display: grid; gap: 0.55rem; }
+.optionGrid button { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 0.8rem 1rem; color: var(--text-primary); text-align: left; font: inherit; font-weight: 700; cursor: pointer; }
+.optionGrid button:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.feedback { border-radius: var(--radius-lg); padding: 0.75rem 0.9rem; font-size: 0.88rem; font-weight: 800; }
+.feedbackCorrect { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: color-mix(in srgb, var(--success) 72%, var(--text-primary)); }
+.feedbackWrong { background: color-mix(in srgb, var(--danger) 11%, var(--surface)); color: var(--danger); }
+.errorText { margin: 0; color: var(--danger); font-size: 0.82rem; font-weight: 700; }
+.completeCard { display: grid; min-height: 25rem; place-items: center; align-content: center; gap: 0.7rem; padding: 2rem; text-align: center; }
+.completeCard h2, .completeCard p { margin: 0; }
+.completeCard h2 { color: var(--text-primary); font-size: 1.65rem; }
+.completeCard > p:not(.kicker):not(.errorText) { color: var(--text-secondary); }
+.completeMark { display: grid; width: 3.2rem; height: 3.2rem; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--success) 15%, var(--surface)); color: var(--success); font-size: 1.55rem; font-weight: 900; }
+.cycleComplete { font-weight: 800; }
+.loading { padding: 2rem; color: var(--text-secondary); text-align: center; }
+@media (max-width: 620px) { .player { padding: 0.75rem; } .taskCard { min-height: 18rem; padding: 1rem; } .textExercise { grid-template-columns: 1fr; } .textExercise label { grid-column: auto; } .progressTrack { gap: 0.12rem; } .topline { align-items: flex-start; } .learnedButton { min-height: 2.2rem; padding: 0.45rem 0.65rem; font-size: 0.78rem; } }
+@media (prefers-reduced-motion: reduce) { .learnedButton, .primaryButton { transition: none; } }

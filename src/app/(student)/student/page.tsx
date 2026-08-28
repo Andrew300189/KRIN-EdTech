@@ -77,7 +77,6 @@ export default async function StudentHomePage({
       <PlacementResultSync />
       <header className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>Your learning space</p>
           <h2>{isFirstVisit ? "Welcome" : "Welcome back"}, {name}</h2>
           <p>One focused lesson is enough for today. Your next step is ready below.</p>
         </div>
@@ -123,7 +122,7 @@ export default async function StudentHomePage({
       <section className={styles.dashboardGrid} aria-label="Your next learning step">
         <article className={`${styles.panel} ${styles.focusPanel}`}>
           <div className={styles.cardHeading}>
-            <div><p className={styles.eyebrow}>Up next</p><h3>{nextLessonLabel}</h3></div>
+            <h3>{nextLessonLabel}</h3>
             {next ? <span className={styles.statusTag}>{next.progress}% complete</span> : null}
           </div>
           {next ? (
@@ -149,13 +148,13 @@ export default async function StudentHomePage({
 
         <div className={styles.sideStack}>
           <article className={styles.panel}>
-            <div className={styles.cardHeading}><div><p className={styles.eyebrow}>Billing</p><h3>{billingLabel}</h3></div><span className={`${styles.billingStatus} ${activePaidPlan ? styles.billingStatusActive : ""}`}>{activePaidPlan ? "Active" : "Free"}</span></div>
+            <div className={styles.cardHeading}><h3>{billingLabel}</h3><span className={`${styles.billingStatus} ${activePaidPlan ? styles.billingStatusActive : ""}`}>{activePaidPlan ? "Active" : "Free"}</span></div>
             <p className={styles.helperText}>{billingDetail}</p>
             <Link href="/student/billing" className={styles.textLink}>Manage billing</Link>
           </article>
 
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
-            <div className={styles.cardHeading}><div><p className={styles.eyebrow}>My mistakes</p><h3>{recentMistakes.length ? "Review and improve" : "You are all caught up"}</h3></div><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
+            <div className={styles.cardHeading}><h3>{recentMistakes.length ? "Review and improve" : "You are all caught up"}</h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
             {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? "Practice item"}</strong><span>{mistake.explanation ?? `Review after ${mistake.occurrenceCount} attempt${mistake.occurrenceCount === 1 ? "" : "s"}.`}</span></li>)}</ul> : <p className={styles.helperText}>New mistakes will appear here with their explanations.</p>}
             <Link href="/student/mistakes" className={styles.textLink}>Open mistakes</Link>
           </article>

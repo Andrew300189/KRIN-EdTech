@@ -1,42 +1,96 @@
 .page {
-  width: min(100%, 54rem) !important;
-  max-width: 54rem !important;
-  padding-bottom: var(--space-6);
+  display: flex;
+  width: min(100%, 64rem);
+  min-height: 0;
+  flex-direction: column;
+  gap: .42rem;
+  margin: 0 auto;
+  font-family: var(--font-sans, inherit);
 }
 
-.header { max-width: 43rem; }
-.header h2 { color: var(--text-primary) !important; letter-spacing: -0.04em; }
-.header p { color: var(--text-secondary) !important; line-height: 1.5; }
+.header { display: flex; min-height: 2.2rem; align-items: center; justify-content: space-between; gap: 1rem; flex: none; padding-inline: .12rem; }
+.header h2 { margin: 0; color: var(--text-primary) !important; font-size: clamp(1.18rem, 1.7vw, 1.48rem); font-weight: 850; letter-spacing: -.035em; line-height: 1; }
+.header > p { max-width: 28rem; margin: 0; color: var(--text-muted) !important; font-size: .72rem; line-height: 1.3; text-align: right; }
+
+.settingsGrid { display: grid; min-height: 0; flex: 1 1 auto; align-items: start; grid-template-columns: minmax(0, 1.42fr) minmax(15rem, .68fr); gap: .46rem; }
 
 .card {
   display: grid;
+  align-content: start;
   min-width: 0;
+  gap: .32rem !important;
+  padding: .52rem !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius-xl) !important;
   background: var(--surface-elevated) !important;
   box-shadow: var(--shadow-sm) !important;
 }
+.card > :global(* + *) { margin-top: 0 !important; }
+.profileCard { grid-template-rows: auto auto auto auto auto; }
+.passwordCard { height: fit-content; align-self: start; grid-template-rows: auto auto auto auto auto; }
+.avatarSection { gap: .42rem !important; padding-bottom: .32rem !important; }
+.avatarSection > :global(img), .avatarSection > :global(div:first-child) { width: 2.7rem !important; height: 2.7rem !important; flex: 0 0 2.7rem; font-size: 1rem !important; }
+.avatarSection > :global(div.space-y-2) { display: grid; gap: .22rem; }
+.avatarSection :global(.space-y-2 > * + *) { margin-top: 0 !important; }
+.avatarSection :global(p.font-medium) { margin: 0; font-size: .74rem !important; font-weight: 800; }
+.avatarSection :global(p.text-sm) { display: none; }
+.avatarSection :global(label), .avatarSection :global(button) { padding: .34rem .64rem !important; font-size: .68rem !important; }
+.photoButton { display: inline-flex; min-height: 2rem; align-items: center; gap: .28rem; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); color: var(--primary) !important; box-shadow: var(--shadow-sm); font-weight: 800 !important; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
+.photoButton > span { display: grid; width: 1rem; height: 1rem; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--primary) 13%, transparent); font-size: .78rem; line-height: 1; }
+.photoButton:hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: color-mix(in srgb, var(--primary) 11%, var(--surface)); transform: translateY(-1px); }
+.photoButton:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.photoInput { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; clip-path: inset(50%) !important; white-space: nowrap !important; }
+.detailsGrid, .preferenceGrid { gap: .3rem .38rem !important; }
+.detailsGrid > :global(div), .preferenceGrid > :global(div) { gap: .15rem !important; }
+.detailsGrid :global(.space-y-2 > * + *), .preferenceGrid :global(.space-y-2 > * + *), .passwordCard :global(.space-y-2 > * + *) { margin-top: .12rem !important; }
+.preferenceGrid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; padding-top: .3rem !important; }
+.preferenceGrid > :global(div:last-child) { grid-column: auto !important; }
+.card :global(label) { color: var(--text-secondary) !important; font-size: .7rem; font-weight: 750 !important; letter-spacing: -.005em; }
+.card :global(p.text-xs), .card :global(p.text-sm) { margin-block: .08rem !important; font-size: .64rem !important; line-height: 1.25; }
+.detailsGrid :global(#email-help) { display: none; }
+.saveButton { justify-self: start; }
+.passwordCard > :global(div:first-child) { padding-bottom: .16rem; }
+.passwordCard :global(h3) { margin: 0; font-size: .92rem !important; font-weight: 850 !important; letter-spacing: -.02em; }
+.passwordCard > :global(div:first-child p) { display: -webkit-box; overflow: hidden; margin-top: .16rem !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.passwordCard > :global(div.grid) { gap: .34rem !important; }
+.passwordCard > :global(.space-y-2 p) { display: none; }
 
 .card :global(section) { border-color: var(--border) !important; }
 .card :global(label), .card :global(h3), .card :global(p.font-medium) { color: var(--text-primary) !important; }
 .card :global(input.form-control), .card :global(select.form-control) {
-  min-height: 2.6rem;
+  min-height: 1.92rem;
   border-color: var(--border) !important;
   border-radius: var(--radius-md) !important;
   background: var(--surface) !important;
   color: var(--text-primary) !important;
   box-shadow: none !important;
+  padding: .34rem .58rem !important;
+  font-size: .76rem !important;
 }
 .card :global(input.form-control:hover), .card :global(select.form-control:hover) { border-color: var(--border-strong) !important; }
 .card :global(input.form-control:focus-visible), .card :global(select.form-control:focus-visible), .card :global(button:focus-visible), .card :global(label:focus-within) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .card :global(input.form-control:disabled) { background: var(--surface-secondary) !important; color: var(--text-muted) !important; }
 .card :global(.text-slate-500), .card :global(.text-slate-600) { color: var(--text-muted) !important; }
-.card :global(.btn) { min-height: 2.55rem; border-radius: var(--radius-md) !important; font-weight: 750; }
+.card :global(.btn) { min-height: 2.15rem; border-radius: var(--radius-md) !important; padding: .38rem .72rem !important; font-size: .72rem !important; font-weight: 800; }
 
 @media (max-width: 640px) {
   .page { width: 100% !important; gap: 1rem !important; }
   .card { padding: 1rem !important; border-radius: var(--radius-lg) !important; }
   .card :global(.btn) { width: 100%; }
+  .header { align-items: flex-start; flex-direction: column; }
+  .header > p { text-align: left; }
+}
+
+@media (max-width: 900px) {
+  .settingsGrid { grid-template-columns: 1fr; }
+  .preferenceGrid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .preferenceGrid > :global(div:last-child) { grid-column: 1 / -1 !important; }
+}
+
+@media (min-width: 901px) {
+  .page { height: 100%; max-height: 100%; overflow: hidden; }
+  .settingsGrid { overflow: hidden; }
+  .card { max-height: 100%; overflow: hidden; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

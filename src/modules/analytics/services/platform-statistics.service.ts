@@ -8,6 +8,11 @@ const PUBLIC_STATISTICS_CACHE_TTL_MS = 15_000;
 let cachedStatistics: { value: PublicLearningStatistics; expiresAt: number } | null = null;
 let pendingStatisticsRequest: Promise<PublicLearningStatistics> | null = null;
 
+/** Clears the short-lived aggregate cache after a canonical learning event. */
+export function invalidatePublicLearningStatistics() {
+  cachedStatistics = null;
+}
+
 /**
  * Public, aggregate-only learning figures. Every value is counted directly
  * from the canonical product tables; no marketing or seeded counter is used.
@@ -31,6 +36,9 @@ export async function getPublicLearningStatistics(): Promise<PublicLearningStati
       prisma.userWord.count({
         where: { status: "MASTERED", archivedAt: null },
       }),
+      prisma.userCustomWord.count({
+        where: { status: "MASTERED", archivedAt: null },
+      }),
       prisma.studentCourse.count({
         where: {
           status: "COMPLETED",
@@ -43,9 +51,9 @@ export async function getPublicLearningStatistics(): Promise<PublicLearningStati
           user: { deletedAt: null, isBlocked: false },
         },
       }),
-    ]).then(([registeredLearners, masteredWords, completedCourses, completedLessons]) => ({
+    ]).then(([registeredLearners, masteredDictionaryWords, masteredCustomWords, completedCourses, completedLessons]) => ({
       registeredLearners,
-      masteredWords,
+      masteredWords: masteredDictionaryWords + masteredCustomWords,
       completedCourses,
       completedLessons,
     }));

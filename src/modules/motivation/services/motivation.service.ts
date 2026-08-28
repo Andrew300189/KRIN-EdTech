@@ -8,8 +8,8 @@ import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-p
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
-type ExperienceType = "LESSON_COMPLETED" | "EXERCISE_CORRECT" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED" | "ACHIEVEMENT_REWARD" | "ADMIN_ADJUSTMENT" | "REVERSAL";
-type CoinType = "LESSON_REWARD" | "DAILY_GOAL_REWARD" | "STREAK_REWARD" | "ACHIEVEMENT_REWARD" | "COURSE_REWARD" | "PURCHASE" | "REFUND" | "ADMIN_ADJUSTMENT" | "REVERSAL";
+type ExperienceType = "LESSON_COMPLETED" | "EXERCISE_CORRECT" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED" | "ACHIEVEMENT_REWARD" | "ADMIN_ADJUSTMENT" | "XP_EXCHANGE" | "REVERSAL";
+type CoinType = "LESSON_REWARD" | "DAILY_GOAL_REWARD" | "STREAK_REWARD" | "ACHIEVEMENT_REWARD" | "COURSE_REWARD" | "PURCHASE" | "REFUND" | "ADMIN_ADJUSTMENT" | "XP_EXCHANGE" | "REVERSAL";
 
 const eventExperienceType: Record<RewardEvent, ExperienceType> = {
   EXERCISE_CORRECT: "EXERCISE_CORRECT", LESSON_COMPLETED: "LESSON_COMPLETED", HOMEWORK_COMPLETED: "HOMEWORK_COMPLETED", VOCABULARY_REVIEW: "VOCABULARY_REVIEW", VOCABULARY_SESSION_COMPLETED: "VOCABULARY_SESSION_COMPLETED", WARM_UP_COMPLETED: "WARM_UP_COMPLETED", DAILY_GOAL: "DAILY_GOAL", COURSE_COMPLETED: "COURSE_COMPLETED",
@@ -291,6 +291,75 @@ export async function getMotivationOverview(userId: string) {
     const context = await userContext(tx, userId);
     const [daily, level, wallet, streak] = await Promise.all([ensureDailyActivity(tx, userId, context.date), tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} })]);
     return { date: context.date, timeZone: context.timeZone, dailyGoalMinutes: context.dailyGoalMinutes, daily, level, wallet, streak };
+  });
+}
+
+export const XP_PER_KRIN_COIN = 1_000;
+
+export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number) {
+  const exchangedExperience = Math.trunc(requestedExperience);
+  if (!Number.isFinite(exchangedExperience) || exchangedExperience < 10) {
+    throw new Error("Enter at least 10 XP to receive 0.01 KRIN Coin.");
+  }
+  const addedHundredths = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * 100);
+
+  return prisma.$transaction(async (tx) => {
+    const context = await userContext(tx, userId);
+    await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+    const deducted = await tx.userLevel.updateMany({
+      where: { userId, lifetimeExperience: { gte: exchangedExperience } },
+      data: { lifetimeExperience: { decrement: exchangedExperience } },
+    });
+    if (!deducted.count) throw new Error("You do not have enough XP for this exchange.");
+
+    const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { userId } });
+    const nextLevel = calculateUserLevel(reducedLevel.lifetimeExperience);
+    const level = await tx.userLevel.update({ where: { userId }, data: nextLevel });
+    const exchangeId = randomUUID();
+    await tx.experienceTransaction.create({
+      data: {
+        userId,
+        amount: -exchangedExperience,
+        type: "XP_EXCHANGE",
+        sourceType: "XP_EXCHANGE",
+        sourceId: exchangeId,
+        idempotencyKey: `xp-exchange:${userId}:${exchangeId}`,
+        localDate: context.date,
+        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
+      },
+    });
+
+    const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+    const totalHundredths = wallet.fractionalBalance + addedHundredths;
+    const wholeCoinsAdded = Math.floor(totalHundredths / 100);
+    const fractionalBalance = totalHundredths % 100;
+    const updatedWallet = await tx.userWallet.update({
+      where: { id: wallet.id },
+      data: {
+        balance: { increment: wholeCoinsAdded },
+        fractionalBalance,
+        lifetimeEarned: { increment: wholeCoinsAdded },
+      },
+    });
+    await tx.coinTransaction.create({
+      data: {
+        userId,
+        walletId: wallet.id,
+        amount: wholeCoinsAdded,
+        amountMinor: addedHundredths,
+        balanceBefore: wallet.balance,
+        balanceAfter: updatedWallet.balance,
+        balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
+        balanceAfterMinor: updatedWallet.balance * 100 + updatedWallet.fractionalBalance,
+        type: "XP_EXCHANGE",
+        sourceType: "XP_EXCHANGE",
+        sourceId: exchangeId,
+        idempotencyKey: `xp-exchange-coin:${userId}:${exchangeId}`,
+        localDate: context.date,
+        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
+      },
+    });
+    return { exchangedExperience, coinsAdded: addedHundredths / 100, level, wallet: updatedWallet };
   });
 }
 

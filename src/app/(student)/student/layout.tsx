@@ -36,7 +36,7 @@ export default async function StudentLayout({
   const showCmsLink = hasCmsAccess(guard.user.email, guard.user.role);
   return (
     <WorkspaceShell
-      title="Learning space"
+      title=""
       navigation={navigation}
       searchContext="STUDENT"
       showCmsLink={showCmsLink}
