@@ -10,7 +10,11 @@ const cachedPrisma = global.__krinPrismaSubscriptionSchema;
 // the global singleton can outlive a schema generation, leaving a stale
 // client without a newly added model. Replace that client once, rather than
 // surfacing a vague "updateMany of undefined" error from a route.
-const cachedClientIsCurrent = Boolean(cachedPrisma && "mistakeReviewRun" in cachedPrisma);
+const cachedClientIsCurrent = Boolean(
+  cachedPrisma &&
+  "mistakeReviewRun" in cachedPrisma &&
+  "courseReview" in cachedPrisma,
+);
 
 export const prisma =
   (cachedClientIsCurrent ? cachedPrisma : undefined) ??

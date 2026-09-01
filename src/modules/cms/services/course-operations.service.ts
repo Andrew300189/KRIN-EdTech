@@ -618,7 +618,33 @@ export async function reorderCmsContent(actorId: string, entityType: CmsContentE
   assertReorderable(entityType);
   if (!orderedIds.length || new Set(orderedIds).size !== orderedIds.length) throw new Error("The requested order contains duplicate content IDs.");
   const siblingIds = await getSiblingIds(entityType, orderedIds[0]);
-  if (!siblingIds || siblingIds.length !== orderedIds.length || siblingIds.some((id) => !orderedIds.includes(id))) throw new Error("Order must contain every item from the same content group exactly once.");
+  if (!siblingIds) throw new Error("Order must contain every item from the same content group exactly once.");
+
+  // Archived lesson blocks remain in the database so learner history remains
+  // intact, but they are deliberately hidden from the author timeline. Do
+  // not require an author to drag invisible archived blocks. We still move
+  // them to the end of the persisted sequence in the same transaction, which
+  // preserves the unique (lessonId, order) constraint.
+  let persistedOrderedIds = orderedIds;
+  if (entityType === "LESSON_BLOCK") {
+    const siblingBlocks = await prisma.lessonBlock.findMany({
+      where: { id: { in: siblingIds } },
+      orderBy: { order: "asc" },
+      select: { id: true, contentStatus: true },
+    });
+    const visibleIds = siblingBlocks
+      .filter((block) => block.contentStatus !== "ARCHIVED")
+      .map((block) => block.id);
+    const archivedIds = siblingBlocks
+      .filter((block) => block.contentStatus === "ARCHIVED")
+      .map((block) => block.id);
+    if (visibleIds.length !== orderedIds.length || visibleIds.some((id) => !orderedIds.includes(id))) {
+      throw new Error("Order must contain every visible lesson block exactly once.");
+    }
+    persistedOrderedIds = [...orderedIds, ...archivedIds];
+  } else if (siblingIds.length !== orderedIds.length || siblingIds.some((id) => !orderedIds.includes(id))) {
+    throw new Error("Order must contain every item from the same content group exactly once.");
+  }
 
   // The generic reorder endpoint is also used by older CMS screens, so it must
   // preserve lesson-prerequisite safety just like the dedicated lesson board.
@@ -631,8 +657,8 @@ export async function reorderCmsContent(actorId: string, entityType: CmsContentE
   }
 
   await prisma.$transaction(async (tx) => {
-    await shiftOrderSpace(tx, entityType, siblingIds);
-    for (const [index, id] of orderedIds.entries()) await setOrder(tx, entityType, id, index + 1);
+    await shiftOrderSpace(tx, entityType, persistedOrderedIds);
+    for (const [index, id] of persistedOrderedIds.entries()) await setOrder(tx, entityType, id, index + 1);
     await tx.contentAuditLog.create({ data: { actorId, action: "CMS_REORDERED", entityType, entityId: orderedIds[0], metadata: { orderedIds } } });
   });
 }

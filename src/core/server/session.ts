@@ -345,6 +345,7 @@ export async function getValidatedSession(options?: {
           id: true,
           isBlocked: true,
           deletedAt: true,
+          emailVerified: true,
         },
       },
     },
@@ -369,9 +370,15 @@ export async function getValidatedSession(options?: {
   if (
     !sessionRecord.user ||
     sessionRecord.user.deletedAt ||
-    sessionRecord.user.isBlocked
+    sessionRecord.user.isBlocked ||
+    !sessionRecord.user.emailVerified
   ) {
-    await revokeSessionRecord(sessionRecord.id, "user_inactive");
+    await revokeSessionRecord(
+      sessionRecord.id,
+      sessionRecord.user?.emailVerified === false
+        ? "email_not_verified"
+        : "user_inactive",
+    );
     if (canMutateCookie) {
       await clearAuthCookie();
     }
@@ -432,7 +439,7 @@ export async function requireAuth(options?: { headers?: Headers }) {
     select: AUTHENTICATED_USER_SELECT,
   });
 
-  if (!user || user.deletedAt || user.isBlocked) {
+  if (!user || user.deletedAt || user.isBlocked || !user.emailVerified) {
     return null;
   }
 

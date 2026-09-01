@@ -1,3 +1,0 @@
-{
-  "/api/admin/cms/content/[entityType]/[entityId]/route": "app/api/admin/cms/content/[entityType]/[entityId]/route.js"
-}

@@ -11,7 +11,7 @@
   color: #17233e;
   padding: .8rem;
   backdrop-filter: blur(14px);
-  animation: dictionary-tooltip-materialize 620ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: dictionary-tooltip-materialize 1050ms cubic-bezier(.22, 1, .36, 1) both;
   transform-origin: top left;
   will-change: opacity, filter, transform;
 }
@@ -21,6 +21,11 @@
   inset: -8px 0 auto;
   height: 8px;
   content: "";
+}
+
+.tooltipClosing {
+  pointer-events: none;
+  animation: dictionary-tooltip-dissolve 760ms cubic-bezier(.4, 0, .2, 1) forwards;
 }
 
 @keyframes dictionary-tooltip-materialize {
@@ -37,6 +42,24 @@
     opacity: 1;
     filter: blur(0);
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dictionary-tooltip-dissolve {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+  55% {
+    opacity: .55;
+    filter: blur(2px);
+    transform: translateY(-2px) scale(.992);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(7px);
+    transform: translateY(-5px) scale(.975);
   }
 }
 
@@ -114,5 +137,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tooltip { animation-duration: 1ms; }
+  .tooltip, .tooltipClosing { animation-duration: 1ms; }
 }

@@ -12,20 +12,22 @@ const levelCodes = new Set(["A1", "A2", "B1", "B2", "C1", "C2"]);
 export default async function StudentCatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string }>;
+  searchParams: Promise<{ level?: string; q?: string }>;
 }) {
   const guard = await requireRole(["student"]);
   if (!guard.ok) return null;
 
-  const requestedLevel = (await searchParams).level?.trim().toUpperCase();
+  const params = await searchParams;
+  const requestedLevel = params.level?.trim().toUpperCase();
   const initialLevel = requestedLevel && levelCodes.has(requestedLevel)
     ? requestedLevel
     : "all";
+  const initialQuery = params.q?.trim().slice(0, 200) ?? "";
 
   try {
     const courses = await listStudentCatalogCourses(guard.user.id);
-    return <StudentCatalogClient initialCourses={courses} initialLevel={initialLevel} />;
+    return <StudentCatalogClient initialCourses={courses} initialLevel={initialLevel} initialQuery={initialQuery} />;
   } catch {
-    return <StudentCatalogClient initialCourses={[]} initialLevel={initialLevel} initialError="Unable to load the course catalog right now." />;
+    return <StudentCatalogClient initialCourses={[]} initialLevel={initialLevel} initialQuery={initialQuery} initialError="Unable to load the course catalog right now." />;
   }
 }

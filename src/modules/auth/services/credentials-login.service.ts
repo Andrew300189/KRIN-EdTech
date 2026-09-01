@@ -8,6 +8,7 @@ export type CredentialsLoginUser = {
   passwordHash: string;
   isBlocked: boolean;
   deletedAt: Date | null;
+  emailVerified: boolean;
 };
 
 type CredentialsLoginDependencies<T extends CredentialsLoginUser> = {
@@ -17,7 +18,13 @@ type CredentialsLoginDependencies<T extends CredentialsLoginUser> = {
 
 export type CredentialsLoginResult<T extends CredentialsLoginUser> =
   | { ok: true; user: T; email: string }
-  | { ok: false; reason: "INVALID_INPUT" | "INVALID_CREDENTIALS" };
+  | {
+      ok: false;
+      reason:
+        | "INVALID_INPUT"
+        | "INVALID_CREDENTIALS"
+        | "EMAIL_NOT_VERIFIED";
+    };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,6 +54,12 @@ export async function authorizeCredentials<T extends CredentialsLoginUser>(
     user.deletedAt
   ) {
     return { ok: false, reason: "INVALID_CREDENTIALS" };
+  }
+
+  // This branch is reached only after the password has been checked, so it
+  // does not turn the login endpoint into an account-enumeration oracle.
+  if (!user.emailVerified) {
+    return { ok: false, reason: "EMAIL_NOT_VERIFIED" };
   }
 
   // T requires id/email/name/role, which guarantees that the successful

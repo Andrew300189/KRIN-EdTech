@@ -11,12 +11,10 @@ const navigation = [
   { href: "/student/courses", label: "My courses", notificationSection: "courses" as const },
   { href: "/student/vocabulary", label: "Vocabulary", notificationSection: "vocabulary" as const },
   { href: "/student/catalog", label: "Catalog" },
-  { href: "/student/search", label: "Search" },
   { href: "/student/homework", label: "Homework" },
   { href: "/student/progress", label: "Progress" },
   { href: "/student/mistakes", label: "My mistakes" },
   { href: "/student/achievements", label: "Achievements", notificationSection: "achievements" as const },
-  { href: "/student/billing", label: "Billing", notificationSection: "billing" as const },
   { href: "/student/support", label: "Support", notificationSection: "support" as const },
   { href: "/student/settings", label: "Settings", notificationSection: "settings" as const },
 ];

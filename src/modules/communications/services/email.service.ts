@@ -36,8 +36,44 @@ class ResendEmailProvider implements EmailProvider {
   }
 }
 
+function hasResendCredentials() {
+  return Boolean(
+    process.env.EMAIL_API_KEY?.trim() &&
+      (process.env.EMAIL_FROM_SECURITY?.trim() ||
+        process.env.EMAIL_FROM_DEFAULT?.trim()),
+  );
+}
+
 function provider(): EmailProvider {
-  return process.env.EMAIL_PROVIDER?.toLowerCase() === "resend" ? new ResendEmailProvider() : new LogEmailProvider();
+  if (process.env.EMAIL_PROVIDER?.toLowerCase() !== "resend") {
+    return new LogEmailProvider();
+  }
+
+  if (hasResendCredentials()) {
+    return new ResendEmailProvider();
+  }
+
+  // A partially configured local .env must not make the whole registration
+  // flow unusable. Production never reaches this fallback because the route
+  // checks isTransactionalEmailConfigured() before creating an account.
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[communications:email] Resend credentials are incomplete; using the local preview provider.",
+    );
+    return new LogEmailProvider();
+  }
+
+  return new ResendEmailProvider();
+}
+
+/**
+ * Registration must not create an account that cannot receive its activation
+ * link in production. Local development intentionally uses the log provider.
+ */
+export function isTransactionalEmailConfigured() {
+  if (process.env.NODE_ENV !== "production") return true;
+  return process.env.EMAIL_PROVIDER?.toLowerCase() === "resend" &&
+    hasResendCredentials();
 }
 
 export function emailHash(email: string) {

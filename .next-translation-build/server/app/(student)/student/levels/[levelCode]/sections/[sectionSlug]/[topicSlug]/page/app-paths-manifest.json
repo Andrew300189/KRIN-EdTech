@@ -1,3 +1,0 @@
-{
-  "/(student)/student/levels/[levelCode]/sections/[sectionSlug]/[topicSlug]/page": "app/(student)/student/levels/[levelCode]/sections/[sectionSlug]/[topicSlug]/page.js"
-}

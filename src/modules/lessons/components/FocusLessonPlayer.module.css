@@ -26,6 +26,7 @@
 }
 
 .closeLink,
+.backToCourseLink,
 .finishButton,
 .showTheory {
   display: inline-flex;
@@ -40,6 +41,7 @@
 }
 
 .closeLink,
+.backToCourseLink,
 .showTheory {
   border: 1px solid var(--border);
   background: var(--surface-elevated);
@@ -47,9 +49,12 @@
   padding: .55rem .8rem;
 }
 
-.closeLink { justify-self: center; }
+.headerNavigation { display: flex; align-items: center; justify-content: center; gap: .4rem; }
+.closeLink, .backToCourseLink { white-space: nowrap; }
+.backToCourseLink { color: var(--primary); }
 
 .closeLink:hover,
+.backToCourseLink:hover,
 .showTheory:hover {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
   background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated));
@@ -444,6 +449,61 @@
 .completion h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.04em; }
 .completion p { max-width: 32rem; margin: 0; color: var(--text-secondary); line-height: 1.55; }
 
+.courseReview {
+  display: grid;
+  width: min(100%, 38rem);
+  gap: .5rem;
+  margin-top: .35rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 23%, var(--border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-elevated) 88%, #eef2ff);
+  padding: .9rem;
+  text-align: left;
+}
+
+.courseReview h3 { margin: 0; color: var(--text-primary); font-size: .98rem; font-weight: 900; }
+.courseReview p { max-width: none; margin-top: .2rem; font-size: .82rem; }
+.courseReview label { color: var(--text-primary); font-size: .78rem; font-weight: 800; }
+.courseRating { min-width: 0; margin: 0; padding: 0; border: 0; }
+.courseRating legend { margin-bottom: .28rem; color: var(--text-primary); font-size: .78rem; font-weight: 800; }
+.courseRatingStars { display: inline-flex; align-items: center; gap: .15rem; }
+.courseRatingStar, .courseRatingStarSelected {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 1.26rem;
+  line-height: 1;
+  transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+.courseRatingStarSelected { color: #f59e0b; }
+.courseRatingStar:hover, .courseRatingStarSelected:hover { background: #fff7ed; color: #d97706; transform: translateY(-1px); }
+.courseRatingStar:focus-visible, .courseRatingStarSelected:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.courseReview textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text-primary);
+  font: inherit;
+  line-height: 1.45;
+  padding: .65rem .75rem;
+}
+.courseReview textarea:focus { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.courseReviewActions { display: flex; align-items: center; justify-content: space-between; gap: .7rem; }
+.courseReviewActions > span { color: var(--text-muted); font-size: .73rem; font-variant-numeric: tabular-nums; }
+.courseReviewActions .reviewAllButton { min-height: 2.35rem; padding: .45rem .85rem; }
+.courseReviewError, .courseReviewNotice { margin: 0 !important; font-size: .78rem !important; font-weight: 750; }
+.courseReviewError { color: #be123c !important; }
+.courseReviewNotice { color: #047857 !important; }
+
 .completionActions {
   display: flex;
   flex-wrap: wrap;
@@ -499,6 +559,28 @@
 .reviewError { margin: 1rem 0 0; color: #be123c; font-size: .8rem; font-weight: 750; }
 
 .player :global(.focus-answer-correct) { animation: successPulse 650ms ease-out; }
+.player :global(.lesson-correct-celebration) {
+  position: fixed;
+  z-index: 120;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  min-width: 10rem;
+  justify-items: center;
+  gap: .25rem;
+  border: 1px solid rgb(74 222 128 / 70%);
+  border-radius: 999px;
+  background: rgb(240 253 244 / 94%);
+  box-shadow: 0 22px 65px rgb(22 163 74 / 24%);
+  color: #15803d;
+  padding: 1rem 1.55rem;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: correctCelebration 1350ms cubic-bezier(.22, 1, .36, 1) forwards;
+  backdrop-filter: blur(12px);
+}
+.player :global(.lesson-correct-celebration strong) { font-size: clamp(1.35rem, 4vw, 2.15rem); font-weight: 900; letter-spacing: -.035em; }
+.player :global(.lesson-correct-celebration span) { font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
 .player :global(.focus-answer-incorrect) { animation: errorShake 330ms ease-in-out; }
 
 @keyframes stepIn {
@@ -509,6 +591,12 @@
 @keyframes successPulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, #198754 38%, transparent); }
   100% { box-shadow: 0 0 0 1rem transparent; }
+}
+
+@keyframes correctCelebration {
+  0% { opacity: 0; transform: translate(-50%, -42%) scale(.82); }
+  18%, 68% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -58%) scale(.96); }
 }
 
 @keyframes errorShake {
@@ -523,7 +611,8 @@
   .progress { grid-column: 1 / -1; grid-row: 2; }
   .stepCounter { font-size: .65rem; }
   .stepArea { gap: .2rem; }
-  .closeLink { min-height: 2.25rem; padding: .45rem .62rem; }
+  .headerNavigation { gap: .3rem; }
+  .closeLink, .backToCourseLink { min-height: 2.25rem; padding: .45rem .55rem; font-size: .68rem; }
   .taskCard { min-height: 0; border-radius: var(--radius-lg); padding: 1rem; }
   .footer { align-items: stretch; }
   .finishButton { flex: 1; }
@@ -536,10 +625,12 @@
   .blockSegment,
   .theoryPanel,
   .closeLink,
+  .backToCourseLink,
   .finishButton,
   .showTheory,
   .sideNavigationButton { transition: none; }
   .focusContent, .player :global(.focus-answer-correct), .player :global(.focus-answer-incorrect) { animation: none; }
+  .player :global(.lesson-correct-celebration) { animation-duration: 1ms; }
 }
 
 /* Placement-test visual system applied to the learner-facing course player. */
@@ -568,6 +659,7 @@
 .header { min-height: 4.2rem; padding: .72rem .9rem; }
 
 .closeLink,
+.backToCourseLink,
 .hintButton,
 .showTheory {
   border-color: #e2e8f0;
@@ -577,6 +669,7 @@
 }
 
 .closeLink:hover,
+.backToCourseLink:hover,
 .hintButton:hover,
 .showTheory:hover {
   border-color: #a5b4fc;
@@ -926,6 +1019,18 @@
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-action-solution:hover) { background: #eef2ff; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-later) {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #475569;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-action-later:hover) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #1e293b;
+}
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm > span) {
   max-width: 11rem;
@@ -1411,5 +1516,117 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .closeLink, .hintButton, .showTheory, .focusContent :global(label.rounded-lg), .focusContent :global(button.bg-blue-700), .finishButton, .sideNavigationButton { transition: none; }
+  .closeLink, .backToCourseLink, .hintButton, .showTheory, .focusContent :global(label.rounded-lg), .focusContent :global(button.bg-blue-700), .finishButton, .sideNavigationButton { transition: none; }
+}
+
+/*
+ * Responsive lesson canvas
+ *
+ * An exercise can gain feedback, a hint and several actions after an answer.
+ * Keep that content inside the lesson surface instead of letting it escape a
+ * short viewport or create a horizontal page overflow. These rules belong to
+ * the shared player so every future course receives the same behaviour.
+ */
+.player {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.frame,
+.workspace,
+.taskCard,
+.focusContent {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.workspace,
+.taskCard,
+.focusContent { width: 100%; }
+
+.focusContent {
+  overflow-wrap: anywhere;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-card),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-copy),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-match-row),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-bank),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-token-answer) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm) {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .frame { padding-inline: clamp(.5rem, 2vw, 1rem); }
+
+  .lessonGoalTop {
+    width: auto;
+    max-width: calc(100% - 1rem);
+    margin-inline: .5rem;
+  }
+
+  .taskTopline {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-result) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm) {
+    justify-content: flex-start;
+  }
+}
+
+/* The large side controls have room beside the 56rem canvas on a wide screen.
+   Below that width they reduce before they can overlap the lesson itself. */
+@media (min-width: 651px) and (max-width: 1100px) {
+  .sideNavigation {
+    left: .5rem;
+    right: .5rem;
+  }
+
+  .sideNavigationButton {
+    top: -1.7rem;
+    width: 3.4rem;
+    height: 3.4rem;
+  }
+
+  .sideNavigationButton img { width: 1.95rem; height: 1.95rem; }
+  .sideNavigationFinish { font-size: .68rem; }
+}
+
+/* On a shorter desktop viewport the player remains a single, complete card.
+   Its contents become independently scrollable rather than being clipped below
+   the fold. Scrollbars intentionally remain visually hidden to match the
+   platform-wide lesson style; wheel, trackpad, touch and keyboard scrolling
+   all continue to work. */
+@media (min-width: 651px) and (max-height: 900px) {
+  .taskCard {
+    min-height: 0;
+    max-height: calc(100dvh - 11.5rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .taskCard::-webkit-scrollbar { display: none; }
+
+  .focusContent {
+    min-height: 0;
+  }
 }

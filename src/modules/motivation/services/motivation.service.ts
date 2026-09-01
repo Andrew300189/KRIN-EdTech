@@ -338,6 +338,7 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
       data: {
         balance: { increment: wholeCoinsAdded },
         fractionalBalance,
+        exchangeBalanceMinor: { increment: addedHundredths },
         lifetimeEarned: { increment: wholeCoinsAdded },
       },
     });

@@ -1,11 +1,16 @@
-import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/core/server/prisma";
-import { hashPassword } from "@/core/server/password";
+import { hashPassword, verifyPassword } from "@/core/server/password";
 import { createSession } from "@/core/server/session";
 import { sendWelcomeVerificationEmail } from "@/core/server/email";
 import { getPostLoginPath } from "@/core/utils/workspace-path";
+import { isTransactionalEmailConfigured } from "@/modules/communications/services/email.service";
 import { recordFunnelEvent } from "@/modules/analytics/services/funnel.service";
+import {
+  createEmailVerificationToken,
+  EMAIL_VERIFICATION_COOLDOWN_MS,
+  EMAIL_VERIFICATION_TTL_MS,
+} from "@/modules/auth/services/email-verification.service";
 import {
   isUniqueConstraintError,
   validateRegistrationInput,
@@ -13,8 +18,17 @@ import {
 
 export const runtime = "nodejs";
 
+function requiresEmailVerification() {
+  // Local development may proceed without a mail domain. Deployed builds
+  // always require verification and cannot disable it through configuration.
+  return process.env.NODE_ENV === "production";
+}
+
+const VERIFICATION_MESSAGE =
+  "Check your inbox and confirm your email address to activate your account.";
+
 function logRegistrationIssue(
-  step: "session" | "welcome-email" | "registration",
+  step: "welcome-email" | "registration",
   error: unknown,
 ) {
   const code =
@@ -22,6 +36,51 @@ function logRegistrationIssue(
       ? String((error as { code?: unknown }).code ?? "UNKNOWN")
       : "UNKNOWN";
   console.error("[auth/register] non-sensitive failure", { step, code });
+}
+
+function verificationUrl(request: NextRequest, token: string) {
+  const configuredUrl = process.env.NEXTAUTH_URL?.trim();
+  const baseUrl = configuredUrl ? new URL(configuredUrl) : request.nextUrl;
+
+  // Host headers are attacker-controlled behind a misconfigured proxy. A
+  // production deployment must therefore supply its public canonical URL.
+  if (process.env.NODE_ENV === "production" && !configuredUrl) {
+    throw new Error("NEXTAUTH_URL must be set for email verification.");
+  }
+  if (process.env.NODE_ENV === "production" && baseUrl.protocol !== "https:") {
+    throw new Error("NEXTAUTH_URL must use HTTPS in production.");
+  }
+
+  const url = new URL("/verify-email", baseUrl);
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+async function sendVerificationEmail(
+  request: NextRequest,
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    targetLanguage?: string | null;
+    learningGoal?: string | null;
+  },
+  token: string,
+  tokenHash: string,
+) {
+  const delivery = await sendWelcomeVerificationEmail({
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    verificationUrl: verificationUrl(request, token),
+    verificationTokenHash: tokenHash,
+    targetLanguage: user.targetLanguage,
+    learningGoal: user.learningGoal,
+  });
+
+  if (delivery.emailDelivery === "FAILED") {
+    logRegistrationIssue("welcome-email", new Error("Email delivery failed"));
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -40,17 +99,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const emailVerificationRequired = requiresEmailVerification();
+
+  if (emailVerificationRequired && !isTransactionalEmailConfigured()) {
+    // Do not create an account that is impossible to activate.
+    return NextResponse.json(
+      {
+        error:
+          "Registration is temporarily unavailable. Please try again shortly.",
+        code: "EMAIL_DELIVERY_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
+  }
+
   const { username, email, password } = validation.input;
+  const now = new Date();
 
   try {
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
-      select: { id: true },
-    });
+    const [emailOwner, usernameOwner] = await Promise.all([
+      prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+          role: true,
+          emailVerified: true,
+          emailVerificationSentAt: true,
+          targetLanguage: true,
+          learningGoal: true,
+          isBlocked: true,
+          deletedAt: true,
+        },
+      }),
+      prisma.user.findUnique({
+        where: { username },
+        select: { id: true, email: true },
+      }),
+    ]);
 
-    if (existing) {
+    if (usernameOwner && usernameOwner.email !== email) {
       return NextResponse.json(
         {
           error:
@@ -61,10 +152,92 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const verificationToken = randomBytes(32).toString("hex");
-    const verificationTokenHash = createHash("sha256")
-      .update(verificationToken)
-      .digest("hex");
+    if (emailOwner) {
+      if (emailOwner.emailVerified || emailOwner.isBlocked || emailOwner.deletedAt) {
+        return NextResponse.json(
+          {
+            error:
+              "An account with this email or username already exists. Please log in.",
+            code: "ACCOUNT_EXISTS",
+          },
+          { status: 409 },
+        );
+      }
+
+      if (!emailVerificationRequired) {
+        const ownsPendingAccount =
+          emailOwner.username === username &&
+          verifyPassword(password, emailOwner.passwordHash);
+        if (!ownsPendingAccount) {
+          return NextResponse.json(
+            {
+              error:
+                "An account with this email or username already exists. Please log in.",
+              code: "ACCOUNT_EXISTS",
+            },
+            { status: 409 },
+          );
+        }
+
+        await prisma.user.update({
+          where: { id: emailOwner.id },
+          data: {
+            emailVerified: true,
+            emailVerificationToken: null,
+            emailVerificationSentAt: null,
+            emailVerificationExpiresAt: null,
+          },
+        });
+        await createSession(emailOwner.id, { headers: request.headers });
+
+        return NextResponse.json({
+          success: true,
+          requiresEmailVerification: false,
+          user: {
+            id: emailOwner.id,
+            username: emailOwner.username,
+            email: emailOwner.email,
+            name: emailOwner.name,
+            role: emailOwner.role.toLowerCase(),
+            workspacePath: getPostLoginPath(emailOwner.email, emailOwner.role),
+            emailVerified: true,
+          },
+        });
+      }
+
+      const sentRecently =
+        emailOwner.emailVerificationSentAt &&
+        now.getTime() - emailOwner.emailVerificationSentAt.getTime() <
+          EMAIL_VERIFICATION_COOLDOWN_MS;
+      if (!sentRecently) {
+        const { token, tokenHash } = createEmailVerificationToken();
+        const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MS);
+        const updated = await prisma.user.updateMany({
+          where: { id: emailOwner.id, emailVerified: false },
+          data: {
+            emailVerificationToken: tokenHash,
+            emailVerificationSentAt: now,
+            emailVerificationExpiresAt: expiresAt,
+          },
+        });
+        if (updated.count) {
+          await sendVerificationEmail(request, emailOwner, token, tokenHash);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        requiresEmailVerification: true,
+        message: VERIFICATION_MESSAGE,
+      });
+    }
+
+    const verification = emailVerificationRequired
+      ? createEmailVerificationToken()
+      : null;
+    const expiresAt = emailVerificationRequired
+      ? new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MS)
+      : null;
 
     let user;
     try {
@@ -75,13 +248,24 @@ export async function POST(request: NextRequest) {
           passwordHash: hashPassword(password),
           name: username,
           role: "STUDENT",
-          emailVerificationToken: verificationTokenHash,
-          emailVerificationSentAt: new Date(),
+          emailVerified: !emailVerificationRequired,
+          emailVerificationToken: verification?.tokenHash ?? null,
+          emailVerificationSentAt: emailVerificationRequired ? now : null,
+          emailVerificationExpiresAt: expiresAt,
+        },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          email: true,
+          role: true,
+          targetLanguage: true,
+          learningGoal: true,
         },
       });
     } catch (error) {
-      // A second request can pass the pre-check while the first one is creating
-      // the account. The database unique constraint is the final authority.
+      // The database unique constraint remains authoritative when two requests
+      // race after the lookup above.
       if (isUniqueConstraintError(error)) {
         return NextResponse.json(
           {
@@ -95,49 +279,17 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    let autoLogin = true;
-    try {
+    if (emailVerificationRequired && verification) {
+      await sendVerificationEmail(
+        request,
+        user,
+        verification.token,
+        verification.tokenHash,
+      );
+    } else {
       await createSession(user.id, { headers: request.headers });
-    } catch (error) {
-      // The account is valid even if a cookie could not be created. Returning a
-      // successful result avoids a misleading retry that would report a duplicate.
-      autoLogin = false;
-      logRegistrationIssue("session", error);
     }
 
-    try {
-      const verificationUrl = `${request.nextUrl.origin}/verify-email?token=${verificationToken}`;
-      await sendWelcomeVerificationEmail({
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        verificationUrl,
-        targetLanguage: user.targetLanguage,
-        learningGoal: user.learningGoal,
-      });
-    } catch (error) {
-      // Email/notification delivery is non-critical: its failure must never
-      // turn a successfully-created account into an apparent failed signup.
-      logRegistrationIssue("welcome-email", error);
-    }
-
-    const requestedNext =
-      typeof body === "object" &&
-      body !== null &&
-      "next" in body &&
-      typeof body.next === "string"
-        ? body.next
-        : undefined;
-    const postLoginPath = getPostLoginPath(
-      user.email,
-      user.role,
-      requestedNext,
-    );
-    const workspacePath = postLoginPath.startsWith("/cms")
-      ? postLoginPath
-      : `/onboarding?next=${encodeURIComponent(postLoginPath)}`;
-
-    // Registration has succeeded even if non-essential telemetry is offline.
     void recordFunnelEvent({
       eventId: `signup-complete:${user.id}`,
       eventType: "SIGNUP_COMPLETE",
@@ -146,20 +298,29 @@ export async function POST(request: NextRequest) {
       result: "SUCCEEDED",
     }).catch(() => undefined);
 
+    if (emailVerificationRequired) {
+      return NextResponse.json(
+        {
+          success: true,
+          requiresEmailVerification: true,
+          message: VERIFICATION_MESSAGE,
+        },
+        { status: 201 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: true,
-        autoLogin,
-        message: autoLogin
-          ? "User registered successfully"
-          : "Account created. Please log in to continue.",
+        requiresEmailVerification: false,
         user: {
           id: user.id,
           username: user.username,
           email: user.email,
           name: user.name,
           role: user.role.toLowerCase(),
-          workspacePath,
+          workspacePath: getPostLoginPath(user.email, user.role),
+          emailVerified: true,
         },
       },
       { status: 201 },

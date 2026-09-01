@@ -17,6 +17,9 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
+      "@/generated/prisma-client-payments-runtime": [
+        "./src/generated/prisma-client-payments-runtime-v2"
+      ],
       "@/*": [
         "./src/*"
       ],
@@ -60,7 +63,9 @@
   "include": [
     "src/**/*",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    ".next-dev/types/**/*.ts",
+    ".next-dev/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

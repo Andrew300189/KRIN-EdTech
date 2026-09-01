@@ -1,53 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { prisma } from "@/core/server/prisma";
+import {
+  hashEmailVerificationToken,
+  parseEmailVerificationSubmission,
+} from "@/modules/auth/services/email-verification.service";
 
-const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
+export const runtime = "nodejs";
+
+function isSameOriginRequest(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  const configuredUrl = process.env.NEXTAUTH_URL?.trim();
+  const expectedOrigin = new URL(configuredUrl || request.nextUrl.origin).origin;
+  return Boolean(origin && origin === expectedOrigin);
+}
 
 export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const parsed = parseEmailVerificationSubmission(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  const tokenHash = hashEmailVerificationToken(parsed.token);
+  const now = new Date();
+
   try {
-    const body = await request.json();
-    const token = body?.token as string | undefined;
-
-    if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 });
-    }
-
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-    const user = await prisma.user.findFirst({
-      // The plain token branch is temporary compatibility for links sent before
-      // token hashing was introduced. Newly issued tokens are stored hashed.
+    // The same predicate is used for lookup and consumption. updateMany is
+    // atomic, so only one simultaneous request can redeem a link.
+    const activated = await prisma.user.updateMany({
       where: {
-        OR: [
-          { emailVerificationToken: tokenHash },
-          { emailVerificationToken: token },
-        ],
+        emailVerified: false,
+        emailVerificationToken: tokenHash,
+        emailVerificationExpiresAt: { gt: now },
+        isBlocked: false,
+        deletedAt: null,
       },
-      select: { id: true, emailVerificationSentAt: true },
+      data: {
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationSentAt: null,
+        emailVerificationExpiresAt: null,
+      },
     });
-    if (
-      !user ||
-      !user.emailVerificationSentAt ||
-      Date.now() - user.emailVerificationSentAt.getTime() > VERIFICATION_TOKEN_TTL_MS
-    ) {
+
+    if (!activated.count) {
       return NextResponse.json(
-        { error: "Invalid or expired token" },
+        { error: "This verification link is invalid or has expired." },
         { status: 400 },
       );
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: true,
-        emailVerificationToken: null,
-      },
+    return NextResponse.json({
+      success: true,
+      message: "Email verified. You can now sign in.",
     });
-
-    return NextResponse.json({ success: true }, { status: 200 });
-  } catch {
+  } catch (error) {
+    console.error("[auth/verify-email] verification failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "We could not verify this email right now. Please try again shortly." },
       { status: 500 },
     );
   }

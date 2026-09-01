@@ -51,7 +51,7 @@
 .focusPanel { display: flex; min-height: 15rem; flex-direction: column; justify-content: space-between; }
 .cardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .panel h3 { margin-top: 0.2rem; font-size: 1.08rem; line-height: 1.28; }
-.statusTag, .billingStatus, .mistakeCount { flex: none; border-radius: var(--radius-pill); padding: 0.28rem 0.55rem; background: var(--surface-secondary); color: var(--text-secondary); font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+.statusTag, .mistakeCount { flex: none; border-radius: var(--radius-pill); padding: 0.28rem 0.55rem; background: var(--surface-secondary); color: var(--text-secondary); font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
 .cardText { margin: 0.72rem 0 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }
 .cardText strong { color: var(--text-primary); }
 .helperText { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
@@ -63,16 +63,14 @@
 .inlineAction { align-self: flex-start; margin-top: 1rem; }
 .sideStack { display: grid; gap: var(--space-3); }
 .sideStack .panel { display: flex; min-height: 0; flex-direction: column; }
-.billingStatus { color: var(--text-muted); }
-.billingStatusActive { background: color-mix(in srgb, var(--success) 17%, transparent); color: var(--success); }
 .mistakeCount { min-width: 1.8rem; text-align: center; }
 .mistakeList { display: grid; gap: 0.35rem; margin: 0.58rem 0 0; padding: 0; list-style: none; }
 .mistakeList li { display: grid; gap: 0.1rem; overflow: hidden; padding: 0.45rem 0.55rem; border-radius: var(--radius-md); background: var(--surface-secondary); color: var(--text-muted); font-size: 0.73rem; line-height: 1.32; }
 .mistakeList strong { overflow: hidden; color: var(--text-secondary); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
 .textLink { display: inline-flex; margin-top: auto; padding-top: 0.65rem; }
 .primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
-@media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .placementPanel { padding: 0.75rem; } .placementCourseList { grid-template-columns: 1fr; } .placementRecommendationsHeading { align-items: flex-start; flex-direction: column; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .billingStatus, .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
-@media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .placementPanel { padding: 0.75rem; } .placementCourseList { grid-template-columns: 1fr; } .placementRecommendationsHeading { align-items: flex-start; flex-direction: column; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
+@media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (min-width: 1024px) {
   .page { height: 100%; min-height: 0; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 0.7rem; overflow: hidden; }
   .hero { min-height: 6.25rem; padding: 0.9rem 1.1rem; }
@@ -83,7 +81,7 @@
   .dashboardGrid { min-height: 0; grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); align-items: stretch; }
   .panel, .focusPanel, .sideStack { min-height: 0; }
   .focusPanel { height: 100%; overflow: hidden; padding: 0.95rem 1rem; }
-  .sideStack { height: 100%; grid-template-rows: minmax(0, 0.82fr) minmax(0, 1.18fr); }
+  .sideStack { height: 100%; grid-template-rows: minmax(0, 1fr); }
   .sideStack .panel { overflow: hidden; padding: 0.78rem 0.9rem; }
   .mistakeList { max-height: 3.8rem; overflow: hidden; }
   .mistakeList li { padding-block: 0.32rem; }

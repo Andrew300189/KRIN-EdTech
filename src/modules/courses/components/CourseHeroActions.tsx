@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 
 type CourseHeroActionsProps = {
   actionClassName: string;
@@ -27,6 +28,14 @@ export function CourseHeroActions({
 
     purchasePanel?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("content") !== "open") return;
+    showCourseContent();
+    url.searchParams.delete("content");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   return (
     <div className={containerClassName}>

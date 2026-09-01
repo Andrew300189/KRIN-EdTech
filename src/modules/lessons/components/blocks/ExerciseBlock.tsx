@@ -21,9 +21,10 @@ type ExerciseBlockProps = {
   requireCorrectForNext?: boolean;
   reviewRunId?: string;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean }) => void;
+  onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], requireCorrectForNext = false, reviewRunId, onAttemptResolved }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], requireCorrectForNext = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -106,8 +107,10 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
       setActiveIndex(index);
     }
 
+    // Keep an incorrect answer in view. It gets the red edge and shake, but
+    // never schedules the automatic transition to the next task.
+    if (!isCorrect) return;
     const nextAnswered = answeredIndexes.includes(index) ? answeredIndexes : [...answeredIndexes, index];
-    if (requireCorrectForNext && !isCorrect) return;
     setAnsweredIndexes(nextAnswered);
     if (index === exercises.length - 1) return;
 
@@ -119,6 +122,23 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
     }, 1_250);
   }
 
+  function deferExercise(index: number, exerciseId: string) {
+    if (requireCorrectForNext) return;
+    if (autoAdvanceTimerRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+    if (showAllExercises) {
+      setShowAllExercises(false);
+      setActiveIndex(index);
+    }
+    if (index < exercises.length - 1) {
+      openNextExercise(index);
+      return;
+    }
+    onAttemptDeferred?.({ exerciseId, isFinalExercise: true });
+  }
+
   const exerciseCards = exercises.map((exercise, index) => (
     <div key={exercise.id} data-task-index={index + 1} hidden={!showAllExercises && index !== activeIndex}>
       <ExerciseRenderer
@@ -128,6 +148,7 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
         hideContextText={hideContextText}
         reviewRunId={reviewRunId}
         onAttemptResolved={({ exerciseId, isCorrect }) => resolveAttempt(index, exerciseId, isCorrect)}
+        onDefer={requireCorrectForNext ? undefined : () => deferExercise(index, exercise.id)}
       />
     </div>
   ));

@@ -51,6 +51,10 @@ export function LoginForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorId, setErrorId] = useState("");
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [resendState, setResendState] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
   const [showPassword, setShowPassword] = useState(false);
   const submittingRef = useRef(false);
   const safeNextPath = getSafeInternalPath(nextPath, "");
@@ -78,6 +82,8 @@ export function LoginForm({
     submittingRef.current = true;
     setError("");
     setErrorId("");
+    setNeedsEmailVerification(false);
+    setResendState("idle");
     setLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -96,6 +102,7 @@ export function LoginForm({
             ? payload.error
             : "We could not sign you in. Please try again.",
         );
+        setNeedsEmailVerification(payload?.code === "EMAIL_NOT_VERIFIED");
         setErrorId(getDevelopmentErrorId(payload?.errorId));
         return;
       }
@@ -116,6 +123,22 @@ export function LoginForm({
     } finally {
       submittingRef.current = false;
       setLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    if (!identifierValue.trim() || resendState === "sending") return;
+    setResendState("sending");
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: identifierValue }),
+      });
+      setResendState(response.ok ? "sent" : "error");
+    } catch {
+      setResendState("error");
     }
   };
 
@@ -156,6 +179,31 @@ export function LoginForm({
             <p className="mt-2 text-xs text-red-700">
               Error ID: <code>{errorId}</code>
             </p>
+          ) : null}
+          {needsEmailVerification ? (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={resendVerification}
+                disabled={resendState === "sending"}
+                className="font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resendState === "sending"
+                  ? "Sending confirmation link…"
+                  : "Send a new confirmation link"}
+              </button>
+              {resendState === "sent" ? (
+                <p role="status" className="mt-2 text-xs text-red-700">
+                  If an unverified account matches this email, a new link has
+                  been sent.
+                </p>
+              ) : null}
+              {resendState === "error" ? (
+                <p role="status" className="mt-2 text-xs text-red-700">
+                  We could not send a new link right now. Please try again shortly.
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

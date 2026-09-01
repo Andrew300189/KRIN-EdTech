@@ -38,6 +38,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) {
+      if (result.reason === "EMAIL_NOT_VERIFIED") {
+        return NextResponse.json(
+          {
+            error:
+              "Confirm your email address before signing in. You can request a new link below.",
+            code: "EMAIL_NOT_VERIFIED",
+          },
+          { status: 403 },
+        );
+      }
       return NextResponse.json(createPublicAuthFailure("invalid_credentials"), {
         status: 401,
       });

@@ -130,17 +130,20 @@ export class NotificationService {
 
   async sendEphemeralEmail(input: CreateNotificationInput & { email: { to: string; subject: string; text: string; html?: string | null; category?: "default" | "support" | "billing" | "security" } }) {
     const created = await this.createNotification({ ...input, channels: ["IN_APP"] });
-    if (created.duplicate || !created.notification) return created;
+    if (created.duplicate || !created.notification) {
+      return { ...created, emailDelivery: "SKIPPED" as const };
+    }
     const key = `${created.eventId}:EMAIL:ephemeral`;
     const delivery = await prisma.notificationDelivery.create({ data: { notificationId: created.notification.id, userId: input.userId, channel: "EMAIL", status: "PROCESSING", attemptCount: 1, provider: process.env.EMAIL_PROVIDER || "log", scheduledAt: new Date(), idempotencyKey: key } });
     try {
       const sent = await emailService.sendEmail(input.email);
       await prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: "SENT", provider: sent.provider, providerMessageId: sent.providerMessageId, sentAt: new Date() } });
+      return { ...created, emailDelivery: "SENT" as const };
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 500) : "Email delivery failed.";
       await prisma.notificationDelivery.update({ where: { id: delivery.id }, data: { status: "FAILED", failedAt: new Date(), failureCode: "DELIVERY_FAILED", failureMessage: message } });
+      return { ...created, emailDelivery: "FAILED" as const };
     }
-    return created;
   }
 
   async getUserNotifications(userId: string, input: { cursor?: string; category?: NotificationCategory; limit?: number } = {}) {

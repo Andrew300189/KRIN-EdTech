@@ -1,4 +1,4 @@
-import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 import { createCourseSchema, createExerciseSchema, saveLessonProgressSchema } from "@/modules/courses/schemas/content.schemas";
 
 describe("exercise evaluation", () => {
@@ -32,6 +32,22 @@ describe("exercise evaluation", () => {
 
   it("checks matching pairs independent of property order", () => {
     expect(answerMatches({ go: "went", eat: "ate" }, { eat: "ate", go: "went" }, [], {})).toBe(true);
+  });
+
+  it.each([
+    ["I · ready", "am", "AM — I am ready."],
+    ["She · at home", "is", "IS — She is at home."],
+    ["You · welcome", "are", "ARE — You are welcome."],
+  ])("accepts the compact %s matching form %s", (prompt, form, storedAnswer) => {
+    const correct = { [prompt]: storedAnswer };
+    const submitted = normalizeCompactToBeMatchingAnswer({ [prompt]: form }, correct, "matching");
+    expect(answerMatches(submitted, correct, [], {})).toBe(true);
+  });
+
+  it("does not accept an incorrect compact to-be form", () => {
+    const correct = { "You · welcome": "ARE — You are welcome." };
+    const submitted = normalizeCompactToBeMatchingAnswer({ "You · welcome": "is" }, correct, "matching");
+    expect(answerMatches(submitted, correct, [], {})).toBe(false);
   });
 });
 
