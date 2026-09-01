@@ -1289,7 +1289,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
       return;
     }
     if (item.exercise) {
-      openExistingTask(item.exercise, item.blockId ?? "");
+      openExistingTask(item.exercise, item.block?.id ?? "");
       return;
     }
     const block = item.block;

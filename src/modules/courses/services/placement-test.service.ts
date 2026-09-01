@@ -109,7 +109,7 @@ export async function getPlacementDashboardResult(userId: string): Promise<Place
   const breakdown = Array.isArray(placement.placementBreakdown)
     ? placement.placementBreakdown
     : [];
-  const correctAnswers = breakdown.reduce((total, row) => {
+  const correctAnswers = breakdown.reduce<number>((total, row) => {
     if (!row || typeof row !== "object" || !("correct" in row)) return total;
     const value = (row as { correct?: unknown }).correct;
     return total + (typeof value === "number" && Number.isFinite(value) ? value : 0);
