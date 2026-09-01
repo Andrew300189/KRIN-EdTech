@@ -39,7 +39,7 @@ export function CmsCourseLocalizationPanel({ courseId, totalUnits, locales }: Pr
           router.push(`/cms/translations?course=${courseId}&locale=${locale}`);
           return;
         }
-        setMessage(action === "CREATE_DRAFT" ? `${locale.toUpperCase()} draft created from the English source.` : action === "PUBLISH" ? `${locale.toUpperCase()} is now live.` : `${locale.toUpperCase()} was unpublished.`);
+        setMessage(action === "PUBLISH" ? `${locale.toUpperCase()} is now live.` : `${locale.toUpperCase()} was unpublished.`);
         router.refresh();
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Unable to update course localization.");
