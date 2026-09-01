@@ -31,12 +31,16 @@ function jsonInput(value: unknown) {
 
 function toUpdate(input: z.infer<typeof translationUpdateSchema>): CourseTranslationUpdate {
   if (input.entityType === "COURSE") {
-    return { entityType: input.entityType, entityId: input.entityId, values: { ...input.values, ...(input.values.learningOutcomes !== undefined ? { learningOutcomes: jsonInput(input.values.learningOutcomes) } : {}), ...(input.values.prerequisites !== undefined ? { prerequisites: jsonInput(input.values.prerequisites) } : {}) } };
+    const { learningOutcomes, prerequisites, ...values } = input.values;
+    return { entityType: input.entityType, entityId: input.entityId, values: { ...values, ...(learningOutcomes !== undefined ? { learningOutcomes: jsonInput(learningOutcomes) } : {}), ...(prerequisites !== undefined ? { prerequisites: jsonInput(prerequisites) } : {}) } };
   }
   if (input.entityType === "MODULE") return input;
-  if (input.entityType === "LESSON") return { entityType: input.entityType, entityId: input.entityId, values: { ...input.values, ...(input.values.learningObjectives !== undefined ? { learningObjectives: jsonInput(input.values.learningObjectives) } : {}) } };
-  if (input.entityType === "LESSON_BLOCK") return { entityType: input.entityType, entityId: input.entityId, values: { ...input.values, ...(input.values.content !== undefined ? { content: jsonInput(input.values.content) } : {}) } };
-  return { entityType: input.entityType, entityId: input.entityId, values: { ...input.values, ...(input.values.content !== undefined ? { content: jsonInput(input.values.content) } : {}) } };
+  if (input.entityType === "LESSON") {
+    const { learningObjectives, ...values } = input.values;
+    return { entityType: input.entityType, entityId: input.entityId, values: { ...values, ...(learningObjectives !== undefined ? { learningObjectives: jsonInput(learningObjectives) } : {}) } };
+  }
+  const { content, ...values } = input.values;
+  return { entityType: input.entityType, entityId: input.entityId, values: { ...values, ...(content !== undefined ? { content: jsonInput(content) } : {}) } };
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ courseId: string }> }) {
