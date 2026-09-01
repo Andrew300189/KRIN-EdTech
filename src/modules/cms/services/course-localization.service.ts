@@ -7,7 +7,7 @@ import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow
 
 type TranslationEntityType = "COURSE" | "MODULE" | "LESSON" | "LESSON_BLOCK" | "EXERCISE";
 
-type CourseTranslationUpdate = {
+type CourseEntityTranslationUpdate = {
   entityType: "COURSE";
   entityId: string;
   values: { slug?: string; title?: string; shortDescription?: string; fullDescription?: string | null; seoTitle?: string | null; seoDescription?: string | null; seoKeywords?: string | null; learningOutcomes?: Prisma.InputJsonValue | typeof Prisma.JsonNull; prerequisites?: Prisma.InputJsonValue | typeof Prisma.JsonNull };
@@ -17,7 +17,7 @@ type LessonTranslationUpdate = { entityType: "LESSON"; entityId: string; values:
 type LessonBlockTranslationUpdate = { entityType: "LESSON_BLOCK"; entityId: string; values: { title?: string | null; content?: Prisma.InputJsonValue | typeof Prisma.JsonNull } };
 type ExerciseTranslationUpdate = { entityType: "EXERCISE"; entityId: string; values: { instruction?: string; question?: string; content?: Prisma.InputJsonValue | typeof Prisma.JsonNull; explanation?: string | null; hint?: string | null } };
 
-export type CourseTranslationUpdate = CourseTranslationUpdate | ModuleTranslationUpdate | LessonTranslationUpdate | LessonBlockTranslationUpdate | ExerciseTranslationUpdate;
+export type CourseTranslationUpdate = CourseEntityTranslationUpdate | ModuleTranslationUpdate | LessonTranslationUpdate | LessonBlockTranslationUpdate | ExerciseTranslationUpdate;
 
 function toInputJson(value: Prisma.JsonValue | null): Prisma.InputJsonValue | typeof Prisma.JsonNull {
   return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
