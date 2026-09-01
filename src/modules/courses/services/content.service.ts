@@ -18,12 +18,12 @@ import {
   submitExerciseSchema,
   updateLessonBlockSchema,
 } from "@/modules/courses/schemas/content.schemas";
-import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
 import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
-import { recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
+import { calculateUserLevel, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
@@ -34,6 +34,9 @@ import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/
 
 const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
+
+/** A solution is deliberately a small, predictable XP spend across all lessons. */
+const EXERCISE_SOLUTION_XP_COST = 2;
 
 /** Converts route/query input to the closed CEFR enum before it reaches Prisma. */
 export function normalizeCefrLevelCode(value: string | undefined | null): CefrLevelCode | null {
@@ -1256,8 +1259,9 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
   if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
   const access = await canAccessLesson(null, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("This exercise is available after access is granted.");
+  const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, exercise.correctAnswer, exercise.engineKey) as JsonValue;
   const isCorrect = answerMatches(
-    value.answer,
+    submittedAnswer,
     exercise.correctAnswer,
     exercise.alternativeAnswers,
     contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
@@ -1302,6 +1306,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       include: { lessonBlock: { select: { lessonId: true, lesson: { select: { module: { select: { courseId: true } } } } } } },
     });
     if (!exercise) throw new Error("Exercise not found");
+    const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, exercise.correctAnswer, exercise.engineKey) as JsonValue;
 
     if (value.idempotencyKey) {
       const existing = await tx.exerciseAttempt.findUnique({
@@ -1319,14 +1324,14 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
           correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
           hint: exercise.hint,
           feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
-          solution: { available: existing.isCorrect === false, cost: exercise.solutionCost, opened: existing.solutionOpened },
+          solution: { available: existing.isCorrect === false, cost: EXERCISE_SOLUTION_XP_COST, opened: existing.solutionOpened },
           openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
         };
       }
     }
 
     const isCorrect = answerMatches(
-      value.answer,
+      submittedAnswer,
       exercise.correctAnswer,
       exercise.alternativeAnswers,
       contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
@@ -1341,19 +1346,17 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       select: { id: true },
     }));
     // A solution remains useful after an error, but it cannot be used to earn
-    // the full score on a later attempt. Opening a hint also has a small,
-    // server-calculated score cost, so the learner sees the same result after
-    // a refresh or from another device.
+    // the full score on a later attempt. Hints are deliberately free: their
+    // use is still tracked for learning analytics, never for a score penalty.
     const maximumCorrectScore = openedEarlierSolution ? Math.floor(exercise.basePoints / 2) : exercise.basePoints;
-    const hintPenalty = value.hintUsed && isCorrect ? Math.max(1, Math.ceil(exercise.basePoints * 0.2)) : 0;
-    const scoreAwarded = isCorrect ? Math.max(0, maximumCorrectScore - hintPenalty) : -exercise.basePoints;
+    const scoreAwarded = isCorrect ? maximumCorrectScore : -exercise.basePoints;
     const attempt = await tx.exerciseAttempt.create({
       data: {
         userId,
         exerciseId,
         lessonId: exercise.lessonBlock.lessonId,
         idempotencyKey: value.idempotencyKey,
-        submittedAnswer: toPrismaJson(value.answer)!,
+        submittedAnswer: toPrismaJson(submittedAnswer)!,
         isCorrect,
         scoreAwarded,
         timeSpentSeconds: value.timeSpentSeconds,
@@ -1374,7 +1377,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
         await tx.userMistake.update({
           where: { id: existingMistake.id },
           data: {
-            submittedAnswer: toPrismaJson(value.answer),
+            submittedAnswer: toPrismaJson(submittedAnswer),
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
             mistakeType: mistakeTypeForExercise(exercise.type),
@@ -1388,7 +1391,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
             userId,
             exerciseId,
             lessonId: exercise.lessonBlock.lessonId,
-            submittedAnswer: toPrismaJson(value.answer),
+            submittedAnswer: toPrismaJson(submittedAnswer),
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
             mistakeType: mistakeTypeForExercise(exercise.type),
@@ -1456,7 +1459,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
       hint: exercise.hint,
       feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
-      solution: { available: !isCorrect, cost: exercise.solutionCost, opened: false },
+      solution: { available: !isCorrect, cost: EXERCISE_SOLUTION_XP_COST, opened: openedEarlierSolution },
       motivationReward,
       openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
     };
@@ -1465,8 +1468,8 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
 
 /**
  * Opens an exercise solution once, after the learner has made an attempt. The
- * wallet debit is recorded with a deterministic key so a double click, retry,
- * or network replay can never charge the learner twice.
+ * XP debit is recorded with a deterministic key so a double click, retry, or
+ * network replay can never charge the learner twice.
  */
 export async function openExerciseSolution(userId: string, exerciseId: string) {
   const exercise = await prisma.exercise.findUnique({
@@ -1474,7 +1477,6 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
     select: {
       id: true,
       contentStatus: true,
-      solutionCost: true,
       correctAnswer: true,
       explanation: true,
       content: true,
@@ -1492,27 +1494,28 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
   });
   if (!latestAttempt) throw new Error("Answer this exercise before opening its solution.");
 
-  const idempotencyKey = `exercise-solution:${userId}:${exerciseId}`;
-  const previousCharge = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { balanceAfter: true } });
+  const idempotencyKey = `exercise-solution-xp:${userId}:${exerciseId}`;
+  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
   if (previousCharge || latestAttempt.solutionOpened) {
     if (!latestAttempt.solutionOpened) await prisma.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
-    return { alreadyOpened: true, cost: previousCharge ? exercise.solutionCost : 0, balance: previousCharge?.balanceAfter ?? (await prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} })).balance, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+    const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+    return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
   }
 
   try {
     return await prisma.$transaction(async (tx) => {
-    const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-    if (wallet.balance < exercise.solutionCost) throw new Error("You do not have enough coins to open this solution.");
-    const balanceAfter = wallet.balance - exercise.solutionCost;
-    if (exercise.solutionCost > 0) {
-      await tx.userWallet.update({ where: { userId }, data: { balance: balanceAfter, lifetimeSpent: { increment: exercise.solutionCost } } });
-      await tx.coinTransaction.create({
+      const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const debited = await tx.userLevel.updateMany({
+        where: { id: level.id, lifetimeExperience: { gte: EXERCISE_SOLUTION_XP_COST } },
+        data: { lifetimeExperience: { decrement: EXERCISE_SOLUTION_XP_COST } },
+      });
+      if (!debited.count) throw new Error("You need at least 2 XP to show this solution.");
+      const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { id: level.id } });
+      const updatedLevel = await tx.userLevel.update({ where: { id: level.id }, data: calculateUserLevel(reducedLevel.lifetimeExperience) });
+      await tx.experienceTransaction.create({
         data: {
           userId,
-          walletId: wallet.id,
-          amount: -exercise.solutionCost,
-          balanceBefore: wallet.balance,
-          balanceAfter,
+          amount: -EXERCISE_SOLUTION_XP_COST,
           type: "SOLUTION_PURCHASE",
           sourceType: "EXERCISE_SOLUTION",
           sourceId: exerciseId,
@@ -1521,16 +1524,18 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
           description: "Exercise solution",
         },
       });
-    }
       await tx.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
-      return { alreadyOpened: false, cost: exercise.solutionCost, balance: balanceAfter, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+      return { alreadyOpened: false, cost: EXERCISE_SOLUTION_XP_COST, balance: updatedLevel.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
     });
   } catch (error) {
     // A concurrent request can lose the unique idempotency-key race only after
     // its transaction has rolled back. Return the completed first request.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const charge = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { balanceAfter: true } });
-      if (charge) return { alreadyOpened: true, cost: exercise.solutionCost, balance: charge.balanceAfter, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (charge) {
+        const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+        return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+      }
     }
     throw error;
   }

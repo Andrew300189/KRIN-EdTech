@@ -21,7 +21,7 @@ type SearchSurface = "desktop" | "mobile";
 
 function fullResultsPath(context: SearchContext, query: string) {
   const encoded = encodeURIComponent(query.trim());
-  if (context === "STUDENT") return `/student/search?q=${encoded}`;
+  if (context === "STUDENT") return `/student/catalog?q=${encoded}`;
   if (context === "TEACHER") return `/teacher/search?q=${encoded}`;
   return `/search?q=${encoded}`;
 }

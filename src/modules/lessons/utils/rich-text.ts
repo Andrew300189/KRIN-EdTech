@@ -29,6 +29,7 @@ const allowedTags = new Set([
   "h6",
   "span",
   "font",
+  "a",
   "table",
   "thead",
   "tbody",
@@ -76,6 +77,20 @@ function safeFontFamily(value: string | null) {
 function safeTextAlign(value: string | null) {
   const normalized = value?.trim().toLowerCase() ?? "";
   return /^(?:left|right|center|justify|start|end)$/u.test(normalized) ? normalized : null;
+}
+
+function safeHref(value: string | null) {
+  const href = value?.trim() ?? "";
+  if (!href) return null;
+  // Preserve safe in-app anchors and paths without accidentally allowing an
+  // executable URL scheme through pasted document markup.
+  if (/^(?:\/|#|\?|\.\.?\/)/u.test(href)) return href;
+  try {
+    const parsed = new URL(href);
+    return /^(?:https:|http:|mailto:)$/u.test(parsed.protocol) ? href : null;
+  } catch {
+    return null;
+  }
 }
 
 function safeStyle(element: Element) {
@@ -147,11 +162,19 @@ export function sanitizeLessonRichText(value: string | null | undefined) {
         continue;
       }
       const style = safeStyle(child);
+      const href = tag === "a" ? safeHref(child.getAttribute("href")) : null;
       const colSpan = tag === "td" || tag === "th" ? safeSpan(child.getAttribute("colspan")) : null;
       const rowSpan = tag === "td" || tag === "th" ? safeSpan(child.getAttribute("rowspan")) : null;
       const listStart = tag === "ol" ? safeSpan(child.getAttribute("start")) : null;
       for (const attribute of Array.from(child.attributes)) child.removeAttribute(attribute.name);
       if (style) child.setAttribute("style", style);
+      if (href) {
+        child.setAttribute("href", href);
+        if (/^(?:https?:|mailto:)/iu.test(href)) {
+          child.setAttribute("target", "_blank");
+          child.setAttribute("rel", "noreferrer noopener");
+        }
+      }
       if (colSpan) child.setAttribute("colspan", colSpan);
       if (rowSpan) child.setAttribute("rowspan", rowSpan);
       if (listStart) child.setAttribute("start", listStart);

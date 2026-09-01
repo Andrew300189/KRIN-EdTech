@@ -25,12 +25,17 @@ export type AppModalProps = {
   onOpenChange: (open: boolean) => void;
   title?: ReactNode;
   description?: ReactNode;
+  headerContent?: ReactNode;
   size?: AppModalSize;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
   preventClose?: boolean;
   initialFocus?: InitialFocus;
   showCloseButton?: boolean;
+  compactHeader?: boolean;
+  headerClassName?: string;
+  bodyClassName?: string;
+  tall?: boolean;
   footer?: ReactNode;
   loading?: boolean;
   unsavedChanges?: boolean;
@@ -70,12 +75,17 @@ export function AppModal({
   onOpenChange,
   title,
   description,
+  headerContent,
   size = "medium",
   closeOnOverlayClick = true,
   closeOnEscape = true,
   preventClose = false,
   initialFocus = "first",
   showCloseButton = true,
+  compactHeader = false,
+  headerClassName,
+  bodyClassName,
+  tall = false,
   footer,
   loading = false,
   unsavedChanges = false,
@@ -207,7 +217,7 @@ export function AppModal({
 
   const labelledBy = hasTitle ? titleId : undefined;
   const describedBy = description ? descriptionId : undefined;
-  const modalClassName = [styles.content, styles[`size${size[0].toUpperCase()}${size.slice(1)}`], className]
+  const modalClassName = [styles.content, styles[`size${size[0].toUpperCase()}${size.slice(1)}`], tall ? styles.tall : null, className]
     .filter(Boolean)
     .join(" ");
 
@@ -227,14 +237,14 @@ export function AppModal({
         aria-describedby={describedBy}
         tabIndex={-1}
       >
-        {(title || description || showCloseButton) ? <DialogHeader>
+        {(title || headerContent || description || showCloseButton) ? <DialogHeader className={[compactHeader ? styles.compactHeader : null, headerClassName].filter(Boolean).join(" ")}>
           <div className={styles.heading}>
-            {title ? <DialogTitle id={titleId}>{title}</DialogTitle> : null}
+            {headerContent ?? (title ? <DialogTitle id={titleId}>{title}</DialogTitle> : null)}
             {description ? <DialogDescription id={descriptionId}>{description}</DialogDescription> : null}
           </div>
           {showCloseButton ? <DialogClose type="button" onClick={() => close("close-button")} disabled={isCloseLocked} aria-label={closeLabel}><X aria-hidden="true" size={20} strokeWidth={2.25} /></DialogClose> : null}
         </DialogHeader> : null}
-        <DialogBody>{children}</DialogBody>
+        <DialogBody className={bodyClassName}>{children}</DialogBody>
         {confirmDiscard ? <div className={styles.discardPrompt} role="status">
           <p>You have unsaved changes.</p>
           <div className={styles.discardActions}>

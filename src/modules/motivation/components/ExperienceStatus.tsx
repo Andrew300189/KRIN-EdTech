@@ -6,11 +6,11 @@ import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
   level: { level: number; lifetimeExperience: number };
-  wallet: { balance: number; fractionalBalance: number };
+  wallet: { exchangeBalanceMinor: number };
 };
 
 function coinBalance(overview: MotivationOverview) {
-  return overview.wallet.balance + overview.wallet.fractionalBalance / 100;
+  return overview.wallet.exchangeBalanceMinor / 100;
 }
 
 export function ExperienceStatus({ className = "" }: { className?: string }) {

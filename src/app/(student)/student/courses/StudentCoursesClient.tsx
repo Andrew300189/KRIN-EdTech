@@ -111,7 +111,6 @@ export function StudentCoursesClient({
         <p>Choose a course, try a free lesson and keep all of your learning in one place.</p>
         <div className={styles.emptyActions}>
           <Link href="/student/catalog" className={styles.primaryAction}>Open catalog</Link>
-          <Link href="/student/search" className={styles.secondaryAction}>Find a course</Link>
         </div>
       </section>
     ) : (

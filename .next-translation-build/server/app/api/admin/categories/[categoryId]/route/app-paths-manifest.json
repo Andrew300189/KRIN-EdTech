@@ -1,3 +1,0 @@
-{
-  "/api/admin/categories/[categoryId]/route": "app/api/admin/categories/[categoryId]/route.js"
-}

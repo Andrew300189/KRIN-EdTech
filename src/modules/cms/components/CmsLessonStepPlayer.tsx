@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { AppModal } from "@/core/components/AppModal";
 import {
   EXERCISE_ENGINES,
@@ -353,6 +354,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
   const editorRef = useRef<HTMLDivElement | null>(null);
   const selectionRef = useRef<Range | null>(null);
   const lastEmittedValueRef = useRef<string | null>(null);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(true);
   const normalizedValue = sanitizeLessonRichText(value);
 
   useEffect(() => {
@@ -415,44 +417,72 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (next: s
     emitValue();
   }
 
+  function applyLink() {
+    const href = window.prompt("Paste a link (https://, http://, mailto: or a site path):")?.trim();
+    if (href) apply("createLink", href);
+  }
+
   return <div className={styles.richTextShell}>
-    <div className={styles.richTextToolbar} role="toolbar" aria-label="Theory formatting">
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("undo")} aria-label="Undo" title="Undo">↶</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("redo")} aria-label="Redo" title="Redo">↷</button>
-      <span aria-hidden="true" />
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("bold")} aria-label="Bold text"><strong>B</strong></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("italic")} aria-label="Italic text"><em>I</em></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("underline")} aria-label="Underline text"><u>U</u></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("strikeThrough")} aria-label="Strikethrough text" title="Strikethrough"><s>S</s></button>
-      <span aria-hidden="true" />
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h1")} aria-label="Large heading" title="Heading 1">H1</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h2")} aria-label="Medium heading" title="Heading 2">H2</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h3")} aria-label="Section heading" title="Heading 3">H3</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "p")} aria-label="Normal paragraph" title="Paragraph">¶</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertUnorderedList")} aria-label="Bulleted list">• List</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertOrderedList")} aria-label="Numbered list">1. List</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "blockquote")} aria-label="Quote">Quote</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertHorizontalRule")} aria-label="Divider" title="Divider">—</button>
-      <span aria-hidden="true" />
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyLeft")} aria-label="Align left" title="Align left">≡</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyCenter")} aria-label="Align centre" title="Align centre">≡</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyRight")} aria-label="Align right" title="Align right">≡</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("indent")} aria-label="Increase indent" title="Increase indent">⇥</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("outdent")} aria-label="Decrease indent" title="Decrease indent">⇤</button>
-      <span aria-hidden="true" />
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#5148db")} aria-label="Purple text" title="Purple text"><span style={{ color: "#5148db" }}>●</span></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#0369a1")} aria-label="Blue text" title="Blue text"><span style={{ color: "#0369a1" }}>●</span></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#047857")} aria-label="Green text" title="Green text"><span style={{ color: "#047857" }}>●</span></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#c2410c")} aria-label="Orange text" title="Orange text"><span style={{ color: "#c2410c" }}>●</span></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#be123c")} aria-label="Red text" title="Red text"><span style={{ color: "#be123c" }}>●</span></button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#eeecff")} aria-label="Purple highlight" title="Purple highlight">▰</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#e8f8ef")} aria-label="Green highlight" title="Green highlight">▰</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff0f2")} aria-label="Red highlight" title="Red highlight">▰</button>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff3d2")} aria-label="Amber highlight" title="Amber highlight">▰</button>
-      <select aria-label="Text size" defaultValue="" onChange={(event) => { if (event.currentTarget.value) apply("fontSize", event.currentTarget.value); event.currentTarget.value = ""; }}>
-        <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">Extra large</option>
-      </select>
-      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("removeFormat")} aria-label="Clear formatting">Clear</button>
+    <div className={`${styles.richTextToolbar} ${isToolbarCollapsed ? styles.richTextToolbarCollapsed : ""}`} role="toolbar" aria-label="Theory formatting">
+      <div className={styles.richTextPrimaryTools}>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("undo")} aria-label="Undo" title="Undo">↶</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("redo")} aria-label="Redo" title="Redo">↷</button>
+        <span aria-hidden="true" />
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("bold")} aria-label="Bold text"><strong>B</strong></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("italic")} aria-label="Italic text"><em>I</em></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("underline")} aria-label="Underline text"><u>U</u></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("strikeThrough")} aria-label="Strikethrough text" title="Strikethrough"><s>S</s></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("subscript")} aria-label="Subscript" title="Subscript">X₂</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("superscript")} aria-label="Superscript" title="Superscript">X²</button>
+        <span aria-hidden="true" />
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h1")} aria-label="Large heading" title="Heading 1">H1</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h2")} aria-label="Medium heading" title="Heading 2">H2</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "h3")} aria-label="Section heading" title="Heading 3">H3</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "p")} aria-label="Normal paragraph" title="Paragraph">¶</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertUnorderedList")} aria-label="Bulleted list">• List</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertOrderedList")} aria-label="Numbered list">1. List</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("formatBlock", "blockquote")} aria-label="Quote">Quote</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("insertHorizontalRule")} aria-label="Divider" title="Divider">—</button>
+        <span aria-hidden="true" />
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyLeft")} aria-label="Align left" title="Align left">≡</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyCenter")} aria-label="Align centre" title="Align centre">≡</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("justifyRight")} aria-label="Align right" title="Align right">≡</button>
+      </div>
+      <div className={styles.richTextAdvancedTools}>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("indent")} aria-label="Increase indent" title="Increase indent">⇥</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("outdent")} aria-label="Decrease indent" title="Decrease indent">⇤</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={applyLink} aria-label="Add link" title="Add link">↗</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("unlink")} aria-label="Remove link" title="Remove link">⌁</button>
+        <span aria-hidden="true" />
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#5148db")} aria-label="Purple text" title="Purple text"><span style={{ color: "#5148db" }}>●</span></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#0369a1")} aria-label="Blue text" title="Blue text"><span style={{ color: "#0369a1" }}>●</span></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#047857")} aria-label="Green text" title="Green text"><span style={{ color: "#047857" }}>●</span></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#c2410c")} aria-label="Orange text" title="Orange text"><span style={{ color: "#c2410c" }}>●</span></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("foreColor", "#be123c")} aria-label="Red text" title="Red text"><span style={{ color: "#be123c" }}>●</span></button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#eeecff")} aria-label="Purple highlight" title="Purple highlight">▰</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#e8f8ef")} aria-label="Green highlight" title="Green highlight">▰</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff0f2")} aria-label="Red highlight" title="Red highlight">▰</button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("backColor", "#fff3d2")} aria-label="Amber highlight" title="Amber highlight">▰</button>
+        <label className={styles.richTextColorControl} title="Choose text colour"><span>Text</span><input type="color" aria-label="Choose text colour" defaultValue="#5148db" onMouseDown={rememberSelection} onChange={(event) => apply("foreColor", event.currentTarget.value)} /></label>
+        <label className={styles.richTextColorControl} title="Choose highlight colour"><span>Fill</span><input type="color" aria-label="Choose highlight colour" defaultValue="#fff3d2" onMouseDown={rememberSelection} onChange={(event) => apply("backColor", event.currentTarget.value)} /></label>
+        <select aria-label="Font family" defaultValue="" onMouseDown={rememberSelection} onChange={(event) => { if (event.currentTarget.value) apply("fontName", event.currentTarget.value); event.currentTarget.value = ""; }}>
+          <option value="">Font</option><option value="Inter, Arial, sans-serif">Inter</option><option value="Arial, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Trebuchet MS, Arial, sans-serif">Trebuchet</option><option value="Courier New, monospace">Monospace</option>
+        </select>
+        <select aria-label="Text size" defaultValue="" onChange={(event) => { if (event.currentTarget.value) apply("fontSize", event.currentTarget.value); event.currentTarget.value = ""; }}>
+          <option value="">Size</option><option value="1">Tiny</option><option value="2">Small</option><option value="3">Normal</option><option value="4">Large</option><option value="5">Extra large</option><option value="6">Display</option><option value="7">Hero</option>
+        </select>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => apply("removeFormat")} aria-label="Clear formatting">Clear</button>
+      </div>
+      <button
+        type="button"
+        className={styles.richTextCollapseToggle}
+        onClick={() => setIsToolbarCollapsed((collapsed) => !collapsed)}
+        aria-label={isToolbarCollapsed ? "Expand formatting tools" : "Collapse formatting tools"}
+        aria-expanded={!isToolbarCollapsed}
+        title={isToolbarCollapsed ? "Show formatting tools" : "Hide formatting tools"}
+      >
+        {isToolbarCollapsed ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+      </button>
     </div>
     <div
       ref={editorRef}
@@ -623,20 +653,21 @@ function ContentBlockDialog({
       </div>
       <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={selected.title} className={styles.field} /></label>
       <label className={styles.lessonGoalField}><input value={lessonGoal} onChange={(event) => setLessonGoal(event.target.value)} maxLength={240} aria-label="Lesson goal shown to the learner" placeholder="Lesson goal shown to the learner" className={`${styles.field} ${styles.lessonGoalInput}`} /></label>
-      <div className={styles.fieldLabel}><span>Learner-facing text</span><RichTextEditor value={body} onChange={setBody} /></div>
+      <RichTextEditor value={body} onChange={setBody} />
       {usesMediaUrl(type) ? <div className={styles.mediaFields}><label className={styles.fieldLabel}>{type === "IMAGE" ? "Image" : type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label>{type !== "IMAGE" ? <label className={styles.fieldLabel}>Duration, seconds<input value={mediaDuration} onChange={(event) => setMediaDuration(event.target.value)} type="number" min="1" max="7200" inputMode="numeric" placeholder="Auto" className={styles.field} /></label> : null}</div> : null}
-      <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
       {error ? <p role="alert" className={styles.dialogError}>{error}</p> : null}
     </div>
   </AppModal>;
 }
 
-function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock, onRemoveBlock, isBusy = false }: {
+function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock, onRemoveBlock, taskOptions = [], onSelectTask, isBusy = false }: {
   draft: Draft;
   onChange: (next: Draft) => void;
   onChangeEngine: () => void;
   onEditBlock?: () => void;
   onRemoveBlock?: () => void;
+  taskOptions?: Array<{ id: string; label: string }>;
+  onSelectTask?: (exerciseId: string) => void;
   isBusy?: boolean;
 }) {
   const set = <Key extends keyof Draft>(key: Key, value: Draft[Key]) => onChange({ ...draft, [key]: value });
@@ -658,6 +689,7 @@ function TaskEditor({ draft, onChange, onChangeEngine, onEditBlock, onRemoveBloc
     </div>
     <p className={styles.taskDescription}>{engine?.description ?? kindMeta[draft.kind].description}</p>
     <div className={styles.formGrid}>
+      {draft.id && taskOptions.length > 1 && onSelectTask ? <label className={`${styles.fieldLabel} ${styles.taskJump}`}>Task in this block<select value={draft.id} onChange={(event) => onSelectTask(event.currentTarget.value)} className={styles.field}>{taskOptions.map((task) => <option key={task.id} value={task.id}>{task.label}</option>)}</select></label> : null}
       <label className={styles.fieldLabel}>Instruction<input value={draft.instruction} onChange={(event) => set("instruction", event.target.value)} className={styles.field} /></label>
       {draft.kind === "gap" ? <>
         <label className={styles.fieldLabel}>{isGapFill ? "Sentence with the correct answer in square brackets" : "Task prompt"}<textarea value={draft.source} onChange={(event) => set("source", event.target.value)} placeholder={isGapFill ? "The learner [writes] an answer." : "Write a language prompt for the learner."} className={`${styles.field} ${styles.compactArea}`} /></label>
@@ -689,6 +721,8 @@ function TaskAuthoringPanel({
   onChangeEngine,
   onEditBlock,
   onRemoveBlock,
+  taskOptions,
+  onSelectTask,
   onClose,
   onSave,
   isPending,
@@ -701,6 +735,8 @@ function TaskAuthoringPanel({
   onChangeEngine: () => void;
   onEditBlock: () => void;
   onRemoveBlock: () => void;
+  taskOptions: Array<{ id: string; label: string }>;
+  onSelectTask: (exerciseId: string) => void;
   onClose: () => void;
   onSave: () => void;
   isPending: boolean;
@@ -711,11 +747,16 @@ function TaskAuthoringPanel({
     onOpenChange={(nextOpen) => {
       if (!nextOpen) onClose();
     }}
-    title={choosingEngine ? "Add a task" : engine?.title ?? "Task authoring"}
+    title={choosingEngine ? "Add a task" : undefined}
     description={choosingEngine
       ? "Choose the learning interaction you want to add to this lesson step."
-      : "Configure the learner task, then save it as the next part of this lesson."}
-    size="fullscreen"
+      : undefined}
+    headerContent={!choosingEngine ? <div className={`${styles.field} ${styles.blockTitleHeaderInput}`}>{engine?.title ?? "Task authoring"}</div> : undefined}
+    size={choosingEngine ? "fullscreen" : "large"}
+    tall={!choosingEngine}
+    compactHeader={!choosingEngine}
+    headerClassName={!choosingEngine ? styles.blockEditorModalHeader : undefined}
+    bodyClassName={!choosingEngine ? styles.taskEditorModalBody : undefined}
     loading={isPending}
     ariaLabel="Task authoring"
     footer={!choosingEngine ? <div className={styles.taskModalFooter}>
@@ -738,7 +779,7 @@ function TaskAuthoringPanel({
           </button>)}
         </div>
       </> : <>
-        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} onEditBlock={onEditBlock} onRemoveBlock={onRemoveBlock} isBusy={isPending} />
+        <TaskEditor draft={draft} onChange={onChange} onChangeEngine={onChangeEngine} onEditBlock={onEditBlock} onRemoveBlock={onRemoveBlock} taskOptions={taskOptions} onSelectTask={onSelectTask} isBusy={isPending} />
       </>}
   </AppModal>;
 }
@@ -919,21 +960,25 @@ function BlockEditorDialog({
   return <AppModal
     open={block !== null}
     onOpenChange={(open) => { if (!open) closeEditor(); }}
-    title={block?.title ?? block?.type ?? "Edit lesson block"}
-    description="Edit the learner-facing content with rich formatting. Exercise blocks retain their tasks and open in the visual task editor."
+    headerContent={<input
+      aria-label="Block title"
+      value={title}
+      onChange={(event) => setTitle(event.target.value)}
+      className={`${styles.field} ${styles.blockTitleHeaderInput}`}
+    />}
+    showCloseButton
+    compactHeader
+    headerClassName={styles.blockEditorModalHeader}
+    bodyClassName={styles.blockEditorModalBody}
+    tall
+    ariaLabel="Block editor"
     size="large"
     footer={footer}
   >
-    <div className={styles.blockDialogFields}>
-      <label className={styles.fieldLabel}>Block title<input value={title} onChange={(event) => setTitle(event.target.value)} className={styles.field} /></label>
+    <div className={`${styles.blockDialogFields} ${styles.blockEditorFields}`}>
       <label className={styles.lessonGoalField}><input value={lessonGoal} onChange={(event) => setLessonGoal(event.target.value)} maxLength={240} aria-label="Lesson goal shown to the learner" placeholder="Lesson goal shown to the learner" className={`${styles.field} ${styles.lessonGoalInput}`} /></label>
-      <div className={styles.fieldLabel}><span>Learner-facing text</span><RichTextEditor value={body} onChange={setBody} /></div>
+      <RichTextEditor value={body} onChange={setBody} />
       {block && usesMediaUrl(block.type) ? <div className={styles.mediaFields}><label className={styles.fieldLabel}>{block.type === "IMAGE" ? "Image" : block.type === "VIDEO" ? "Video" : "Audio"} URL<input value={mediaUrl} onChange={(event) => setMediaUrl(event.target.value)} type="url" placeholder="https://…" className={styles.field} /></label>{block.type !== "IMAGE" ? <label className={styles.fieldLabel}>Duration, seconds<input value={mediaDuration} onChange={(event) => setMediaDuration(event.target.value)} type="number" min="1" max="7200" inputMode="numeric" placeholder="Auto" className={styles.field} /></label> : null}</div> : null}
-      <label className={styles.visibility}><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} />Required before lesson completion</label>
-      <details className={styles.advancedFields}>
-        <summary>Advanced settings</summary>
-        <label className={styles.fieldLabel}>Settings JSON<textarea value={settings} onChange={(event) => setSettings(event.target.value)} className={`${styles.field} ${styles.jsonArea}`} /></label>
-      </details>
       {confirmRemoval ? <p className={styles.removalNotice}>This removes the block from the lesson. If learners already have attempts, homework or saved mistakes, it is archived instead so their history remains intact.</p> : null}
       {error ? <p role="alert" className={styles.dialogError}>{error}</p> : null}
     </div>
@@ -979,10 +1024,12 @@ function LessonTimeline({
   onAddContentBlock: () => void;
   onAddTask: () => void;
   onNextStep: () => void;
-  onReorder: (sourceBlockId: string, targetBlockId: string) => void;
+  onReorder: (sourceBlockId: string, targetBlockId: string, position: "before" | "after") => void;
   isPending: boolean;
 }) {
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+  const [dropTargetBlockId, setDropTargetBlockId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<"before" | "after">("before");
   const minutes = Math.max(0, Math.round(totalSeconds / 60));
   const phase = totalSeconds < 900 ? "short" : totalSeconds <= 1500 ? "ideal" : "long";
   const copy = phase === "short"
@@ -1003,34 +1050,63 @@ function LessonTimeline({
     </div>
     <nav className={styles.timeline} aria-label="Lesson block timeline">
       {items.map((item, index) => {
-        const blockId = item.block?.id;
+        const blockId = item.kind === "block" ? item.block?.id : undefined;
         const draggable = Boolean(blockId) && !isPending;
-        return <button
+        return <div
           key={item.id}
-          type="button"
+          role="button"
+          tabIndex={0}
           draggable={draggable}
           onClick={() => onSelect(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(item);
+            }
+          }}
           onDragStart={(event) => {
             if (!blockId) return;
             event.dataTransfer.effectAllowed = "move";
             event.dataTransfer.setData("text/plain", blockId);
             setDraggedBlockId(blockId);
+            setDropTargetBlockId(null);
+            setDropPosition("before");
           }}
-          onDragEnd={() => setDraggedBlockId(null)}
+          onDragEnd={() => { setDraggedBlockId(null); setDropTargetBlockId(null); setDropPosition("before"); }}
           onDragOver={(event) => {
-            if (draggable && draggedBlockId && draggedBlockId !== blockId) event.preventDefault();
+            if (draggable && draggedBlockId && draggedBlockId !== blockId) {
+              event.preventDefault();
+              setDropTargetBlockId(blockId);
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setDropPosition(event.clientX >= bounds.left + (bounds.width / 2) ? "after" : "before");
+            }
           }}
           onDrop={(event) => {
             event.preventDefault();
             const sourceBlockId = draggedBlockId ?? event.dataTransfer.getData("text/plain");
-            if (sourceBlockId && blockId && sourceBlockId !== blockId) onReorder(sourceBlockId, blockId);
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const position = event.clientX >= bounds.left + (bounds.width / 2) ? "after" : "before";
+            if (sourceBlockId && blockId && sourceBlockId !== blockId) onReorder(sourceBlockId, blockId, position);
             setDraggedBlockId(null);
+            setDropTargetBlockId(null);
+            setDropPosition("before");
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget === event.target) {
+              setDropTargetBlockId(null);
+              setDropPosition("before");
+            }
           }}
           data-tone={timelineToneIndex(item.id)}
+          data-drop-target={dropTargetBlockId === blockId ? "true" : undefined}
+          data-drop-position={dropTargetBlockId === blockId ? dropPosition : undefined}
           data-dragging={draggedBlockId === blockId || undefined}
-          title={draggable ? "Drag to change this block's position" : undefined}
-          className={`${styles.timelineItem} ${item.exercise?.id === activeId || (item.kind === "draft" && activeId === "new") ? styles.timelineItemActive : ""}`}
-        ><span>{index + 1} · {item.seconds ? `~${item.seconds} sec` : "not estimated"}</span><strong>{item.label}</strong><em>{item.kind === "exercise" ? "Task" : item.kind === "draft" ? "Draft" : item.block?.type}</em></button>;
+          className={`${styles.timelineCard} ${(item.kind === "block" && item.block?.exercises.some((exercise) => exercise.id === activeId)) || (item.kind === "draft" && activeId === "new") ? styles.timelineCardActive : ""}`}
+          aria-label={draggable ? `${item.label}. Drag to change this block's position.` : item.label}
+          title={draggable ? "Drag this block to a new position" : undefined}
+        >
+          <span>{index + 1} · {item.seconds ? `~${item.seconds} sec` : "not estimated"}</span><strong>{item.label}</strong><em>{item.kind === "draft" ? "Draft" : item.block?.exercises.length ? `${item.block.type} · ${item.block.exercises.length} tasks` : item.block?.type}</em>
+        </div>;
       })}
       {items.length === 0 ? <p className={styles.emptySteps}>No lesson blocks yet. Add theory, media or the first task above.</p> : null}
     </nav>
@@ -1049,31 +1125,40 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
   const [selectedBlock, setSelectedBlock] = useState<CmsLessonStepBlock | null>(null);
   const [contentBlockType, setContentBlockType] = useState<ContentBlockType | null>(null);
   const [isPending, startTransition] = useTransition();
-  const steps = useMemo(() => blocks.filter((block) => block.type === "EXERCISE").flatMap((block) => block.exercises.map((exercise) => ({ exercise, blockId: block.id }))), [blocks]);
+  const [orderedBlockIds, setOrderedBlockIds] = useState(() => blocks.map((block) => block.id));
+  const orderedBlocks = useMemo(() => {
+    const byId = new Map(blocks.map((block) => [block.id, block]));
+    const ordered = orderedBlockIds.map((id) => byId.get(id)).filter((block): block is CmsLessonStepBlock => Boolean(block));
+    const orderedIds = new Set(ordered.map((block) => block.id));
+    return [...ordered, ...blocks.filter((block) => !orderedIds.has(block.id))];
+  }, [blocks, orderedBlockIds]);
+  const blockIdsFromServer = blocks.map((block) => block.id).join(",");
+
+  useEffect(() => {
+    setOrderedBlockIds(blocks.map((block) => block.id));
+  }, [blockIdsFromServer, blocks]);
+
+  const steps = useMemo(() => orderedBlocks.filter((block) => block.type === "EXERCISE").flatMap((block) => block.exercises.map((exercise) => ({ exercise, blockId: block.id }))), [orderedBlocks]);
   const activeStep = steps.find((step) => step.exercise.id === activeId);
+  const taskOptions = useMemo(() => {
+    const taskBlock = orderedBlocks.find((block) => block.id === draft.blockId);
+    return taskBlock?.exercises.map((exercise, index) => ({
+      id: exercise.id,
+      label: `Task ${index + 1} — ${exercise.question || "Untitled task"}`,
+    })) ?? [];
+  }, [draft.blockId, orderedBlocks]);
   const timelineItems = useMemo<TimelineItem[]>(() => {
-    const savedItems = blocks.flatMap<TimelineItem>((block) => {
-    if (block.exercises.length) {
-      return block.exercises.map((exercise, exerciseIndex): TimelineItem => ({
-        id: `exercise-${exercise.id}`,
-        label: exercise.question || block.title || "Untitled task",
-        kind: "exercise",
-        block,
-        exercise,
-        // The shared theory is counted exactly once: alongside the first task
-        // that follows it. All remaining tasks use their own authored data.
-        seconds: exerciseIndex === 0
-          ? estimateBlockSeconds({ ...block, exercises: [exercise] })
-          : estimateExerciseSeconds(exercise),
-      }));
-    }
-      return [{
+    const savedItems = orderedBlocks.map<TimelineItem>((block) => {
+      // Every saved block remains visible and editable in the CMS, even when
+      // it also owns exercises. A block and all of its tasks move as one unit,
+      // so reordering cannot visually strand a task card elsewhere.
+      return {
         id: `block-${block.id}`,
         label: block.title || block.type.replace(/_/g, " "),
         kind: "block",
         block,
         seconds: estimateBlockSeconds(block),
-      }];
+      };
     });
     if (!hasPendingStep) return savedItems;
     return [...savedItems, {
@@ -1082,14 +1167,14 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
       kind: "draft",
       seconds: editingNewTask ? estimatedSeconds(draft) : 0,
     }];
-  }, [blocks, draft, editingNewTask, hasPendingStep]);
+  }, [draft, editingNewTask, hasPendingStep, orderedBlocks]);
   const totalSeconds = timelineItems.reduce((total, item) => total + item.seconds, 0);
 
   useEffect(() => {
     if (activeId === "new") return;
     const next = steps.find((step) => step.exercise.id === activeId);
     if (next) setDraft(draftFrom(next.exercise, next.blockId));
-  }, [activeId, blocks, steps]);
+  }, [activeId, orderedBlocks, steps]);
 
   function selectStep(id: string) {
     setMessage(null);
@@ -1097,6 +1182,20 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setEnginePickerOpen(false);
     setEditingNewTask(false);
     setActiveId(id);
+  }
+
+  function openExistingTask(exercise: Exercise, blockId: string) {
+    setMessage(null);
+    setDraft(draftFrom(exercise, blockId));
+    setActiveId(exercise.id);
+    setEditingNewTask(false);
+    setEnginePickerOpen(false);
+    setTaskPanelOpen(true);
+  }
+
+  function selectTaskInModal(id: string) {
+    const step = steps.find((item) => item.exercise.id === id);
+    if (step) openExistingTask(step.exercise, step.blockId);
   }
 
   function openTaskPicker(targetBlockId?: string) {
@@ -1190,7 +1289,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
       return;
     }
     if (item.exercise) {
-      selectStep(item.exercise.id);
+      openExistingTask(item.exercise, item.blockId ?? "");
       return;
     }
     const block = item.block;
@@ -1198,7 +1297,7 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     if (block.type === "EXERCISE") {
       setMessage(null);
       if (block.exercises.length > 0) {
-        selectStep(block.exercises[0].id);
+        openExistingTask(block.exercises[0], block.id);
         return;
       }
       openTaskPicker(block.id);
@@ -1207,22 +1306,27 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
     setSelectedBlock(block);
   }
 
-  function reorderLessonBlocks(sourceBlockId: string, targetBlockId: string) {
+  function reorderLessonBlocks(sourceBlockId: string, targetBlockId: string, position: "before" | "after") {
     if (sourceBlockId === targetBlockId) return;
-    const sourceIndex = blocks.findIndex((block) => block.id === sourceBlockId);
-    const targetIndex = blocks.findIndex((block) => block.id === targetBlockId);
+    const sourceIndex = orderedBlocks.findIndex((block) => block.id === sourceBlockId);
+    const targetIndex = orderedBlocks.findIndex((block) => block.id === targetBlockId);
     if (sourceIndex < 0 || targetIndex < 0) return;
-    const ordered = [...blocks];
+    const ordered = [...orderedBlocks];
     const [source] = ordered.splice(sourceIndex, 1);
-    ordered.splice(targetIndex, 0, source);
+    const updatedTargetIndex = ordered.findIndex((block) => block.id === targetBlockId);
+    if (updatedTargetIndex < 0) return;
+    ordered.splice(position === "after" ? updatedTargetIndex + 1 : updatedTargetIndex, 0, source);
+    const nextOrderedIds = ordered.map((block) => block.id);
+    setOrderedBlockIds(nextOrderedIds);
 
     startTransition(async () => {
       try {
-        await api("/api/admin/cms/content/LESSON_BLOCK/reorder", "PUT", { orderedIds: ordered.map((block) => block.id) });
+        await api("/api/admin/cms/content/LESSON_BLOCK/reorder", "PUT", { orderedIds: nextOrderedIds });
         setMessage("Lesson block order saved.");
         onContentChanged?.();
         router.refresh();
       } catch (error) {
+        setOrderedBlockIds(blocks.map((block) => block.id));
         setMessage(error instanceof Error ? error.message : "Unable to reorder lesson blocks.");
       }
     });
@@ -1265,10 +1369,10 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
       isPending={isPending}
     />
     <div className={styles.workspace}>
-      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
+      <TaskAuthoringPanel open={taskPanelOpen} choosingEngine={enginePickerOpen} draft={draft} onChange={setDraft} onChooseEngine={chooseEngine} onChangeEngine={() => setEnginePickerOpen(true)} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} taskOptions={taskOptions} onSelectTask={selectTaskInModal} onClose={closeTaskPanel} onSave={saveAndNext} isPending={isPending} />
       <div className={styles.authorColumn}>
       <div className={styles.authorScroll}>
-        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} isBusy={isPending} />)}
+        {!taskPanelOpen && (activeId === "new" && !editingNewTask ? null : <TaskEditor draft={draft} onChange={setDraft} onChangeEngine={() => { setTaskPanelOpen(true); setEnginePickerOpen(true); }} onEditBlock={openDraftBlockSettings} onRemoveBlock={removeActiveTaskBlock} taskOptions={taskOptions} onSelectTask={selectStep} isBusy={isPending} />)}
         {!taskPanelOpen && (activeId !== "new" || editingNewTask) ? <div className={styles.saveBar}><p>{activeStep ? "Changes update this task." : "Configure the task, then save."}</p><button type="button" disabled={isPending} onClick={saveAndNext} className={styles.primaryButton}>{isPending ? "Saving…" : "Save task & next →"}</button></div> : null}
         {message ? <p role="status" className={styles.statusMessage}>{message}</p> : null}
       </div>

@@ -9,6 +9,7 @@ import { RewardNotification, type RewardNotificationEvent } from "@/modules/moti
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
+import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
@@ -538,6 +539,12 @@ export function LessonPlayer({
     router.push(destination);
   }
 
+  async function openCourseContent() {
+    const saved = await persistProgress(false);
+    if (canSaveProgress && !previewMode && !saved) return;
+    router.push(`/courses/${courseSlug}?content=open`);
+  }
+
   async function startAllMistakesReview() {
     if (startingAllMistakesReview || !canSaveProgress || previewMode) return;
     setStartingAllMistakesReview(true);
@@ -640,7 +647,10 @@ export function LessonPlayer({
       ) : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
-          <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and exit lesson">Save & exit</button>
+          <div className={styles.headerNavigation}>
+            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and exit lesson">Save & exit</button>
+            {!previewMode ? <button type="button" className={styles.backToCourseLink} onClick={() => void openCourseContent()} aria-label="Save progress and open course content">Back to course</button> : null}
+          </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
             <nav
@@ -736,6 +746,7 @@ export function LessonPlayer({
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>First-completion reward: +{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
+            {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             <div className={styles.completionActions}>
               <button type="button" className={styles.finishButton} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : "Back to course"}</button>
               {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>Next lesson</button> : null}
@@ -782,7 +793,7 @@ export function LessonPlayer({
                   mistakeExerciseIds={activeBlock.exercises
                     .filter((exercise) => exerciseResults[exercise.id] === false)
                     .map((exercise) => exercise.id)}
-                  requireCorrectForNext={isReviewSession}
+                  requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
                   reviewRunId={reviewSession?.runId}
                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise }) => {
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
@@ -816,8 +827,19 @@ export function LessonPlayer({
                     // but a retry is optional before moving on.
                     if (isFinalExercise) {
                       setStepVerified(true);
-                      setAutoAdvanceRequested(true);
+                      // A wrong final answer still counts as an attempted
+                      // prompt, so the learner may move on manually. Only a
+                      // correct answer starts the automatic transition.
+                      if (isCorrect) setAutoAdvanceRequested(true);
                     }
+                  }}
+                  onAttemptDeferred={({ isFinalExercise }) => {
+                    if (isReviewSession || reviewMistake || !isFinalExercise) return;
+                    // The incorrect attempt is already stored server-side and
+                    // remains in My Mistakes. “Later” only advances the
+                    // learner; it never changes the result or awards XP.
+                    setStepVerified(true);
+                    setAutoAdvanceRequested(true);
                   }}
                 />
               </div>

@@ -66,3 +66,41 @@ export function answerMatches(
   const candidates = [correct, ...(Array.isArray(alternatives) ? alternatives : []), ...acceptedAnswers];
   return candidates.some((candidate) => canonicalExerciseAnswer(candidate, options) === normalizedSubmitted);
 }
+
+/**
+ * Legacy matching records keep the full right-hand sentence as their answer,
+ * while the current learner UI asks for just `am`, `is` or `are`. Convert only
+ * an exact compact form back to the stored canonical value before evaluation.
+ * Every other answer is left untouched and remains incorrect as it should.
+ */
+export function normalizeCompactToBeMatchingAnswer(
+  answer: unknown,
+  correctAnswer: unknown,
+  engineKey: string | null | undefined,
+): unknown {
+  if (engineKey?.trim().toLowerCase() !== "matching") return answer;
+  if (!answer || typeof answer !== "object" || Array.isArray(answer)) return answer;
+  if (!correctAnswer || typeof correctAnswer !== "object" || Array.isArray(correctAnswer)) return answer;
+
+  const submitted = answer as JsonRecord;
+  const expected = correctAnswer as JsonRecord;
+  const formFromValue = (value: unknown) => {
+    if (typeof value !== "string") return null;
+    const matched = value.trim().match(/^(am|is|are)(?:\s*[—–-]\s*|$)/i);
+    return matched?.[1]?.toLowerCase() ?? null;
+  };
+
+  let changed = false;
+  const normalized = Object.fromEntries(Object.entries(submitted).map(([key, submittedValue]) => {
+    const expectedValue = expected[key];
+    const submittedForm = formFromValue(submittedValue);
+    const expectedForm = formFromValue(expectedValue);
+    if (submittedForm && expectedForm && submittedForm === expectedForm) {
+      changed = true;
+      return [key, expectedValue];
+    }
+    return [key, submittedValue];
+  }));
+
+  return changed ? normalized : answer;
+}

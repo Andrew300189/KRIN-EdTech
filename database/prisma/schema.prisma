@@ -7,7 +7,10 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../../src/generated/prisma-client-payments-runtime"
+  // A fresh output directory prevents a locked dev-process binary from
+  // blocking schema updates on Windows. The TypeScript alias keeps every
+  // existing consumer on the same canonical import path.
+  output   = "../../src/generated/prisma-client-payments-runtime-v2"
 }
 
 model User {
@@ -34,6 +37,7 @@ model User {
   emailVerified                 Boolean                      @default(false)
   emailVerificationToken        String?
   emailVerificationSentAt       DateTime?
+  emailVerificationExpiresAt    DateTime?
   passwordResetTokenHash        String?                      @unique
   passwordResetExpiresAt        DateTime?
   passwordResetRequestedAt      DateTime?
@@ -76,6 +80,7 @@ model User {
   authoredCourses               Course[]                     @relation("CourseInstructor")
   coursesCreated                Course[]                     @relation("CourseCreatedBy")
   coursesUpdated                Course[]                     @relation("CourseUpdatedBy")
+  courseReviews                 CourseReview[]
   enrolledCourses               Course[]                     @relation("CourseStudents")
   sessions                      Session[]
   subscriptions                 Subscription[]
@@ -250,6 +255,7 @@ model Course {
   learningSessions     LearningSession[]
   commerceProducts     Product[]
   coursePurchases      CoursePurchase[]
+  courseReviews        CourseReview[]
   entitlements         Entitlement[]
   mistakeReviewRuns    MistakeReviewRun[]
   curriculumLinks      CourseCurriculumLink[]
@@ -269,6 +275,24 @@ model Course {
   @@index([contentStatus, isVisibleInCatalog])
   @@index([contentStatus, isVisibleInSearch])
   @@index([isTemplate, contentStatus])
+}
+
+/// One verified learner comment per course. Eligibility is always evaluated
+/// server-side from completed lessons and paid access, never from client input.
+model CourseReview {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Learner rating on the product scale: 1 (lowest) through 7 (highest).
+  rating    Int      @default(7)
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId])
+  @@index([courseId, createdAt])
 }
 
 /// CMS-managed locale registry for learner-facing content. Interface strings
@@ -1325,6 +1349,8 @@ model UserWallet {
   balance        Int               @default(0)
   /// Fractional KRIN Coin balance stored as hundredths (0-99).
   fractionalBalance Int            @default(0)
+  /// KRIN Coins obtained specifically by exchanging XP, stored as hundredths.
+  exchangeBalanceMinor Int          @default(0)
   lifetimeEarned Int               @default(0)
   lifetimeSpent  Int               @default(0)
   transactions   CoinTransaction[]
@@ -3385,6 +3411,7 @@ enum ExperienceTransactionType {
   ACHIEVEMENT_REWARD
   ADMIN_ADJUSTMENT
   XP_EXCHANGE
+  SOLUTION_PURCHASE
   REVERSAL
 }
 

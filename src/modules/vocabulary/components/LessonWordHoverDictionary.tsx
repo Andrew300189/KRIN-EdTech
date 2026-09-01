@@ -1,6 +1,6 @@
 "use client";
 
-import { type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import styles from "./LessonWordHoverDictionary.module.css";
 
 type DictionaryWord = {
@@ -29,7 +29,6 @@ type Props = {
   words: Array<{ wordId: string; word: Omit<DictionaryWord, "id"> }>;
 };
 
-const englishWordPattern = /[A-Za-z][A-Za-z'-]*/g;
 const dismissedTermsStorageKey = "krin:vocabulary-hover-dismissed";
 
 function normalize(term: string) {
@@ -67,32 +66,6 @@ function matchesLemma(term: string, lemma: string) {
   return normalizedLemma === normalizedTerm || normalizedLemma === `to ${normalizedTerm}`;
 }
 
-function wordAtPointer(event: PointerEvent<HTMLElement>): WordUnderPointer | null {
-  const target = event.target as Element;
-  if (target.closest("button, input, textarea, select, a, [data-vocabulary-tooltip]")) return null;
-
-  const documentWithCaret = document as Document & {
-    caretRangeFromPoint?: (x: number, y: number) => Range | null;
-  };
-  const range = documentWithCaret.caretRangeFromPoint?.(event.clientX, event.clientY);
-  const node = range?.startContainer;
-  if (!node || node.nodeType !== Node.TEXT_NODE || !node.textContent) return null;
-
-  const text = node.textContent;
-  const offset = Math.min(range?.startOffset ?? 0, text.length);
-  for (const match of text.matchAll(englishWordPattern)) {
-    const start = match.index ?? 0;
-    const term = match[0];
-    if (offset >= start && offset <= start + term.length) {
-      const wordRange = range.cloneRange();
-      wordRange.setStart(node, start);
-      wordRange.setEnd(node, start + term.length);
-      return { term, rect: wordRange.getBoundingClientRect() };
-    }
-  }
-  return null;
-}
-
 /**
  * Adds an unobtrusive dictionary affordance to lesson prose without changing
  * the authored HTML. CMS authors can link vocabulary in the usual way; words
@@ -102,6 +75,7 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
   const [hovered, setHovered] = useState<HoveredWord | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [closingAfterSave, setClosingAfterSave] = useState(false);
   const [editingTranslation, setEditingTranslation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lookupCache = useRef(new Map<string, DictionaryWord | null>());
@@ -109,7 +83,9 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
   const alreadyAddedCache = useRef(new Map<string, boolean>());
   const requestedTerm = useRef<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tooltipRef = useRef<HTMLElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const knownWords = useMemo(() => {
     const entries = new Map<string, Omit<DictionaryWord, "id">>();
     for (const item of words) {
@@ -135,7 +111,10 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
     }, 380);
   }
 
-  useEffect(() => () => cancelClose(), []);
+  useEffect(() => () => {
+    cancelClose();
+    if (savedCloseTimer.current) clearTimeout(savedCloseTimer.current);
+  }, []);
 
   function positionFor(rect: WordUnderPointer["rect"], size = { width: 288, height: 176 }) {
     const cardWidth = size.width;
@@ -225,6 +204,7 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
     if (requestedTerm.current === normalizedTerm) return;
     requestedTerm.current = normalizedTerm;
     setSaved(false);
+    setClosingAfterSave(false);
     setEditingTranslation(false);
     setError(null);
 
@@ -266,15 +246,24 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
     }
   }
 
-  function handlePointerMove(event: PointerEvent<HTMLElement>) {
-    const word = wordAtPointer(event);
-    if (!word || word.term.length < 2) {
-      if (!(event.target as Element).closest("[data-vocabulary-tooltip]")) {
-        scheduleClose();
-      }
-      return;
-    }
-    void showTerm(word.term, word.rect);
+  function showSelectedWord() {
+    window.requestAnimationFrame(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      const term = selection.toString().trim();
+      if (!/^[A-Za-z][A-Za-z'-]*$/.test(term)) return;
+
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer as Element;
+      if (!container || !rootRef.current?.contains(container) || container.closest("[data-vocabulary-tooltip]")) return;
+
+      const rect = range.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      cancelClose();
+      void showTerm(term, rect);
+    });
   }
 
   async function addToDictionary() {
@@ -293,6 +282,14 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
       if (!response.ok) throw new Error(payload?.error ?? "Unable to add this word.");
       alreadyAddedCache.current.set(normalize(hovered.term), true);
       setSaved(true);
+      setClosingAfterSave(true);
+      savedCloseTimer.current = setTimeout(() => {
+        requestedTerm.current = null;
+        setHovered(null);
+        setSaved(false);
+        setClosingAfterSave(false);
+        savedCloseTimer.current = null;
+      }, 760);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to add this word.");
     } finally {
@@ -307,9 +304,9 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
     setHovered(null);
   }
 
-  return <div className={styles.root} onPointerMove={handlePointerMove} onPointerLeave={scheduleClose}>
+  return <div ref={rootRef} className={styles.root} onPointerUp={showSelectedWord} onDoubleClick={showSelectedWord} onPointerLeave={scheduleClose}>
     {children}
-    {hovered ? <aside ref={tooltipRef} data-vocabulary-tooltip className={styles.tooltip} style={hovered.position} role="dialog" aria-label={`Add ${hovered.term} to your dictionary`} onPointerEnter={cancelClose} onPointerLeave={scheduleClose} onPointerMove={(event) => event.stopPropagation()}>
+    {hovered ? <aside ref={tooltipRef} data-vocabulary-tooltip className={`${styles.tooltip} ${closingAfterSave ? styles.tooltipClosing : ""}`} style={hovered.position} role="dialog" aria-label={`Add ${hovered.term} to your dictionary`} onPointerEnter={cancelClose} onPointerLeave={scheduleClose} onPointerMove={(event) => event.stopPropagation()}>
       <p className={styles.word}>{hovered.term}</p>
       {editingTranslation ? <label className={styles.translationLabel}>
         <span className={styles.visuallyHidden}>Translation</span>

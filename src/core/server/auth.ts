@@ -18,5 +18,7 @@ export async function getCurrentUser() {
     where: { id: userId },
     select: AUTHENTICATED_USER_SELECT,
   });
-  return user && !user.deletedAt && !user.isBlocked ? user : null;
+  return user && !user.deletedAt && !user.isBlocked && user.emailVerified
+    ? user
+    : null;
 }

@@ -15,15 +15,6 @@ function courseHref(course: { slug: string; nextLesson: { slug: string } | null 
   return learnerCourseContinueHref(course);
 }
 
-function formatPlan(plan: string) {
-  return plan.charAt(0) + plan.slice(1).toLowerCase();
-}
-
-function formatAccessDate(value: Date | null) {
-  if (!value) return null;
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(value);
-}
-
 export default async function StudentHomePage({
   searchParams,
 }: {
@@ -64,13 +55,6 @@ export default async function StudentHomePage({
   const dailyGoal = motivation.dailyGoalMinutes;
   const dailyProgress = Math.min(100, Math.round((completedMinutes / dailyGoal) * 100));
   const nextLessonLabel = next?.nextLesson?.title ?? "Choose a course to build your plan";
-  const activePaidPlan = guard.user.subscriptionPlan !== "FREE" && !["NONE", "CANCELED", "EXPIRED"].includes(guard.user.subscriptionStatus);
-  const billingDate = formatAccessDate(guard.user.subscriptionCurrentPeriodEnd);
-  const billingLabel = activePaidPlan ? `${formatPlan(guard.user.subscriptionPlan)} access` : "Free plan";
-  const billingDetail = activePaidPlan
-    ? billingDate ? `Access available until ${billingDate}` : "Your access is active"
-    : "Upgrade whenever you need more access";
-
   return (
     <section className={styles.page}>
       <FirstVisitQueryCleaner active={isFirstVisit} />
@@ -116,6 +100,7 @@ export default async function StudentHomePage({
         </article>
         <article className={styles.statCard}><p>Overall progress</p><strong>{overallProgress}%</strong><span>{completedLessons} of {totalLessons} lessons</span></article>
         <article className={styles.statCard}><p>Today&apos;s pace</p><strong>{completedMinutes}/{dailyGoal} min</strong><span>{dailyProgress}% of your goal</span></article>
+        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.exchangeBalanceMinor / 100).toFixed(2)}</strong><span>Click XP above to exchange</span></article>
         <article className={styles.statCard}><p>Review queue</p><strong>{reviewCount}</strong><span>{reviewCount === 1 ? "word ready to review" : "words ready to review"}</span></article>
       </section>
 
@@ -147,12 +132,6 @@ export default async function StudentHomePage({
         </article>
 
         <div className={styles.sideStack}>
-          <article className={styles.panel}>
-            <div className={styles.cardHeading}><h3>{billingLabel}</h3><span className={`${styles.billingStatus} ${activePaidPlan ? styles.billingStatusActive : ""}`}>{activePaidPlan ? "Active" : "Free"}</span></div>
-            <p className={styles.helperText}>{billingDetail}</p>
-            <Link href="/student/billing" className={styles.textLink}>Manage billing</Link>
-          </article>
-
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3>{recentMistakes.length ? "Review and improve" : "You are all caught up"}</h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
             {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? "Practice item"}</strong><span>{mistake.explanation ?? `Review after ${mistake.occurrenceCount} attempt${mistake.occurrenceCount === 1 ? "" : "s"}.`}</span></li>)}</ul> : <p className={styles.helperText}>New mistakes will appear here with their explanations.</p>}

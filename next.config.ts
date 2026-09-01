@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  distDir: process.env.NEXT_DIST_DIR || ".next",
+  // A stale Windows file handle can occasionally keep `.next/dev/lock`
+  // unavailable after a dev server has exited. Keep the development cache
+  // isolated, while production builds continue to use the standard `.next`.
+  distDir: process.env.NEXT_DIST_DIR || (process.env.NODE_ENV === "development" ? ".next-dev" : ".next"),
   typescript: {
     tsconfigPath: process.env.NEXT_DIST_DIR ? "tsconfig.build.json" : "tsconfig.json",
   },

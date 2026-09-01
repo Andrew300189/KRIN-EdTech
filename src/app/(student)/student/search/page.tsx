@@ -1,5 +1,5 @@
+import { redirect } from "next/navigation";
 import { requireRole } from "@/core/server/role-guard";
-import { SearchResultsPage } from "@/modules/search/components/SearchResultsPage";
 
 export default async function StudentSearchPage({
   searchParams,
@@ -8,16 +8,7 @@ export default async function StudentSearchPage({
 }) {
   const guard = await requireRole(["student"]);
   if (!guard.ok) return null;
-  return (
-    <SearchResultsPage
-      context="STUDENT"
-      basePath="/student/search"
-      searchParams={await searchParams}
-      principal={{
-        userId: guard.user.id,
-        role: guard.user.role,
-        locale: guard.user.interfaceLanguage,
-      }}
-    />
-  );
+  const rawQuery = (await searchParams).q;
+  const query = typeof rawQuery === "string" ? rawQuery.trim().slice(0, 200) : "";
+  redirect(query ? `/student/catalog?q=${encodeURIComponent(query)}` : "/student/catalog");
 }

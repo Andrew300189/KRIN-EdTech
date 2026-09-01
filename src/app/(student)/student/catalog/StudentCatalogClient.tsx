@@ -13,6 +13,7 @@ type CatalogSort = "recommended" | "title" | "level";
 type StudentCatalogClientProps = {
   initialCourses: StudentCatalogCourse[];
   initialLevel?: string;
+  initialQuery?: string;
   initialError?: string;
 };
 
@@ -89,13 +90,14 @@ function accessLabel(course: StudentCatalogCourse) {
 export function StudentCatalogClient({
   initialCourses,
   initialLevel = "all",
+  initialQuery = "",
   initialError = "",
 }: StudentCatalogClientProps) {
   const router = useRouter();
   const [courses, setCourses] = useState(initialCourses);
   const [level, setLevel] = useState(initialLevel);
   const [quickFilter, setQuickFilter] = useState("all");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState("all");
   const [academy, setAcademy] = useState("all");
   const [path, setPath] = useState("all");

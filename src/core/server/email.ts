@@ -6,6 +6,7 @@ export type WelcomeEmailPayload = {
   name: string;
   email: string;
   verificationUrl: string;
+  verificationTokenHash: string;
   targetLanguage?: string | null;
   learningGoal?: string | null;
 };
@@ -23,10 +24,13 @@ export async function sendWelcomeVerificationEmail(
   // The verification URL contains a short-lived credential, so it is sent through
   // the central provider abstraction but is never saved in Notification.payload.
   const safeName = payload.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  await notificationService.sendEphemeralEmail({
+  return notificationService.sendEphemeralEmail({
     userId: payload.userId,
     type: "EMAIL_VERIFICATION",
-    idempotencyKey: `email-verification:${payload.userId}:registration`,
+    // A resend creates a replacement credential, so its delivery event must
+    // be distinct. The persisted event contains only the hash, never the
+    // bearer token from the email link.
+    idempotencyKey: `email-verification:${payload.userId}:${payload.verificationTokenHash}`,
     title: "Verify your email",
     message: "Check your inbox to verify your email address.",
     entityType: "User",
@@ -35,8 +39,8 @@ export async function sendWelcomeVerificationEmail(
     email: {
       to: payload.email,
       subject: `Verify your KRIN email, ${payload.name}`,
-      text: `Welcome to KRIN, ${payload.name}. Verify your email address: ${payload.verificationUrl}`,
-      html: `<p>Welcome to KRIN, ${safeName}.</p><p><a href="${payload.verificationUrl}">Verify your email address</a></p>`,
+      text: `Welcome to KRIN, ${payload.name}. Verify your email address: ${payload.verificationUrl}\n\nThis secure link expires in 24 hours. If you did not create a KRIN account, you can ignore this email.`,
+      html: `<p>Welcome to KRIN, ${safeName}.</p><p><a href="${payload.verificationUrl}">Verify your email address</a></p><p>This secure link expires in 24 hours. If you did not create a KRIN account, you can ignore this email.</p>`,
       category: "security",
     },
   });

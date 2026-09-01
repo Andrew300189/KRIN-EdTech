@@ -23,6 +23,7 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [accountExists, setAccountExists] = useState(false);
+  const [verificationPending, setVerificationPending] = useState(false);
   const submittingRef = useRef(false);
   const safeNextPath = getSafeInternalPath(nextPath, "");
 
@@ -34,6 +35,7 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
     submittingRef.current = true;
     setError("");
     setAccountExists(false);
+    setVerificationPending(false);
     setLoading(true);
     reportFunnelEvent("SIGNUP_START");
     try {
@@ -48,8 +50,8 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
         setAccountExists(payload?.code === "ACCOUNT_EXISTS");
         return;
       }
-      if (payload?.autoLogin === false) {
-        onSignIn(email);
+      if (payload?.requiresEmailVerification === true) {
+        setVerificationPending(true);
         return;
       }
       onNavigate?.();
@@ -61,6 +63,18 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
       setLoading(false);
     }
   };
+
+  if (verificationPending) {
+    return <div className="space-y-5" role="status">
+      <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-slate-700">
+        <p className="font-semibold text-slate-900">Check your inbox</p>
+        <p className="mt-1">We sent a secure confirmation link to <strong>{email}</strong>. Confirm it before signing in; the link expires in 24 hours.</p>
+      </div>
+      <button type="button" onClick={() => onSignIn(email)} className="btn w-full rounded-full bg-primary py-3 font-semibold text-white hover:brightness-95">
+        Go to sign in
+      </button>
+    </div>;
+  }
 
   return <form onSubmit={handleSubmit} className="space-y-5" noValidate aria-busy={loading}>
     {error ? <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
