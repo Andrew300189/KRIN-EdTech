@@ -1074,7 +1074,7 @@ function LessonTimeline({
           }}
           onDragEnd={() => { setDraggedBlockId(null); setDropTargetBlockId(null); setDropPosition("before"); }}
           onDragOver={(event) => {
-            if (draggable && draggedBlockId && draggedBlockId !== blockId) {
+            if (draggable && blockId && draggedBlockId && draggedBlockId !== blockId) {
               event.preventDefault();
               setDropTargetBlockId(blockId);
               const bounds = event.currentTarget.getBoundingClientRect();
