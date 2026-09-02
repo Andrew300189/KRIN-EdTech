@@ -17,6 +17,20 @@
   border-color: #818cf8;
   box-shadow: 0 0 0 4px rgb(99 102 241 / 12%);
 }
+.registrationField :global(.form-control).passwordMismatch {
+  border-color: #fb7185;
+  background: #fffafb;
+}
+.registrationField :global(.form-control).passwordMismatch:focus {
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 4px rgb(244 63 94 / 12%);
+}
+.passwordMatchHint {
+  margin: -0.15rem 0 0;
+  color: #be123c;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
 .registrationNotice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
