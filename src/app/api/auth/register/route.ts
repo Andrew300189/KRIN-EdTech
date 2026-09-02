@@ -19,9 +19,11 @@ import {
 export const runtime = "nodejs";
 
 function requiresEmailVerification() {
-  // Local development may proceed without a mail domain. Deployed builds
-  // always require verification and cannot disable it through configuration.
-  return process.env.NODE_ENV === "production";
+  // Email confirmation becomes mandatory only after a sending domain is
+  // configured. This keeps account creation usable while the platform is
+  // being launched without a transactional email provider. When the Resend
+  // domain is ready, set EMAIL_VERIFICATION_REQUIRED=true in Vercel.
+  return process.env.EMAIL_VERIFICATION_REQUIRED === "true";
 }
 
 const VERIFICATION_MESSAGE =
