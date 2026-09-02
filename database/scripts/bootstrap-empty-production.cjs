@@ -7,7 +7,13 @@
  * script becomes a no-op. That makes it safe to keep in the build pipeline.
  */
 
-require("dotenv").config({ path: ".env", quiet: true });
+// Local development may use .env; Vercel injects its environment variables
+// directly and deliberately does not need dotenv as a runtime dependency.
+try {
+  require("dotenv").config({ path: ".env", quiet: true });
+} catch (error) {
+  if (error?.code !== "MODULE_NOT_FOUND") throw error;
+}
 
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
