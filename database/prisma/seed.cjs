@@ -1,4 +1,4 @@
-const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime");
+const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime-v2");
 const { importLegacyCurriculum } = require("../scripts/import-legacy-curriculum.cjs");
 
 const prisma = new PrismaClient();
