@@ -11,7 +11,7 @@ require("dotenv").config({ path: ".env", quiet: true });
 
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
-const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime-v2");
+const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime");
 const courseSnapshot = require("../seed-data/verb-to-be-masterclass.json");
 
 const prisma = new PrismaClient({

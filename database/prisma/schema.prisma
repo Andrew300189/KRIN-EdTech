@@ -7,10 +7,9 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  // A fresh output directory prevents a locked dev-process binary from
-  // blocking schema updates on Windows. The TypeScript alias keeps every
-  // existing consumer on the same canonical import path.
-  output   = "../../src/generated/prisma-client-payments-runtime-v2"
+  // This is the canonical path imported by the application and the
+  // deployment bootstrap. Generation is run explicitly in Vercel builds.
+  output   = "../../src/generated/prisma-client-payments-runtime"
 }
 
 model User {
