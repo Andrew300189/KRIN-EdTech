@@ -15,6 +15,7 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy-if-needed": "node database/scripts/migrate-if-needed.cjs",
     "db:bootstrap:empty": "node database/scripts/bootstrap-empty-production.cjs",
     "db:import:legacy-curriculum": "node database/scripts/import-legacy-curriculum.cjs",
     "admin:grant": "node database/scripts/grant-admin.cjs",
