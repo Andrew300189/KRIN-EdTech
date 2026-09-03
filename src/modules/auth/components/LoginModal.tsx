@@ -45,9 +45,7 @@ export function LoginModal({
       ? "Log in to your teacher dashboard"
       : "KRIN EdTech";
   const eyebrow = isRegistration ? "JOIN KRIN EDTECH" : isTeacherLogin ? "TEACHER AREA" : "WELCOME BACK";
-  const description = isRegistration
-    ? "Set up your account to save your learning and continue where you left off."
-    : isTeacherLogin
+  const description = isTeacherLogin
       ? "Use your teacher account to manage learners and courses."
       : "";
 
