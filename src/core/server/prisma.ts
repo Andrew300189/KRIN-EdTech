@@ -13,6 +13,7 @@ const cachedPrisma = global.__krinPrismaSubscriptionSchema;
 const cachedClientIsCurrent = Boolean(
   cachedPrisma &&
   "mistakeReviewRun" in cachedPrisma &&
+  "lessonSpacedReviewRun" in cachedPrisma &&
   "courseReview" in cachedPrisma,
 );
 

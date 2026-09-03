@@ -13,7 +13,7 @@ export default async function CmsLessonPreviewPage({ params }: { params: Promise
     where: { id: lessonId },
     include: {
       module: { include: { course: { select: { title: true, slug: true } } } },
-      blocks: { orderBy: { order: "asc" }, include: { exercises: { orderBy: { order: "asc" } } } },
+      blocks: { orderBy: { order: "asc" }, include: { exercises: { where: { isGeneratedReview: false }, orderBy: { order: "asc" } } } },
     },
   });
   if (!lesson) notFound();

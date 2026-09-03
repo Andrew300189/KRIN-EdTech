@@ -12,6 +12,7 @@ import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events"
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
+import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import styles from "./FocusLessonPlayer.module.css";
 
@@ -81,6 +82,10 @@ function exerciseTheory(block: LessonBlock) {
 function learnerGoalForBlock(block: LessonBlock) {
   const goal = asObject(block.settings).lessonGoal;
   return typeof goal === "string" && goal.trim() ? goal.trim() : null;
+}
+
+function isSpacedReviewBlock(block: LessonBlock | null | undefined) {
+  return Boolean(block && block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
 }
 
 /** A lesson may be edited after someone has started it. Never let a removed
@@ -195,7 +200,10 @@ export function LessonPlayer({
   const isReviewSession = Boolean(reviewSession);
   const reviewDialogOpen = Boolean(reviewIntroOpen || reviewTransition || reviewComplete);
   const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
-  const isInteractiveStep = Boolean(activeBlock?.type === "EXERCISE" && activeBlock.exercises.length);
+  const isInteractiveStep = Boolean(
+    (activeBlock?.type === "EXERCISE" && activeBlock.exercises.length)
+    || (!previewMode && isSpacedReviewBlock(activeBlock)),
+  );
   const lessonIsCompleted = storedProgress?.status === "COMPLETED";
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
   const attemptedExerciseIds = useMemo(() => new Set(visitExerciseIds), [visitExerciseIds]);
@@ -676,7 +684,7 @@ export function LessonPlayer({
                   <button
                     key={block.id}
                     type="button"
-                    className={`${styles.blockSegment} ${isReviewableAfterCompletion || isCompleted ? styles.blockSegmentCompleted : ""} ${isCurrent ? styles.blockSegmentCurrent : ""}`}
+                    className={`${styles.blockSegment} ${isSpacedReviewBlock(block) ? styles.blockSegmentReview : ""} ${isReviewableAfterCompletion || isCompleted ? styles.blockSegmentCompleted : ""} ${isCurrent ? styles.blockSegmentCurrent : ""}`}
                     aria-current={isCurrent ? "step" : undefined}
                     aria-label={`Step ${index + 1}: ${label}. ${state}. Latest result: ${performance}.${canOpenBlock ? " Open this step." : " Complete the current step first."}`}
                     style={attemptVisual?.style}
@@ -769,17 +777,18 @@ export function LessonPlayer({
               </section>
             ) : null}
 
-            <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""}`}>
-              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" ? <div className={styles.taskTopline}>
+            <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
+              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
                 <span className={styles.taskType}>{activeBlock.type.replace(/_/g, " ")}</span>
                 {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
               </div> : null}
-              <div className={styles.lessonGoalTop}>
+              {!isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>Цель урока</span>
                 <p>{learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
-              </div>
+              </div> : null}
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
+                  lessonId={lessonId}
                   block={activeBlock}
                   completed={completedBlocks.includes(activeBlock.id)}
                   onToggleComplete={() => undefined}
@@ -838,6 +847,10 @@ export function LessonPlayer({
                     // The incorrect attempt is already stored server-side and
                     // remains in My Mistakes. “Later” only advances the
                     // learner; it never changes the result or awards XP.
+                    setStepVerified(true);
+                    setAutoAdvanceRequested(true);
+                  }}
+                  onSpacedReviewComplete={() => {
                     setStepVerified(true);
                     setAutoAdvanceRequested(true);
                   }}

@@ -89,6 +89,57 @@ async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: R
   return creditExperienceAndCoins(tx, { userId, experienceAmount: rule.experienceAmount, coinAmount: rule.coinAmount, experienceType: eventExperienceType[eventType], coinType: eventCoinType[eventType], sourceType: eventType, sourceId, idempotencyKey, description, date });
 }
 
+/** A spaced-retrieval answer earns 1.5 XP exactly. XP elsewhere remains in
+ * whole numbers, so the fractional hundredths are kept alongside the legacy
+ * integer balance instead of rounding a learner's reward away. */
+async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, exerciseId: string) {
+  const idempotencyKey = `exercise_correct:${userId}:${exerciseId}`;
+  const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
+  if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  if (rule.dailyLimit) {
+    const claims = await tx.experienceTransaction.count({ where: { userId, type: "EXERCISE_CORRECT", localDate: date } });
+    if (claims >= rule.dailyLimit) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  }
+  if (rule.weeklyLimit) {
+    const claims = await tx.experienceTransaction.count({ where: { userId, type: "EXERCISE_CORRECT", localDate: { gte: subtractLocalDays(date, 6), lte: date } } });
+    if (claims >= rule.weeklyLimit) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  }
+
+  const amountMinor = 150;
+  const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+  const nextMinorTotal = (current.lifetimeExperience * 100) + current.fractionalExperience + amountMinor;
+  const nextExperience = Math.floor(nextMinorTotal / 100);
+  const fractionalExperience = nextMinorTotal % 100;
+  const levelData = calculateUserLevel(nextExperience);
+  const updated = await tx.userLevel.update({
+    where: { id: current.id },
+    data: { ...levelData, fractionalExperience },
+  });
+  await tx.experienceTransaction.create({
+    data: {
+      userId,
+      amount: Math.floor(amountMinor / 100),
+      amountMinor,
+      type: "EXERCISE_CORRECT",
+      sourceType: "SPACED_REVIEW",
+      sourceId: exerciseId,
+      idempotencyKey,
+      localDate: date,
+      description: "Correct spaced review question (+1.5 XP)",
+    },
+  });
+  await tx.userDailyActivity.update({
+    where: { userId_date: { userId, date } },
+    data: {
+      experienceEarned: { increment: Math.floor(amountMinor / 100) },
+      experienceEarnedMinor: { increment: amountMinor },
+    },
+  });
+  return { awarded: true, experience: amountMinor / 100, coins: 0, levelUp: updated.level > current.level, level: updated.level };
+}
+
 async function updateStreakForDate(tx: Tx, userId: string, date: string) {
   const streak = await tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} });
   if (streak.lastQualifiedDate === date) return streak;
@@ -209,7 +260,7 @@ export async function completeLearningSession(userId: string, sessionId: string)
   return prisma.learningSession.updateMany({ where: { id: sessionId, userId, status: { in: ["ACTIVE", "PAUSED"] } }, data: { status: "COMPLETED", completedAt: new Date() } });
 }
 
-export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstCorrect: boolean; score: number }) {
+export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstCorrect: boolean; score: number; isSpacedReview?: boolean }) {
   const context = await userContext(tx, input.userId);
   await ensureDailyActivity(tx, input.userId, context.date);
   await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
@@ -217,7 +268,11 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   await tx.userDailyActivity.update({ where: { userId_date: { userId: input.userId, date: context.date } }, data: { exercisesCompleted: { increment: 1 }, correctAnswers: { increment: input.isCorrect ? 1 : 0 }, incorrectAnswers: { increment: input.isCorrect ? 0 : 1 } } });
   const level = await tx.userLevel.upsert({ where: { userId: input.userId }, create: { userId: input.userId, currentCorrectStreak: input.isCorrect ? 1 : 0, bestCorrectStreak: input.isCorrect ? 1 : 0 }, update: input.isCorrect ? { currentCorrectStreak: { increment: 1 } } : { currentCorrectStreak: 0 } });
   if (input.isCorrect && level.currentCorrectStreak + 1 > level.bestCorrectStreak) await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: level.currentCorrectStreak + 1 } });
-  const reward = input.isCorrect && input.isFirstCorrect ? await rewardForEvent(tx, input.userId, context.date, "EXERCISE_CORRECT", input.exerciseId, "First correct exercise attempt") : { awarded: false, experience: 0, coins: 0, levelUp: false };
+  const reward = input.isCorrect && input.isFirstCorrect
+    ? input.isSpacedReview
+      ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId)
+      : await rewardForEvent(tx, input.userId, context.date, "EXERCISE_CORRECT", input.exerciseId, "First correct exercise attempt")
+    : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
   return reward;
 }

@@ -5,12 +5,17 @@ import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation
 import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
-  level: { level: number; lifetimeExperience: number };
+  level: { level: number; lifetimeExperience: number; fractionalExperience?: number };
   wallet: { exchangeBalanceMinor: number };
 };
 
 function coinBalance(overview: MotivationOverview) {
   return overview.wallet.exchangeBalanceMinor / 100;
+}
+
+function experienceLabel(level: MotivationOverview["level"]) {
+  const hundredths = Math.max(0, Math.min(99, level.fractionalExperience ?? 0));
+  return hundredths ? `${level.lifetimeExperience}.${String(hundredths).padStart(2, "0")}` : String(level.lifetimeExperience);
 }
 
 export function ExperienceStatus({ className = "" }: { className?: string }) {
@@ -56,6 +61,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
 
   if (!overview) return null;
   const experience = overview.level.lifetimeExperience;
+  const experienceText = experienceLabel(overview.level);
   const requested = Math.max(0, Math.trunc(Number(amount) || 0));
   const previewCoins = Math.round((requested / 1_000) * 100) / 100;
 
@@ -86,13 +92,13 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
   return <div ref={rootRef} className={`${styles.root} ${className}`}>
     <div className={styles.status}>
       <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { setOpen((value) => !value); setMessage(null); }} title="Exchange XP for KRIN Coins">
-        <span>Lv. {overview.level.level}</span><strong>{experience} XP</strong>
+        <span>Lv. {overview.level.level}</span><strong>{experienceText} XP</strong>
       </button>
       <span className={styles.coins} aria-label={`${coinBalance(overview).toFixed(2)} KRIN Coins`}><span aria-hidden="true">◉</span> {coinBalance(overview).toFixed(2)}</span>
     </div>
     {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label="Exchange XP for KRIN Coins">
       <div className={styles.popoverHeading}><div><strong>Exchange XP</strong><span>1,000 XP = 1 KRIN Coin</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Close">×</button></div>
-      <p className={styles.available}>Available: <strong>{experience} XP</strong></p>
+      <p className={styles.available}>Available: <strong>{experienceText} XP</strong></p>
       <form onSubmit={(event) => void exchange(event)}>
         <label htmlFor={`${popoverId}-amount`}>XP to exchange</label>
         <div className={styles.amountRow}><input id={`${popoverId}-amount`} type="number" min="10" max={experience} step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000" autoFocus /><button type="button" onClick={() => setAmount(String(experience))}>All</button></div>

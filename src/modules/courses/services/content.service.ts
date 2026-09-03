@@ -31,6 +31,8 @@ import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow
 import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLessonEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
+import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
+import { SPACED_REVIEW_QUESTION_COUNT, SPACED_REVIEW_SYSTEM, SPACED_REVIEW_XP, isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 
 const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
 type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
@@ -684,7 +686,9 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
           isRequired: true,
           translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
           exercises: {
-            where: { contentStatus: "PUBLISHED" },
+            // Generated retrieval-practice questions belong only to the
+            // learner's saved review run and are loaded by its protected API.
+            where: { contentStatus: "PUBLISHED", isGeneratedReview: false },
             orderBy: { order: "asc" },
             select: {
               id: true,
@@ -1007,6 +1011,23 @@ export async function createLesson(
         isFree: input.isFree,
       },
     });
+    // The first lesson in a module introduces a topic. Every following lesson
+    // receives a system-owned review block; normal CMS blocks are inserted
+    // before it so retrieval practice always comes at the end of the lesson.
+    if (order > 1) {
+      await tx.lessonBlock.create({
+        data: {
+          lessonId: created.id,
+          type: "REVIEW",
+          title: "Повторение",
+          settings: { system: SPACED_REVIEW_SYSTEM, questionCount: SPACED_REVIEW_QUESTION_COUNT, experiencePerCorrect: SPACED_REVIEW_XP },
+          order: 1,
+          isRequired: true,
+          contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
+          publishedAt: input.isPublished ? new Date() : null,
+        },
+      });
+    }
     await tx.course.update({ where: { id: courseModule.courseId }, data: { lessonCount: { increment: 1 } } });
     return created;
   });
@@ -1021,6 +1042,35 @@ export async function createLessonBlock(
   lessonId: string,
   input: CreateLessonBlockInput,
 ) {
+  const systemReview = (await prisma.lessonBlock.findMany({
+    where: { lessonId, type: "REVIEW", contentStatus: { not: "ARCHIVED" } },
+    select: { id: true, order: true, settings: true },
+  })).find((block) => isSpacedReviewSettings(block.settings));
+  if (systemReview && input.type !== "REVIEW") {
+    // The system review is always the final step. A lesson has no normal
+    // block after it because this same service has maintained the invariant
+    // since the block was created.
+    return prisma.$transaction(async (tx) => {
+      await tx.lessonBlock.update({ where: { id: systemReview.id }, data: { order: systemReview.order + 1 } });
+      const block = await tx.lessonBlock.create({
+        data: {
+          lessonId,
+          type: input.type,
+          title: nullableText(input.title),
+          content: toPrismaJson(input.content),
+          settings: toPrismaJson(input.settings),
+          order: systemReview.order,
+          isRequired: input.isRequired,
+        },
+      });
+      return block;
+    }).then(async (block) => {
+      await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId, type: block.type });
+      await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
+      await syncCourseDurationForLessonBlock(block.id);
+      return block;
+    });
+  }
   const order = await nextOrder(
     () => prisma.lessonBlock.findFirst({ where: { lessonId }, orderBy: { order: "desc" }, select: { order: true } }),
     input.order,
@@ -1245,6 +1295,7 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
   const exercise = await prisma.exercise.findUnique({
     where: { id: exerciseId },
     select: {
+      isGeneratedReview: true,
       contentStatus: true,
       correctAnswer: true,
       alternativeAnswers: true,
@@ -1256,7 +1307,7 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
       lessonBlock: { select: { contentStatus: true, lessonId: true } },
     },
   });
-  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  if (!exercise || exercise.isGeneratedReview || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
   const access = await canAccessLesson(null, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("This exercise is available after access is granted.");
   const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, exercise.correctAnswer, exercise.engineKey) as JsonValue;
@@ -1283,9 +1334,12 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
     where: { id: exerciseId },
-    select: { lessonBlock: { select: { lessonId: true } } },
+    select: { isGeneratedReview: true, lessonBlock: { select: { lessonId: true } } },
   });
   if (!exerciseForAccess) throw new Error("Exercise not found");
+  if (exerciseForAccess.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) {
+    throw new Error("This review question belongs to a different learner.");
+  }
   const access = await canAccessLesson(userId, exerciseForAccess.lessonBlock.lessonId);
   const reviewCanBypassSequence = !access.allowed
     && (access.reason === "SEQUENCE_LOCKED" || access.reason === "PREREQUISITE_LOCKED")
@@ -1447,6 +1501,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       isCorrect,
       isFirstCorrect: isCorrect && correctAttempts === 1,
       score: scoreAwarded,
+      isSpacedReview: exercise.isGeneratedReview,
     });
 
     return {
@@ -1476,6 +1531,7 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
     where: { id: exerciseId },
     select: {
       id: true,
+      isGeneratedReview: true,
       contentStatus: true,
       correctAnswer: true,
       explanation: true,
@@ -1484,6 +1540,7 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
     },
   });
   if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
   const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
 
@@ -1545,9 +1602,9 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
 export async function getExtraPracticeExercise(userId: string, exerciseId: string) {
   const source = await prisma.exercise.findUnique({
     where: { id: exerciseId },
-    select: { id: true, allowExtraExercise: true, lessonBlockId: true, lessonBlock: { select: { lessonId: true } } },
+    select: { id: true, isGeneratedReview: true, allowExtraExercise: true, lessonBlockId: true, lessonBlock: { select: { lessonId: true } } },
   });
-  if (!source || !source.allowExtraExercise) throw new Error("Extra practice is not available for this exercise.");
+  if (!source || source.isGeneratedReview || !source.allowExtraExercise) throw new Error("Extra practice is not available for this exercise.");
   const access = await canAccessLesson(userId, source.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
   const hasAttempt = await prisma.exerciseAttempt.findFirst({ where: { userId, exerciseId }, select: { id: true } });
@@ -1565,7 +1622,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
   const access = await canAccessLesson(userId, lessonId);
   if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
   const saved = await prisma.$transaction(async (tx) => {
-    const blocks = await tx.lessonBlock.findMany({ where: { lessonId }, select: { id: true, isRequired: true } });
+    const blocks = await tx.lessonBlock.findMany({
+      where: { lessonId },
+      select: { id: true, type: true, settings: true, isRequired: true },
+    });
     if (blocks.length === 0) {
       const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { id: true } });
       if (!lesson) throw new Error("Lesson not found");
@@ -1578,7 +1638,15 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       throw new Error("The current block does not belong to this lesson");
     }
     const completedThisVisit = new Set(value.completedBlockIds);
-    const allRequiredBlocksComplete = blocks.filter((block) => block.isRequired).every((block) => completedThisVisit.has(block.id));
+    const spacedReviewBlock = blocks.find((block) => block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
+    const spacedReviewCompleted = !spacedReviewBlock || Boolean(await tx.lessonSpacedReviewRun.findFirst({
+      where: { userId, lessonId, status: "COMPLETED" },
+      select: { id: true },
+    }));
+    const allRequiredBlocksComplete = blocks
+      .filter((block) => block.isRequired)
+      .every((block) => completedThisVisit.has(block.id))
+      && spacedReviewCompleted;
     const [attempts, sessionTime] = await Promise.all([
       tx.exerciseAttempt.findMany({
         where: { userId, lessonId },
