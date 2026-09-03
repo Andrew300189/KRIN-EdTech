@@ -11,7 +11,7 @@ type Tx = Prisma.TransactionClient;
 type ReviewExerciseDraft = {
   type: string;
   engineKey: string;
-  variantKey: string;
+  variantKey: string | null;
   instruction: string;
   question: string;
   content: Prisma.JsonValue | null;
