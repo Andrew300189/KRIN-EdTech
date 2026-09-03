@@ -64,7 +64,8 @@ export function SpacedReviewBlock({ lessonId, block, previewMode = false, player
     }
   }
 
-  const reviewBlock: LessonBlock | null = run ? { ...block, exercises: run.questions } : null;
+  const activeRun = run?.status === "ACTIVE" ? run : null;
+  const reviewBlock: LessonBlock | null = activeRun ? { ...block, exercises: activeRun.questions } : null;
 
   return <section className={styles.root} aria-label="Spaced review">
     <header className={styles.heading}>
@@ -79,11 +80,11 @@ export function SpacedReviewBlock({ lessonId, block, previewMode = false, player
     {!previewMode && !run && !error ? <p className={styles.loading}>Подбираем 10 новых вопросов для повторения…</p> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {run?.status === "COMPLETED" ? <p className={styles.complete} role="status">Повторение пройдено: все 10 ответов сохранены. Можно продолжать урок.</p> : null}
-    {reviewBlock && run.status === "ACTIVE" ? <>
+    {reviewBlock && activeRun ? <>
       <p className={styles.progress}>10 вопросов · случайная выборка · без повторения прежних формулировок</p>
       <div className={styles.questions}>
         <ExerciseBlock
-          key={run.id}
+          key={activeRun.id}
           block={reviewBlock}
           playerStyle={playerStyle}
           individualExerciseStep
