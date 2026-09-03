@@ -18,6 +18,7 @@ export default async function CmsCoursePreviewPage({ params }: { params: Promise
                 orderBy: { order: "asc" },
                 include: {
                   exercises: {
+                    where: { isGeneratedReview: false },
                     orderBy: { order: "asc" },
                     select: { id: true, type: true, engineKey: true, question: true, contentStatus: true },
                   },

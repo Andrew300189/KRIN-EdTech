@@ -19,12 +19,14 @@ type ExerciseBlockProps = {
   /** Exercise ids whose latest saved attempt is incorrect. */
   mistakeExerciseIds?: string[];
   requireCorrectForNext?: boolean;
+  /** A system review deliberately keeps retrieval practice one question at a time. */
+  sequentialOnly?: boolean;
   reviewRunId?: string;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], requireCorrectForNext = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -38,8 +40,8 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
   const mistakeIndexes = mistakeExerciseIds
     .map((exerciseId) => exercises.findIndex((exercise) => exercise.id === exerciseId))
     .filter((index) => index >= 0);
-  const canShowAllExercises = exercises.length > 1 && !reviewRunId;
-  const canFixMistakes = mistakeIndexes.length > 0 && !reviewRunId;
+  const canShowAllExercises = exercises.length > 1 && !reviewRunId && !sequentialOnly;
+  const canFixMistakes = mistakeIndexes.length > 0 && !reviewRunId && !sequentialOnly;
 
   useEffect(() => {
     setActiveIndex((current) => current === focusedExerciseIndex ? current : focusedExerciseIndex);

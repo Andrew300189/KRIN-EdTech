@@ -681,6 +681,8 @@
 .blockSegment { min-height: .62rem; background: #e5e7eb; }
 .blockSegmentCompleted { background: #22c55e; }
 .blockSegmentCurrent { border-color: #94a3b8; background: #f1f5f9; }
+.blockSegmentReview:not(.blockSegmentCompleted) { background: #fdba74; }
+.blockSegmentReview.blockSegmentCurrent { border-color: #f97316; background: #ffedd5; box-shadow: 0 0 0 2px rgb(249 115 22 / 18%); }
 
 .lessonContext {
   position: relative;
@@ -724,6 +726,12 @@
 /* The actual exercise uses PlacementTest's header and body classes. */
 .exerciseTaskCard { border-radius: 22px; }
 .exerciseTaskCard .focusContent { padding: 0; }
+.spacedReviewTaskCard {
+  border-color: #fdba74;
+  background: #fffaf5;
+  box-shadow: 0 14px 34px rgb(194 65 12 / 10%);
+}
+.spacedReviewTaskCard .focusContent { padding: clamp(.75rem, 2vw, 1.25rem); }
 
 .taskTopline {
   display: flex;

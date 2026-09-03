@@ -18,6 +18,7 @@ export default async function CmsLessonBlocksPage({
         orderBy: { order: "asc" },
         include: {
           exercises: {
+            where: { isGeneratedReview: false },
             orderBy: { order: "asc" },
             include: { _count: { select: { attempts: true } } },
           },

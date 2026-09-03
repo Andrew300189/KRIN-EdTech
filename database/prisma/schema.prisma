@@ -92,6 +92,7 @@ model User {
   exerciseAttempts              ExerciseAttempt[]
   mistakes                      UserMistake[]
   mistakeReviewRuns             MistakeReviewRun[]
+  spacedReviewRuns              LessonSpacedReviewRun[]
   userWords                     UserWord[]
   userCustomWords               UserCustomWord[]
   wordReviewAttempts            WordReviewAttempt[]
@@ -501,6 +502,7 @@ model Lesson {
   progress           LessonProgress[]
   exerciseAttempts   ExerciseAttempt[]
   mistakes           UserMistake[]
+  spacedReviewRuns   LessonSpacedReviewRun[]
   vocabulary         LessonVocabulary[]
   vocabularySources  UserWord[]                  @relation("UserWordSourceLesson")
   vocabularySessions VocabularyTrainingSession[] @relation("WarmUpLesson")
@@ -783,6 +785,9 @@ model Exercise {
   solutionCost       Int                @default(0)
   allowInstantCheck  Boolean            @default(true)
   allowExtraExercise Boolean            @default(false)
+  /// Generated review questions are private to the learner's review run and
+  /// must never appear in the regular lesson or CMS exercise list.
+  isGeneratedReview Boolean            @default(false)
   contentStatus      CmsContentStatus   @default(DRAFT)
   scheduledAt        DateTime?
   publishedAt        DateTime?
@@ -793,6 +798,7 @@ model Exercise {
   vocabularyLinks    ExerciseVocabulary[]
   grammarLinks       ExerciseGrammarTopic[]
   learningActivities LearningActivity[]
+  spacedReviewItems  LessonSpacedReviewRunItem[]
   savedTemplates     CmsExerciseTemplate[] @relation("CmsExerciseTemplateSource")
   translations       ExerciseTranslation[]
   createdAt          DateTime           @default(now())
@@ -800,6 +806,7 @@ model Exercise {
 
   @@unique([lessonBlockId, order])
   @@index([lessonBlockId, type])
+  @@index([isGeneratedReview])
   @@index([previousVersionId])
 }
 
@@ -1053,6 +1060,42 @@ model MistakeReviewRunItem {
   @@index([mistakeId])
 }
 
+/// A ten-question retrieval-practice set generated for one learner before a
+/// non-first lesson in a module. Its questions are persisted so the learner
+/// can safely leave and resume without a different set appearing mid-lesson.
+model LessonSpacedReviewRun {
+  id          String                       @id @default(cuid())
+  userId      String
+  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson                       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  status      LessonSpacedReviewRunStatus  @default(ACTIVE)
+  completedAt DateTime?
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+  items       LessonSpacedReviewRunItem[]
+
+  @@index([userId, lessonId, status])
+  @@unique([userId, lessonId])
+  @@index([lessonId, status])
+}
+
+model LessonSpacedReviewRunItem {
+  id               String                 @id @default(cuid())
+  runId            String
+  run              LessonSpacedReviewRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  exerciseId       String                 @unique
+  exercise         Exercise               @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  sourceExerciseId String?
+  signature        String
+  position         Int
+  createdAt        DateTime               @default(now())
+
+  @@unique([runId, position])
+  @@index([runId])
+  @@index([sourceExerciseId])
+}
+
 model UserWord {
   id                String                   @id @default(cuid())
   userId            String
@@ -1301,6 +1344,9 @@ model UserDailyActivity {
   vocabularySessions Int      @default(0)
   warmUpsCompleted   Int      @default(0)
   experienceEarned   Int      @default(0)
+  /// Exact XP in hundredths. `experienceEarned` is retained for legacy
+  /// dashboard queries and contains the whole-number component.
+  experienceEarnedMinor Int   @default(0)
   coinsEarned        Int      @default(0)
   dailyGoalCompleted Boolean  @default(false)
   createdAt          DateTime @default(now())
@@ -1315,6 +1361,8 @@ model ExperienceTransaction {
   userId         String
   user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount         Int
+  /// Exact amount in hundredths when a reward contains a fractional XP part.
+  amountMinor    Int?
   type           ExperienceTransactionType
   sourceType     String
   sourceId       String
@@ -1335,6 +1383,9 @@ model UserLevel {
   level                 Int      @default(1)
   currentExperience     Int      @default(0)
   lifetimeExperience    Int      @default(0)
+  /// Fractional XP balance in hundredths (0-99), so a 1.5 XP review reward
+  /// remains real value instead of being rounded away.
+  fractionalExperience  Int      @default(0)
   experienceToNextLevel Int      @default(100)
   currentCorrectStreak  Int      @default(0)
   bestCorrectStreak     Int      @default(0)
@@ -3113,6 +3164,11 @@ enum ExerciseType {
 
 enum LessonProgressStatus {
   STARTED
+  COMPLETED
+}
+
+enum LessonSpacedReviewRunStatus {
+  ACTIVE
   COMPLETED
 }
 
