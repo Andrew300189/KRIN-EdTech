@@ -9,6 +9,11 @@ import styles from "./LoginModal.module.css";
 type LoginIntent = "learner" | "teacher";
 type AuthView = "login" | "register";
 
+function getEmailPrefill(value: string) {
+  const trimmed = value.trim();
+  return /^[^\s@]+@[^\s@]+$/.test(trimmed) ? trimmed : "";
+}
+
 type LoginModalProps = {
   open: boolean;
   onClose: () => void;
@@ -60,7 +65,7 @@ export function LoginModal({
   >
     {notice ? <div role={notice.tone === "error" ? "alert" : "status"} className={notice.tone === "error" ? styles.errorNotice : styles.infoNotice}><p>{notice.message}</p>{notice.errorId ? <p className={styles.errorId}>Error ID: <code>{notice.errorId}</code></p> : null}</div> : null}
     {isRegistration
-      ? <RegistrationForm nextPath={nextPath} initialEmail={email} onNavigate={onClose} onSignIn={(nextEmail) => { setEmail(nextEmail); setView("login"); }} />
-      : <LoginForm nextPath={nextPath} onNavigate={onClose} email={email} onEmailChange={setEmail} showRegistration={!isTeacherLogin} onCreateAccount={(nextEmail) => { setEmail(nextEmail); setView("register"); }} />}
+      ? <RegistrationForm nextPath={nextPath} initialEmail={getEmailPrefill(email)} onNavigate={onClose} onSignIn={(nextEmail) => { setEmail(nextEmail); setView("login"); }} />
+      : <LoginForm nextPath={nextPath} onNavigate={onClose} email={email} onEmailChange={setEmail} showRegistration={!isTeacherLogin} onCreateAccount={(nextIdentifier) => { setEmail(getEmailPrefill(nextIdentifier)); setView("register"); }} />}
   </AppModal>;
 }
