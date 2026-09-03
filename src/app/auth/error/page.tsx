@@ -6,6 +6,7 @@ import {
   getPublicAuthErrorMessage,
   type PublicAuthErrorCode,
 } from "@/core/server/auth-error";
+import styles from "./page.module.css";
 
 function getPublicErrorCode(error: string | undefined): PublicAuthErrorCode {
   if (error === "cms_access_denied") return "cms_access_denied";
@@ -31,25 +32,53 @@ export default async function AuthErrorPage({
 
   const code = getPublicErrorCode(error);
   const errorId = getDevelopmentErrorId(incomingErrorId);
+  const isGoogleError = code === "google_sign_in_failed";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl items-center px-6">
-      <section className="w-full rounded-xl border border-red-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold text-red-700">Ошибка авторизации</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900">
+    <main className={styles.page}>
+      <section className={styles.card} aria-labelledby="auth-error-title">
+        <div className={styles.brand} aria-label="KRIN EdTech">
+          <span className={styles.brandMark} aria-hidden="true">K</span>
+          <span>KRIN EdTech</span>
+        </div>
+
+        <div className={styles.iconWrap} aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25">
+            <path d="M12 8v4" strokeLinecap="round" />
+            <path d="M12 16h.01" strokeLinecap="round" />
+            <path d="M10.3 3.85 2.7 17a2 2 0 0 0 1.73 3h15.14A2 2 0 0 0 21.3 17L13.7 3.85a2 2 0 0 0-3.4 0Z" strokeLinejoin="round" />
+          </svg>
+        </div>
+
+        <p className={styles.eyebrow}>Вход временно недоступен</p>
+        <h1 id="auth-error-title" className={styles.title}>
           {getPublicAuthErrorMessage(code)}
         </h1>
+        <p className={styles.description}>
+          {isGoogleError
+            ? "С вашим аккаунтом всё в порядке. Попробуйте войти ещё раз или используйте email и пароль."
+            : "Попробуйте войти снова. Если проблема повторится, обратитесь к владельцу платформы."}
+        </p>
+
+        <div className={styles.actions}>
+          <Link className={styles.primaryAction} href="/login">
+            Вернуться ко входу
+          </Link>
+          <Link className={styles.secondaryAction} href="/">
+            На главную
+          </Link>
+        </div>
+
+        <div className={styles.tip}>
+          <span className={styles.tipDot} aria-hidden="true" />
+          <span>Мы не сохраняли ваш пароль и не изменяли данные аккаунта.</span>
+        </div>
+
         {errorId ? (
-          <p className="mt-4 text-sm text-slate-500">
-            Error ID: <code>{errorId}</code>
+          <p className={styles.errorId}>
+            Код обращения: <code>{errorId}</code>
           </p>
         ) : null}
-        <Link
-          className="mt-7 inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white hover:brightness-95"
-          href="/login"
-        >
-          Вернуться ко входу
-        </Link>
       </section>
     </main>
   );

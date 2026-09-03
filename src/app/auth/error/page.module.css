@@ -1,0 +1,207 @@
+.page {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  background:
+    radial-gradient(circle at 12% 9%, rgb(99 102 241 / 16%), transparent 28rem),
+    radial-gradient(circle at 92% 91%, rgb(168 85 247 / 14%), transparent 25rem),
+    #f7f8ff;
+}
+
+.page::before,
+.page::after {
+  position: absolute;
+  width: min(42vw, 32rem);
+  height: min(42vw, 32rem);
+  content: "";
+  border: 1px solid rgb(99 102 241 / 10%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.page::before {
+  top: -15rem;
+  right: -8rem;
+}
+
+.page::after {
+  bottom: -19rem;
+  left: -12rem;
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 36rem);
+  padding: clamp(2rem, 5vw, 3.5rem);
+  border: 1px solid rgb(199 210 254 / 85%);
+  border-radius: 1.75rem;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 1.75rem 4.5rem rgb(49 46 129 / 14%);
+  text-align: center;
+  backdrop-filter: blur(14px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #172554;
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brandMark {
+  display: inline-grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border-radius: 0.58rem;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 0.35rem 0.9rem rgb(99 102 241 / 28%);
+  color: white;
+  font-size: 0.85rem;
+}
+
+.iconWrap {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  place-items: center;
+  margin: 2rem auto 1.25rem;
+  border: 1px solid #fed7aa;
+  border-radius: 1.35rem;
+  background: #fff7ed;
+  color: #ea580c;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%);
+}
+
+.iconWrap svg {
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.eyebrow {
+  color: #c2410c;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0.7rem auto 0;
+  max-width: 28rem;
+  color: #10264b;
+  font-size: clamp(1.75rem, 4.4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.12;
+}
+
+.description {
+  max-width: 28rem;
+  margin: 1.1rem auto 0;
+  color: #52617b;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.primaryAction,
+.secondaryAction {
+  min-height: 3rem;
+  padding: 0.73rem 1.25rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 750;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primaryAction {
+  background: linear-gradient(135deg, #4f46e5, #6d4ee8);
+  box-shadow: 0 0.65rem 1.4rem rgb(79 70 229 / 26%);
+  color: #fff;
+}
+
+.secondaryAction {
+  border: 1px solid #dbe3f3;
+  background: #fff;
+  color: #324260;
+}
+
+.primaryAction:hover,
+.secondaryAction:hover {
+  transform: translateY(-1px);
+}
+
+.primaryAction:hover {
+  box-shadow: 0 0.85rem 1.65rem rgb(79 70 229 / 32%);
+}
+
+.secondaryAction:hover {
+  background: #f8faff;
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible {
+  outline: 3px solid rgb(99 102 241 / 28%);
+  outline-offset: 3px;
+}
+
+.tip {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 1.7rem;
+  color: #64748b;
+  font-size: 0.81rem;
+  line-height: 1.45;
+}
+
+.tipDot {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.34rem;
+  border-radius: 50%;
+  background: #7c3aed;
+}
+
+.errorId {
+  margin-top: 1rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.errorId code {
+  overflow-wrap: anywhere;
+  color: #64748b;
+}
+
+@media (max-width: 460px) {
+  .card {
+    border-radius: 1.35rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    width: 100%;
+  }
+}
