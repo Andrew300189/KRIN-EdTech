@@ -300,7 +300,7 @@ async function buildSpacedReviewRun(tx: Tx, userId: string, lessonId: string) {
       },
       orderBy: [{ difficulty: "asc" }, { order: "asc" }],
       select: {
-        id: true, type: true, engineKey: true, instruction: true, question: true, content: true,
+        id: true, type: true, engineKey: true, variantKey: true, instruction: true, question: true, content: true,
         correctAnswer: true, alternativeAnswers: true, explanation: true, hint: true, hintsEnabled: true,
         difficulty: true, timeLimitSeconds: true, solutionCost: true, allowInstantCheck: true,
       },
