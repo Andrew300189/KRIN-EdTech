@@ -79,6 +79,7 @@ const PLACEMENT_UI: Record<SupportedLocale, Record<string, string>> = {
 };
 
 function savePendingPlacementResult(results: boolean[]) {
+  if (results.length < 20 || results.length > 100 || results.length % 20 !== 0) return false;
   try {
     window.sessionStorage.setItem(
       PENDING_PLACEMENT_RESULT_KEY,
