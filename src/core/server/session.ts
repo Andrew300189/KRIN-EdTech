@@ -230,22 +230,31 @@ export async function clearLegacySession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
 
-  if (token) {
-    const parsed = parseToken(token);
-    if (parsed && verifySignature(parsed.payloadBase64, parsed.signature)) {
-      const payload = decodePayload(parsed.payloadBase64);
-      if (payload?.sessionId) {
-        await revokeSessionRecord(payload.sessionId, "manual_logout");
+  try {
+    if (token) {
+      const parsed = parseToken(token);
+      if (parsed && verifySignature(parsed.payloadBase64, parsed.signature)) {
+        const payload = decodePayload(parsed.payloadBase64);
+        if (payload?.sessionId) {
+          await revokeSessionRecord(payload.sessionId, "manual_logout");
+        }
       }
     }
+  } finally {
+    // A browser must always be signed out, even if the database is
+    // temporarily unavailable while revoking the server-side session.
+    jar.delete(SESSION_COOKIE);
   }
-
-  jar.delete(SESSION_COOKIE);
 }
 
 export async function destroySession() {
-  await clearLegacySession();
-  await clearNextAuthCookies();
+  try {
+    await clearLegacySession();
+  } finally {
+    // Google sessions use NextAuth cookies, so clear them independently of
+    // the legacy-session revocation result above.
+    await clearNextAuthCookies();
+  }
 }
 
 export async function getSessionUserId(): Promise<string | null> {

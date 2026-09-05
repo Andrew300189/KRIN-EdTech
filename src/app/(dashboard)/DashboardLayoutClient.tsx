@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { VocabularyReviewPrompt } from "@/modules/vocabulary/components/VocabularyReviewPrompt";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
@@ -28,7 +28,6 @@ export function DashboardLayoutClient({
   children: React.ReactNode;
   showCmsLink: boolean;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
 
   const navIdByHref: Record<string, string> = {
@@ -38,8 +37,13 @@ export function DashboardLayoutClient({
   };
 
   const handleSignOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/");
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      // A document navigation discards the cached dashboard tree and asks the
+      // server for the public session state after the cookies are cleared.
+      window.location.assign("/");
+    }
   };
 
   return (

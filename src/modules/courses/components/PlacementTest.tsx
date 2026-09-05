@@ -58,7 +58,7 @@ type Action =
   | { type: "SELECT"; index: number }
   | { type: "BUILDER_TOGGLE"; slotIdx: number }
   | { type: "BUILDER_CLEAR" }
-  | { type: "CHECK_BUILDER" }
+  | { type: "CHECK" }
   | { type: "NEXT" }
   | { type: "FINISH" }
   | { type: "DISMISS_MODAL" }
@@ -243,7 +243,7 @@ function reducer(state: State, action: Action): State {
 
     case "SELECT":
       if (state.feedback) return state;
-      return { ...state, selected: action.index, feedback: true };
+      return { ...state, selected: action.index };
 
     case "BUILDER_TOGGLE": {
       if (state.feedback) return state;
@@ -258,9 +258,14 @@ function reducer(state: State, action: Action): State {
       if (state.feedback) return state;
       return { ...state, builderOrder: [] };
 
-    case "CHECK_BUILDER":
-      if (state.feedback || state.builderOrder.length === 0) return state;
-      return { ...state, feedback: true };
+    case "CHECK": {
+      if (state.feedback) return state;
+      const question = QUESTIONS[state.current];
+      const hasCompleteAnswer = question.type === "sentence_builder"
+        ? state.builderOrder.length === question.words?.length
+        : state.selected !== -1;
+      return hasCompleteAnswer ? { ...state, feedback: true } : state;
+    }
 
     case "NEXT": {
       const q = QUESTIONS[state.current];
@@ -328,7 +333,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
     <div className={s.ptBuilderArea}>
       <div className={`${s.ptBuilderSentence} ${builderOrder.length > 0 ? s.ptBuilderSentenceActive : ""}`}>
         {builderOrder.length === 0
-          ? <span className={s.ptBuilderPlaceholder}>Tap words below to build the sentence\u2026</span>
+          ? <span className={s.ptBuilderPlaceholder}>Tap words below to build the sentence…</span>
           : builderOrder.map((slotIdx, pos) => (
             <button key={pos} type="button" className={chipCls}
               onClick={() => !feedback && onToggle(slotIdx)} disabled={feedback}
@@ -341,7 +346,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
 
       {!feedback && builderOrder.length > 0 && (
         <button type="button" className={s.ptBuilderClear} onClick={onClear}>
-          \u2715 Clear all
+          × Clear all
         </button>
       )}
 
@@ -357,7 +362,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
       </div>
 
       {wrong && (
-        <p className={s.ptBuilderAnswer}>\u2713 Correct: <strong>{q.answer}</strong></p>
+        <p className={s.ptBuilderAnswer}>✓ Correct: <strong>{q.answer}</strong></p>
       )}
     </div>
   );
@@ -394,7 +399,7 @@ export function PlacementTest() {
   const handleFinish  = useCallback(() => dispatch({ type: "FINISH" }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
   const handleClear   = useCallback(() => dispatch({ type: "BUILDER_CLEAR" }), []);
-  const handleCheck   = useCallback(() => dispatch({ type: "CHECK_BUILDER" }), []);
+  const handleCheck   = useCallback(() => dispatch({ type: "CHECK" }), []);
   const handleDismiss = useCallback(() => dispatch({ type: "DISMISS_MODAL" }), []);
 
   useEffect(() => {
@@ -448,7 +453,7 @@ export function PlacementTest() {
             </p>
             <div className={s.ptIntroMeta}>
               <span className={s.ptIntroChip}>📝 100 questions</span>
-              <span className={s.ptIntroChip}>🏆 A1 \u2192 C1</span>
+              <span className={s.ptIntroChip}>🏆 A1 → C1</span>
               <span className={s.ptIntroChip}>⏱ ~15 min</span>
             </div>
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`}
@@ -497,7 +502,11 @@ export function PlacementTest() {
 
   // ── Test ─────────────────────────────────────────────────────────────
   const isLast   = current === QUESTIONS.length - 1;
-  const canCheck = q.type === "sentence_builder" && !feedback && builderOrder.length > 0;
+  const canCheck = !feedback && (
+    q.type === "sentence_builder"
+      ? builderOrder.length === q.words?.length
+      : selected !== -1
+  );
 
   return (
     <div className={s.ptWrap}>
@@ -524,7 +533,7 @@ export function PlacementTest() {
 
         {/* Body */}
         <div className={s.ptBody}>
-          <p className={s.ptLevelLabel}>{activeLevel} \u00b7 Question {current + 1}</p>
+          <p className={s.ptLevelLabel}>{activeLevel} · Question {current + 1}</p>
 
           <div className={s.ptQuestion} key={current}>
             {/* Prompt with animated gap for fill_the_gaps */}
@@ -599,13 +608,13 @@ export function PlacementTest() {
           <button type="button" className={`${s.ptBtn} ${s.ptBtnDanger}`} style={{ marginRight: "auto" }} onClick={handleFinish}>
             Finish test
           </button>
-          {q.type === "sentence_builder" && !feedback ? (
+          {!feedback ? (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
-              Check \u2192
+              Next →
             </button>
           ) : (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleNext} disabled={!feedback}>
-              {isLast ? "See my results \u2192" : "Next \u2192"}
+              {isLast ? "See my results →" : "Next →"}
             </button>
           )}
         </div>
