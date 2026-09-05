@@ -127,3 +127,13 @@
     font-size: 1.5rem;
   }
 }
+
+:global(html[data-theme="dark"]) .banner {
+  background:
+    radial-gradient(ellipse 56% 100% at 50% 50%, var(--border) 0%, color-mix(in srgb, var(--border) 84%, transparent) 42%, transparent 100%) center top / 100% 1px no-repeat,
+    radial-gradient(ellipse 56% 100% at 50% 50%, var(--border) 0%, color-mix(in srgb, var(--border) 84%, transparent) 42%, transparent 100%) center bottom / 100% 1px no-repeat,
+    var(--surface-subtle);
+}
+:global(html[data-theme="dark"]) .item { border-color: var(--border); background: rgb(18 26 43 / 84%); box-shadow: var(--shadow-sm); }
+:global(html[data-theme="dark"]) .value { color: var(--text-primary); }
+:global(html[data-theme="dark"]) .label { color: var(--text-secondary); }

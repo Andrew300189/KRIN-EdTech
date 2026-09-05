@@ -11,6 +11,8 @@ const themeBootstrap = `(() => {
     const storedTheme = window.localStorage.getItem("krin-theme");
     if (storedTheme === "dark" || storedTheme === "light") {
       document.documentElement.dataset.theme = storedTheme;
+    } else {
+      document.documentElement.dataset.theme = "light";
     }
   } catch {}
 })();`;
@@ -24,9 +26,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://krin-edtech.com"),
   applicationName: "KRIN EdTech",
   icons: {
-    icon: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
-    shortcut: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
-    apple: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+    icon: "/icons/krin-flower.svg",
+    shortcut: "/icons/krin-flower.svg",
+    apple: "/icons/krin-flower.svg",
   },
   robots: { index: true, follow: true },
   openGraph: {
@@ -72,7 +74,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>

@@ -86,7 +86,8 @@
   --space-24: 6rem;
 }
 
-/* Light is a deliberate alternative, not a colour inversion. */
+/* Light is the default; dark is an explicit, accessible alternative. */
+:root:not([data-theme]),
 :root[data-theme="light"] {
   color-scheme: light;
   --background: #f7f9ff;

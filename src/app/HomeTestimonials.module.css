@@ -204,3 +204,15 @@
 @media (prefers-reduced-motion: reduce) {
   .card { animation: none; }
 }
+
+:global(html[data-theme="dark"]) .section { background: var(--surface); }
+:global(html[data-theme="dark"]) .heading,
+:global(html[data-theme="dark"]) .quote,
+:global(html[data-theme="dark"]) .authorName { color: var(--text-primary); }
+:global(html[data-theme="dark"]) .subtext { color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .totalCount,
+:global(html[data-theme="dark"]) .navBtn { border-color: var(--border); background: var(--surface-secondary); color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .card { border-color: var(--border); background: var(--surface-elevated); box-shadow: var(--shadow-md); }
+:global(html[data-theme="dark"]) .author { border-color: var(--border); }
+:global(html[data-theme="dark"]) .levelJourney { background: var(--surface-interactive); color: var(--primary-hover); }
+:global(html[data-theme="dark"]) .dot { background: var(--border-strong); }
