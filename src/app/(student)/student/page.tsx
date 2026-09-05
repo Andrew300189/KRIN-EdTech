@@ -9,6 +9,7 @@ import { getPlacementDashboardResult } from "@/modules/courses/services/placemen
 import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
+import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -18,11 +19,15 @@ function courseHref(course: { slug: string; nextLesson: { slug: string } | null 
 export default async function StudentHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ firstVisit?: string }>;
+  searchParams: Promise<{ firstVisit?: string; placement?: string }>;
 }) {
   const guard = await requireRole(["student"]);
   if (!guard.ok) return null;
-  const isFirstVisit = (await searchParams).firstVisit === "1";
+  const query = await searchParams;
+  const isFirstVisit = query.firstVisit === "1";
+  // A recommendation is a post-test hand-off, not permanent dashboard
+  // content. Existing test takers see their normal dashboard on later visits.
+  const showPlacementRecommendation = query.placement === "complete";
 
   const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult] = await Promise.all([
     listLearnerCourses(guard.user.id),
@@ -70,25 +75,7 @@ export default async function StudentHomePage({
         </div>
       </header>
 
-      {placementResult ? <section className={styles.placementPanel} aria-label="Your placement test result">
-        <div className={styles.placementSummary}>
-          <p className={styles.eyebrow}>Your placement result</p>
-          <div className={styles.placementHeading}>
-            <span className={styles.placementLevel}>{placementResult.level ?? "A1"}</span>
-            <div>
-              <h3>{placementResult.level ? `You are ready to start at ${placementResult.level}` : "Start with an A1 foundation"}</h3>
-              <p>{placementResult.level ? `${placementResult.correctAnswers} of ${placementResult.questionCount} answers correct · ${placementResult.scorePercent}% overall` : `Your first result was ${placementResult.scorePercent}%. Build the basics with an A1 route, then retake the test when you are ready.`}</p>
-            </div>
-          </div>
-        </div>
-        <div className={styles.placementRecommendations}>
-          <div className={styles.placementRecommendationsHeading}>
-            <div><p>Recommended for {placementResult.recommendationLevel}</p><span>Published courses matched to your result</span></div>
-            <Link href={`/student/catalog?level=${placementResult.recommendationLevel}`} className={styles.placementCatalogLink}>My {placementResult.recommendationLevel} courses</Link>
-          </div>
-          {placementResult.recommendations.length ? <div className={styles.placementCourseList}>{placementResult.recommendations.map((course) => <Link key={course.id} href={`/courses/catalog/${course.slug}`} className={styles.placementCourse}><span>{course.category}</span><strong>{course.title}</strong><small>{course.accessPlan === "FREE" ? "Free to start" : "Access available"}</small></Link>)}</div> : <div className={styles.placementEmpty}><p>Courses for {placementResult.recommendationLevel} are being prepared. You can still browse the available catalogue.</p><Link href={`/student/catalog?level=${placementResult.recommendationLevel}`}>Browse my level</Link></div>}
-        </div>
-      </section> : null}
+      {showPlacementRecommendation && placementResult ? <PlacementRecommendationPanel result={placementResult} /> : null}
 
       <CmsManagedSlotBanner slot={managedSlot} variant="compact" />
 
