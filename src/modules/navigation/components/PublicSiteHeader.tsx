@@ -142,11 +142,13 @@ export function PublicSiteHeader() {
   return <header className={styles.header}>
     <div className={styles.inner}>
       <Link href="/" className={styles.brand} aria-label="KRIN EdTech home">
-        <img
-          src="/icons/a-detailed-flat-vector-illustration-of-a-single-wh.svg"
-          alt="KRIN EdTech logo"
-          className={styles.brandLogo}
-        />
+        <span className={styles.brandLogoFrame}>
+          <img
+            src="/icons/krin-flower.svg"
+            alt="KRIN EdTech flower logo"
+            className={styles.brandLogo}
+          />
+        </span>
         <span className={styles.brandText}>
           <span className={styles.brandBase}>KRIN</span>
           <span className={styles.brandDot}>·</span>

@@ -14,7 +14,7 @@ function getDocumentTheme(): Theme {
 
 /** Toggles the visual preference only; authentication and account data stay untouched. */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     setTheme(getDocumentTheme());

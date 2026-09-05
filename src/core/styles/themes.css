@@ -25,5 +25,40 @@
 :root:not([data-theme]) .border-slate-200,
 :root:not([data-theme]) .border-slate-300 { border-color: var(--border); }
 
+/* Soft Tailwind colour utilities are commonly used for status chips and
+   exercise feedback. Preserve their meaning without placing pale panels on a
+   dark canvas. */
+:root[data-theme="dark"] .bg-blue-50,
+:root[data-theme="dark"] .bg-indigo-50,
+:root[data-theme="dark"] .bg-violet-50 { background-color: rgb(84 166 255 / 12%); }
+:root[data-theme="dark"] .bg-emerald-50,
+:root[data-theme="dark"] .bg-green-50 { background-color: rgb(50 201 139 / 12%); }
+:root[data-theme="dark"] .bg-amber-50,
+:root[data-theme="dark"] .bg-yellow-50 { background-color: rgb(242 184 75 / 13%); }
+:root[data-theme="dark"] .bg-rose-50,
+:root[data-theme="dark"] .bg-red-50 { background-color: rgb(240 105 126 / 12%); }
+:root[data-theme="dark"] .text-blue-700,
+:root[data-theme="dark"] .text-blue-800 { color: #8dc7ff; }
+:root[data-theme="dark"] .text-indigo-700,
+:root[data-theme="dark"] .text-indigo-800,
+:root[data-theme="dark"] .text-violet-700,
+:root[data-theme="dark"] .text-violet-800 { color: #b4adff; }
+:root[data-theme="dark"] .text-emerald-700,
+:root[data-theme="dark"] .text-emerald-800,
+:root[data-theme="dark"] .text-green-700,
+:root[data-theme="dark"] .text-green-800 { color: #79dfaf; }
+:root[data-theme="dark"] .text-amber-700,
+:root[data-theme="dark"] .text-amber-800 { color: #ffd27d; }
+:root[data-theme="dark"] .text-rose-700,
+:root[data-theme="dark"] .text-rose-800,
+:root[data-theme="dark"] .text-red-700,
+:root[data-theme="dark"] .text-red-800 { color: #ff9cab; }
+:root[data-theme="dark"] :is(input, select, textarea) {
+  border-color: var(--border);
+  background-color: var(--surface);
+  color: var(--text-primary);
+}
+:root[data-theme="dark"] :is(input, select, textarea)::placeholder { color: var(--text-muted); }
+
 /* Existing manual .dark usage remains equivalent to the default theme. */
 .dark { color-scheme: dark; }

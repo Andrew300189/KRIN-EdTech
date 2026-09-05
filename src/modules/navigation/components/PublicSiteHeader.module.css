@@ -35,12 +35,28 @@
   text-decoration: none;
 }
 
+.brandLogoFrame {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(92 81 222 / 18%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 96%) 0 12%, transparent 13%),
+    linear-gradient(145deg, #f2f0ff, #fff1f5 58%, #edf9f5);
+  box-shadow: 0 5px 13px rgb(92 81 222 / 14%);
+}
+
 .brandLogo {
-  width: 30px;
-  height: 30px;
+  width: 31px;
+  height: 31px;
   object-fit: contain;
-  flex: 0 0 auto;
   display: block;
+  filter: drop-shadow(0 2px 2px rgb(92 81 222 / 14%));
 }
 
 .brandText {
@@ -299,6 +315,41 @@
   .mobileLogin { display: none; }
 }
 
-/* Semantic theme overrides — clean, no gradients */
+/* Semantic theme overrides. */
 .header { border-color: var(--border); background: var(--surface); }
 .brand, .menuLink { color: var(--text-primary); }
+
+:global(html[data-theme="dark"]) .header { box-shadow: inset 0 -1px 0 rgb(255 255 255 / 3%), 0 1px 3px rgb(0 0 0 / 24%); }
+:global(html[data-theme="dark"]) .brandBase { color: var(--text-primary); }
+:global(html[data-theme="dark"]) .brandDot,
+:global(html[data-theme="dark"]) .brandAccent { color: var(--primary-hover); }
+:global(html[data-theme="dark"]) .brandLogoFrame {
+  border-color: rgb(164 154 255 / 34%);
+  background: radial-gradient(circle at 34% 26%, rgb(255 255 255 / 15%) 0 12%, transparent 13%), linear-gradient(145deg, #23204d, #2b1d43 58%, #123d3a);
+  box-shadow: 0 5px 15px rgb(0 0 0 / 28%);
+}
+:global(html[data-theme="dark"]) .localeSelectWrap,
+:global(html[data-theme="dark"]) .localeSelectWrapMobile,
+:global(html[data-theme="dark"]) .mobileLogin,
+:global(html[data-theme="dark"]) .loginLink,
+:global(html[data-theme="dark"]) .menuButton,
+:global(html[data-theme="dark"]) .menuSecondary { border-color: var(--border); background: var(--surface); color: var(--text-primary); }
+:global(html[data-theme="dark"]) .localeSelect,
+:global(html[data-theme="dark"]) .teacherLink,
+:global(html[data-theme="dark"]) .desktopNav > a,
+:global(html[data-theme="dark"]) .skillTrigger,
+:global(html[data-theme="dark"]) .menuHeading,
+:global(html[data-theme="dark"]) .menuDescription,
+:global(html[data-theme="dark"]) .menuNote { color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .desktopNav > a:hover,
+:global(html[data-theme="dark"]) .skillTrigger:hover,
+:global(html[data-theme="dark"]) .teacherLink:hover,
+:global(html[data-theme="dark"]) .menuButton:hover,
+:global(html[data-theme="dark"]) .mobileLogin:hover,
+:global(html[data-theme="dark"]) .loginLink:hover,
+:global(html[data-theme="dark"]) .menuSecondary:hover { border-color: var(--border-strong); background: var(--surface-interactive); color: var(--text-primary); }
+:global(html[data-theme="dark"]) .menuSection + .menuSection,
+:global(html[data-theme="dark"]) .menuCtas { border-color: var(--border); }
+:global(html[data-theme="dark"]) .skillDropdown { border-color: var(--border); background: var(--surface-elevated); box-shadow: var(--shadow-lg); }
+:global(html[data-theme="dark"]) .skillLevelLink,
+:global(html[data-theme="dark"]) .mobileLevelLinks a { color: var(--text-secondary); }

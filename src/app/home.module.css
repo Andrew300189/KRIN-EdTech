@@ -789,3 +789,50 @@
   .heroTitle, .heroCopy, .heroTrustRow,
   .heroSearch, .hero .actions, .levelChips, .heroAside { animation: none; }
 }
+
+/* The public home is intentionally token-driven in dark mode. The premium
+   cards above use decorative light gradients, so they need explicit dark
+   counterparts rather than a colour inversion. */
+:global(html[data-theme="dark"]) .page::before,
+:global(html[data-theme="dark"]) .page::after { opacity: .32; }
+:global(html[data-theme="dark"]) .heroTitle,
+:global(html[data-theme="dark"]) .sectionHeading h2,
+:global(html[data-theme="dark"]) .focusCard h3,
+:global(html[data-theme="dark"]) .levelCard h3,
+:global(html[data-theme="dark"]) .courseCard h3,
+:global(html[data-theme="dark"]) .curriculumCard h3,
+:global(html[data-theme="dark"]) .productCollectionCard h3,
+:global(html[data-theme="dark"]) .bentoCard,
+:global(html[data-theme="dark"]) .bentoCard h3,
+:global(html[data-theme="dark"]) .stepV2 h3,
+:global(html[data-theme="dark"]) .faqColumn summary,
+:global(html[data-theme="dark"]) .faqV2 summary { color: var(--text-primary); text-shadow: none; }
+:global(html[data-theme="dark"]) .heroTrustBadge {
+  border-color: rgb(164 154 255 / 34%);
+  background: rgb(117 103 248 / 16%);
+  color: #d8d5ff;
+}
+:global(html[data-theme="dark"]) .stepV2,
+:global(html[data-theme="dark"]) .bentoCard,
+:global(html[data-theme="dark"]) .faqColumn details,
+:global(html[data-theme="dark"]) .faqV2 details {
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+:global(html[data-theme="dark"]) .stepV2:hover,
+:global(html[data-theme="dark"]) .bentoCard:hover,
+:global(html[data-theme="dark"]) .faqColumn details:hover,
+:global(html[data-theme="dark"]) .faqV2 details:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+}
+:global(html[data-theme="dark"]) .stepV2Icon,
+:global(html[data-theme="dark"]) .bentoCardIcon { background: var(--surface-interactive); }
+:global(html[data-theme="dark"]) .stepV2Number { color: rgb(164 154 255 / 15%); }
+:global(html[data-theme="dark"]) .stepV2 p,
+:global(html[data-theme="dark"]) .bentoCard p,
+:global(html[data-theme="dark"]) .faqColumn p,
+:global(html[data-theme="dark"]) .faqV2 p { color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .bentoCard:nth-child(n) { background: var(--surface); }
