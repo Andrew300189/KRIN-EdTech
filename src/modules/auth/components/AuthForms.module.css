@@ -1,11 +1,17 @@
 .passwordField { position: relative; }
 .registrationForm {
   display: grid;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 .registrationField {
   display: grid;
   gap: 0.55rem;
+}
+.registrationSubmit {
+  margin-top: 0.15rem;
+}
+.registrationForm .googleButton {
+  margin-top: 0.05rem;
 }
 .registrationField :global(.form-control) {
   min-height: 4rem;
