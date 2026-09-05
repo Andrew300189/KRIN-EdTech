@@ -5,6 +5,7 @@ import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-con
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
 import { dateDistanceInDays, safeTimeZone, subtractLocalDays, userLocalDate } from "@/modules/motivation/utils/local-date";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
+import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
@@ -92,6 +93,34 @@ async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: R
   return creditExperienceAndCoins(tx, { userId, experienceAmount: rule.experienceAmount, coinAmount: rule.coinAmount, experienceType: eventExperienceType[eventType], coinType: eventCoinType[eventType], sourceType: eventType, sourceId, idempotencyKey, description, date });
 }
 
+/**
+ * Every exercise can reward a learner exactly once: on their first correct
+ * answer.  The idempotency key is the protection against replays, rather than
+ * a daily cap that could silently stop XP partway through a long lesson.
+ */
+async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, exerciseId: string, difficulty: number) {
+  const idempotencyKey = `exercise_correct:${userId}:${exerciseId}`;
+  const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+
+  const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
+  if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+
+  const experienceAmount = experienceForExerciseDifficulty(difficulty);
+  return creditExperienceAndCoins(tx, {
+    userId,
+    experienceAmount,
+    coinAmount: 0,
+    experienceType: "EXERCISE_CORRECT",
+    coinType: "LESSON_REWARD",
+    sourceType: "EXERCISE_CORRECT",
+    sourceId: exerciseId,
+    idempotencyKey,
+    description: `First correct exercise attempt (+${experienceAmount} XP)`,
+    date,
+  });
+}
+
 /** A spaced-retrieval answer earns 1.5 XP exactly. XP elsewhere remains in
  * whole numbers, so the fractional hundredths are kept alongside the legacy
  * integer balance instead of rounding a learner's reward away. */
@@ -101,14 +130,6 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
   if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
   const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
   if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
-  if (rule.dailyLimit) {
-    const claims = await tx.experienceTransaction.count({ where: { userId, type: "EXERCISE_CORRECT", localDate: date } });
-    if (claims >= rule.dailyLimit) return { awarded: false, experience: 0, coins: 0, levelUp: false };
-  }
-  if (rule.weeklyLimit) {
-    const claims = await tx.experienceTransaction.count({ where: { userId, type: "EXERCISE_CORRECT", localDate: { gte: subtractLocalDays(date, 6), lte: date } } });
-    if (claims >= rule.weeklyLimit) return { awarded: false, experience: 0, coins: 0, levelUp: false };
-  }
 
   const amountMinor = 150;
   const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
@@ -263,7 +284,7 @@ export async function completeLearningSession(userId: string, sessionId: string)
   return prisma.learningSession.updateMany({ where: { id: sessionId, userId, status: { in: ["ACTIVE", "PAUSED"] } }, data: { status: "COMPLETED", completedAt: new Date() } });
 }
 
-export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstCorrect: boolean; score: number; isSpacedReview?: boolean }) {
+export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean }) {
   const context = await userContext(tx, input.userId);
   await ensureDailyActivity(tx, input.userId, context.date);
   await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
@@ -274,7 +295,7 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   const reward = input.isCorrect && input.isFirstCorrect
     ? input.isSpacedReview
       ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId)
-      : await rewardForEvent(tx, input.userId, context.date, "EXERCISE_CORRECT", input.exerciseId, "First correct exercise attempt")
+      : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, input.difficulty)
     : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
   return reward;
@@ -520,7 +541,10 @@ export async function listPublicLeaderboard(limit = 20) {
 export async function listRewardRules() { return prisma.rewardRule.findMany({ orderBy: { eventType: "asc" } }); }
 export async function updateRewardRule(actorId: string, eventType: RewardEvent, input: unknown) {
   const value = rewardRuleSchema.parse(input);
-  const rule = await prisma.rewardRule.upsert({ where: { eventType }, create: { eventType, ...value, conditions: value.conditions ? json(value.conditions) : undefined }, update: { ...value, conditions: value.conditions ? json(value.conditions) : undefined } });
+  // Exercise XP is protected per exercise by an idempotency key. A global cap
+  // would make longer lessons stop rewarding learners before they finish.
+  const normalized = eventType === "EXERCISE_CORRECT" ? { ...value, dailyLimit: null, weeklyLimit: null } : value;
+  const rule = await prisma.rewardRule.upsert({ where: { eventType }, create: { eventType, ...normalized, conditions: normalized.conditions ? json(normalized.conditions) : undefined }, update: { ...normalized, conditions: normalized.conditions ? json(normalized.conditions) : undefined } });
   await prisma.contentAuditLog.create({ data: { actorId, action: "UPDATE", entityType: "RewardRule", entityId: rule.id, metadata: json({ eventType }) } });
   return rule;
 }

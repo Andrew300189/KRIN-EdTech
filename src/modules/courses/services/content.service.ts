@@ -1501,6 +1501,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       isCorrect,
       isFirstCorrect: isCorrect && correctAttempts === 1,
       score: scoreAwarded,
+      difficulty: exercise.difficulty,
       isSpacedReview: exercise.isGeneratedReview,
     });
 
