@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useLocale } from "@/core/i18n/locale";
 import s from "./HomeCurriculumTabs.module.css";
 
 const CEFR = ["A1", "A2", "B1", "B2", "C1"] as const;
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function HomeCurriculumTabs({ levels }: Props) {
+  const { t } = useLocale();
   const [active, setActive] = useState<Cefr>("B1");
   const data = CONTENT[active];
   const levelInfo = levels.find((l) => l.code === active);
@@ -52,14 +54,13 @@ export function HomeCurriculumTabs({ levels }: Props) {
     <section className={s.section} data-ao="fade-up" data-ao-delay="1">
       <div className={s.shell}>
         <div className={s.header} data-ao="fade-up" data-ao-delay="2">
-          <h2 className={s.heading}>Explore what you will achieve at each level.</h2>
+          <h2 className={s.heading}>{t("tabs.heading")}</h2>
           <p className={s.sub}>
-            Click a CEFR level to preview the skills and outcomes you will gain
-            from published courses.
+            {t("tabs.sub")}
           </p>
         </div>
 
-        <div className={s.tabs} role="tablist" aria-label="CEFR curriculum levels">
+        <div className={s.tabs} role="tablist" aria-label={t("tabs.heading")}>
           {CEFR.map((lvl) => (
             <button
               key={lvl}
@@ -77,11 +78,11 @@ export function HomeCurriculumTabs({ levels }: Props) {
           ))}
         </div>
 
-        <div className={s.panel} key={active} role="tabpanel" aria-label={`${active} level overview`} data-ao="fade-up" data-ao-delay="3">
+        <div className={s.panel} key={active} role="tabpanel" aria-label={`${active} ${t("tabs.level")}`} data-ao="fade-up" data-ao-delay="3">
           <div>
             <span className={s.levelEmoji}>{data.emoji}</span>
             <span className={s.levelBadge}>
-              {active} · {levelInfo?.title ?? "Level"}
+              {active} · {levelInfo?.title ?? t("tabs.level")}
             </span>
             <p className={s.tagline}>{data.tagline}</p>
             <ul className={s.skillList}>
@@ -94,20 +95,23 @@ export function HomeCurriculumTabs({ levels }: Props) {
             </ul>
             {levelInfo && levelInfo._count.courses > 0 && (
               <Link href={`/levels/${active.toLowerCase()}`} className={s.cta}>
-                Explore {levelInfo._count.courses}{" "}
-                {active} {levelInfo._count.courses === 1 ? "course" : "courses"} →
+                {t("tabs.exploreCourses", {
+                  count: levelInfo._count.courses,
+                  level: active,
+                  courseWord: t(levelInfo._count.courses === 1 ? "tabs.course" : "tabs.courses"),
+                })}
               </Link>
             )}
           </div>
 
           <div className={s.previewCard}>
-            <p className={s.previewLabel}>Sample learning path</p>
-            {["Placement & orientation", "Core grammar foundations", "Vocabulary & reading skills", "Speaking & listening practice", "Final assessment & certificate"].map((step, i) => (
+            <p className={s.previewLabel}>{t("tabs.samplePath")}</p>
+            {["tabs.path.placement", "tabs.path.grammar", "tabs.path.vocabulary", "tabs.path.speaking", "tabs.path.assessment"].map((step, i) => (
               <div key={i} className={s.pathItem}>
                 <span className={s.pathNum}>
                   {i + 1}
                 </span>
-                <span>{step}</span>
+                <span>{t(step)}</span>
               </div>
             ))}
           </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PublicLearningStatistics } from "@/modules/analytics/types/platform-statistics.types";
 import { buildPublicStatisticCards } from "@/modules/analytics/utils/public-statistic-cards";
+import { useLocale } from "@/core/i18n/locale";
 import s from "./HomeCounterBanner.module.css";
 
 function AnimatedNumber({
@@ -71,6 +72,7 @@ export function HomeCounterBanner({
 }: {
   initialStatistics: PublicLearningStatistics;
 }) {
+  const { locale, t } = useLocale();
   const ref = useRef<HTMLElement>(null);
   const [triggered, setTriggered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -131,7 +133,7 @@ export function HomeCounterBanner({
   const statisticsCards = buildPublicStatisticCards(statistics);
 
   return (
-    <section ref={ref} className={s.banner} aria-label="Platform statistics">
+    <section ref={ref} className={s.banner} aria-label={t("stats.label")}>
       <div className={s.inner}>
         {statisticsCards.map((stat, index) => (
           <div
@@ -145,12 +147,17 @@ export function HomeCounterBanner({
             <strong className={s.value}>
               <AnimatedNumber
                 target={stat.value}
-                format={(value) => Math.round(value).toLocaleString("en-US")}
+                format={(value) => Math.round(value).toLocaleString(locale === "uk" ? "uk-UA" : locale === "ru" ? "ru-RU" : "en-US")}
                 trigger={triggered}
                 delayMs={index * 150 + 220}
               />
             </strong>
-            <span className={s.label}>{stat.label}</span>
+            <span className={s.label}>{t({
+              "Registered learners": "stats.learners",
+              "Words mastered": "stats.words",
+              "Courses completed": "stats.courses",
+              "Lessons completed": "stats.lessons",
+            }[stat.label] ?? stat.label)}</span>
           </div>
         ))}
       </div>

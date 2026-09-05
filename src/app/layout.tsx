@@ -17,6 +17,20 @@ const themeBootstrap = `(() => {
   } catch {}
 })();`;
 
+// Match the first painted document language to the visitor's device. React
+// repeats the same decision in LocaleProvider once it hydrates; this tiny
+// bootstrap avoids a visible English flash for Ukrainian and Russian visitors.
+const localeBootstrap = `(() => {
+  try {
+    const stored = window.localStorage.getItem("krin-locale-preference") || window.localStorage.getItem("user_lang");
+    const preferred = stored || navigator.languages?.[0] || navigator.language || "en";
+    const short = String(preferred).toLowerCase().split("-")[0];
+    const locale = short === "uk" || short === "ru" ? short : "en";
+    document.documentElement.lang = locale;
+    document.documentElement.dataset.locale = locale;
+  } catch {}
+})();`;
+
 export const metadata: Metadata = {
   title: {
     default: "KRIN EdTech | English courses A1–C2",
@@ -77,6 +91,7 @@ export default function RootLayout({
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrap }} />
       </head>
       <body>
         <LocaleProvider>
