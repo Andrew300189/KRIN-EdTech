@@ -5,13 +5,13 @@ import { consumeRateLimit } from "@/core/server/rate-limit";
 import { getVocabularySettings } from "@/modules/vocabulary/services/vocabulary.service";
 import { TranslationProviderError, translateEnglishTerm } from "@/modules/vocabulary/services/libretranslate.service";
 
-const querySchema = z.object({ q: z.string().trim().min(1).max(160) });
+const querySchema = z.object({ q: z.string().trim().min(1).max(1000) });
 
 export async function GET(request: NextRequest) {
   const guard = await requireLearningUser(request);
 
   const parsed = querySchema.safeParse({ q: request.nextUrl.searchParams.get("q") ?? "" });
-  if (!parsed.success) return NextResponse.json({ error: "Enter a word or short phrase." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Enter a word, phrase or short sentence." }, { status: 400 });
 
   const visitor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
   const rateSubject = guard.ok ? `user:${guard.user.id}` : `guest:${visitor}`;

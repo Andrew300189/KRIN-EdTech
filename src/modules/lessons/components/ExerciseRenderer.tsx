@@ -160,6 +160,9 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [sending, setSending] = useState(false);
   const [solutionSending, setSolutionSending] = useState(false);
   const [extraSending, setExtraSending] = useState(false);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+  const [translationSending, setTranslationSending] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
@@ -178,6 +181,18 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       ? shuffleTokens(options, exercise.id, correctOrderedTokens)
       : options
   ), [correctOrderedTokens, exercise.id, options, ordered]);
+  const authoredTranslation = useMemo(() => {
+    for (const value of [content.translation, content.translationRu, content.translatedText]) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  }, [content]);
+  const translationSource = useMemo(() => {
+    for (const value of [content.authoringSource, content.source, exercise.question]) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return "";
+  }, [content, exercise.question]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
@@ -253,6 +268,35 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     finally { setSending(false); submissionInFlightRef.current = false; }
   }
 
+  async function toggleTranslation() {
+    if (translation) {
+      setTranslation(null);
+      setTranslationError(null);
+      return;
+    }
+    setTranslationError(null);
+    if (authoredTranslation) {
+      setTranslation(authoredTranslation);
+      return;
+    }
+    if (!translationSource) {
+      setTranslationError("Translation is unavailable for this task.");
+      return;
+    }
+    setTranslationSending(true);
+    try {
+      const response = await fetch(`/api/vocabulary/translate?q=${encodeURIComponent(translationSource)}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => null) as { data?: { translation?: string }; error?: string } | null;
+      const translated = response.ok && typeof payload?.data?.translation === "string" ? payload.data.translation.trim() : "";
+      if (!translated) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
+      setTranslation(translated);
+    } catch (caught) {
+      setTranslationError(caught instanceof Error ? caught.message : "Translation is temporarily unavailable.");
+    } finally {
+      setTranslationSending(false);
+    }
+  }
+
   async function openSolution() {
     setSolutionSending(true); setError(null);
     try {
@@ -314,7 +358,9 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
-    {!result && exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
+    {!result && (exercise.hintsEnabled && exercise.hint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="inline-flex min-h-[34px] items-center rounded-xl border border-indigo-200 bg-white px-3 py-2 font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-wait disabled:opacity-60">{translationSending ? "Translating…" : translation ? "Hide translation" : "Show translation"}</button> : null}</div> : null}
+    {translation ? <p className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-medium leading-6 text-indigo-950" role="status"><span className="mr-1 text-indigo-600">Перевод:</span>{translation}</p> : null}
+    {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">Later</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? "Show the saved solution?" : `Show solution for ${result.solution.cost} XP?`}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Show solution"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? "Show solution" : `Show solution · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
     {visibleFeedback ? <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800">{visibleFeedback.correctAnswer !== null && !result?.isCorrect ? <p>Correct answer: {displayAnswer(visibleFeedback.correctAnswer)}</p> : null}{visibleFeedback.explanation ? <p className="mt-1">{visibleFeedback.explanation}</p> : null}{visibleFeedback.feedback?.example ? <p className="mt-2 rounded bg-blue-50 p-2">Example: {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="mt-2 inline-block font-semibold text-blue-700 hover:underline">Review the rule</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="mt-3"><summary className="cursor-pointer font-semibold">Show all errors</summary><ul className="mt-2 space-y-2">{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</div> : null}

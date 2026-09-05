@@ -40,12 +40,13 @@ function targetLanguage(value: string | null | undefined) {
 }
 
 /**
- * Translates a short learner-selected term. It is intentionally server-only:
- * the provider key and endpoint are never exposed in the lesson bundle.
+ * Translates learner-selected vocabulary or a short exercise sentence. It is
+ * intentionally server-only: the provider key and endpoint never reach the
+ * lesson bundle.
  */
 export async function translateEnglishTerm(termInput: string, targetLocale: string | null | undefined) {
   const term = termInput.trim().replace(/\s+/g, " ");
-  if (!term || term.length > 160) throw new TranslationProviderError("Enter a word or short phrase.", 400);
+  if (!term || term.length > 1000) throw new TranslationProviderError("Enter a word, phrase or short sentence.", 400);
   const target = targetLanguage(targetLocale);
 
   const cachedTranslation = await getCachedTranslation(term, "en", target);
