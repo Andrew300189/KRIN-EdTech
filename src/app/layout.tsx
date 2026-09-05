@@ -40,9 +40,9 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://krin-edtech.com"),
   applicationName: "KRIN EdTech",
   icons: {
-    icon: "/icons/krin-flower.svg",
-    shortcut: "/icons/krin-flower.svg",
-    apple: "/icons/krin-flower.svg",
+    icon: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+    shortcut: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
+    apple: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
   },
   robots: { index: true, follow: true },
   openGraph: {
