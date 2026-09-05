@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
@@ -65,7 +65,6 @@ export function WorkspaceShell({
   lockDesktopViewport = false,
 }: WorkspaceShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const shouldLockDesktopViewport = lockDesktopViewport && (pathname === "/student" || pathname === "/student/achievements");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -120,8 +119,9 @@ export function WorkspaceShell({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      router.replace("/");
-      router.refresh();
+      // Force a new document request so no authenticated workspace state is
+      // retained in the client router after logout.
+      window.location.assign("/");
     }
   };
 
