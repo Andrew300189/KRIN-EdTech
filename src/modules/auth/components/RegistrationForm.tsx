@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { getSafeInternalPath } from "@/core/utils/safe-internal-path";
@@ -67,6 +68,26 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setError("");
+    setLoading(true);
+    try {
+      const result = await signIn("google", {
+        callbackUrl: `/auth/complete?next=${encodeURIComponent(safeNextPath)}`,
+      });
+      if (result?.error) {
+        setError("We could not continue with Google. Please try again.");
+      }
+    } catch {
+      setError("We could not continue with Google. Please try again.");
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
+    }
+  };
+
   if (verificationPending) {
     return <div className="space-y-5" role="status">
       <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-slate-700">
@@ -85,8 +106,11 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
     <div className={styles.registrationField}><label htmlFor="register-email" className="text-sm font-semibold text-slate-900">Email</label><input id="register-email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base" placeholder="you@example.com" required disabled={loading} /></div>
     <div className={styles.registrationField}><label htmlFor="register-password" className="text-sm font-semibold text-slate-900">Password</label><div className={styles.passwordField}><input id="register-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 pr-12 text-base" placeholder="Choose a password" required disabled={loading} /><button type="button" onClick={() => setShowPassword((current) => !current)} className={styles.passwordToggle} aria-label={showPassword ? "Hide password" : "Show password"} disabled={loading}>{showPassword ? "Hide" : "Show"}</button></div></div>
     <div className={styles.registrationField}><label htmlFor="register-confirm-password" className="text-sm font-semibold text-slate-900">Confirm password</label><div className={styles.passwordField}><input id="register-confirm-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={`form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 pr-12 text-base ${!passwordsMatch ? styles.passwordMismatch : ""}`} placeholder="Repeat your password" aria-invalid={!passwordsMatch} aria-describedby={!passwordsMatch ? "register-password-match" : undefined} required disabled={loading} /><button type="button" onClick={() => setShowPassword((current) => !current)} className={styles.passwordToggle} aria-label={showPassword ? "Hide passwords" : "Show passwords"} disabled={loading}>{showPassword ? "Hide" : "Show"}</button></div>{!passwordsMatch ? <p id="register-password-match" className={styles.passwordMatchHint}>Passwords do not match yet.</p> : null}</div>
-    <button type="submit" className="btn w-full rounded-full bg-primary py-3 font-semibold text-white hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60" disabled={loading}>{loading ? "Creating account…" : "Create account"}</button>
+    <button type="submit" className={`btn w-full rounded-full bg-primary py-3 font-semibold text-white hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 ${styles.registrationSubmit}`} disabled={loading}>{loading ? "Creating account…" : "Create account"}</button>
+    <button type="button" onClick={handleGoogleSignIn} className={styles.googleButton} disabled={loading}>
+      <span aria-hidden className={styles.googleMark}>G</span>
+      <span>{loading ? "Connecting to Google…" : "Continue with Google"}</span>
+    </button>
     {accountExists ? <p className="text-center text-sm text-slate-600"><button type="button" onClick={() => onSignIn(email)} className="font-semibold text-primary hover:underline">Log in with this email</button></p> : null}
-    <p className="text-center text-sm text-slate-600">Already have an account? <button type="button" onClick={() => onSignIn(email)} className="font-semibold text-primary hover:underline">Log in</button></p>
   </form>;
 }
