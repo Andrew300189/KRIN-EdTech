@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoginModal } from "@/modules/auth/components/LoginModal";
+import { useLocale, type SupportedLocale } from "@/core/i18n/locale";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import {
   PENDING_PLACEMENT_RESULT_KEY,
@@ -65,6 +66,18 @@ type Action =
   | { type: "RESTART" };
 
 type AuthState = "checking" | "authenticated" | "anonymous";
+
+const PLACEMENT_UI: Record<SupportedLocale, Record<string, string>> = {
+  en: {
+    title: "English Level Placement Test", intro: "Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1 and get a detailed breakdown of your strengths and areas to improve.", questions: "📝 100 questions", time: "⏱ ~15 min", start: "Start the test", ready: "Your personal result is ready.", readyCopy: "Create a free account to save it, see your CEFR level and get a course plan matched to it in your dashboard.", dashboard: "Open my dashboard", preparing: "Preparing your result…", create: "Create free account", login: "I already have an account", retake: "Retake the test", noResult: "No result to save yet", noResultCopy: "Answer at least one question to receive a personalised course recommendation.", retry: "Try the test again", question: "Question", answers: "Answer options", correct: "Correct", wellDone: "Well done!", rightAnswer: "That’s the right answer.", finish: "Finish test", check: "Check →", results: "See my results →", next: "Next →", builder: "Tap words below to build the sentence…", remove: "Tap to remove", clear: "× Clear all",
+  },
+  uk: {
+    title: "Тест на визначення рівня англійської", intro: "Дізнайтеся свій рівень CEFR за кілька хвилин. Дайте відповіді на 100 запитань від A1 до C1 і отримайте детальний розбір сильних сторін та зон для розвитку.", questions: "📝 100 запитань", time: "⏱ ~15 хв", start: "Почати тест", ready: "Ваш персональний результат готовий.", readyCopy: "Створіть безкоштовний акаунт, щоб зберегти результат, побачити рівень CEFR і отримати план курсу у своєму кабінеті.", dashboard: "Відкрити кабінет", preparing: "Готуємо результат…", create: "Створити безкоштовний акаунт", login: "У мене вже є акаунт", retake: "Пройти тест ще раз", noResult: "Поки що немає результату", noResultCopy: "Дайте відповідь хоча б на одне запитання, щоб отримати персональну рекомендацію курсу.", retry: "Спробувати тест ще раз", question: "Запитання", answers: "Варіанти відповіді", correct: "Правильно", wellDone: "Чудово!", rightAnswer: "Це правильна відповідь.", finish: "Завершити тест", check: "Перевірити →", results: "Мої результати →", next: "Далі →", builder: "Натискайте слова нижче, щоб скласти речення…", remove: "Натисніть, щоб прибрати", clear: "× Очистити",
+  },
+  ru: {
+    title: "Тест на определение уровня английского", intro: "Узнайте свой уровень CEFR за несколько минут. Ответьте на 100 вопросов от A1 до C1 и получите подробный разбор сильных сторон и зон для роста.", questions: "📝 100 вопросов", time: "⏱ ~15 мин", start: "Начать тест", ready: "Ваш персональный результат готов.", readyCopy: "Создайте бесплатный аккаунт, чтобы сохранить результат, увидеть уровень CEFR и получить план курса в личном кабинете.", dashboard: "Открыть кабинет", preparing: "Готовим результат…", create: "Создать бесплатный аккаунт", login: "У меня уже есть аккаунт", retake: "Пройти тест ещё раз", noResult: "Пока нет результата", noResultCopy: "Ответьте хотя бы на один вопрос, чтобы получить персональную рекомендацию курса.", retry: "Попробовать тест ещё раз", question: "Вопрос", answers: "Варианты ответа", correct: "Правильно", wellDone: "Отлично!", rightAnswer: "Это правильный ответ.", finish: "Завершить тест", check: "Проверить →", results: "Мои результаты →", next: "Далее →", builder: "Нажимайте слова ниже, чтобы составить предложение…", remove: "Нажмите, чтобы убрать", clear: "× Очистить",
+  },
+};
 
 function savePendingPlacementResult(results: boolean[]) {
   try {
@@ -306,12 +319,13 @@ function reducer(state: State, action: Action): State {
 
 // ─── SentenceBuilderInput ─────────────────────────────────────────────────────
 
-function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: {
+function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear, ui }: {
   q: Question;
   builderOrder: number[];
   feedback: boolean;
   onToggle: (slotIdx: number) => void;
   onClear: () => void;
+  ui: Record<string, string>;
 }) {
   const words = q.words!;
   const usedSet = new Set(builderOrder);
@@ -328,11 +342,11 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
     <div className={s.ptBuilderArea}>
       <div className={`${s.ptBuilderSentence} ${builderOrder.length > 0 ? s.ptBuilderSentenceActive : ""}`}>
         {builderOrder.length === 0
-          ? <span className={s.ptBuilderPlaceholder}>Tap words below to build the sentence…</span>
+          ? <span className={s.ptBuilderPlaceholder}>{ui.builder}</span>
           : builderOrder.map((slotIdx, pos) => (
             <button key={pos} type="button" className={chipCls}
               onClick={() => !feedback && onToggle(slotIdx)} disabled={feedback}
-              title={feedback ? undefined : "Tap to remove"}>
+              title={feedback ? undefined : ui.remove}>
               {words[slotIdx]}
             </button>
           ))
@@ -341,7 +355,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
 
       {!feedback && builderOrder.length > 0 && (
         <button type="button" className={s.ptBuilderClear} onClick={onClear}>
-          × Clear all
+          {ui.clear}
         </button>
       )}
 
@@ -357,7 +371,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
       </div>
 
       {wrong && (
-        <p className={s.ptBuilderAnswer}>✓ Correct: <strong>{q.answer}</strong></p>
+        <p className={s.ptBuilderAnswer}>✓ {ui.correct}: <strong>{q.answer}</strong></p>
       )}
     </div>
   );
@@ -366,6 +380,8 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear }: 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PlacementTest() {
+  const { locale } = useLocale();
+  const ui = PLACEMENT_UI[locale];
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -441,19 +457,18 @@ export function PlacementTest() {
         <div className={s.ptCard}>
           <div className={s.ptIntro}>
             <span className={s.ptIntroIcon}>🎯</span>
-            <h2 className={s.ptIntroTitle}>English Level Placement Test</h2>
+            <h2 className={s.ptIntroTitle}>{ui.title}</h2>
             <p className={s.ptIntroDesc}>
-              Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1
-              and get a detailed breakdown of your strengths and areas to improve.
+              {ui.intro}
             </p>
             <div className={s.ptIntroMeta}>
-              <span className={s.ptIntroChip}>📝 100 questions</span>
+              <span className={s.ptIntroChip}>{ui.questions}</span>
               <span className={s.ptIntroChip}>🏆 A1 → C1</span>
-              <span className={s.ptIntroChip}>⏱ ~15 min</span>
+              <span className={s.ptIntroChip}>{ui.time}</span>
             </div>
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`}
               onClick={() => { reportFunnelEvent("PLACEMENT_TEST_START"); dispatch({ type: "START" }); }}>
-              Start the test
+              {ui.start}
             </button>
           </div>
         </div>
@@ -471,23 +486,23 @@ export function PlacementTest() {
           <div className={s.ptProgressTrack}><div className={s.ptProgressFill} style={{ width: "100%" }} /></div>
           {hasAnswers ? <div className={`${s.ptResult} ${s.ptResultGate}`}>
             <span className={s.ptResultGateIcon}>🔐</span>
-            <h2 className={s.ptResultTitle}>Your personal result is ready.</h2>
-            <p className={s.ptResultSub}>Create a free account to save it, see your CEFR level and get a course plan matched to it in your dashboard.</p>
+            <h2 className={s.ptResultTitle}>{ui.ready}</h2>
+            <p className={s.ptResultSub}>{ui.readyCopy}</p>
             <div className={s.ptCta}>
               <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => continueWithAccount("register")} disabled={authState === "checking"}>
-                {authState === "authenticated" ? "Open my dashboard" : authState === "checking" ? "Preparing your result…" : "Create free account"}
+                {authState === "authenticated" ? ui.dashboard : authState === "checking" ? ui.preparing : ui.create}
               </button>
-              {authState === "anonymous" ? <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => continueWithAccount("login")}>I already have an account</button> : null}
-              <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => dispatch({ type: "RESTART" })}>Retake the test</button>
+              {authState === "anonymous" ? <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => continueWithAccount("login")}>{ui.login}</button> : null}
+              <button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnSecondary}`} onClick={() => dispatch({ type: "RESTART" })}>{ui.retake}</button>
             </div>
             {handoffError ? <p className={s.ptResultGateError} role="alert">{handoffError}</p> : null}
           </div> : <div className={s.ptResult}>
             <div className={s.ptResultHeader}>
               <div className={s.ptResultLevel} style={{ background: "#fef2f2", color: "#b91c1c" }}>—</div>
-              <h2 className={s.ptResultTitle}>No result to save yet</h2>
-              <p className={s.ptResultSub}>Answer at least one question to receive a personalised course recommendation.</p>
+              <h2 className={s.ptResultTitle}>{ui.noResult}</h2>
+              <p className={s.ptResultSub}>{ui.noResultCopy}</p>
             </div>
-            <div className={s.ptCta}><button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => dispatch({ type: "RESTART" })}>Try the test again</button></div>
+            <div className={s.ptCta}><button type="button" className={`${s.ptCtaBtn} ${s.ptCtaBtnPrimary}`} onClick={() => dispatch({ type: "RESTART" })}>{ui.retry}</button></div>
           </div>}
         </div>
         <LoginModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} nextPath={PLACEMENT_DASHBOARD_PATH} initialView={authInitialView} />
@@ -524,7 +539,7 @@ export function PlacementTest() {
 
         {/* Body */}
         <div className={s.ptBody}>
-          <p className={s.ptLevelLabel}>{activeLevel} · Question {current + 1}</p>
+          <p className={s.ptLevelLabel}>{activeLevel} · {ui.question} {current + 1}</p>
 
           <div className={s.ptQuestion} key={current}>
             {/* Prompt with animated gap for fill_the_gaps */}
@@ -551,9 +566,9 @@ export function PlacementTest() {
             {/* Sentence builder OR option list */}
             {q.type === "sentence_builder" ? (
               <SentenceBuilderInput q={q} builderOrder={builderOrder} feedback={feedback}
-                onToggle={handleToggle} onClear={handleClear} />
+                onToggle={handleToggle} onClear={handleClear} ui={ui} />
             ) : (
-              <div className={s.ptOptions} role="listbox" aria-label="Answer options">
+              <div className={s.ptOptions} role="listbox" aria-label={ui.answers}>
                 {q.options!.map((opt, i) => {
                   let cls = s.ptOption;
                   if (feedback) {
@@ -579,14 +594,14 @@ export function PlacementTest() {
                 <div className={s.ptFeedbackCorrect} role="status">
                   <span className={s.ptFeedbackIcon}>🎉</span>
                   <span>
-                    <strong>Well done!</strong> That’s the right answer.
+                    <strong>{ui.wellDone}</strong> {ui.rightAnswer}
                   </span>
                 </div>
               ) : (
                 <div className={s.ptFeedbackWrong} role="status">
                   <span className={s.ptFeedbackIcon}>❌</span>
                   <span>
-                    Correct answer: <strong>{q.answer}</strong>
+                    {ui.correct}: <strong>{q.answer}</strong>
                   </span>
                 </div>
               )
@@ -597,15 +612,15 @@ export function PlacementTest() {
         {/* Footer */}
         <div className={s.ptFooter}>
           <button type="button" className={`${s.ptBtn} ${s.ptBtnDanger}`} style={{ marginRight: "auto" }} onClick={handleFinish}>
-            Finish test
+            {ui.finish}
           </button>
           {q.type === "sentence_builder" && !feedback ? (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
-              Check →
+              {ui.check}
             </button>
           ) : (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleNext} disabled={!feedback}>
-              {isLast ? "See my results →" : "Next →"}
+              {isLast ? ui.results : ui.next}
             </button>
           )}
         </div>
