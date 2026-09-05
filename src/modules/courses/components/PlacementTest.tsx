@@ -61,7 +61,6 @@ type Action =
   | { type: "BUILDER_CLEAR" }
   | { type: "CHECK_BUILDER" }
   | { type: "NEXT" }
-  | { type: "FINISH" }
   | { type: "DISMISS_MODAL" }
   | { type: "RESTART" };
 
@@ -69,13 +68,13 @@ type AuthState = "checking" | "authenticated" | "anonymous";
 
 const PLACEMENT_UI: Record<SupportedLocale, Record<string, string>> = {
   en: {
-    title: "English Level Placement Test", intro: "Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1 and get a detailed breakdown of your strengths and areas to improve.", questions: "📝 100 questions", time: "⏱ ~15 min", start: "Start the test", ready: "Your result is ready.", readyCopy: "One simple step remains: create a free account. Then you will see your level and personal course plan in your dashboard.", dashboard: "Open my dashboard", preparing: "Preparing your result…", create: "Create free account", login: "I already have an account", retake: "Retake the test", noResult: "No result to save yet", noResultCopy: "Answer at least one question to receive a personalised course recommendation.", retry: "Try the test again", question: "Question", answers: "Answer options", correct: "Correct", wellDone: "Well done!", rightAnswer: "That’s the right answer.", finish: "Finish test", check: "Check →", results: "See my results →", next: "Next →", builder: "Tap words below to build the sentence…", remove: "Tap to remove", clear: "× Clear all",
+    title: "English Level Placement Test", intro: "Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1 and get a detailed breakdown of your strengths and areas to improve.", questions: "📝 100 questions", time: "⏱ ~15 min", start: "Start the test", ready: "Your result is ready.", readyCopy: "One simple step remains: create a free account. Then you will see your level and personal course plan in your dashboard.", dashboard: "Open my dashboard", preparing: "Preparing your result…", create: "Create free account", login: "I already have an account", retake: "Retake the test", noResult: "No result to save yet", noResultCopy: "Answer at least one question to receive a personalised course recommendation.", retry: "Try the test again", question: "Question", answers: "Answer options", correct: "Correct", wellDone: "Well done!", rightAnswer: "That’s the right answer.", check: "Check →", results: "See my results →", next: "Next →", builder: "Tap words below to build the sentence…", remove: "Tap to remove", clear: "× Clear all",
   },
   uk: {
-    title: "Тест на визначення рівня англійської", intro: "Дізнайтеся свій рівень CEFR за кілька хвилин. Дайте відповіді на 100 запитань від A1 до C1 і отримайте детальний розбір сильних сторін та зон для розвитку.", questions: "📝 100 запитань", time: "⏱ ~15 хв", start: "Почати тест", ready: "Ваш результат готовий.", readyCopy: "Залишився один простий крок — створіть безкоштовний акаунт. Після цього ви побачите свій рівень і персональний план курсу в кабінеті.", dashboard: "Відкрити кабінет", preparing: "Готуємо результат…", create: "Створити безкоштовний акаунт", login: "У мене вже є акаунт", retake: "Пройти тест ще раз", noResult: "Поки що немає результату", noResultCopy: "Дайте відповідь хоча б на одне запитання, щоб отримати персональну рекомендацію курсу.", retry: "Спробувати тест ще раз", question: "Запитання", answers: "Варіанти відповіді", correct: "Правильно", wellDone: "Чудово!", rightAnswer: "Це правильна відповідь.", finish: "Завершити тест", check: "Перевірити →", results: "Мої результати →", next: "Далі →", builder: "Натискайте слова нижче, щоб скласти речення…", remove: "Натисніть, щоб прибрати", clear: "× Очистити",
+    title: "Тест на визначення рівня англійської", intro: "Дізнайтеся свій рівень CEFR за кілька хвилин. Дайте відповіді на 100 запитань від A1 до C1 і отримайте детальний розбір сильних сторін та зон для розвитку.", questions: "📝 100 запитань", time: "⏱ ~15 хв", start: "Почати тест", ready: "Ваш результат готовий.", readyCopy: "Залишився один простий крок — створіть безкоштовний акаунт. Після цього ви побачите свій рівень і персональний план курсу в кабінеті.", dashboard: "Відкрити кабінет", preparing: "Готуємо результат…", create: "Створити безкоштовний акаунт", login: "У мене вже є акаунт", retake: "Пройти тест ще раз", noResult: "Поки що немає результату", noResultCopy: "Дайте відповідь хоча б на одне запитання, щоб отримати персональну рекомендацію курсу.", retry: "Спробувати тест ще раз", question: "Запитання", answers: "Варіанти відповіді", correct: "Правильно", wellDone: "Чудово!", rightAnswer: "Це правильна відповідь.", check: "Перевірити →", results: "Мої результати →", next: "Далі →", builder: "Натискайте слова нижче, щоб скласти речення…", remove: "Натисніть, щоб прибрати", clear: "× Очистити",
   },
   ru: {
-    title: "Тест на определение уровня английского", intro: "Узнайте свой уровень CEFR за несколько минут. Ответьте на 100 вопросов от A1 до C1 и получите подробный разбор сильных сторон и зон для роста.", questions: "📝 100 вопросов", time: "⏱ ~15 мин", start: "Начать тест", ready: "Ваш результат готов.", readyCopy: "Остался один простой шаг — создайте бесплатный аккаунт. После этого вы увидите свой уровень и персональный план курса в личном кабинете.", dashboard: "Открыть кабинет", preparing: "Готовим результат…", create: "Создать бесплатный аккаунт", login: "У меня уже есть аккаунт", retake: "Пройти тест ещё раз", noResult: "Пока нет результата", noResultCopy: "Ответьте хотя бы на один вопрос, чтобы получить персональную рекомендацию курса.", retry: "Попробовать тест ещё раз", question: "Вопрос", answers: "Варианты ответа", correct: "Правильно", wellDone: "Отлично!", rightAnswer: "Это правильный ответ.", finish: "Завершить тест", check: "Проверить →", results: "Мои результаты →", next: "Далее →", builder: "Нажимайте слова ниже, чтобы составить предложение…", remove: "Нажмите, чтобы убрать", clear: "× Очистить",
+    title: "Тест на определение уровня английского", intro: "Узнайте свой уровень CEFR за несколько минут. Ответьте на 100 вопросов от A1 до C1 и получите подробный разбор сильных сторон и зон для роста.", questions: "📝 100 вопросов", time: "⏱ ~15 мин", start: "Начать тест", ready: "Ваш результат готов.", readyCopy: "Остался один простой шаг — создайте бесплатный аккаунт. После этого вы увидите свой уровень и персональный план курса в личном кабинете.", dashboard: "Открыть кабинет", preparing: "Готовим результат…", create: "Создать бесплатный аккаунт", login: "У меня уже есть аккаунт", retake: "Пройти тест ещё раз", noResult: "Пока нет результата", noResultCopy: "Ответьте хотя бы на один вопрос, чтобы получить персональную рекомендацию курса.", retry: "Попробовать тест ещё раз", question: "Вопрос", answers: "Варианты ответа", correct: "Правильно", wellDone: "Отлично!", rightAnswer: "Это правильный ответ.", check: "Проверить →", results: "Мои результаты →", next: "Далее →", builder: "Нажимайте слова ниже, чтобы составить предложение…", remove: "Нажмите, чтобы убрать", clear: "× Очистить",
   },
 };
 
@@ -292,18 +291,6 @@ function reducer(state: State, action: Action): State {
       return { ...state, results: newResults, current: state.current + 1, selected: -1, builderOrder: [], feedback: false };
     }
 
-    case "FINISH": {
-      const q = QUESTIONS[state.current];
-      let finalResults = [...state.results];
-      if (state.feedback) {
-        const correct = q.type === "sentence_builder"
-          ? isBuilderCorrect(q, state.builderOrder)
-          : state.selected !== -1 && q.options![state.selected] === q.answer;
-        finalResults = [...finalResults, correct];
-      }
-      return { ...state, results: finalResults, phase: "result", modal: null, afterModal: null };
-    }
-
     case "DISMISS_MODAL":
       if (!state.modal) return state;
       if (state.afterModal === "result") return { ...state, modal: null, afterModal: null, phase: "result" };
@@ -406,7 +393,6 @@ export function PlacementTest() {
   );
 
   const handleSelect  = useCallback((i: number) => dispatch({ type: "SELECT", index: i }), []);
-  const handleFinish  = useCallback(() => dispatch({ type: "FINISH" }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
   const handleClear   = useCallback(() => dispatch({ type: "BUILDER_CLEAR" }), []);
   const handleCheck   = useCallback(() => dispatch({ type: "CHECK_BUILDER" }), []);
@@ -617,9 +603,6 @@ export function PlacementTest() {
 
         {/* Footer */}
         <div className={s.ptFooter}>
-          <button type="button" className={`${s.ptBtn} ${s.ptBtnDanger}`} style={{ marginRight: "auto" }} onClick={handleFinish}>
-            {ui.finish}
-          </button>
           {q.type === "sentence_builder" && !feedback ? (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
               {ui.check}
