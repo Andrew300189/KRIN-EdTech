@@ -812,4 +812,74 @@
   color: #b91c1c;
 }
 
+/* The placement test has its own visual system, so its light palettes must be
+   explicitly mapped to semantic dark-mode surfaces. */
+:global(html[data-theme="dark"]) .ptCard {
+  border-color: var(--border);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lg);
+}
+:global(html[data-theme="dark"]) .ptHeader { border-color: var(--border); }
+:global(html[data-theme="dark"]) .ptBody,
+:global(html[data-theme="dark"]) .ptFooter,
+:global(html[data-theme="dark"]) .ptIntro,
+:global(html[data-theme="dark"]) .ptResult { background: var(--surface-elevated); }
+:global(html[data-theme="dark"]) .ptQuestionText,
+:global(html[data-theme="dark"]) .ptIntroTitle,
+:global(html[data-theme="dark"]) .ptResultTitle,
+:global(html[data-theme="dark"]) .ptModalTitle,
+:global(html[data-theme="dark"]) .ptCounterBold { color: var(--text-primary); }
+:global(html[data-theme="dark"]) .ptCounter,
+:global(html[data-theme="dark"]) .ptIntroDesc,
+:global(html[data-theme="dark"]) .ptResultSub,
+:global(html[data-theme="dark"]) .ptModalMsg,
+:global(html[data-theme="dark"]) .ptScoreNum,
+:global(html[data-theme="dark"]) .ptScoreLabel { color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .ptProgressTrack,
+:global(html[data-theme="dark"]) .ptLevelPip,
+:global(html[data-theme="dark"]) .ptScoreTrack { background: var(--surface-interactive); }
+:global(html[data-theme="dark"]) .ptBadge { background: rgb(117 103 248 / 18%); color: #c9c5ff; }
+:global(html[data-theme="dark"]) .ptOption,
+:global(html[data-theme="dark"]) .ptChipBank,
+:global(html[data-theme="dark"]) .ptBtnGhost,
+:global(html[data-theme="dark"]) .ptCtaBtnSecondary,
+:global(html[data-theme="dark"]) .ptIntroChip {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+:global(html[data-theme="dark"]) .ptOption:hover:not(:disabled),
+:global(html[data-theme="dark"]) .ptChipBank:hover:not(:disabled),
+:global(html[data-theme="dark"]) .ptBtnGhost:hover,
+:global(html[data-theme="dark"]) .ptCtaBtnSecondary:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--text-primary);
+}
+:global(html[data-theme="dark"]) .ptOptionSelected,
+:global(html[data-theme="dark"]) .ptChipPlaced,
+:global(html[data-theme="dark"]) .ptBuilderSentence {
+  border-color: rgb(164 154 255 / 54%);
+  background: rgb(117 103 248 / 15%);
+  color: #e1dfff;
+}
+:global(html[data-theme="dark"]) .ptOptionMarker { background: var(--surface-interactive); color: var(--text-secondary); }
+:global(html[data-theme="dark"]) .ptBuilderPlaceholder,
+:global(html[data-theme="dark"]) .ptBuilderClear { color: var(--text-muted); }
+:global(html[data-theme="dark"]) .ptModalCard { background: var(--surface-elevated); box-shadow: var(--shadow-lg); }
+:global(html[data-theme="dark"]) .ptResultGateIcon { border-color: var(--border); background: var(--surface-interactive); }
+:global(html[data-theme="dark"]) .ptResultGateError,
+:global(html[data-theme="dark"]) .ptOptionWrong,
+:global(html[data-theme="dark"]) .ptChipWrong,
+:global(html[data-theme="dark"]) .ptFeedbackWrong { background: rgb(240 105 126 / 13%); border-color: rgb(240 105 126 / 42%); color: #ffb5c0; }
+:global(html[data-theme="dark"]) .ptOptionCorrect,
+:global(html[data-theme="dark"]) .ptChipCorrect,
+:global(html[data-theme="dark"]) .ptBuilderAnswer,
+:global(html[data-theme="dark"]) .ptFeedbackCorrect { background: rgb(50 201 139 / 13%); border-color: rgb(50 201 139 / 42%); color: #9aebc3; }
+:global(html[data-theme="dark"]) .ptTagStrong { background: rgb(50 201 139 / 14%); border-color: rgb(50 201 139 / 38%); color: #9aebc3; }
+:global(html[data-theme="dark"]) .ptTagWeak { background: rgb(242 184 75 / 14%); border-color: rgb(242 184 75 / 38%); color: #ffd783; }
+:global(html[data-theme="dark"]) .ptBtnDanger { border-color: rgb(240 105 126 / 44%); color: #ffadb9; }
+:global(html[data-theme="dark"]) .ptBtnDanger:hover { background: rgb(240 105 126 / 13%); color: #ffc1c9; }
+
 
