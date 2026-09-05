@@ -1390,11 +1390,18 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       exercise.alternativeAnswers,
       contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
     );
-    const previous = await tx.exerciseAttempt.findFirst({
-      where: { userId, exerciseId },
-      orderBy: { attemptNumber: "desc" },
-      select: { attemptNumber: true, solutionOpened: true },
-    });
+    const [previous, firstAttempt] = await Promise.all([
+      tx.exerciseAttempt.findFirst({
+        where: { userId, exerciseId },
+        orderBy: { attemptNumber: "desc" },
+        select: { attemptNumber: true, solutionOpened: true },
+      }),
+      tx.exerciseAttempt.findFirst({
+        where: { userId, exerciseId },
+        orderBy: { attemptNumber: "asc" },
+        select: { isCorrect: true },
+      }),
+    ]);
     const openedEarlierSolution = previous?.solutionOpened || Boolean(await tx.exerciseAttempt.findFirst({
       where: { userId, exerciseId, solutionOpened: true },
       select: { id: true },
@@ -1491,7 +1498,10 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       },
     });
 
-    const correctAttempts = isCorrect ? await tx.exerciseAttempt.count({ where: { userId, exerciseId, isCorrect: true } }) : 0;
+    // XP belongs only to a correct first attempt. If an earlier deployment
+    // failed to credit an otherwise eligible answer, the immutable XP ledger
+    // will still let a later retry repair that missing credit exactly once.
+    const isEligibleForExperience = isCorrect && (firstAttempt?.isCorrect ?? true);
     const motivationReward = await recordExerciseResult(tx, {
       userId,
       exerciseId,
@@ -1499,7 +1509,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       courseId: exercise.lessonBlock.lesson.module.courseId,
       attemptId: attempt.id,
       isCorrect,
-      isFirstCorrect: isCorrect && correctAttempts === 1,
+      isFirstAttemptCorrect: isEligibleForExperience,
       score: scoreAwarded,
       difficulty: exercise.difficulty,
       isSpacedReview: exercise.isGeneratedReview,

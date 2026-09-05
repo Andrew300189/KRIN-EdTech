@@ -284,7 +284,7 @@ export async function completeLearningSession(userId: string, sessionId: string)
   return prisma.learningSession.updateMany({ where: { id: sessionId, userId, status: { in: ["ACTIVE", "PAUSED"] } }, data: { status: "COMPLETED", completedAt: new Date() } });
 }
 
-export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean }) {
+export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstAttemptCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean }) {
   const context = await userContext(tx, input.userId);
   await ensureDailyActivity(tx, input.userId, context.date);
   await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
@@ -292,7 +292,7 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   await tx.userDailyActivity.update({ where: { userId_date: { userId: input.userId, date: context.date } }, data: { exercisesCompleted: { increment: 1 }, correctAnswers: { increment: input.isCorrect ? 1 : 0 }, incorrectAnswers: { increment: input.isCorrect ? 0 : 1 } } });
   const level = await tx.userLevel.upsert({ where: { userId: input.userId }, create: { userId: input.userId, currentCorrectStreak: input.isCorrect ? 1 : 0, bestCorrectStreak: input.isCorrect ? 1 : 0 }, update: input.isCorrect ? { currentCorrectStreak: { increment: 1 } } : { currentCorrectStreak: 0 } });
   if (input.isCorrect && level.currentCorrectStreak + 1 > level.bestCorrectStreak) await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: level.currentCorrectStreak + 1 } });
-  const reward = input.isCorrect && input.isFirstCorrect
+  const reward = input.isCorrect && input.isFirstAttemptCorrect
     ? input.isSpacedReview
       ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId)
       : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, input.difficulty)

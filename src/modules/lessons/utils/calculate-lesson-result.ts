@@ -28,7 +28,9 @@ export function calculateLessonResult(attempts: LessonAttemptForResult[]) {
   return {
     correctAnswers,
     incorrectAnswers,
-    score: latest.reduce((sum, attempt) => sum + attempt.scoreAwarded, 0),
+    // Completion and accuracy use the latest response. Score also preserves
+    // penalties from earlier incorrect attempts.
+    score: attempts.reduce((sum, attempt) => sum + attempt.scoreAwarded, 0),
     completionPercent,
     grade: gradeForPercent(completionPercent),
   };

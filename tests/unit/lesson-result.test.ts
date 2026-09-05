@@ -2,13 +2,13 @@ import { determineLessonAccess } from "@/modules/courses/services/lesson-access.
 import { calculateLessonResult, gradeForPercent } from "@/modules/lessons/utils/calculate-lesson-result";
 
 describe("lesson result calculation", () => {
-  it("uses the latest attempt for each exercise and maps the grade consistently", () => {
+  it("uses the latest attempt for completion while retaining earlier penalties", () => {
     const result = calculateLessonResult([
       { exerciseId: "one", isCorrect: false, scoreAwarded: -2, attemptNumber: 1 },
       { exerciseId: "one", isCorrect: true, scoreAwarded: 2, attemptNumber: 2 },
       { exerciseId: "two", isCorrect: true, scoreAwarded: 3, attemptNumber: 1 },
     ]);
-    expect(result).toMatchObject({ correctAnswers: 2, incorrectAnswers: 0, score: 5, completionPercent: 100, grade: 5 });
+    expect(result).toMatchObject({ correctAnswers: 2, incorrectAnswers: 0, score: 3, completionPercent: 100, grade: 5 });
     expect(gradeForPercent(89)).toBe(4);
     expect(gradeForPercent(74)).toBe(3);
     expect(gradeForPercent(59)).toBe(2);
