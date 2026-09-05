@@ -14,6 +14,7 @@ import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHead
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { FaqAccordion } from "./FaqAccordion";
 import { LocalizedText } from "@/core/i18n/LocalizedText";
+import { LocalizedCefrLevelLabel } from "@/core/i18n/LocalizedCefrLevelLabel";
 import { LocalizedPricingText } from "./LocalizedPricingText";
 import {
   listHomepageCourses,
@@ -110,14 +111,15 @@ export default async function Home() {
               <GlobalSearch
                 context="PUBLIC"
                 placeholder="Search courses, lessons and topics"
+                placeholderKey="hero.searchPlaceholder"
               />
             </div>
             <div className={styles.actions}>
               <Link href="/course-finder" className={styles.heroPrimaryBtn}>
-                🎯 Find my course
+                🎯 <LocalizedText id="hero.findCourse" fallback="Find my course" />
               </Link>
               <Link href="/levels" className={styles.secondaryButton}>
-                Browse levels
+                <LocalizedText id="hero.browseLevels" fallback="Browse levels" />
               </Link>
             </div>
             {levels.length ? (
@@ -131,7 +133,7 @@ export default async function Home() {
                     href={`/levels/${level.code.toLowerCase()}`}
                     className={styles.levelChip}
                   >
-                    {level.code} · {level.title}
+                    <LocalizedCefrLevelLabel code={level.code} fallback={level.title} />
                   </Link>
                 ))}
               </div>
