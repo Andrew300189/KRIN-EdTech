@@ -58,7 +58,7 @@ type Action =
   | { type: "SELECT"; index: number }
   | { type: "BUILDER_TOGGLE"; slotIdx: number }
   | { type: "BUILDER_CLEAR" }
-  | { type: "CHECK" }
+  | { type: "CHECK_BUILDER" }
   | { type: "NEXT" }
   | { type: "FINISH" }
   | { type: "DISMISS_MODAL" }
@@ -243,7 +243,7 @@ function reducer(state: State, action: Action): State {
 
     case "SELECT":
       if (state.feedback) return state;
-      return { ...state, selected: action.index };
+      return { ...state, selected: action.index, feedback: true };
 
     case "BUILDER_TOGGLE": {
       if (state.feedback) return state;
@@ -258,14 +258,9 @@ function reducer(state: State, action: Action): State {
       if (state.feedback) return state;
       return { ...state, builderOrder: [] };
 
-    case "CHECK": {
-      if (state.feedback) return state;
-      const question = QUESTIONS[state.current];
-      const hasCompleteAnswer = question.type === "sentence_builder"
-        ? state.builderOrder.length === question.words?.length
-        : state.selected !== -1;
-      return hasCompleteAnswer ? { ...state, feedback: true } : state;
-    }
+    case "CHECK_BUILDER":
+      if (state.feedback || state.builderOrder.length === 0) return state;
+      return { ...state, feedback: true };
 
     case "NEXT": {
       const q = QUESTIONS[state.current];
@@ -399,7 +394,7 @@ export function PlacementTest() {
   const handleFinish  = useCallback(() => dispatch({ type: "FINISH" }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
   const handleClear   = useCallback(() => dispatch({ type: "BUILDER_CLEAR" }), []);
-  const handleCheck   = useCallback(() => dispatch({ type: "CHECK" }), []);
+  const handleCheck   = useCallback(() => dispatch({ type: "CHECK_BUILDER" }), []);
   const handleDismiss = useCallback(() => dispatch({ type: "DISMISS_MODAL" }), []);
 
   useEffect(() => {
@@ -502,11 +497,7 @@ export function PlacementTest() {
 
   // ── Test ─────────────────────────────────────────────────────────────
   const isLast   = current === QUESTIONS.length - 1;
-  const canCheck = !feedback && (
-    q.type === "sentence_builder"
-      ? builderOrder.length === q.words?.length
-      : selected !== -1
-  );
+  const canCheck = q.type === "sentence_builder" && !feedback && builderOrder.length > 0;
 
   return (
     <div className={s.ptWrap}>
@@ -608,9 +599,9 @@ export function PlacementTest() {
           <button type="button" className={`${s.ptBtn} ${s.ptBtnDanger}`} style={{ marginRight: "auto" }} onClick={handleFinish}>
             Finish test
           </button>
-          {!feedback ? (
+          {q.type === "sentence_builder" && !feedback ? (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
-              Next →
+              Check →
             </button>
           ) : (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleNext} disabled={!feedback}>
