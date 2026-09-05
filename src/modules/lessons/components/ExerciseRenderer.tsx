@@ -163,7 +163,6 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
-  const textCheckTimerRef = useRef<number | null>(null);
   const answerEvaluationContent = useMemo(
     () => contentWithOrderSensitiveAnswerValidation(content, exercise.engineKey),
     [content, exercise.engineKey],
@@ -182,6 +181,18 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
+  const hasCompleteAnswer = (() => {
+    if (matching || classification) {
+      const requiredItems = matching ? matchingLeft : classificationItems;
+      return requiredItems.length > 0 && requiredItems.every((item) => {
+        const value = (answer as JsonObject)[item];
+        return typeof value === "string" && value.trim().length > 0;
+      });
+    }
+    if (ordered) return options.length > 0 && (answer as string[]).length === options.length;
+    if (choice && multiple) return (answer as string[]).length === expectedChoiceCount;
+    return hasAnswerValue(answer);
+  })();
 
   function changeAnswer(next: ExerciseAnswer) {
     setAnswer(next); setResult(null); setSolution(null); setConfirmSolution(false);
@@ -201,23 +212,6 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     }));
   }
 
-  function clearTextCheckTimer() {
-    if (textCheckTimerRef.current === null) return;
-    window.clearTimeout(textCheckTimerRef.current);
-    textCheckTimerRef.current = null;
-  }
-
-  function scheduleTextCheck(value: string) {
-    clearTextCheckTimer();
-    if (!value.trim()) return;
-    // Short one-word answers have no explicit submit button. Check shortly
-    // after the learner stops typing, while Enter or blur still checks now.
-    textCheckTimerRef.current = window.setTimeout(() => {
-      textCheckTimerRef.current = null;
-      void checkAnswer(value);
-    }, 750);
-  }
-
   function restartExercise() {
     submissionInFlightRef.current = false;
     setAnswer(initialAnswer);
@@ -230,7 +224,6 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   }
 
   async function checkAnswer(answerToCheck: ExerciseAnswer = answer) {
-    clearTextCheckTimer();
     if (!hasAnswerValue(answerToCheck) || submissionInFlightRef.current) return;
     submissionInFlightRef.current = true;
     setSending(true); setError(null);
@@ -303,31 +296,23 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     {!compactToBeMatching ? <p className="lesson-exercise-question mt-3 text-slate-700">{exercise.question}</p> : null}
     {result && !result.isCorrect && (result.hint ?? exercise.hint) ? <p className="lesson-exercise-inline-hint" role="status"><strong>Hint:</strong> {result.hint ?? exercise.hint}</p> : null}
     <div className="lesson-exercise-answer-list mt-4 space-y-2">
-      {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); if (!multiple || (next as string[]).length === expectedChoiceCount) void checkAnswer(next); }} /><span>{option}</span></label>; })}
+      {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
         const current = String((answer as JsonObject)[leftItem] ?? "");
-        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{leftItem}</span><span className="lesson-exercise-answer-label">Впишите слово</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onBlur={(event) => {
-          const next = { ...(answer as JsonObject), [leftItem]: event.currentTarget.value };
-          if (matchingLeft.every((item) => typeof next[item] === "string" && String(next[item]).trim())) void checkAnswer(compactMatchingSubmission(next));
-        }} onKeyDown={(event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          const next = { ...(answer as JsonObject), [leftItem]: event.currentTarget.value };
-          if (matchingLeft.every((item) => typeof next[item] === "string" && String(next[item]).trim())) void checkAnswer(compactMatchingSubmission(next));
-        }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder="am, is или are" autoComplete="off" /></label>;
+        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{leftItem}</span><span className="lesson-exercise-answer-label">Впишите слово</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder="am, is или are" autoComplete="off" /></label>;
       })}
       {matching && !compactToBeMatching && matchingLeft.map((leftItem) => {
         const storedValue = String((answer as JsonObject)[leftItem] ?? "");
         return <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={storedValue} onChange={(event) => {
           const next = { ...(answer as JsonObject), [leftItem]: event.target.value };
           changeAnswer(next);
-          if (matchingLeft.every((item) => typeof next[item] === "string" && next[item])) void checkAnswer(next);
         }}><option value="">Choose a match</option>{matchingRight.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>;
       })}
-      {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => { const next = [...answer as string[], option]; changeAnswer(next); if (next.length === options.length) void checkAnswer(next); }} className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className="lesson-exercise-token-answer list-none flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
-      {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => { const next = { ...(answer as JsonObject), [item]: event.target.value }; changeAnswer(next); if (classificationItems.every((classificationItem) => typeof next[classificationItem] === "string" && next[classificationItem])) void checkAnswer(next); }}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
-      {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => { changeAnswer(event.target.value); scheduleTextCheck(event.target.value); }} onBlur={(event) => { if (event.currentTarget.value.trim()) void checkAnswer(event.currentTarget.value); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void checkAnswer(event.currentTarget.value); } }} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
+      {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => changeAnswer([...answer as string[], option])} className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className="lesson-exercise-token-answer list-none flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
+      {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
+      {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
     </div>
+    {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {!result && exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger mt-3 text-sm text-slate-600" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
