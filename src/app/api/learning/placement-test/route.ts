@@ -7,7 +7,7 @@ import { savePlacementTestResult } from "@/modules/courses/services/placement-te
 export const runtime = "nodejs";
 
 const placementPayloadSchema = z.object({
-  results: z.array(z.boolean()).min(1).max(100),
+  results: z.array(z.boolean()).min(20).max(100).refine((results) => results.length % 20 === 0),
 }).strict();
 
 /** Stores only the signed-in learner's own result; course access is not granted here. */
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: result }, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Complete at least one placement-test question before saving your result." }, { status: 400 });
+      return NextResponse.json({ error: "Finish a complete placement-test level before saving your result." }, { status: 400 });
     }
     return NextResponse.json({ error: "We could not save your placement result. Please try again." }, { status: 500 });
   }

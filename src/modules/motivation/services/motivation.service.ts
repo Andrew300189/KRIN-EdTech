@@ -8,7 +8,7 @@ import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-p
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
-type ExperienceType = "LESSON_COMPLETED" | "EXERCISE_CORRECT" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED" | "ACHIEVEMENT_REWARD" | "ADMIN_ADJUSTMENT" | "XP_EXCHANGE" | "REVERSAL";
+type ExperienceType = "LESSON_COMPLETED" | "EXERCISE_CORRECT" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED" | "PLACEMENT_TEST_COMPLETED" | "ACHIEVEMENT_REWARD" | "ADMIN_ADJUSTMENT" | "XP_EXCHANGE" | "REVERSAL";
 type CoinType = "LESSON_REWARD" | "DAILY_GOAL_REWARD" | "STREAK_REWARD" | "ACHIEVEMENT_REWARD" | "COURSE_REWARD" | "PURCHASE" | "REFUND" | "ADMIN_ADJUSTMENT" | "XP_EXCHANGE" | "REVERSAL";
 
 const eventExperienceType: Record<RewardEvent, ExperienceType> = {
@@ -17,6 +17,9 @@ const eventExperienceType: Record<RewardEvent, ExperienceType> = {
 const eventCoinType: Record<RewardEvent, CoinType> = {
   EXERCISE_CORRECT: "LESSON_REWARD", LESSON_COMPLETED: "LESSON_REWARD", HOMEWORK_COMPLETED: "LESSON_REWARD", VOCABULARY_REVIEW: "LESSON_REWARD", VOCABULARY_SESSION_COMPLETED: "LESSON_REWARD", WARM_UP_COMPLETED: "LESSON_REWARD", DAILY_GOAL: "DAILY_GOAL_REWARD", COURSE_COMPLETED: "COURSE_REWARD",
 };
+
+/** The diagnostic is a one-time milestone, rather than 100 separate rewards. */
+export const PLACEMENT_TEST_COMPLETION_XP = 25;
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
@@ -312,6 +315,30 @@ export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: s
     const previous = await tx.learningActivity.findFirst({ where: { userId, type: "COURSE_COMPLETED", courseId } });
     if (!previous) { await tx.learningActivity.create({ data: { userId, type: "COURSE_COMPLETED", courseId } }); await rewardForEvent(tx, userId, context.date, "COURSE_COMPLETED", courseId, "Course completed"); }
   }
+  await evaluateAchievements(tx, userId, context.date);
+  return reward;
+}
+
+/**
+ * Credits a learner only after the placement flow reaches its final result.
+ * The per-user idempotency key makes retries and later retakes safe.
+ */
+export async function recordPlacementTestCompletion(tx: Tx, userId: string) {
+  const context = await userContext(tx, userId);
+  const reward = await creditExperienceAndCoins(tx, {
+    userId,
+    experienceAmount: PLACEMENT_TEST_COMPLETION_XP,
+    coinAmount: 0,
+    experienceType: "PLACEMENT_TEST_COMPLETED",
+    // No coin transaction is created for a zero amount; this value is only
+    // required by the shared reward helper's typed interface.
+    coinType: "LESSON_REWARD",
+    sourceType: "PLACEMENT_TEST",
+    sourceId: "initial-placement",
+    idempotencyKey: `placement-test-completed:${userId}`,
+    description: "Placement test completed",
+    date: context.date,
+  });
   await evaluateAchievements(tx, userId, context.date);
   return reward;
 }
