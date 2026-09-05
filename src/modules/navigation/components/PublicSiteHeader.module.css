@@ -101,7 +101,7 @@
   padding: 0;
   border: 1px solid #c7d2fe;
   border-radius: 50%;
-  background: radial-gradient(circle at 33% 28%, #fff 0 12%, transparent 13%), linear-gradient(145deg, #eef2ff, #f8f7ff 58%, #eff9f7);
+  background: #f4f3ff;
   box-shadow: 0 5px 13px rgb(79 70 229 / 13%);
   color: #4338ca;
   cursor: pointer;
@@ -392,7 +392,7 @@
 :global(html[data-theme="dark"]) .mobileLevelLinks a { color: var(--text-secondary); }
 :global(html[data-theme="dark"]) .localeButton {
   border-color: rgb(164 154 255 / 38%);
-  background: radial-gradient(circle at 33% 28%, rgb(255 255 255 / 14%) 0 12%, transparent 13%), linear-gradient(145deg, #27234f, #1c2f48 58%, #183c38);
+  background: #252b52;
   box-shadow: 0 5px 14px rgb(0 0 0 / 27%);
   color: #d5d1ff;
 }
