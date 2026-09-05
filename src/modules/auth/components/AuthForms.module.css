@@ -11,7 +11,20 @@
   min-height: 4rem;
   border-color: #d7e0ef;
   background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+  color: #17213a;
+  -webkit-text-fill-color: #17213a;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+.registrationField :global(.form-control)::placeholder {
+  color: #42536c;
+  -webkit-text-fill-color: #42536c;
+  opacity: 1;
+}
+.registrationField :global(.form-control:-webkit-autofill),
+.registrationField :global(.form-control:-webkit-autofill:hover),
+.registrationField :global(.form-control:-webkit-autofill:focus) {
+  -webkit-text-fill-color: #17213a;
+  box-shadow: inset 0 0 0 1000px #f8faff;
 }
 .registrationField :global(.form-control):focus {
   border-color: #818cf8;
@@ -177,3 +190,19 @@
 .passwordToggle:hover { color: var(--text-primary); background: var(--surface-interactive); }
 .passwordToggle:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .passwordToggle:disabled { cursor: not-allowed; opacity: .5; }
+
+:global(html[data-theme="dark"]) .registrationField :global(.form-control) {
+  color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-primary);
+  background: var(--surface-secondary);
+}
+:global(html[data-theme="dark"]) .registrationField :global(.form-control)::placeholder {
+  color: var(--text-secondary);
+  -webkit-text-fill-color: var(--text-secondary);
+}
+:global(html[data-theme="dark"]) .registrationField :global(.form-control:-webkit-autofill),
+:global(html[data-theme="dark"]) .registrationField :global(.form-control:-webkit-autofill:hover),
+:global(html[data-theme="dark"]) .registrationField :global(.form-control:-webkit-autofill:focus) {
+  -webkit-text-fill-color: var(--text-primary);
+  box-shadow: inset 0 0 0 1000px var(--surface-secondary);
+}
