@@ -406,7 +406,6 @@ export function PlacementTest() {
   );
 
   const handleSelect  = useCallback((i: number) => dispatch({ type: "SELECT", index: i }), []);
-  const handleNext    = useCallback(() => dispatch({ type: "NEXT" }), []);
   const handleFinish  = useCallback(() => dispatch({ type: "FINISH" }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
   const handleClear   = useCallback(() => dispatch({ type: "BUILDER_CLEAR" }), []);
@@ -429,6 +428,14 @@ export function PlacementTest() {
 
     return () => { active = false; };
   }, [phase]);
+
+  // The homepage test advances on its own after showing the answer feedback.
+  // Lesson exercises intentionally keep their separate manual “Next” control.
+  useEffect(() => {
+    if (phase !== "test" || !feedback || modal) return;
+    const timer = window.setTimeout(() => dispatch({ type: "NEXT" }), 750);
+    return () => window.clearTimeout(timer);
+  }, [phase, feedback, modal, current]);
 
   const continueWithAccount = (view: "login" | "register") => {
     setHandoffError("");
@@ -511,7 +518,6 @@ export function PlacementTest() {
   }
 
   // ── Test ─────────────────────────────────────────────────────────────
-  const isLast   = current === QUESTIONS.length - 1;
   const canCheck = q.type === "sentence_builder" && !feedback && builderOrder.length > 0;
 
   return (
@@ -618,11 +624,7 @@ export function PlacementTest() {
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
               {ui.check}
             </button>
-          ) : (
-            <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleNext} disabled={!feedback}>
-              {isLast ? ui.results : ui.next}
-            </button>
-          )}
+          ) : null}
         </div>
 
         {/* Level transition modal */}
