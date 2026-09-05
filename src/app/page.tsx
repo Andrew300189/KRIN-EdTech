@@ -14,6 +14,7 @@ import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHead
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { FaqAccordion } from "./FaqAccordion";
 import { LocalizedText } from "@/core/i18n/LocalizedText";
+import { LocalizedPricingText } from "./LocalizedPricingText";
 import {
   listHomepageCourses,
   listHomepageCurriculumNodes,
@@ -39,14 +40,6 @@ function formatPrice(amount: number, currency: string) {
   return new Intl.NumberFormat("en", { style: "currency", currency }).format(
     amount / 100,
   );
-}
-
-function billingPeriodLabel(period: string) {
-  if (period === "NONE") return "One-time payment";
-  if (period === "MONTH") return "Monthly";
-  if (period === "QUARTER") return "Every 3 months";
-  if (period === "SEMI_ANNUAL") return "Every 6 months";
-  return "Yearly";
 }
 
 export default async function Home() {
@@ -458,15 +451,15 @@ export default async function Home() {
                 return (
                   <article key={product.id} className={styles.pricingCard} data-ao="scale-up" data-ao-delay={String(i + 1)}>
                     <p className={styles.pricingType}>
-                      {product.type.replace(/_/g, " ").toLowerCase()}
+                      <LocalizedPricingText kind="type" value={product.type.replace(/_/g, " ").toLowerCase()} />
                     </p>
-                    <h3>{product.title}</h3>
+                    <h3><LocalizedPricingText kind="title" value={product.title} /></h3>
                     <p>
-                      {product.description || <LocalizedText id="home.pricing.fallback" fallback="Course access and payment details are shown before checkout." />}
+                      {product.description ? <LocalizedPricingText kind="description" value={product.description} /> : <LocalizedText id="home.pricing.fallback" fallback="Course access and payment details are shown before checkout." />}
                     </p>
                     <strong>{formatPrice(price.amount, price.currency)}</strong>
                     <span>
-                      {billingPeriodLabel(price.billingPeriod)} В·{" "}
+                      <LocalizedPricingText kind="period" value={price.billingPeriod} /> ·{" "}
                       {price.currency}
                     </span>
                     <Link href="/pricing-detail" className={styles.linkArrow}>
@@ -495,87 +488,66 @@ export default async function Home() {
           <FaqAccordion className={styles.faqV2}>
             <div className={styles.faqColumn} data-ao="fade-up" data-ao-delay="2">
               <details data-ao="fade-up" data-ao-delay="3">
-                <summary>Can I try a lesson before choosing a plan?</summary>
+                <summary><LocalizedText id="home.faq.preview.question" fallback="Can I try a lesson before choosing a plan?" /></summary>
                 <p>
-                  Yes. Many courses offer a preview lesson or a sample section so
-                  you can test the teaching style, flow and difficulty before
-                  buying full access.
+                  <LocalizedText id="home.faq.preview.answer" fallback="Yes. Many courses offer a preview lesson or a sample section so you can test the teaching style, flow and difficulty before buying full access." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="4">
-                <summary>How are courses separated by level?</summary>
+                <summary><LocalizedText id="home.faq.levels.question" fallback="How are courses separated by level?" /></summary>
                 <p>
-                  Courses are structured by level, from beginner to advanced, so
-                  you can choose the path that matches your current English
-                  ability and learning goals.
+                  <LocalizedText id="home.faq.levels.answer" fallback="Courses are structured by level, from beginner to advanced, so you can choose the path that matches your current English ability and learning goals." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="5">
-                <summary>What happens after I receive access?</summary>
+                <summary><LocalizedText id="home.faq.access.question" fallback="What happens after I receive access?" /></summary>
                 <p>
-                  After purchase, you can open the course from your dashboard,
-                  continue lessons, track progress and resume exactly where you
-                  left off.
+                  <LocalizedText id="home.faq.access.answer" fallback="After purchase, you can open the course from your dashboard, continue lessons, track progress and resume exactly where you left off." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="6">
-                <summary>Do I get a certificate after finishing a course?</summary>
+                <summary><LocalizedText id="home.faq.certificate.question" fallback="Do I get a certificate after finishing a course?" /></summary>
                 <p>
-                  In many courses, a completion certificate is available when you
-                  finish the required lessons or tasks. The exact certificate
-                  rule is shown on each course page.
+                  <LocalizedText id="home.faq.certificate.answer" fallback="In many courses, a completion certificate is available when you finish the required lessons or tasks. The exact certificate rule is shown on each course page." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="7">
-                <summary>How does the platform work day to day?</summary>
+                <summary><LocalizedText id="home.faq.daily.question" fallback="How does the platform work day to day?" /></summary>
                 <p>
-                  You choose a learning path, complete lessons, review practice,
-                  and return to your dashboard to continue your progress across
-                  reading, vocabulary and grammar.
+                  <LocalizedText id="home.faq.daily.answer" fallback="You choose a learning path, complete lessons, review practice, and return to your dashboard to continue your progress across reading, vocabulary and grammar." />
                 </p>
               </details>
             </div>
 
             <div className={styles.faqColumn} data-ao="fade-up" data-ao-delay="8">
               <details data-ao="fade-up" data-ao-delay="9">
-                <summary>What is the internal currency and how is it used?</summary>
+                <summary><LocalizedText id="home.faq.currency.question" fallback="What is the internal currency and how is it used?" /></summary>
                 <p>
-                  The platform may use an internal learning balance for rewards,
-                  premium features, and additional practice. You can check the
-                  exact rules in your account or the pricing details.
+                  <LocalizedText id="home.faq.currency.answer" fallback="The platform may use an internal learning balance for rewards, premium features, and additional practice. You can check the exact rules in your account or the pricing details." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="10">
-                <summary>What results can I realistically expect?</summary>
+                <summary><LocalizedText id="home.faq.results.question" fallback="What results can I realistically expect?" /></summary>
                 <p>
-                  The strongest results come from consistent practice: better
-                  vocabulary, clearer grammar, stronger confidence in everyday
-                  communication and a clearer understanding of your current level
-                  over time.
+                  <LocalizedText id="home.faq.results.answer" fallback="The strongest results come from consistent practice: better vocabulary, clearer grammar, stronger confidence in everyday communication and a clearer understanding of your current level over time." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="11">
-                <summary>Do I need a teacher to study effectively?</summary>
+                <summary><LocalizedText id="home.faq.teacher.question" fallback="Do I need a teacher to study effectively?" /></summary>
                 <p>
-                  You can study independently with guided lessons, exercises and
-                  feedback, while a teacher or coach can help if you want extra
-                  support and accountability.
+                  <LocalizedText id="home.faq.teacher.answer" fallback="You can study independently with guided lessons, exercises and feedback, while a teacher or coach can help if you want extra support and accountability." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="12">
-                <summary>Is this suitable for career and business English?</summary>
+                <summary><LocalizedText id="home.faq.business.question" fallback="Is this suitable for career and business English?" /></summary>
                 <p>
-                  Yes. The platform covers general communication, professional
-                  vocabulary, business language and practical situations that help
-                  learners improve confidence in real-world contexts.
+                  <LocalizedText id="home.faq.business.answer" fallback="Yes. The platform covers general communication, professional vocabulary, business language and practical situations that help learners improve confidence in real-world contexts." />
                 </p>
               </details>
               <details data-ao="fade-up" data-ao-delay="13">
-                <summary>Where can I ask for help with my account or purchase?</summary>
+                <summary><LocalizedText id="home.faq.help.question" fallback="Where can I ask for help with my account or purchase?" /></summary>
                 <p>
-                  You can contact support from your account area or use the help
-                  center to ask about billing, access, certificates, or course
-                  questions.
+                  <LocalizedText id="home.faq.help.answer" fallback="You can contact support from your account area or use the help center to ask about billing, access, certificates, or course questions." />
                 </p>
               </details>
             </div>
