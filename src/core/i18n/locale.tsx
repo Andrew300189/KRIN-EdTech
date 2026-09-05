@@ -8,25 +8,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { publicUiTranslations } from "./public-ui-translations";
 
 export const supportedLocales = [
   "en",
   "uk",
   "ru",
-  "es",
-  "fr",
-  "it",
-  "de",
-  "pt",
-  "pl",
 ] as const;
 
 export type SupportedLocale = (typeof supportedLocales)[number];
 export const defaultLocale: SupportedLocale = "en";
 
-const STORAGE_KEY = "user_lang";
+/** A value is written here only after a visitor deliberately chooses a language. */
+const PREFERENCE_STORAGE_KEY = "krin-locale-preference";
+const LEGACY_STORAGE_KEY = "user_lang";
 
-export const localeNames: Record<SupportedLocale, string> = {
+export const localeNames: Record<string, string> = {
   en: "English",
   uk: "Українська",
   ru: "Русский",
@@ -59,10 +56,16 @@ export function readStoredLocale(): SupportedLocale {
   if (typeof window === "undefined") return defaultLocale;
 
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(PREFERENCE_STORAGE_KEY);
     if (stored) {
       return normalizeLocale(stored);
     }
+
+    // Keep a language selected in the previous interface version. This is a
+    // one-time compatibility read; automatic browser detection is never
+    // persisted as a manual preference.
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) return normalizeLocale(legacy);
   } catch {
     // Storage may be unavailable in private browsing or restrictive contexts.
   }
@@ -70,11 +73,9 @@ export function readStoredLocale(): SupportedLocale {
   return detectBrowserLocale();
 }
 
-const translations: Record<
-  SupportedLocale,
-  Record<string, string>
-> = {
+const translations: Record<string, Record<string, string>> = {
   en: {
+    ...publicUiTranslations.en,
     "header.courses": "Courses",
     "header.pricing": "Pricing",
     "header.levels": "Levels",
@@ -88,15 +89,49 @@ const translations: Record<
     "header.more": "More",
     "header.createAccount": "Create account",
     "header.teacher": "I am a teacher",
-    "header.note": "Public pages are currently available in English. You can set your account interface language after signing in.",
+    "header.note": "Choose English, Ukrainian or Russian at any time. Your choice is saved on this device.",
+    "header.profile": "Open profile",
+    "header.openMenu": "Open navigation menu",
+    "header.closeMenu": "Close navigation menu",
+    "header.browseLevels": "Browse all levels or choose one below.",
+    "header.platform": "Platform",
+    "header.managePlatform": "Manage platform content and settings.",
+    "header.skill.vocabulary": "Vocabulary",
+    "header.skill.grammar": "Grammar",
+    "header.skill.use-of-english": "Use of English",
     "hero.eyebrow": "English courses A1–C2",
     "hero.title": "Choose an English course with a clear next step.",
     "hero.copy": "Explore published courses by level and focus, try a real lesson exercise, then continue from your own learning dashboard.",
     "hero.searchPlaceholder": "Search courses, lessons and topics",
     "hero.findCourse": "Find my course",
     "hero.browseLevels": "Browse levels",
+    "tabs.heading": "Explore what you will achieve at each level.",
+    "tabs.sub": "Click a CEFR level to preview the skills and outcomes you will gain from published courses.",
+    "tabs.level": "Level",
+    "tabs.exploreCourses": "Explore {count} {level} {courseWord} →",
+    "tabs.course": "course",
+    "tabs.courses": "courses",
+    "tabs.samplePath": "Sample learning path",
+    "tabs.path.placement": "Placement & orientation",
+    "tabs.path.grammar": "Core grammar foundations",
+    "tabs.path.vocabulary": "Vocabulary & reading skills",
+    "tabs.path.speaking": "Speaking & listening practice",
+    "tabs.path.assessment": "Final assessment & certificate",
+    "reviews.heading": "Real results from real learners.",
+    "reviews.sub": "Join thousands of students who have levelled up their English on KRIN EdTech and changed their careers.",
+    "reviews.featured": "featured reviews",
+    "reviews.navigation": "Testimonials navigation",
+    "reviews.previous": "Previous testimonial",
+    "reviews.next": "Next testimonial",
+    "reviews.item": "Testimonial {number}",
+    "stats.label": "Platform statistics",
+    "stats.learners": "Learners registered",
+    "stats.words": "Words mastered",
+    "stats.courses": "Courses completed",
+    "stats.lessons": "Lessons completed",
   },
   uk: {
+    ...publicUiTranslations.uk,
     "header.courses": "Курси",
     "header.pricing": "Ціни",
     "header.levels": "Рівні",
@@ -110,15 +145,49 @@ const translations: Record<
     "header.more": "Інше",
     "header.createAccount": "Створити акаунт",
     "header.teacher": "Я вчитель",
-    "header.note": "Публічні сторінки зараз доступні англійською. Мову інтерфейсу акаунта можна змінити після входу.",
+    "header.note": "Обирайте англійську, українську або російську будь-коли. Вибір збережеться на цьому пристрої.",
+    "header.profile": "Відкрити профіль",
+    "header.openMenu": "Відкрити меню навігації",
+    "header.closeMenu": "Закрити меню навігації",
+    "header.browseLevels": "Перегляньте всі рівні або виберіть один нижче.",
+    "header.platform": "Платформа",
+    "header.managePlatform": "Керуйте контентом і налаштуваннями платформи.",
+    "header.skill.vocabulary": "Словниковий запас",
+    "header.skill.grammar": "Граматика",
+    "header.skill.use-of-english": "Практика англійської",
     "hero.eyebrow": "Курси англійської A1–C2",
     "hero.title": "Виберіть курс англійської з чітким наступним кроком.",
     "hero.copy": "Досліджуйте опубліковані курси за рівнем і напрямом, спробуйте реальне заняття й продовжуйте з особистої панелі навчання.",
     "hero.searchPlaceholder": "Шукайте курси, уроки та теми",
     "hero.findCourse": "Знайти мій курс",
     "hero.browseLevels": "Переглянути рівні",
+    "tabs.heading": "Дізнайтеся, чого ви досягнете на кожному рівні.",
+    "tabs.sub": "Оберіть рівень CEFR, щоб переглянути навички та результати, які дають опубліковані курси.",
+    "tabs.level": "Рівень",
+    "tabs.exploreCourses": "Переглянути {count} {level} {courseWord} →",
+    "tabs.course": "курс",
+    "tabs.courses": "курсів",
+    "tabs.samplePath": "Приклад навчального шляху",
+    "tabs.path.placement": "Визначення рівня та орієнтація",
+    "tabs.path.grammar": "Основи граматики",
+    "tabs.path.vocabulary": "Словниковий запас і читання",
+    "tabs.path.speaking": "Практика говоріння та аудіювання",
+    "tabs.path.assessment": "Фінальне оцінювання та сертифікат",
+    "reviews.heading": "Реальні результати реальних учнів.",
+    "reviews.sub": "Долучайтеся до тисяч студентів, які підвищили рівень англійської з KRIN EdTech і змінили свою кар’єру.",
+    "reviews.featured": "відгуків",
+    "reviews.navigation": "Навігація відгуками",
+    "reviews.previous": "Попередній відгук",
+    "reviews.next": "Наступний відгук",
+    "reviews.item": "Відгук {number}",
+    "stats.label": "Статистика платформи",
+    "stats.learners": "Зареєстрованих учнів",
+    "stats.words": "Вивчених слів",
+    "stats.courses": "Завершених курсів",
+    "stats.lessons": "Завершених уроків",
   },
   ru: {
+    ...publicUiTranslations.ru,
     "header.courses": "Курсы",
     "header.pricing": "Цены",
     "header.levels": "Уровни",
@@ -132,13 +201,46 @@ const translations: Record<
     "header.more": "Ещё",
     "header.createAccount": "Создать аккаунт",
     "header.teacher": "Я учитель",
-    "header.note": "Публичные страницы сейчас доступны на английском. Язык интерфейса аккаунта можно настроить после входа.",
+    "header.note": "Выбирайте английский, украинский или русский в любое время. Выбор сохранится на этом устройстве.",
+    "header.profile": "Открыть профиль",
+    "header.openMenu": "Открыть меню навигации",
+    "header.closeMenu": "Закрыть меню навигации",
+    "header.browseLevels": "Посмотрите все уровни или выберите один ниже.",
+    "header.platform": "Платформа",
+    "header.managePlatform": "Управляйте контентом и настройками платформы.",
+    "header.skill.vocabulary": "Словарный запас",
+    "header.skill.grammar": "Грамматика",
+    "header.skill.use-of-english": "Практика английского",
     "hero.eyebrow": "Курсы английского A1–C2",
     "hero.title": "Выберите курс английского языка с понятным следующим шагом.",
     "hero.copy": "Изучайте опубликованные курсы по уровню и направлению, попробуйте реальное упражнение и продолжайте обучение в личной панели.",
     "hero.searchPlaceholder": "Ищите курсы, уроки и темы",
     "hero.findCourse": "Найти мой курс",
     "hero.browseLevels": "Смотреть уровни",
+    "tabs.heading": "Узнайте, чего вы достигнете на каждом уровне.",
+    "tabs.sub": "Выберите уровень CEFR, чтобы посмотреть навыки и результаты, которые дают опубликованные курсы.",
+    "tabs.level": "Уровень",
+    "tabs.exploreCourses": "Посмотреть {count} {level} {courseWord} →",
+    "tabs.course": "курс",
+    "tabs.courses": "курсов",
+    "tabs.samplePath": "Пример учебного пути",
+    "tabs.path.placement": "Определение уровня и знакомство",
+    "tabs.path.grammar": "Основы грамматики",
+    "tabs.path.vocabulary": "Словарный запас и чтение",
+    "tabs.path.speaking": "Практика говорения и аудирования",
+    "tabs.path.assessment": "Итоговая оценка и сертификат",
+    "reviews.heading": "Реальные результаты реальных учеников.",
+    "reviews.sub": "Присоединяйтесь к тысячам студентов, которые повысили английский с KRIN EdTech и изменили свою карьеру.",
+    "reviews.featured": "отзывов",
+    "reviews.navigation": "Навигация по отзывам",
+    "reviews.previous": "Предыдущий отзыв",
+    "reviews.next": "Следующий отзыв",
+    "reviews.item": "Отзыв {number}",
+    "stats.label": "Статистика платформы",
+    "stats.learners": "Зарегистрированных учеников",
+    "stats.words": "Выученных слов",
+    "stats.courses": "Завершённых курсов",
+    "stats.lessons": "Завершённых уроков",
   },
   es: {
     "header.courses": "Cursos",
@@ -277,7 +379,7 @@ const translations: Record<
 type LocaleContextValue = {
   locale: SupportedLocale;
   setLocale: (nextLocale: string) => void;
-  t: (key: string) => string;
+  t: (key: string, values?: Record<string, string | number>) => string;
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
@@ -306,21 +408,27 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = locale;
     document.documentElement.dataset.locale = locale;
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, locale);
-    } catch {
-      // Ignore unsupported storage access.
-    }
   }, [hydrated, locale]);
 
   const value = useMemo<LocaleContextValue>(() => ({
     locale,
     setLocale: (nextLocale: string) => {
-      setLocaleState(normalizeLocale(nextLocale));
+      const next = normalizeLocale(nextLocale);
+      setLocaleState(next);
+      try {
+        window.localStorage.setItem(PREFERENCE_STORAGE_KEY, next);
+        // The old key remains in sync for integrations that still read it.
+        window.localStorage.setItem(LEGACY_STORAGE_KEY, next);
+      } catch {
+        // A selected language still works for this open page if storage is off.
+      }
     },
-    t: (key: string) => {
+    t: (key: string, values?: Record<string, string | number>) => {
       const match = translations[locale]?.[key];
-      return match ?? translations[defaultLocale]?.[key] ?? key;
+      const message = match ?? translations[defaultLocale]?.[key] ?? key;
+      return values
+        ? message.replace(/\{(\w+)\}/g, (token, name) => String(values[name] ?? token))
+        : message;
     },
   }), [locale]);
 

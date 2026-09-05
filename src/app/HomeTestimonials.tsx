@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@/core/i18n/locale";
 import s from "./HomeTestimonials.module.css";
 
 const TESTIMONIALS = [
@@ -27,6 +28,7 @@ const TESTIMONIALS = [
 ];
 
 export function HomeTestimonials() {
+  const { t: translate } = useLocale();
   const [active, setActive] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,20 +49,19 @@ export function HomeTestimonials() {
       <div className={s.shell}>
         {/* Sticky header column */}
         <div className={s.header}>
-          <h2 className={s.heading}>Real results from real learners.</h2>
+          <h2 className={s.heading}>{translate("reviews.heading")}</h2>
           <p className={s.subtext}>
-            Join thousands of students who have levelled up their English on
-            KRIN EdTech and changed their careers.
+            {translate("reviews.sub")}
           </p>
           <span className={s.totalCount}>
-            ⭐ {TESTIMONIALS.length}+ featured reviews
+            ⭐ {TESTIMONIALS.length}+ {translate("reviews.featured")}
           </span>
         </div>
 
         {/* Carousel column */}
         <div className={s.carousel}>
           <div className={s.card} key={active}>
-            <div className={s.stars} aria-label={`${t.rating} out of 5 stars`}>
+            <div className={s.stars} aria-label={`${t.rating} / 5`}>
               {"★".repeat(t.rating)}
             </div>
             <p className={s.quote}>&ldquo;{t.text}&rdquo;</p>
@@ -76,7 +77,7 @@ export function HomeTestimonials() {
           </div>
 
           <div className={s.controls}>
-            <div className={s.dots} role="tablist" aria-label="Testimonials navigation">
+            <div className={s.dots} role="tablist" aria-label={translate("reviews.navigation")}>
               {TESTIMONIALS.map((_, i) => (
                 <button
                   key={i}
@@ -85,13 +86,13 @@ export function HomeTestimonials() {
                   aria-selected={i === active}
                   className={`${s.dot} ${i === active ? s.dotActive : ""}`}
                   onClick={() => go(i)}
-                  aria-label={`Testimonial ${i + 1}`}
+                  aria-label={translate("reviews.item", { number: i + 1 })}
                 />
               ))}
             </div>
             <div className={s.navGroup}>
-              <button type="button" className={s.navBtn} onClick={() => go(active - 1)} aria-label="Previous testimonial">←</button>
-              <button type="button" className={s.navBtn} onClick={() => go(active + 1)} aria-label="Next testimonial">→</button>
+              <button type="button" className={s.navBtn} onClick={() => go(active - 1)} aria-label={translate("reviews.previous")}>←</button>
+              <button type="button" className={s.navBtn} onClick={() => go(active + 1)} aria-label={translate("reviews.next")}>→</button>
             </div>
           </div>
         </div>
