@@ -7,6 +7,7 @@ import { SearchEmpty } from "@/modules/search/components/SearchEmpty";
 import { SearchError } from "@/modules/search/components/SearchError";
 import { SearchGroup } from "@/modules/search/components/SearchGroup";
 import { SearchLoading } from "@/modules/search/components/SearchLoading";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./GlobalSearch.module.css";
 import {
   DEBOUNCE_MS,
@@ -33,12 +34,13 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 /** Shared server-backed search. Results remain filtered by the API, not by the UI. */
-export function GlobalSearch({ context, placeholder, compact = false, dialogUntil = "md" }: { context: SearchContext; placeholder: string; compact?: boolean; dialogUntil?: "md" | "lg" }) {
+export function GlobalSearch({ context, placeholder, placeholderKey, compact = false, dialogUntil = "md" }: { context: SearchContext; placeholder: string; placeholderKey?: string; compact?: boolean; dialogUntil?: "md" | "lg" }) {
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>("IDLE");
-  const [message, setMessage] = useState("Type a query to search.");
+  const [message, setMessage] = useState(() => t("search.empty.initial"));
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [retryKey, setRetryKey] = useState(0);
@@ -55,7 +57,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
     if (normalizedValue.length < MIN_QUERY_LENGTH) {
       setStatus("IDLE");
       setResults(null);
-      setMessage("Type at least two characters.");
+      setMessage(t("search.empty.minimum"));
       return;
     }
 
@@ -69,11 +71,11 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
     setActiveIndex(-1);
     if (payload.items.length === 0) {
       setStatus("EMPTY");
-      setMessage(`No results for \"${normalizedValue}\".`);
+      setMessage(t("search.empty.noResults", { query: normalizedValue }));
     } else {
       setStatus("SUCCESS");
     }
-  }, [context]);
+  }, [context, t]);
 
   const trackResultClick = useCallback((item: SearchResult, position: number) => {
     const payload = { query, context, resultType: item.type, resultId: item.id, resultUrl: item.url, position };
@@ -88,7 +90,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
     setStatus(query.length ? "TYPING" : "IDLE");
     if (!query) {
       setResults(null);
-      setMessage("Type a query to search.");
+      setMessage(t("search.empty.initial"));
       return;
     }
 
@@ -106,7 +108,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query, retryKey, runSearch]);
+  }, [query, retryKey, runSearch, t]);
 
   useEffect(() => {
     const closeOnOutsidePointer = (event: PointerEvent) => {
@@ -169,7 +171,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
     return (
       <div ref={isMobile ? undefined : desktopRootRef} className={`${styles.root} ${compact ? styles.compact : ""}`}>
         <form className={styles.control} role="search" onSubmit={(event) => { event.preventDefault(); submitFullSearch(); }}>
-          <label className={styles.prefix} htmlFor={inputId}>Search</label>
+          <label className={styles.prefix} htmlFor={inputId}>{t("search.label")}</label>
           <input
             id={inputId}
             ref={inputRef}
@@ -177,20 +179,20 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
             onFocus={() => setOpen(true)}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={placeholder}
+            placeholder={placeholderKey ? t(placeholderKey) : placeholder}
             className={styles.input}
             role="combobox"
             aria-expanded={open}
             aria-controls={listboxId}
             aria-activedescendant={activeIndex >= 0 ? `${baseId}-${surface}-option-${activeIndex}` : undefined}
-            aria-label="Global search"
+            aria-label={t("search.globalAria")}
             data-search-dialog-input={isMobile ? "true" : undefined}
             autoComplete="off"
           />
-          {query ? <button type="button" onClick={() => { setQuery(""); setResults(null); setStatus("IDLE"); inputRef.current?.focus(); }} className={styles.clearButton} aria-label="Clear search">Clear</button> : null}
-          <button className={styles.submitButton} type="submit">Search</button>
+          {query ? <button type="button" onClick={() => { setQuery(""); setResults(null); setStatus("IDLE"); inputRef.current?.focus(); }} className={styles.clearButton} aria-label={t("search.clear")}>{t("search.clear")}</button> : null}
+          <button className={styles.submitButton} type="submit">{t("search.button")}</button>
         </form>
-        {open ? <div id={listboxId} role="listbox" className={styles.resultsPanel} aria-label="Search suggestions">
+        {open ? <div id={listboxId} role="listbox" className={styles.resultsPanel} aria-label={t("search.suggestions")}>
           {status === "LOADING" || status === "TYPING" ? <SearchLoading /> : null}
           {status === "ERROR" ? <SearchError onRetry={() => setRetryKey((value) => value + 1)} /> : null}
           {status === "EMPTY" || status === "IDLE" ? <SearchEmpty message={message} /> : null}
@@ -199,7 +201,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
               const offset = results.groups.slice(0, groupIndex).reduce((sum, value) => sum + value.items.length, 0);
               return <SearchGroup key={group.key} group={group} query={query} activeIndex={activeIndex} offset={offset} idPrefix={`${baseId}-${surface}`} onHover={setActiveIndex} onResultClick={trackResultClick} onSelect={close} />;
             })}
-            <div className={styles.allResults}><Link className={styles.allResultsLink} href={fullResultsPath(context, query)} onClick={close}>Show all results</Link></div>
+            <div className={styles.allResults}><Link className={styles.allResultsLink} href={fullResultsPath(context, query)} onClick={close}>{t("search.allResults")}</Link></div>
           </> : null}
         </div> : null}
       </div>
@@ -208,7 +210,7 @@ export function GlobalSearch({ context, placeholder, compact = false, dialogUnti
 
   return <>
     <div className={dialogUntil === "lg" ? styles.lgDesktopOnly : styles.desktopOnly}>{searchControl("desktop")}</div>
-    <div className={dialogUntil === "lg" ? styles.lgMobileOnly : styles.mobileOnly}><button type="button" onClick={() => { setMobileOpen(true); setOpen(true); }} className={styles.mobileTrigger}>Search</button></div>
+    <div className={dialogUntil === "lg" ? styles.lgMobileOnly : styles.mobileOnly}><button type="button" onClick={() => { setMobileOpen(true); setOpen(true); }} className={styles.mobileTrigger}>{t("search.button")}</button></div>
     <SearchDialog open={mobileOpen} onClose={close}>{searchControl("mobile")}</SearchDialog>
   </>;
 }
