@@ -84,6 +84,12 @@ function learnerGoalForBlock(block: LessonBlock) {
   return typeof goal === "string" && goal.trim() ? goal.trim() : null;
 }
 
+/** A short grammar rule is intentionally separate from the learner's goal. */
+function learnerRuleForBlock(block: LessonBlock) {
+  const rule = asObject(block.settings).practiceRule;
+  return typeof rule === "string" && rule.trim() ? rule.trim() : null;
+}
+
 function isSpacedReviewBlock(block: LessonBlock | null | undefined) {
   return Boolean(block && block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
 }
@@ -802,8 +808,8 @@ export function LessonPlayer({
                 {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
               </div> : null}
               {!isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
-                <span className={styles.lessonGoalTopLabel}>Цель урока</span>
-                <p>{learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
+                <span className={styles.lessonGoalTopLabel}>{learnerRuleForBlock(activeBlock) ? "Правило шага" : "Цель урока"}</span>
+                <p>{learnerRuleForBlock(activeBlock) ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
               </div> : null}
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
