@@ -161,6 +161,7 @@ export function LessonPlayer({
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(reviewBlockId ?? blocks[0]?.id ?? null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [storedProgress, setStoredProgress] = useState<StoredProgress | null>(null);
+  const [progressHydrated, setProgressHydrated] = useState(previewMode || !canSaveProgress || Boolean(reviewSession));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const [lessonReward, setLessonReward] = useState<NonNullable<StoredProgress["motivationReward"]> | null>(null);
@@ -183,6 +184,7 @@ export function LessonPlayer({
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
   const previewCompleteReported = useRef(false);
+  const progressMutationRef = useRef(false);
   const learningSessionId = useRef<string | null>(null);
   const interactionCount = useRef(0);
   const autoAdvanceTimerRef = useRef<number | null>(null);
@@ -196,6 +198,14 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
+  const activeAttemptedExerciseIds = activeBlock?.exercises
+    .filter((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id))
+    .map((exercise) => exercise.id) ?? [];
+  const activeBlockAttemptsComplete = Boolean(
+    activeBlock?.type === "EXERCISE"
+    && activeBlock.exercises.length > 0
+    && activeBlock.exercises.every((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id)),
+  );
   const isFinalBlock = Boolean(activeBlock && activeIndex === blocks.length - 1);
   const isReviewSession = Boolean(reviewSession);
   const reviewDialogOpen = Boolean(reviewIntroOpen || reviewTransition || reviewComplete);
@@ -295,12 +305,16 @@ export function LessonPlayer({
   }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey, isReviewSession, previewMode]);
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress || isReviewSession) return;
+    if (previewMode || !canSaveProgress || isReviewSession) {
+      setProgressHydrated(true);
+      return;
+    }
+    setProgressHydrated(false);
     let live = true;
     void fetch(`/api/learning/lessons/${lessonId}/progress`)
       .then(async (response) => response.ok ? response.json() : null)
       .then((payload: { data?: StoredProgress | null } | null) => {
-        if (!live || !payload?.data || hasGuestPreviewRef.current) return;
+        if (!live || !payload?.data || hasGuestPreviewRef.current || progressMutationRef.current) return;
         const saved = payload.data;
         const restoredBlocks = validCompletedBlockIds(saved.completedBlocks, blocks);
         const restoredCurrentBlock = validCurrentBlockId(saved.currentBlockId, blocks);
@@ -319,17 +333,14 @@ export function LessonPlayer({
           setCompletedBlocks(restoredBlocks);
           setCurrentBlockId(reviewBlockId);
         } else if (saved.status === "COMPLETED") {
-          // Start a practice visit at the first step, while retaining the
-          // persisted completed steps. This lets the learner review freely
-          // without showing a misleading 0% progress state or re-locking
-          // the rest of a finished lesson.
-          isPracticeRunRef.current = true;
+          // Returning to a completed lesson must show its saved completion
+          // state. Practice remains available from the timeline, but never
+          // silently restarts the first task in the first exercise block.
+          isPracticeRunRef.current = false;
           setPracticeBlockIds([]);
-          // Keep historical answer colours, while a new practice pass starts
-          // at 0% and grows only from answers made in this visit.
-          setVisitExerciseIds((current) => current);
           setCompletedBlocks(restoredBlocks);
-          setCurrentBlockId(blocks[0]?.id ?? null);
+          setCurrentBlockId(restoredCurrentBlock);
+          setFinished(true);
         } else {
           isPracticeRunRef.current = false;
           setPracticeBlockIds([]);
@@ -343,7 +354,10 @@ export function LessonPlayer({
         }
         setElapsedSeconds(saved.activeSeconds ?? 0);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (live) setProgressHydrated(true);
+      });
     return () => { live = false; };
   }, [blocks, canSaveProgress, isReviewSession, lessonId, previewMode, reviewBlockId]);
 
@@ -383,8 +397,12 @@ export function LessonPlayer({
 
   useEffect(() => {
     setTheoryCollapsed(false);
-    setStepVerified(Boolean(activeBlock && (!isInteractiveStep || completedBlocks.includes(activeBlock.id))));
-  }, [activeBlock, completedBlocks, isInteractiveStep]);
+    setStepVerified(Boolean(activeBlock && (
+      !isInteractiveStep
+      || completedBlocks.includes(activeBlock.id)
+      || activeBlockAttemptsComplete
+    )));
+  }, [activeBlock, activeBlockAttemptsComplete, completedBlocks, isInteractiveStep]);
 
   useEffect(() => {
     if (!autoAdvanceRequested || !canAdvance) return;
@@ -492,6 +510,7 @@ export function LessonPlayer({
 
   async function advanceStep() {
     if (!activeBlock || !canAdvance) return;
+    progressMutationRef.current = true;
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
     autoAdvanceTimerRef.current = null;
     setAutoAdvanceRequested(false);
@@ -799,12 +818,15 @@ export function LessonPlayer({
                   hideExerciseTheoryText={Boolean(activeTheory)}
                   focusExerciseId={reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId}
                   individualExerciseStep={activeBlock.type === "EXERCISE"}
+                  attemptedExerciseIds={activeAttemptedExerciseIds}
+                  progressHydrated={progressHydrated}
                   mistakeExerciseIds={activeBlock.exercises
                     .filter((exercise) => exerciseResults[exercise.id] === false)
                     .map((exercise) => exercise.id)}
                   requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
                   reviewRunId={reviewSession?.runId}
                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise }) => {
+                    progressMutationRef.current = true;
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
                     setExerciseResults(nextResults);
                     setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);
@@ -835,6 +857,10 @@ export function LessonPlayer({
                     // block. Correctness changes the visual result and score,
                     // but a retry is optional before moving on.
                     if (isFinalExercise) {
+                      // Exercise attempts are already stored by the attempt
+                      // endpoint. Save the enclosing lesson step immediately
+                      // as well, before its completion transition begins.
+                      void persistProgress(false);
                       setStepVerified(true);
                       // A wrong final answer still counts as an attempted
                       // prompt, so the learner may move on manually. Only a

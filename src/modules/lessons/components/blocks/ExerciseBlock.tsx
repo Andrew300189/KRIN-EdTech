@@ -18,6 +18,10 @@ type ExerciseBlockProps = {
   individualExerciseStep?: boolean;
   /** Exercise ids whose latest saved attempt is incorrect. */
   mistakeExerciseIds?: string[];
+  /** Saved attempts let a returning learner resume inside this block. */
+  attemptedExerciseIds?: string[];
+  /** Do not restore the saved position until the lesson snapshot is loaded. */
+  progressHydrated?: boolean;
   requireCorrectForNext?: boolean;
   /** A system review deliberately keeps retrieval practice one question at a time. */
   sequentialOnly?: boolean;
@@ -26,7 +30,7 @@ type ExerciseBlockProps = {
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -34,6 +38,7 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
   const [showAllExercises, setShowAllExercises] = useState(false);
   const autoAdvanceTimerRef = useRef<number | null>(null);
   const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const restoredBlockRef = useRef<string | null>(null);
   const activeExercise = exercises[activeIndex] ?? null;
   const isLastExercise = activeIndex === exercises.length - 1;
   const activeExerciseAnswered = answeredIndexes.includes(activeIndex);
@@ -44,13 +49,23 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
   const canFixMistakes = mistakeIndexes.length > 0 && !reviewRunId && !sequentialOnly;
 
   useEffect(() => {
-    setActiveIndex((current) => current === focusedExerciseIndex ? current : focusedExerciseIndex);
-  }, [focusedExerciseIndex]);
+    if (!progressHydrated || restoredBlockRef.current === block.id) return;
+    restoredBlockRef.current = block.id;
 
-  useEffect(() => {
-    setAnsweredIndexes([]);
+    const attempted = new Set(attemptedExerciseIds);
+    const attemptedIndexes = exercises
+      .map((exercise, index) => attempted.has(exercise.id) ? index : -1)
+      .filter((index) => index >= 0);
+    const firstUnattemptedIndex = exercises.findIndex((exercise) => !attempted.has(exercise.id));
+
+    setAnsweredIndexes(attemptedIndexes);
     setShowAllExercises(false);
-  }, [block.id, exercises]);
+    setActiveIndex(focusExerciseId
+      ? focusedExerciseIndex
+      : firstUnattemptedIndex >= 0
+        ? firstUnattemptedIndex
+        : Math.max(0, exercises.length - 1));
+  }, [attemptedExerciseIds, block.id, exercises, focusExerciseId, focusedExerciseIndex, progressHydrated]);
 
   useEffect(() => () => {
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
