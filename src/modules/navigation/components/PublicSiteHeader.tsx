@@ -88,9 +88,37 @@ function MenuIcon({ open }: { open: boolean }) {
   return <span aria-hidden="true" className={styles.menuIcon}><span className={`${styles.menuLine} ${open ? styles.menuLineOpenFirst : ""}`} /><span className={`${styles.menuLine} ${open ? styles.menuLineOpenMiddle : ""}`} /><span className={`${styles.menuLine} ${open ? styles.menuLineOpenLast : ""}`} /></span>;
 }
 
+function LanguagePicker() {
+  const { locale, setLocale, t } = useLocale();
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+
+  return <div ref={pickerRef} className={styles.localePicker}>
+    <button type="button" className={styles.localeButton} aria-label={t("header.language")} aria-expanded={open} aria-haspopup="listbox" onClick={() => setOpen((value) => !value)}>
+      <span aria-hidden="true">{locale.toUpperCase()}</span>
+    </button>
+    {open ? <div className={styles.localeMenu} role="listbox" aria-label={t("header.language")}>
+      {supportedLocales.map((supportedLocale) => (
+        <button key={supportedLocale} type="button" role="option" aria-selected={locale === supportedLocale} className={`${styles.localeOption} ${locale === supportedLocale ? styles.localeOptionActive : ""}`} onClick={() => { setLocale(supportedLocale); setOpen(false); }}>
+          <span className={styles.localeCode}>{supportedLocale.toUpperCase()}</span>
+          <span>{localeNames[supportedLocale]}</span>
+        </button>
+      ))}
+    </div> : null}
+  </div>;
+}
+
 /** Shared public navigation with keyboard-accessible skill and mobile menus. */
 export function PublicSiteHeader() {
-  const { locale, setLocale, t } = useLocale();
+  const { t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginIntent, setLoginIntent] = useState<"learner" | "teacher">("learner");
@@ -146,8 +174,8 @@ export function PublicSiteHeader() {
       <Link href="/" className={styles.brand} aria-label="KRIN EdTech home">
         <span className={styles.brandLogoFrame}>
           <img
-            src="/icons/krin-flower.svg"
-            alt="KRIN EdTech flower logo"
+            src="/icons/a-detailed-flat-vector-illustration-of-a-single-wh.svg"
+            alt="KRIN EdTech logo"
             className={styles.brandLogo}
           />
         </span>
@@ -168,20 +196,7 @@ export function PublicSiteHeader() {
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
           {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
-        <label className={styles.localeSelectWrap}>
-          <select
-            aria-label={t("header.language")}
-            className={styles.localeSelect}
-            value={locale}
-            onChange={(event) => setLocale(event.target.value)}
-          >
-            {supportedLocales.map((supportedLocale) => (
-              <option key={supportedLocale} value={supportedLocale}>
-                {supportedLocale.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </label>
+        <LanguagePicker />
       </div>
       <div className={styles.mobileActions}>
         <ThemeToggle />
@@ -189,20 +204,7 @@ export function PublicSiteHeader() {
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
           {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
-        <label className={styles.localeSelectWrapMobile}>
-          <select
-            aria-label={t("header.language")}
-            className={styles.localeSelect}
-            value={locale}
-            onChange={(event) => setLocale(event.target.value)}
-          >
-            {supportedLocales.map((supportedLocale) => (
-              <option key={supportedLocale} value={supportedLocale}>
-                {supportedLocale.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </label>
+        <LanguagePicker />
         <button ref={triggerRef} type="button" aria-label={menuOpen ? t("header.closeMenu") : t("header.openMenu")} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button>
       </div>
     </div>
