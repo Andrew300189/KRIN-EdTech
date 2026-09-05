@@ -4,6 +4,7 @@ import {
   placementLegacyLevel,
   type PlacementCefrLevel,
 } from "./placement-test-result";
+import { recordPlacementTestCompletion } from "@/modules/motivation/services/motivation.service";
 
 export type PlacementCourseRecommendation = {
   id: string;
@@ -64,27 +65,35 @@ async function listRecommendations(level: PlacementCefrLevel): Promise<Placement
 
 /** Saves a validated learner-owned placement result and its recommendation basis. */
 export async function savePlacementTestResult(userId: string, answers: boolean[]) {
+  if (answers.length < 20 || answers.length > 100 || answers.length % 20 !== 0) {
+    throw new Error("The placement test must be completed before its result can be saved.");
+  }
+
   const result = buildPlacementTestResult(answers);
   const level = recommendedLevel(result.level);
   const testedAt = new Date();
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      placementLevel: result.level,
-      placementScore: result.scorePercent,
-      placementQuestionCount: result.questionCount,
-      placementBreakdown: result.breakdown,
-      placementTestedAt: testedAt,
-      currentLevel: placementLegacyLevel(result.level),
-      takePlacementTest: false,
-    },
+  const motivationReward = await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        placementLevel: result.level,
+        placementScore: result.scorePercent,
+        placementQuestionCount: result.questionCount,
+        placementBreakdown: result.breakdown,
+        placementTestedAt: testedAt,
+        currentLevel: placementLegacyLevel(result.level),
+        takePlacementTest: false,
+      },
+    });
+    return recordPlacementTestCompletion(tx, userId);
   });
 
   return {
     ...result,
     recommendationLevel: level,
     testedAt,
+    motivationReward,
     recommendations: await listRecommendations(level),
   };
 }

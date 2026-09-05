@@ -18,7 +18,7 @@ function readPendingResult(): PendingPlacementResult | null {
     const raw = window.sessionStorage.getItem(PENDING_PLACEMENT_RESULT_KEY);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<PendingPlacementResult>;
-    if (!Array.isArray(value.results) || !value.results.length || value.results.length > 100 || !value.results.every((result) => typeof result === "boolean")) return null;
+    if (!Array.isArray(value.results) || value.results.length < 20 || value.results.length > 100 || value.results.length % 20 !== 0 || !value.results.every((result) => typeof result === "boolean")) return null;
     return { results: value.results, completedAt: typeof value.completedAt === "number" ? value.completedAt : Date.now() };
   } catch {
     return null;
