@@ -204,6 +204,7 @@ export function LessonPlayer({
   const [startingAllMistakesReview, setStartingAllMistakesReview] = useState(false);
   const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
+  const [persistentStreakTone, setPersistentStreakTone] = useState<string | null>(null);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
   const previewCompleteReported = useRef(false);
@@ -838,6 +839,7 @@ export function LessonPlayer({
                   lessonId={lessonId}
                   block={activeBlock}
                   contentLocale={contentLocale}
+                  persistentStreakTone={persistentStreakTone}
                   completed={completedBlocks.includes(activeBlock.id)}
                   onToggleComplete={() => undefined}
                   canSaveProgress={false}
@@ -854,8 +856,10 @@ export function LessonPlayer({
                     .map((exercise) => exercise.id)}
                   requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
                   reviewRunId={reviewSession?.runId}
-                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise }) => {
+                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, streakTone }) => {
                     progressMutationRef.current = true;
+                    if (!isCorrect) setPersistentStreakTone(null);
+                    else if (streakTone) setPersistentStreakTone(streakTone);
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
                     setExerciseResults(nextResults);
                     setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);

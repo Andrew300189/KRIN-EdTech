@@ -59,11 +59,13 @@ type ExerciseRendererProps = {
   exercise: LessonExercise;
   /** The locale of the course route takes priority over a saved site setting. */
   contentLocale?: "ru" | "uk";
+  /** Active mode survives question changes until a wrong first answer resets it. */
+  persistentStreakTone?: string | null;
   /** CMS previews evaluate a draft locally and never expose answers to a public route. */
   previewMode?: boolean;
   hideContext?: boolean;
   hideContextText?: boolean;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; streakTone?: string | null }) => void;
   /** Keep an incorrect answer in the review queue and continue without retrying it now. */
   onDefer?: (exerciseId: string) => void;
   /** Server-validated review queue; never trusted as a general access bypass. */
@@ -154,7 +156,7 @@ function explanationAlreadyStatesAnswer(explanation: string | null | undefined, 
   return visibleAnswer.length > 0 && explanation.toLocaleLowerCase().includes(visibleAnswer);
 }
 
-export function ExerciseRenderer({ exercise, contentLocale, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
+export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
@@ -306,7 +308,11 @@ export function ExerciseRenderer({ exercise, contentLocale, previewMode = false,
         clearTranslation();
         void revealHint();
       }
-      onAttemptResolved?.({ exerciseId: exercise.id, isCorrect: payload.data.isCorrect });
+      onAttemptResolved?.({
+        exerciseId: exercise.id,
+        isCorrect: payload.data.isCorrect,
+        streakTone: payload.data.motivationReward?.streak?.tone ?? null,
+      });
       if (typeof payload.data.openMistakeCount === "number") {
         window.dispatchEvent(new CustomEvent("mistakes:changed", { detail: { count: payload.data.openMistakeCount } }));
       }
@@ -458,16 +464,14 @@ export function ExerciseRenderer({ exercise, contentLocale, previewMode = false,
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
   const streak = result?.motivationReward?.streak ?? null;
   const streakTone = streak?.tone && /^[a-z-]+$/.test(streak.tone) ? streak.tone : null;
-  const activeStreakClass = result?.isCorrect && streakTone ? ` lesson-exercise-streak-${streakTone}` : "";
+  const activeStreakTone = result?.isCorrect ? streakTone : result ? null : persistentStreakTone;
+  const activeStreakClass = activeStreakTone && /^[a-z-]+$/.test(activeStreakTone) ? ` lesson-exercise-streak-${activeStreakTone}` : "";
   const streakActivated = Boolean(result?.motivationReward?.awarded && streak?.activated && streakTone);
-  const streakModeLabel = locale === "uk" ? "Режим серії" : locale === "ru" ? "Режим серии" : "Streak mode";
-  const streakReachedLabel = locale === "uk" ? "правильних відповідей поспіль" : locale === "ru" ? "правильных ответов подряд" : "correct answers in a row";
-  const streakBonusLabel = locale === "uk" ? "бонус серії" : locale === "ru" ? "бонус серии" : "streak bonus";
 
   return <section className={`lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
       {streakActivated
-        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><span>{streakModeLabel} {streak?.modeStart}</span><strong>{streak?.current} {streakReachedLabel}</strong><span>+{result.motivationReward?.baseExperience ?? result.motivationReward?.experience ?? 0} XP + {streak?.bonusExperience ?? 0} XP {streakBonusLabel}</span></div>
+        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{streak?.modeStart}</strong></div>
         : result.motivationReward?.awarded
         ? <><strong>{answerFeedback.xpAwarded(result.motivationReward.experience)}</strong>{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
         : <strong>{answerFeedback.wellDone}</strong>}

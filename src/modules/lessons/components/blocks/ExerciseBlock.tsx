@@ -9,6 +9,7 @@ import styles from "./ExerciseBlock.module.css";
 type ExerciseBlockProps = {
   block: LessonBlock;
   contentLocale?: "ru" | "uk";
+  persistentStreakTone?: string | null;
   completed?: boolean;
   previewMode?: boolean;
   playerStyle?: boolean;
@@ -27,11 +28,11 @@ type ExerciseBlockProps = {
   /** A system review deliberately keeps retrieval practice one question at a time. */
   sequentialOnly?: boolean;
   reviewRunId?: string;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; streakTone?: string | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, contentLocale, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -107,11 +108,12 @@ export function ExerciseBlock({ block, contentLocale, previewMode = false, playe
     setActiveIndex(firstMistakeIndex);
   }
 
-  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean) {
+  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null) {
     onAttemptResolved?.({
       exerciseId,
       isCorrect,
       isFinalExercise: index === exercises.length - 1,
+      streakTone,
     });
 
     // A block is a completed learning path once every prompt has received an
@@ -162,11 +164,12 @@ export function ExerciseBlock({ block, contentLocale, previewMode = false, playe
       <ExerciseRenderer
         exercise={exercise}
         contentLocale={contentLocale}
+        persistentStreakTone={persistentStreakTone}
         previewMode={previewMode}
         hideContext={hideContext}
         hideContextText={hideContextText}
         reviewRunId={reviewRunId}
-        onAttemptResolved={({ exerciseId, isCorrect }) => resolveAttempt(index, exerciseId, isCorrect)}
+        onAttemptResolved={({ exerciseId, isCorrect, streakTone }) => resolveAttempt(index, exerciseId, isCorrect, streakTone)}
         onDefer={requireCorrectForNext ? undefined : () => deferExercise(index, exercise.id)}
       />
     </div>

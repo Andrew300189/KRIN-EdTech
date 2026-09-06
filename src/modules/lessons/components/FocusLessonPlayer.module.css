@@ -558,7 +558,7 @@
 .reviewReward { margin: 0; color: #3730a3; font-size: .86rem; font-weight: 850; }
 .reviewError { margin: 1rem 0 0; color: #be123c; font-size: .8rem; font-weight: 750; }
 
-.player :global(.focus-answer-correct) { animation: successPulse 650ms ease-out; }
+.player :global(.focus-answer-correct:not([class*="lesson-exercise-streak-"])) { animation: successPulse 650ms ease-out; }
 .player :global(.lesson-correct-celebration) {
   position: fixed;
   z-index: 120;
