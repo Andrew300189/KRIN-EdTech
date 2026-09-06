@@ -19,12 +19,13 @@ type Props = {
   contentLocale?: "ru" | "uk";
   previewMode?: boolean;
   playerStyle?: boolean;
+  onCorrectAnswer?: (difficulty?: number) => void;
   onReviewComplete: () => void;
 };
 
 /** The questions themselves are generated and authorised by the server. This
  * component only presents that persisted ten-question set one at a time. */
-export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onReviewComplete }: Props) {
+export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onCorrectAnswer, onReviewComplete }: Props) {
   const [run, setRun] = useState<ReviewRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -95,7 +96,10 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
           playerStyle={playerStyle}
           individualExerciseStep
           sequentialOnly
-          onAttemptResolved={({ isFinalExercise }) => { if (isFinalExercise) void completeReview(); }}
+          onAttemptResolved={({ isCorrect, difficulty, isFinalExercise }) => {
+            if (isCorrect) onCorrectAnswer?.(difficulty);
+            if (isFinalExercise) void completeReview();
+          }}
           onAttemptDeferred={({ isFinalExercise }) => { if (isFinalExercise) void completeReview(); }}
         />
       </div>

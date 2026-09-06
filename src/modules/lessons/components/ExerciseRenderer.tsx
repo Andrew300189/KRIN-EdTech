@@ -12,6 +12,7 @@ import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modu
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hints";
+import { primeLessonSuccessSound } from "@/modules/lessons/utils/success-sound";
 import { useLocale } from "@/core/i18n/locale";
 import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 
@@ -283,6 +284,9 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   async function checkAnswer(answerToCheck: ExerciseAnswer = answer) {
     if (!hasAnswerValue(answerToCheck) || submissionInFlightRef.current) return;
+    // Prime inside the click/Enter gesture. It plays only after the server
+    // confirms a correct answer, but mobile browsers need this permission now.
+    primeLessonSuccessSound();
     submissionInFlightRef.current = true;
     setSending(true); setError(null);
     if (previewMode) {

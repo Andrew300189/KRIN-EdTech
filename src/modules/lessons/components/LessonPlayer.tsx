@@ -11,9 +11,11 @@ import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStat
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
+import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
+import { shouldBurstLessonConfetti } from "@/modules/lessons/utils/lesson-celebration";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { useLocale } from "@/core/i18n/locale";
 import styles from "./FocusLessonPlayer.module.css";
@@ -162,12 +164,55 @@ function getBlockAttemptVisual(
 function getBlockProgressFraction(
   block: LessonBlock,
   completedBlockIds: readonly string[],
-  attemptedExerciseIds: ReadonlySet<string>,
+  correctExerciseIds: ReadonlySet<string>,
 ) {
-  if (completedBlockIds.includes(block.id)) return 1;
-  if (block.exercises.length === 0) return 0;
-  return block.exercises.filter((exercise) => attemptedExerciseIds.has(exercise.id)).length / block.exercises.length;
+  // Exercise steps advance the visual finish line only through correct
+  // answers. A learner may leave a wrong answer for review and still move on,
+  // but that must not make the dopamine progress bar jump ahead.
+  if (block.exercises.length > 0) {
+    return block.exercises.filter((exercise) => correctExerciseIds.has(exercise.id)).length / block.exercises.length;
+  }
+  return completedBlockIds.includes(block.id) ? 1 : 0;
 }
+
+const lessonFeedbackCopy = {
+  en: {
+    complete: "Lesson complete",
+    saved: "Session saved",
+    triumph: "You did it!",
+    savedTitle: "Your progress is saved.",
+    triumphDescription: "Every completed step is now part of your learning progress. Take a moment — you earned it.",
+    savedDescription: "Finish the remaining required steps whenever you are ready.",
+    reward: "Lesson reward",
+    backToCourse: "Back to course",
+    nextLesson: "Continue to next lesson",
+    openNextLesson: "Open next lesson",
+  },
+  ru: {
+    complete: "Урок завершён",
+    saved: "Прогресс сохранён",
+    triumph: "Вы сделали это!",
+    savedTitle: "Ваш прогресс сохранён.",
+    triumphDescription: "Все пройденные шаги уже в вашем прогрессе. Остановитесь на секунду — вы это заслужили.",
+    savedDescription: "Когда будете готовы, завершите оставшиеся обязательные шаги.",
+    reward: "Награда за урок",
+    backToCourse: "Вернуться к курсу",
+    nextLesson: "К следующему уроку",
+    openNextLesson: "Открыть следующий урок",
+  },
+  uk: {
+    complete: "Урок завершено",
+    saved: "Прогрес збережено",
+    triumph: "Ви це зробили!",
+    savedTitle: "Ваш прогрес збережено.",
+    triumphDescription: "Усі пройдені кроки вже у вашому прогресі. Зупиніться на мить — ви це заслужили.",
+    savedDescription: "Коли будете готові, завершіть решту обов’язкових кроків.",
+    reward: "Нагорода за урок",
+    backToCourse: "Повернутися до курсу",
+    nextLesson: "До наступного уроку",
+    openNextLesson: "Відкрити наступний урок",
+  },
+} as const;
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
@@ -205,6 +250,7 @@ export function LessonPlayer({
   const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const [persistentStreakTone, setPersistentStreakTone] = useState<string | null>(null);
+  const [successEffect, setSuccessEffect] = useState<LessonSuccessEffect | null>(null);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
   const previewCompleteReported = useRef(false);
@@ -216,6 +262,7 @@ export function LessonPlayer({
   const reviewReturnStartedRef = useRef(false);
   const reviewAdvanceStartedRef = useRef(false);
   const advanceStepRef = useRef<() => void>(() => undefined);
+  const successEffectSequenceRef = useRef(0);
 
   useEffect(() => { if (saveError) toast.error(saveError); }, [saveError]);
   useEffect(() => { if (reviewError) toast.error(reviewError); }, [reviewError]);
@@ -245,7 +292,10 @@ export function LessonPlayer({
   );
   const lessonIsCompleted = storedProgress?.status === "COMPLETED";
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
-  const attemptedExerciseIds = useMemo(() => new Set(visitExerciseIds), [visitExerciseIds]);
+  const correctExerciseIds = useMemo(
+    () => new Set(Object.entries(exerciseResults).filter(([, isCorrect]) => isCorrect).map(([exerciseId]) => exerciseId)),
+    [exerciseResults],
+  );
   const progressPercent = useMemo(() => {
     if (blocks.length === 0) return 0;
 
@@ -254,14 +304,14 @@ export function LessonPlayer({
     if (lessonIsCompleted && !isPracticeRunRef.current) return 100;
     const visitedBlocks = isPracticeRunRef.current ? practiceBlockIds : completedBlocks;
     const completedFraction = blocks.reduce(
-      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, attemptedExerciseIds),
+      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, correctExerciseIds),
       0,
     );
     return Math.round((completedFraction / blocks.length) * 100);
-  }, [attemptedExerciseIds, blocks, completedBlocks, lessonIsCompleted, practiceBlockIds]);
+  }, [blocks, completedBlocks, correctExerciseIds, lessonIsCompleted, practiceBlockIds]);
   const progressLabel = lessonIsCompleted
-    ? `Practice · ${progressPercent}% revisited`
-    : `${progressPercent}% complete`;
+    ? locale === "uk" ? `Практика · ${progressPercent}% повторено` : locale === "ru" ? `Практика · ${progressPercent}% повторено` : `Practice · ${progressPercent}% revisited`
+    : locale === "uk" ? `${progressPercent}% завершено` : locale === "ru" ? `${progressPercent}% пройдено` : `${progressPercent}% complete`;
   const hasUnfinishedRequiredBlocks = useMemo(
     () => blocks.some((block) => block.isRequired && !completedBlocks.includes(block.id)),
     [blocks, completedBlocks],
@@ -537,6 +587,11 @@ export function LessonPlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elapsedSeconds, canSaveProgress, isReviewSession, previewMode]);
 
+  function triggerSuccessEffect(burst: boolean) {
+    successEffectSequenceRef.current += 1;
+    setSuccessEffect({ id: successEffectSequenceRef.current, burst });
+  }
+
   async function advanceStep() {
     if (!activeBlock || !canAdvance) return;
     progressMutationRef.current = true;
@@ -570,9 +625,10 @@ export function LessonPlayer({
       previewCompleteReported.current = true;
       reportFunnelEvent("PREVIEW_LESSON_COMPLETE");
     }
-    if (saved?.status === "COMPLETED" && autoUnlockNextLesson && nextLesson && !isPracticeRunRef.current) {
-      router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
-      return;
+    // A completed lesson deserves a moment of closure. The next lesson remains
+    // available on the success screen instead of navigating away immediately.
+    if (!isPracticeRunRef.current && (!canSaveProgress || saved?.status === "COMPLETED")) {
+      triggerSuccessEffect(shouldBurstLessonConfetti({ isLessonComplete: true }));
     }
     setFinished(true);
   }
@@ -673,10 +729,13 @@ export function LessonPlayer({
 
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
+  const feedbackCopy = lessonFeedbackCopy[locale] ?? lessonFeedbackCopy.en;
+  const completionXp = lessonReward?.awarded ? lessonReward.experience : 0;
 
   return (
     <main className={styles.player}>
       <RewardNotification events={rewardEvents} />
+      <LessonSuccessEffects effect={successEffect} />
       {!isReviewSession && activeBlock ? (
         <nav className={styles.sideNavigation} aria-label="Lesson step navigation">
           <button
@@ -709,6 +768,9 @@ export function LessonPlayer({
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
+            <div className={styles.iceProgress} role="progressbar" aria-label="Correct-answer lesson progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+              <span className={styles.iceProgressFill} style={{ width: `${progressPercent}%` }} />
+            </div>
             <nav
               className={styles.blockTimeline}
               aria-label="Lesson steps. Select an available step to study or practise it."
@@ -795,17 +857,19 @@ export function LessonPlayer({
             {!warmUpRequired ? <button type="button" disabled={skippingWarmUp} onClick={() => void skipWarmUp()} className={styles.showTheory}>{skippingWarmUp ? "Skipping…" : "Skip warm-up"}</button> : null}
           </section>
         ) : finished ? (
-          <section className={styles.completion} aria-live="polite">
-            <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? "Session saved" : "Lesson complete"}</p>
-            <h2>Great work — your progress is saved.</h2>
-            <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : "Continue with your course whenever you are ready."}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>First-completion reward: +{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+          <section className={`${styles.completion} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphScreen}`} aria-live="polite">
+            <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? feedbackCopy.saved : feedbackCopy.complete}</p>
+            {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
+            <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
+            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward}>+{completionXp} XP <span>{feedbackCopy.reward}</span></p> : null}
+            <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
+            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
             {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             <div className={styles.completionActions}>
-              <button type="button" className={styles.finishButton} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : "Back to course"}</button>
-              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>Next lesson</button> : null}
+              <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
+              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
               {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
             </div>
           </section>
@@ -856,10 +920,13 @@ export function LessonPlayer({
                     .map((exercise) => exercise.id)}
                   requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
                   reviewRunId={reviewSession?.runId}
-                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, streakTone }) => {
+                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone }) => {
                     progressMutationRef.current = true;
                     if (!isCorrect) setPersistentStreakTone(null);
-                    else if (streakTone) setPersistentStreakTone(streakTone);
+                    else {
+                      if (streakTone) setPersistentStreakTone(streakTone);
+                      triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect, difficulty }));
+                    }
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
                     setExerciseResults(nextResults);
                     setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);
@@ -908,6 +975,9 @@ export function LessonPlayer({
                     // learner; it never changes the result or awards XP.
                     setStepVerified(true);
                     setAutoAdvanceRequested(true);
+                  }}
+                  onSpacedReviewCorrect={(difficulty) => {
+                    triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
                   onSpacedReviewComplete={() => {
                     setStepVerified(true);

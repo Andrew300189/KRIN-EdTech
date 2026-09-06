@@ -28,7 +28,7 @@ type ExerciseBlockProps = {
   /** A system review deliberately keeps retrieval practice one question at a time. */
   sequentialOnly?: boolean;
   reviewRunId?: string;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; streakTone?: string | null }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
@@ -113,6 +113,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
       exerciseId,
       isCorrect,
       isFinalExercise: index === exercises.length - 1,
+      difficulty: exercises[index]?.difficulty,
       streakTone,
     });
 

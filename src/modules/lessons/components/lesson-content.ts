@@ -11,6 +11,8 @@ export type LessonExercise = {
   explanation: string | null;
   hint: string | null;
   hintsEnabled: boolean;
+  /** Author-controlled 1–10 complexity; drives celebration feedback only. */
+  difficulty?: number;
   basePoints: number;
   timeLimitSeconds: number | null;
   solutionCost: number;

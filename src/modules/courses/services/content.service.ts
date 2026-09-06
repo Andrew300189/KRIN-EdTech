@@ -785,6 +785,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
               explanation: true,
               hint: true,
               hintsEnabled: true,
+              difficulty: true,
               basePoints: true,
               timeLimitSeconds: true,
               solutionCost: true,
@@ -1899,7 +1900,7 @@ export async function getExtraPracticeExercise(userId: string, exerciseId: strin
   return prisma.exercise.findFirst({
     where: { id: { not: exerciseId }, lessonBlockId: source.lessonBlockId, contentStatus: "PUBLISHED", attempts: { none: { userId } } },
     orderBy: [{ difficulty: "asc" }, { order: "asc" }],
-    select: { id: true, type: true, engineKey: true, variantKey: true, instruction: true, question: true, content: true, explanation: true, hint: true, hintsEnabled: true, basePoints: true, timeLimitSeconds: true, solutionCost: true, allowInstantCheck: true, allowExtraExercise: true },
+    select: { id: true, type: true, engineKey: true, variantKey: true, instruction: true, question: true, content: true, explanation: true, hint: true, hintsEnabled: true, difficulty: true, basePoints: true, timeLimitSeconds: true, solutionCost: true, allowInstantCheck: true, allowExtraExercise: true },
   });
 }
 
