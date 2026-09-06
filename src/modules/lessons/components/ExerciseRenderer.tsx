@@ -20,6 +20,7 @@ type AttemptResult = {
   motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean };
 };
 type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
+type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number };
 
 function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
@@ -275,21 +276,18 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       return;
     }
     setTranslationError(null);
-    if (authoredTranslation) {
-      setTranslation(authoredTranslation);
-      return;
-    }
-    if (!translationSource) {
-      setTranslationError("Translation is unavailable for this task.");
+    if (previewMode) {
+      if (authoredTranslation) setTranslation(authoredTranslation);
+      else setTranslationError("Translation is unavailable in preview.");
       return;
     }
     setTranslationSending(true);
     try {
-      const response = await fetch(`/api/vocabulary/translate?q=${encodeURIComponent(translationSource)}`, { cache: "no-store" });
-      const payload = await response.json().catch(() => null) as { data?: { translation?: string }; error?: string } | null;
-      const translated = response.ok && typeof payload?.data?.translation === "string" ? payload.data.translation.trim() : "";
-      if (!translated) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
-      setTranslation(translated);
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/translation`, { method: "POST" });
+      const payload = await response.json().catch(() => null) as { data?: TranslationResult; error?: string } | null;
+      if (!response.ok || !payload?.data?.translation) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
+      setTranslation(payload.data.translation);
+      if (payload.data.cost > 0) notifyMotivationUpdated();
     } catch (caught) {
       setTranslationError(caught instanceof Error ? caught.message : "Translation is temporarily unavailable.");
     } finally {
@@ -360,8 +358,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
-    {!result && (exercise.hintsEnabled && exercise.hint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Translating…" : translation ? "Hide translation" : "Show translation"}</button> : null}</div> : null}
-    {translation ? <p className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-medium leading-6 text-indigo-950" role="status"><span className="mr-1 text-indigo-600">Перевод:</span>{translation}</p> : null}
+    {!result && (exercise.hintsEnabled && exercise.hint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && exercise.hint ? <details className="lesson-exercise-hint-trigger" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">Show hint</summary><p className="mt-2">{exercise.hint}</p></details> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
+    {translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">Later</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? "Show the saved solution?" : `Show solution for ${result.solution.cost} XP?`}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Show solution"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? "Show solution" : `Show solution · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}

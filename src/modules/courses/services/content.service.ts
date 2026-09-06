@@ -40,6 +40,7 @@ type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
 
 /** A solution is deliberately a small, predictable XP spend across all lessons. */
 const EXERCISE_SOLUTION_XP_COST = 2;
+const EXERCISE_TRANSLATION_XP_COST = 2;
 
 /** Converts route/query input to the closed CEFR enum before it reaches Prisma. */
 export function normalizeCefrLevelCode(value: string | undefined | null): CefrLevelCode | null {
@@ -1611,6 +1612,96 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
       if (charge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
         return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Returns only the text needed to translate a published exercise. This access
+ * check is shared with the XP purchase below so an exercise id cannot be used
+ * to spend XP for, or reveal, a lesson the learner cannot open.
+ */
+export async function getExerciseTranslationSource(userId: string, exerciseId: string) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      id: true,
+      isGeneratedReview: true,
+      contentStatus: true,
+      question: true,
+      content: true,
+      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+    },
+  });
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
+  const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("You cannot access this lesson.");
+
+  const content = exercise.content && typeof exercise.content === "object" && !Array.isArray(exercise.content)
+    ? exercise.content as Record<string, unknown>
+    : {};
+  const authoredTranslation = [content.translation, content.translationRu, content.translatedText]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim() ?? null;
+  const source = [content.authoringSource, content.source, exercise.question]
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim() ?? "";
+  if (!authoredTranslation && !source) throw new Error("Translation is unavailable for this task.");
+  return { authoredTranslation, source };
+}
+
+/**
+ * Charges a learner once per exercise translation. The unique ledger key makes
+ * duplicate clicks and network retries free after the original 2 XP debit.
+ */
+export async function purchaseExerciseTranslation(userId: string, exerciseId: string) {
+  await getExerciseTranslationSource(userId, exerciseId);
+  const idempotencyKey = `exercise-translation-xp:${userId}:${exerciseId}`;
+  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (previousCharge) {
+    const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (existingCharge) {
+        const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+      }
+
+      const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const debited = await tx.userLevel.updateMany({
+        where: { id: level.id, lifetimeExperience: { gte: EXERCISE_TRANSLATION_XP_COST } },
+        data: { lifetimeExperience: { decrement: EXERCISE_TRANSLATION_XP_COST } },
+      });
+      if (!debited.count) throw new Error("You need at least 2 XP to show this translation.");
+
+      const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { id: level.id } });
+      const updatedLevel = await tx.userLevel.update({ where: { id: level.id }, data: calculateUserLevel(reducedLevel.lifetimeExperience) });
+      await tx.experienceTransaction.create({
+        data: {
+          userId,
+          amount: -EXERCISE_TRANSLATION_XP_COST,
+          type: "TRANSLATION_PURCHASE",
+          sourceType: "EXERCISE_TRANSLATION",
+          sourceId: exerciseId,
+          idempotencyKey,
+          localDate: new Date().toISOString().slice(0, 10),
+          description: "Exercise translation",
+        },
+      });
+      return { alreadyPurchased: false, cost: EXERCISE_TRANSLATION_XP_COST, balance: updatedLevel.lifetimeExperience };
+    });
+  } catch (error) {
+    // A concurrent request may create the ledger entry after the first check.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (charge) {
+        const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
       }
     }
     throw error;

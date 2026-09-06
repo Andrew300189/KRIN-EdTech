@@ -1414,6 +1414,24 @@
   opacity: .6;
 }
 
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-result) {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%);
+  box-shadow: 0 .4rem 1rem rgb(79 70 229 / 11%);
+  color: #312e81;
+  font-family: var(--font-display, var(--font-sans));
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .005em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: .58rem 1rem;
+}
+
 /* Let the document grow naturally on desktop. A lesson can contain lengthy
    theory or a full exercise, and clipping it into a viewport-sized canvas
    makes controls overlap and prevents the learner from reaching the end. */
