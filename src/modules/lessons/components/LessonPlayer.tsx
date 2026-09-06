@@ -12,6 +12,7 @@ import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
+import { LessonRewardWheel } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
@@ -864,6 +865,7 @@ export function LessonPlayer({
             {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward}>+{completionXp} XP <span>{feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks ? <LessonRewardWheel lessonId={lessonId} /> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
             {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}

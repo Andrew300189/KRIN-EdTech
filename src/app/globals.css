@@ -36,6 +36,39 @@ html {
   background: var(--background);
 }
 
+/* Shop themes are cosmetic overlays. They deliberately reuse the existing
+   semantic tokens so every page keeps readable contrast in light and dark
+   mode rather than relying on a separate, fragile palette. */
+:root[data-shop-theme="theme-aurora"] {
+  --primary: #713bf4;
+  --primary-hover: #5a25dc;
+  --focus-ring: #b89aff;
+  --background: #f7f5ff;
+  --surface-subtle: #f7f5ff;
+}
+
+:root[data-theme="dark"][data-shop-theme="theme-aurora"] {
+  --background: #151027;
+  --surface-subtle: #151027;
+  --primary: #b99aff;
+  --primary-hover: #d0baff;
+}
+
+:root[data-shop-theme="theme-sunrise"] {
+  --primary: #d15b13;
+  --primary-hover: #a9460c;
+  --focus-ring: #fbad55;
+  --background: #fffaf2;
+  --surface-subtle: #fffaf2;
+}
+
+:root[data-theme="dark"][data-shop-theme="theme-sunrise"] {
+  --background: #20140f;
+  --surface-subtle: #20140f;
+  --primary: #f6a54c;
+  --primary-hover: #ffc57a;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",

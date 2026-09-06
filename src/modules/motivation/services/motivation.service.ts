@@ -98,6 +98,31 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
   return { awarded: true, experience: options.experienceAmount, coins: coins.amount, levelUp: level.levelUp, level: level.level };
 }
 
+/**
+ * A small, deliberately constrained bridge for server-owned reward features
+ * such as the Daily Chest and lesson wheel.  UI code never receives access to
+ * the level or wallet tables: it can only call a protected API route which in
+ * turn chooses one of these fixed rewards on the server.
+ */
+export async function grantEconomyReward(
+  tx: Tx,
+  input: { userId: string; experience: number; coins: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+) {
+  const context = await userContext(tx, input.userId);
+  return creditExperienceAndCoins(tx, {
+    userId: input.userId,
+    experienceAmount: input.experience,
+    coinAmount: input.coins,
+    experienceType: "ACHIEVEMENT_REWARD",
+    coinType: "ACHIEVEMENT_REWARD",
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+    idempotencyKey: input.idempotencyKey,
+    description: input.description,
+    date: context.date,
+  });
+}
+
 async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: RewardEvent, sourceId: string, description: string) {
   const idempotencyKey = `${eventType.toLowerCase()}:${userId}:${sourceId}`;
   const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });

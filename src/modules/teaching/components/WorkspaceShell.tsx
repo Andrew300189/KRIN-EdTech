@@ -25,6 +25,7 @@ type WorkspaceShellProps = {
   searchContext?: SearchContext;
   showCmsLink?: boolean;
   showExperience?: boolean;
+  shopAvatar?: string | null;
   /** Keeps compact student overview pages inside the desktop viewport. */
   lockDesktopViewport?: boolean;
 };
@@ -64,6 +65,7 @@ export function WorkspaceShell({
   searchContext,
   showCmsLink = false,
   showExperience = false,
+  shopAvatar = null,
   lockDesktopViewport = false,
 }: WorkspaceShellProps) {
   const { t } = useLocale();
@@ -140,6 +142,20 @@ export function WorkspaceShell({
     window.addEventListener("focus", loadNavigationBadges);
     return () => { window.clearInterval(timer); window.removeEventListener("focus", loadNavigationBadges); };
   }, [loadNavigationBadges, navigation]);
+
+  // Cosmetics are selected through the server-authorized Shop. The last
+  // selected theme is mirrored locally purely to avoid a database read on
+  // every navigation; ownership is still checked before it can be equipped.
+  useEffect(() => {
+    try {
+      const theme = window.localStorage.getItem("krin-shop-theme");
+      if (theme === "theme-aurora" || theme === "theme-sunrise") {
+        document.documentElement.dataset.shopTheme = theme;
+      }
+    } catch {
+      // Local storage is optional; the default interface remains available.
+    }
+  }, []);
 
   useEffect(() => {
     const updateMistakeCount = (event: Event) => {
@@ -262,6 +278,7 @@ export function WorkspaceShell({
             </div>
 
             <div className={styles.headerActions}>
+              {shopAvatar === "avatar-fox" || shopAvatar === "avatar-owl" ? <span className={styles.shopAvatar} role="img" aria-label={shopAvatar === "avatar-fox" ? "Fox avatar" : "Owl avatar"}>{shopAvatar === "avatar-fox" ? "🦊" : "🦉"}</span> : null}
               {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (
                 <Link href="/cms" className={styles.cmsLink}>

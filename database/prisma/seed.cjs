@@ -39,7 +39,7 @@ const vocabulary = [
 ];
 
 const rewardRules = [
-  ["EXERCISE_CORRECT", 1, 0, null], ["LESSON_COMPLETED", 50, 5, 1], ["HOMEWORK_COMPLETED", 30, 3, 3], ["VOCABULARY_REVIEW", 1, 0, 60], ["VOCABULARY_SESSION_COMPLETED", 20, 2, 3], ["WARM_UP_COMPLETED", 10, 1, 3], ["DAILY_GOAL", 25, 5, 1], ["COURSE_COMPLETED", 300, 25, null],
+  ["EXERCISE_CORRECT", 1, 0, null], ["LESSON_COMPLETED", 50, 5, null], ["HOMEWORK_COMPLETED", 30, 3, 3], ["VOCABULARY_REVIEW", 1, 0, 60], ["VOCABULARY_SESSION_COMPLETED", 20, 2, 3], ["WARM_UP_COMPLETED", 10, 1, 3], ["DAILY_GOAL", 25, 5, 1], ["COURSE_COMPLETED", 300, 25, null],
 ];
 
 const achievements = [

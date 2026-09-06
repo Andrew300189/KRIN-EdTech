@@ -6,6 +6,9 @@ declare global {
 }
 
 const cachedPrisma = global.__krinPrismaSubscriptionSchema;
+const cachedUserFields = (cachedPrisma as unknown as {
+  _runtimeDataModel?: { models?: { User?: { fields?: Record<string, unknown> } } };
+})?._runtimeDataModel?.models?.User?.fields;
 // Prisma delegates are fixed when the client is created. During `next dev`
 // the global singleton can outlive a schema generation, leaving a stale
 // client without a newly added model. Replace that client once, rather than
@@ -14,7 +17,11 @@ const cachedClientIsCurrent = Boolean(
   cachedPrisma &&
   "mistakeReviewRun" in cachedPrisma &&
   "lessonSpacedReviewRun" in cachedPrisma &&
-  "courseReview" in cachedPrisma,
+  "courseReview" in cachedPrisma &&
+  // Newer app code stores protected reward cooldown/cosmetic state on User.
+  // Replacing an old dev singleton prevents a stale generated client from
+  // failing after hot reload with an opaque unknown-argument error.
+  Boolean(cachedUserFields?.dailyChestClaimedAt),
 );
 
 function runtimeDatabaseUrl() {

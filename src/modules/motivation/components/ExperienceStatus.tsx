@@ -7,11 +7,14 @@ import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
   level: { level: number; lifetimeExperience: number; fractionalExperience?: number };
-  wallet: { exchangeBalanceMinor: number };
+  wallet: { balance: number; fractionalBalance?: number };
 };
 
 function coinBalance(overview: MotivationOverview) {
-  return overview.wallet.exchangeBalanceMinor / 100;
+  // exchangeBalanceMinor tracks only Coins created by XP exchange. Lesson,
+  // chest and wheel rewards are spendable too, so the visible balance must
+  // always use the complete wallet.
+  return overview.wallet.balance + (overview.wallet.fractionalBalance ?? 0) / 100;
 }
 
 function experienceLabel(level: MotivationOverview["level"]) {

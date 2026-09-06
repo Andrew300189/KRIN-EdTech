@@ -50,6 +50,13 @@ export async function createCheckout(input: { user: PurchaseUser; provider: Paym
       if (activeSubscription) throw new Error("An active subscription already exists.");
     }
     const promotion = await validPromotion(tx, input.user.id, input.promotionCode, price.currency);
+    // Coin-shop vouchers are intentionally limited to subscription checkout.
+    // Without this guard a valid voucher could incorrectly discount a course
+    // purchase, which is a different product from the advertised Premium/Pro
+    // reward.
+    if (promotion?.code.startsWith("KRIN-") && (price.product.type !== "SUBSCRIPTION_PLAN" || !["PREMIUM", "PRO"].includes(price.product.plan?.code ?? ""))) {
+      throw new Error("This reward code is valid only for Premium or Pro.");
+    }
     const discount = calculatePromotionDiscount(price.amount, promotion, price.currency);
     const order = await tx.order.create({ data: { userId: input.user.id, number: orderNumber(), type: orderType(price.product.type), status: "PENDING", currency: price.currency, subtotalAmount: price.amount, discountAmount: discount, taxAmount: 0, totalAmount: price.amount - discount, provider: input.provider, idempotencyKey: key, promotionCode: promotion?.code, metadata: { productPriceId: price.id } } });
     const payment = await tx.payment.create({ data: { userId: input.user.id, orderId: order.id, provider: input.provider, plan: price.product.plan?.code ?? "FREE", billingPeriod: price.billingPeriod, amount: order.totalAmount, currency: price.currency, status: "CREATED", description: price.product.title } });

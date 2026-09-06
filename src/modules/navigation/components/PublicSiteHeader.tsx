@@ -53,6 +53,7 @@ type HeaderUser = {
   firstName?: string | null;
   lastName?: string | null;
   avatar?: string | null;
+  equippedShopAvatar?: string | null;
 };
 
 function profileHref(user: HeaderUser) {
@@ -64,6 +65,10 @@ function userInitials(user: HeaderUser | null) {
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.trim();
   if (initials) return initials.toUpperCase();
   return user.name?.trim().slice(0, 1).toUpperCase() || "U";
+}
+
+function shopAvatar(user: HeaderUser) {
+  return user.equippedShopAvatar === "avatar-fox" ? "🦊" : user.equippedShopAvatar === "avatar-owl" ? "🦉" : null;
 }
 
 function getSkillHref(skillSlug: CourseSkillSlug, level?: CefrLevel) {
@@ -188,6 +193,17 @@ export function PublicSiteHeader() {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      const theme = window.localStorage.getItem("krin-shop-theme");
+      if (theme === "theme-aurora" || theme === "theme-sunrise") {
+        document.documentElement.dataset.shopTheme = theme;
+      }
+    } catch {
+      // Cosmetic preference is optional and never blocks public navigation.
+    }
+  }, []);
+
   useEffect(() => () => {
     if (logoClickTimer.current) clearTimeout(logoClickTimer.current);
   }, []);
@@ -256,7 +272,7 @@ export function PublicSiteHeader() {
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
-          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
+          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <LanguagePicker />
       </div>
@@ -264,7 +280,7 @@ export function PublicSiteHeader() {
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
-          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{userInitials(headerUser)}</span>}
+          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <LanguagePicker />
         <button ref={triggerRef} type="button" aria-label={menuOpen ? t("header.closeMenu") : t("header.openMenu")} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button>

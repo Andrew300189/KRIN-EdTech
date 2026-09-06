@@ -1,0 +1,10 @@
+.card { position: relative; overflow: hidden; min-height: 11.75rem; border: 1px solid #d9c7ff; border-radius: 1.25rem; padding: 1.1rem; background: radial-gradient(circle at 92% 4%, #fff6d5 0 6%, transparent 30%), linear-gradient(145deg, #f6f0ff, #edf7ff); box-shadow: 0 14px 30px rgb(103 65 196 / 10%); }
+.opened { border-color: #86efac; background: radial-gradient(circle at 92% 4%, #dcfce7 0 8%, transparent 32%), linear-gradient(145deg, #f0fdf4, #eff6ff); }
+.sparkles { position: absolute; top: .8rem; right: .9rem; color: #8b5cf6; font-size: 1.15rem; letter-spacing: .25rem; }
+.card > p { margin: 0; color: #6d28d9; font-size: .7rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.content { display: flex; align-items: center; gap: .8rem; margin: .75rem 0 1rem; }
+.chest { display: grid; width: 3rem; height: 3rem; place-items: center; border-radius: .9rem; background: #fff; font-size: 1.65rem; box-shadow: 0 .45rem 1.2rem rgb(91 76 240 / 16%); }
+.content h3 { margin: 0; color: #172554; font-size: 1rem; line-height: 1.2; }
+.content small { display: block; margin-top: .22rem; color: #596780; font-size: .78rem; font-weight: 700; }
+.card button { width: 100%; min-height: 2.4rem; border-radius: .75rem; background: linear-gradient(135deg, #6d3df2, #9c47ef); color: #fff; font-size: .82rem; font-weight: 850; box-shadow: 0 .5rem 1rem rgb(109 61 242 / 22%); }
+.card button:disabled { background: #e8eaf1; color: #718096; box-shadow: none; }

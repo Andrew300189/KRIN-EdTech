@@ -21,6 +21,12 @@ model User {
   lastName                      String?
   passwordHash                  String
   avatar                        String?
+  /// Cosmetic choices are account-scoped and can be equipped only after a
+  /// server-side Shop purchase. They contain an item id, never a user URL.
+  equippedShopTheme             String?
+  equippedShopAvatar            String?
+  /// Exact server timestamp used to enforce the 24-hour Daily Chest cooldown.
+  dailyChestClaimedAt           DateTime?
   interfaceLanguage             String                       @default("en")
   timeZone                      String                       @default("UTC")
   country                       String?
