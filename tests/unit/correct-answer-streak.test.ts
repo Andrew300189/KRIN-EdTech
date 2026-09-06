@@ -14,11 +14,14 @@ describe("correct answer streak modes", () => {
     [100, 100, 3],
     [148, 148, 3],
     [200, 200, 5],
+    [224, 224, 5],
+    [548, 548, 5],
   ])("activates the %i-answer mode with a +%i XP bonus", (current, modeStart, bonusExperience) => {
     expect(correctAnswerStreak(current)).toMatchObject({ current, modeStart, bonusExperience, activated: true });
   });
 
-  it("keeps the legendary bonus for an unlimited streak after 200", () => {
-    expect(correctAnswerStreak(777)).toMatchObject({ current: 777, modeStart: 200, bonusExperience: 5, tone: "gold", activated: false });
+  it("repeats the 100-answer checkpoint pattern without capping the streak", () => {
+    expect(correctAnswerStreak(548)).toMatchObject({ current: 548, modeStart: 548, bonusExperience: 5, activated: true });
+    expect(correctAnswerStreak(777)).toMatchObject({ current: 777, modeStart: 770, bonusExperience: 5, activated: false });
   });
 });

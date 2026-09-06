@@ -581,6 +581,13 @@
 }
 .player :global(.lesson-correct-celebration strong) { font-size: clamp(1.35rem, 4vw, 2.15rem); font-weight: 900; letter-spacing: -.035em; }
 .player :global(.lesson-correct-celebration span) { font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
+.player :global(.lesson-streak-celebration) {
+  display: grid;
+  justify-items: center;
+  gap: .26rem;
+  color: inherit;
+}
+.player :global(.lesson-streak-celebration strong) { text-align: center; }
 .player :global(.focus-answer-incorrect) { animation: errorShake 330ms ease-in-out; }
 
 @keyframes stepIn {
@@ -929,6 +936,34 @@
 .exerciseTaskCard .focusContent :global(.lesson-exercise-card.focus-answer-incorrect) {
   border-color: #fecdd3 !important;
   background: #fffafb !important;
+}
+
+/* The answer streak is a learner reward, not a client-side score. Its colour
+   is returned by the server with the active milestone and only decorates the
+   card after that answer has been verified. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-violet) { --streak-border: #a78bfa; --streak-surface: #f5f3ff; --streak-ink: #5b21b6; --streak-shadow: rgb(124 58 237 / 20%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-blue) { --streak-border: #60a5fa; --streak-surface: #eff6ff; --streak-ink: #1d4ed8; --streak-shadow: rgb(37 99 235 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-cyan) { --streak-border: #22d3ee; --streak-surface: #ecfeff; --streak-ink: #0e7490; --streak-shadow: rgb(8 145 178 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-emerald) { --streak-border: #34d399; --streak-surface: #ecfdf5; --streak-ink: #047857; --streak-shadow: rgb(5 150 105 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-lime) { --streak-border: #a3e635; --streak-surface: #f7fee7; --streak-ink: #4d7c0f; --streak-shadow: rgb(101 163 13 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-amber) { --streak-border: #fbbf24; --streak-surface: #fffbeb; --streak-ink: #b45309; --streak-shadow: rgb(217 119 6 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-orange) { --streak-border: #fb923c; --streak-surface: #fff7ed; --streak-ink: #c2410c; --streak-shadow: rgb(234 88 12 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-rose) { --streak-border: #fb7185; --streak-surface: #fff1f2; --streak-ink: #be123c; --streak-shadow: rgb(225 29 72 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-fuchsia) { --streak-border: #e879f9; --streak-surface: #fdf4ff; --streak-ink: #a21caf; --streak-shadow: rgb(192 38 211 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-indigo) { --streak-border: #818cf8; --streak-surface: #eef2ff; --streak-ink: #4338ca; --streak-shadow: rgb(79 70 229 / 19%); }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-streak-gold) { --streak-border: #f59e0b; --streak-surface: #fffbeb; --streak-ink: #92400e; --streak-shadow: rgb(245 158 11 / 24%); }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-card[class*="lesson-exercise-streak-"]) {
+  border-color: var(--streak-border) !important;
+  background: var(--streak-surface) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--streak-border) 14%, transparent), 0 .8rem 1.8rem var(--streak-shadow);
+}
+
+.player :global(.lesson-correct-celebration:has(.lesson-streak-celebration)) {
+  border-color: var(--streak-border);
+  background: color-mix(in srgb, var(--streak-surface) 94%, white);
+  box-shadow: 0 22px 65px var(--streak-shadow);
+  color: var(--streak-ink);
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-inline-status) {

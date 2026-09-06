@@ -19,7 +19,15 @@ type AttemptResult = {
   openMistakeCount?: number;
   feedback?: Feedback | null;
   solution?: { available: boolean; cost: number; opened: boolean } | null;
-  motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean };
+  motivationReward?: {
+    awarded: boolean;
+    experience: number;
+    coins: number;
+    levelUp: boolean;
+    baseExperience?: number;
+    streakBonus?: number;
+    streak?: { current: number; modeStart: number | null; bonusExperience: number; tone: string | null; activated: boolean } | null;
+  };
 };
 type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number };
@@ -393,10 +401,19 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const taskLabel = locale === "uk" ? "Що потрібно зробити" : locale === "ru" ? "Что нужно сделать" : "Your task";
   const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
+  const streak = result?.motivationReward?.streak ?? null;
+  const streakTone = streak?.tone && /^[a-z-]+$/.test(streak.tone) ? streak.tone : null;
+  const activeStreakClass = result?.isCorrect && streakTone ? ` lesson-exercise-streak-${streakTone}` : "";
+  const streakActivated = Boolean(result?.motivationReward?.awarded && streak?.activated && streakTone);
+  const streakModeLabel = locale === "uk" ? "Режим серії" : locale === "ru" ? "Режим серии" : "Streak mode";
+  const streakReachedLabel = locale === "uk" ? "правильних відповідей поспіль" : locale === "ru" ? "правильных ответов подряд" : "correct answers in a row";
+  const streakBonusLabel = locale === "uk" ? "бонус серії" : locale === "ru" ? "бонус серии" : "streak bonus";
 
-  return <section className={`lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}`} aria-label={visibleInstruction}>
+  return <section className={`lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
-      {result.motivationReward?.awarded
+      {streakActivated
+        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><span>{streakModeLabel} {streak?.modeStart}</span><strong>{streak?.current} {streakReachedLabel}</strong><span>+{result.motivationReward?.baseExperience ?? result.motivationReward?.experience ?? 0} XP + {streak?.bonusExperience ?? 0} XP {streakBonusLabel}</span></div>
+        : result.motivationReward?.awarded
         ? <><strong>+{result.motivationReward.experience} XP</strong>{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
         : result.attemptNumber > 1 && !previewMode
           ? <><strong>Correct answer</strong><span>XP is earned for a correct first attempt.</span></>
