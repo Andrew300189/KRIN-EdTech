@@ -785,11 +785,15 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
           const exerciseTranslation = exercise.translations[0];
           return {
             ...exercise,
-            instruction: localizeText(exerciseTranslation?.instruction ?? exercise.instruction),
-            question: localizeText(exerciseTranslation?.question ?? exercise.question),
+            // Authoring fields are nullable in the database, but the learner
+            // exercise player requires a concrete instruction and question.
+            // A fresh Prisma client represents an absent localized field as
+            // undefined, so normalise every public exercise field here.
+            instruction: localizeText(exerciseTranslation?.instruction ?? exercise.instruction) ?? "",
+            question: localizeText(exerciseTranslation?.question ?? exercise.question) ?? "",
             content: localizeJson(exerciseTranslation?.content ?? exercise.content),
-            explanation: localizeText(exerciseTranslation?.explanation ?? exercise.explanation),
-            hint: localizeText(exerciseTranslation?.hint ?? exercise.hint),
+            explanation: localizeText(exerciseTranslation?.explanation ?? exercise.explanation) ?? null,
+            hint: localizeText(exerciseTranslation?.hint ?? exercise.hint) ?? null,
           };
         }),
       };
