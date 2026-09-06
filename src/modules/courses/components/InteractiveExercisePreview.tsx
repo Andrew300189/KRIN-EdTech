@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import styles from "@/app/home.module.css";
+import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
+import { useLocale } from "@/core/i18n/locale";
 
 const options = [
   { id: "correct", label: "She goes to work every day.", isCorrect: true },
@@ -11,6 +13,8 @@ const options = [
 
 /** A compact, interactive example of the real SINGLE_CHOICE exercise engine. */
 export function InteractiveExercisePreview() {
+  const { locale } = useLocale();
+  const answerFeedback = learnerAnswerFeedback(locale);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = options.find((option) => option.id === selectedId);
 
@@ -51,7 +55,7 @@ export function InteractiveExercisePreview() {
         })}
       </div>
       <p className={`${styles.exerciseFeedback} ${selected ? (selected.isCorrect ? styles.correctText : styles.incorrectText) : ""}`} aria-live="polite">
-        {!selected ? "Choose an answer to see the explanation." : selected.isCorrect ? "Correct. With she, the verb takes -s: goes." : "Not quite. In the Present Simple, use goes with she."}
+        {!selected ? "Choose an answer to see the explanation." : selected.isCorrect ? answerFeedback.wellDone : `${answerFeedback.correctAnswer} She goes to work every day.`}
       </p>
     </section>
   );

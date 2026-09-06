@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { useLocale, type SupportedLocale } from "@/core/i18n/locale";
+import { learnerAnswerFeedback, type LearnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import {
   PENDING_PLACEMENT_RESULT_KEY,
@@ -60,7 +61,7 @@ type Action =
   | { type: "BUILDER_TOGGLE"; slotIdx: number }
   | { type: "BUILDER_CLEAR" }
   | { type: "CHECK_BUILDER" }
-  | { type: "NEXT" }
+  | { type: "NEXT"; wellDone: string }
   | { type: "DISMISS_MODAL" }
   | { type: "RESTART" };
 
@@ -68,13 +69,13 @@ type AuthState = "checking" | "authenticated" | "anonymous";
 
 const PLACEMENT_UI: Record<SupportedLocale, Record<string, string>> = {
   en: {
-    title: "English Level Placement Test", intro: "Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1 and get a detailed breakdown of your strengths and areas to improve.", questions: "📝 100 questions", time: "⏱ ~15 min", start: "Start the test", ready: "Your result is ready.", readyCopy: "One simple step remains: create a free account. Then you will see your level and personal course plan in your dashboard.", dashboard: "Open my dashboard", preparing: "Preparing your result…", create: "Create free account", login: "I already have an account", retake: "Retake the test", noResult: "No result to save yet", noResultCopy: "Answer at least one question to receive a personalised course recommendation.", retry: "Try the test again", question: "Question", answers: "Answer options", correct: "Correct", correctAnswer: "Correct answer:", wellDone: "Well done!", rightAnswer: "That’s the right answer.", check: "Check →", results: "See my results →", next: "Next →", builder: "Tap words below to build the sentence…", remove: "Tap to remove", clear: "× Clear all",
+    title: "English Level Placement Test", intro: "Discover your CEFR level in minutes. Answer 100 questions ranging from A1 to C1 and get a detailed breakdown of your strengths and areas to improve.", questions: "📝 100 questions", time: "⏱ ~15 min", start: "Start the test", ready: "Your result is ready.", readyCopy: "One simple step remains: create a free account. Then you will see your level and personal course plan in your dashboard.", dashboard: "Open my dashboard", preparing: "Preparing your result…", create: "Create free account", login: "I already have an account", retake: "Retake the test", noResult: "No result to save yet", noResultCopy: "Answer at least one question to receive a personalised course recommendation.", retry: "Try the test again", question: "Question", answers: "Answer options", check: "Check →", results: "See my results →", next: "Next →", builder: "Tap words below to build the sentence…", remove: "Tap to remove", clear: "× Clear all",
   },
   uk: {
-    title: "Тест на визначення рівня англійської", intro: "Дізнайтеся свій рівень CEFR за кілька хвилин. Дайте відповіді на 100 запитань від A1 до C1 і отримайте детальний розбір сильних сторін та зон для розвитку.", questions: "📝 100 запитань", time: "⏱ ~15 хв", start: "Почати тест", ready: "Ваш результат готовий.", readyCopy: "Залишився один простий крок — створіть безкоштовний акаунт. Після цього ви побачите свій рівень і персональний план курсу в кабінеті.", dashboard: "Відкрити кабінет", preparing: "Готуємо результат…", create: "Створити безкоштовний акаунт", login: "У мене вже є акаунт", retake: "Пройти тест ще раз", noResult: "Поки що немає результату", noResultCopy: "Дайте відповідь хоча б на одне запитання, щоб отримати персональну рекомендацію курсу.", retry: "Спробувати тест ще раз", question: "Запитання", answers: "Варіанти відповіді", correct: "Правильно", correctAnswer: "Правильна відповідь:", wellDone: "Чудово!", rightAnswer: "Це правильна відповідь.", check: "Перевірити →", results: "Мої результати →", next: "Далі →", builder: "Натискайте слова нижче, щоб скласти речення…", remove: "Натисніть, щоб прибрати", clear: "× Очистити",
+    title: "Тест на визначення рівня англійської", intro: "Дізнайтеся свій рівень CEFR за кілька хвилин. Дайте відповіді на 100 запитань від A1 до C1 і отримайте детальний розбір сильних сторін та зон для розвитку.", questions: "📝 100 запитань", time: "⏱ ~15 хв", start: "Почати тест", ready: "Ваш результат готовий.", readyCopy: "Залишився один простий крок — створіть безкоштовний акаунт. Після цього ви побачите свій рівень і персональний план курсу в кабінеті.", dashboard: "Відкрити кабінет", preparing: "Готуємо результат…", create: "Створити безкоштовний акаунт", login: "У мене вже є акаунт", retake: "Пройти тест ще раз", noResult: "Поки що немає результату", noResultCopy: "Дайте відповідь хоча б на одне запитання, щоб отримати персональну рекомендацію курсу.", retry: "Спробувати тест ще раз", question: "Запитання", answers: "Варіанти відповіді", check: "Перевірити →", results: "Мої результати →", next: "Далі →", builder: "Натискайте слова нижче, щоб скласти речення…", remove: "Натисніть, щоб прибрати", clear: "× Очистити",
   },
   ru: {
-    title: "Тест на определение уровня английского", intro: "Узнайте свой уровень CEFR за несколько минут. Ответьте на 100 вопросов от A1 до C1 и получите подробный разбор сильных сторон и зон для роста.", questions: "📝 100 вопросов", time: "⏱ ~15 мин", start: "Начать тест", ready: "Ваш результат готов.", readyCopy: "Остался один простой шаг — создайте бесплатный аккаунт. После этого вы увидите свой уровень и персональный план курса в личном кабинете.", dashboard: "Открыть кабинет", preparing: "Готовим результат…", create: "Создать бесплатный аккаунт", login: "У меня уже есть аккаунт", retake: "Пройти тест ещё раз", noResult: "Пока нет результата", noResultCopy: "Ответьте хотя бы на один вопрос, чтобы получить персональную рекомендацию курса.", retry: "Попробовать тест ещё раз", question: "Вопрос", answers: "Варианты ответа", correct: "Правильно", correctAnswer: "Правильный ответ:", wellDone: "Отлично!", rightAnswer: "Это правильный ответ.", check: "Проверить →", results: "Мои результаты →", next: "Далее →", builder: "Нажимайте слова ниже, чтобы составить предложение…", remove: "Нажмите, чтобы убрать", clear: "× Очистить",
+    title: "Тест на определение уровня английского", intro: "Узнайте свой уровень CEFR за несколько минут. Ответьте на 100 вопросов от A1 до C1 и получите подробный разбор сильных сторон и зон для роста.", questions: "📝 100 вопросов", time: "⏱ ~15 мин", start: "Начать тест", ready: "Ваш результат готов.", readyCopy: "Остался один простой шаг — создайте бесплатный аккаунт. После этого вы увидите свой уровень и персональный план курса в личном кабинете.", dashboard: "Открыть кабинет", preparing: "Готовим результат…", create: "Создать бесплатный аккаунт", login: "У меня уже есть аккаунт", retake: "Пройти тест ещё раз", noResult: "Пока нет результата", noResultCopy: "Ответьте хотя бы на один вопрос, чтобы получить персональную рекомендацию курса.", retry: "Попробовать тест ещё раз", question: "Вопрос", answers: "Варианты ответа", check: "Проверить →", results: "Мои результаты →", next: "Далее →", builder: "Нажимайте слова ниже, чтобы составить предложение…", remove: "Нажмите, чтобы убрать", clear: "× Очистить",
   },
 };
 
@@ -218,6 +219,7 @@ const QUESTIONS: Question[] = [
 function getBlockModal(
   results: boolean[],
   blockIdx: number,
+  wellDone: string,
 ): { modal: ModalContent; afterModal: "continue" | "result" } {
   const level = LEVELS[blockIdx];
   const blockSlice = results.slice(blockIdx * 20, blockIdx * 20 + 20);
@@ -228,7 +230,7 @@ function getBlockModal(
     const modal: ModalContent =
       blockIdx === 0
         ? { emoji: "📚", title: "Keep practising!", message: "You need to brush up on your basics. Let's start with A1 learning!", cta: "See my results" }
-        : { emoji: "⭐", title: "Well done!", message: `Great job! You are a superstar and you officially receive ${LEVELS[blockIdx - 1]} level. Let's work on reaching ${level}!`, cta: "See my results" };
+        : { emoji: "⭐", title: wellDone, message: `Great job! You are a superstar and you officially receive ${LEVELS[blockIdx - 1]} level. Let's work on reaching ${level}!`, cta: "See my results" };
     return { modal, afterModal: "result" };
   }
 
@@ -285,7 +287,7 @@ function reducer(state: State, action: Action): State {
       const isBlockEnd = (state.current + 1) % 20 === 0;
 
       if (isBlockEnd) {
-        const { modal, afterModal } = getBlockModal(newResults, Math.floor(state.current / 20));
+        const { modal, afterModal } = getBlockModal(newResults, Math.floor(state.current / 20), action.wellDone);
         return { ...state, results: newResults, selected: -1, builderOrder: [], feedback: false, modal, afterModal };
       }
 
@@ -307,13 +309,14 @@ function reducer(state: State, action: Action): State {
 
 // ─── SentenceBuilderInput ─────────────────────────────────────────────────────
 
-function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear, ui }: {
+function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear, ui, answerFeedback }: {
   q: Question;
   builderOrder: number[];
   feedback: boolean;
   onToggle: (slotIdx: number) => void;
   onClear: () => void;
   ui: Record<string, string>;
+  answerFeedback: LearnerAnswerFeedback;
 }) {
   const words = q.words!;
   const usedSet = new Set(builderOrder);
@@ -358,8 +361,8 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear, ui
         )}
       </div>
 
-      {correct ? <p className={s.ptBuilderAnswer}><strong>{ui.wellDone}</strong></p> : null}
-      {wrong ? <p className={`${s.ptBuilderAnswer} ${s.ptBuilderAnswerWrong}`}><strong>{ui.correctAnswer}</strong> {q.answer}</p> : null}
+      {correct ? <p className={s.ptBuilderAnswer}><strong>{answerFeedback.wellDone}</strong></p> : null}
+      {wrong ? <p className={`${s.ptBuilderAnswer} ${s.ptBuilderAnswerWrong}`}><strong>{answerFeedback.correctAnswer}</strong> {q.answer}</p> : null}
     </div>
   );
 }
@@ -369,6 +372,7 @@ function SentenceBuilderInput({ q, builderOrder, feedback, onToggle, onClear, ui
 export function PlacementTest() {
   const { locale } = useLocale();
   const ui = PLACEMENT_UI[locale];
+  const answerFeedback = learnerAnswerFeedback(locale);
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, undefined, init);
   const [authState, setAuthState] = useState<AuthState>("checking");
@@ -419,9 +423,9 @@ export function PlacementTest() {
   // Lesson exercises intentionally keep their separate manual “Next” control.
   useEffect(() => {
     if (phase !== "test" || !feedback || modal) return;
-    const timer = window.setTimeout(() => dispatch({ type: "NEXT" }), 750);
+    const timer = window.setTimeout(() => dispatch({ type: "NEXT", wellDone: answerFeedback.wellDone }), 750);
     return () => window.clearTimeout(timer);
-  }, [phase, feedback, modal, current]);
+  }, [phase, feedback, modal, current, answerFeedback.wellDone]);
 
   const continueWithAccount = (view: "login" | "register") => {
     setHandoffError("");
@@ -558,7 +562,7 @@ export function PlacementTest() {
             {/* Sentence builder OR option list */}
             {q.type === "sentence_builder" ? (
               <SentenceBuilderInput q={q} builderOrder={builderOrder} feedback={feedback}
-                onToggle={handleToggle} onClear={handleClear} ui={ui} />
+                onToggle={handleToggle} onClear={handleClear} ui={ui} answerFeedback={answerFeedback} />
             ) : (
               <div className={s.ptOptions} role="listbox" aria-label={ui.answers}>
                 {q.options!.map((opt, i) => {
@@ -586,14 +590,14 @@ export function PlacementTest() {
                 <div className={s.ptFeedbackCorrect} role="status">
                   <span className={s.ptFeedbackIcon}>🎉</span>
                   <span>
-                    <strong>{ui.wellDone}</strong> {ui.rightAnswer}
+                    <strong>{answerFeedback.wellDone}</strong>
                   </span>
                 </div>
               ) : (
                 <div className={s.ptFeedbackWrong} role="status">
                   <span className={s.ptFeedbackIcon}>❌</span>
                   <span>
-                    {ui.correctAnswer} <strong>{q.answer}</strong>
+                    {answerFeedback.correctAnswer} <strong>{q.answer}</strong>
                   </span>
                 </div>
               )

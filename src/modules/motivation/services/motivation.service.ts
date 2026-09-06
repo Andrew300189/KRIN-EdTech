@@ -389,7 +389,11 @@ export async function recordVocabularyReview(tx: Tx, input: { userId: string; vo
   await tx.learningActivity.create({ data: { userId: input.userId, type: "WORD_REVIEWED", vocabularySessionId: input.vocabularySessionId, score: input.isCorrect ? 1 : 0 } });
   // A review attempt is the source of truth for this reward.  A session can contain
   // many attempts, so using the session ID here would incorrectly deduplicate them.
-  const reviewReward = await rewardForEvent(tx, input.userId, context.date, "VOCABULARY_REVIEW", input.reviewId, "Vocabulary review");
+  // A vocabulary review has one submitted answer. Like every other learner
+  // exercise, it can earn XP only when that answer is correct.
+  const reviewReward = input.isCorrect
+    ? await rewardForEvent(tx, input.userId, context.date, "VOCABULARY_REVIEW", input.reviewId, "Vocabulary review")
+    : { awarded: false, experience: 0, coins: 0, levelUp: false };
   if (input.sessionCompleted) {
     const existing = await tx.learningActivity.findFirst({ where: { userId: input.userId, vocabularySessionId: input.vocabularySessionId, type: input.warmUp ? "WARM_UP_COMPLETED" : "VOCABULARY_SESSION_COMPLETED" } });
     if (!existing) {

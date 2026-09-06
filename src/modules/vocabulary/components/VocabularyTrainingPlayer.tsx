@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
+import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./VocabularyTrainingPlayer.module.css";
 
 type TrainingItem = { id: string; exerciseType: string; payload: { prompt?: string; mode?: string; options?: string[]; tiles?: string[]; separator?: string; direction?: string }; status: string; order: number };
@@ -15,6 +17,8 @@ async function loadTrainingSession(sessionId: string) {
 }
 
 export function VocabularyTrainingPlayer({ sessionId, compact = false, onCompleted, cycleLength }: { sessionId: string; compact?: boolean; onCompleted?: () => void; cycleLength?: number }) {
+  const { locale } = useLocale();
+  const answerFeedback = learnerAnswerFeedback(locale);
   const [activeSessionId, setActiveSessionId] = useState(sessionId);
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [answer, setAnswer] = useState("");
@@ -51,8 +55,9 @@ export function VocabularyTrainingPlayer({ sessionId, compact = false, onComplet
       const response = await fetch(`/api/profile/vocabulary/session-items/${item.id}/answer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ submittedAnswer: submitted, responseTimeSeconds: Math.round((Date.now() - startedAt.current) / 1000), confidence: 2 }) });
       const payload = await response.json() as { data?: { isCorrect: boolean; correctAnswer?: string; sessionCompleted: boolean; motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean } }; error?: string };
       if (!response.ok || !payload.data) throw new Error(payload.error ?? "Unable to check answer");
-      setFeedback({ correct: payload.data.isCorrect, text: payload.data.isCorrect ? "Отлично! Правильный ответ." : `Правильный ответ: ${payload.data.correctAnswer ?? "—"}` });
-      if (payload.data.motivationReward?.awarded) { const reward = payload.data.motivationReward; setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : "Награда за словарь", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]); }
+      const reward = payload.data.motivationReward;
+      setFeedback({ correct: payload.data.isCorrect, text: payload.data.isCorrect ? reward?.awarded ? answerFeedback.xpAwarded(reward.experience) : answerFeedback.wellDone : `${answerFeedback.correctAnswer} ${payload.data.correctAnswer ?? "—"}` });
+      if (reward?.awarded) { setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : answerFeedback.xpAwarded(reward.experience), detail: reward.coins ? `+${reward.coins} coins` : undefined }]); }
       window.setTimeout(() => { void refresh().then(() => { setSending(false); if (payload.data?.sessionCompleted) onCompleted?.(); }); }, 850);
     } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Unable to submit answer"); setSending(false); }
   }
