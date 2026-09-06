@@ -101,7 +101,7 @@
   .dashboardGrid { min-height: 0; grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); align-items: stretch; }
   .panel, .focusPanel, .sideStack { min-height: 0; }
   .focusPanel { height: 100%; overflow: hidden; padding: 0.95rem 1rem; }
-  .sideStack { height: 100%; grid-template-rows: minmax(0, 1.35fr) minmax(0, 0.65fr); }
+  .sideStack { height: 100%; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .55fr); }
   .sideStack .panel { overflow: hidden; padding: 0.78rem 0.9rem; }
   .mistakeList { max-height: 3.8rem; overflow: hidden; }
   .mistakeList li { padding-block: 0.32rem; }

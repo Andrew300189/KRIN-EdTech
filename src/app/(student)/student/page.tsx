@@ -14,6 +14,9 @@ import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { StudentLeaderboardPanel } from "./StudentLeaderboardPanel";
 import { DailyStreakCard } from "@/modules/motivation/components/DailyStreakCard";
 import { STREAK_FREEZE_PRICE_COINS } from "@/modules/motivation/services/motivation.service";
+import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.service";
+import { WeeklyLeaguePanel } from "./WeeklyLeaguePanel";
+import { ProfileLevelStatus } from "@/modules/motivation/components/ProfileLevelStatus";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -33,7 +36,7 @@ export default async function StudentHomePage({
   // content. Existing test takers see their normal dashboard on later visits.
   const showPlacementRecommendation = query.placement === "complete";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -52,6 +55,7 @@ export default async function StudentHomePage({
     }),
     getPlacementDashboardResult(guard.user.id),
     getDashboardLeaderboard(guard.user.id),
+    getWeeklyLeague(guard.user.id),
   ]);
 
   const next = courses.find((course) => course.nextLesson) ?? courses[0];
@@ -73,6 +77,7 @@ export default async function StudentHomePage({
         <div>
           <h2><LocalizedText id={isFirstVisit ? "student.home.welcome" : "student.home.welcomeBack"} fallback={`${isFirstVisit ? "Welcome" : "Welcome back"}, {name}`} values={{ name }} /></h2>
           <p><LocalizedText id="student.home.hero" fallback="One focused lesson is enough for today. Your next step is ready below." /></p>
+          <ProfileLevelStatus level={motivation.level.level} experience={motivation.level.lifetimeExperience + (motivation.level.fractionalExperience ?? 0) / 100} />
         </div>
         <div className={styles.heroActions}>
           <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link>
@@ -125,6 +130,7 @@ export default async function StudentHomePage({
         </article>
 
         <div className={styles.sideStack}>
+          <WeeklyLeaguePanel league={weeklyLeague} />
           <StudentLeaderboardPanel {...leaderboard} />
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>

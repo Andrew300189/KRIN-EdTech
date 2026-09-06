@@ -1,0 +1,5 @@
+.status { display: inline-flex; align-items: center; gap: .5rem; margin-top: .65rem; border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)); padding: .35rem .6rem .35rem .36rem; color: var(--text-primary); }
+.level { display: grid; width: 1.9rem; height: 1.9rem; place-items: center; border-radius: 50%; background: var(--primary); color: var(--primary-contrast); font-size: .62rem; font-weight: 900; }
+.status > span:last-child { display: grid; gap: .08rem; }
+.status strong { font-size: .72rem; font-weight: 900; line-height: 1.1; }
+.status small { color: var(--text-muted); font-size: .58rem; font-weight: 700; line-height: 1.1; }

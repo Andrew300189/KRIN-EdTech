@@ -15,6 +15,12 @@ export function userLocalDate(timeZone: string | null | undefined, date = new Da
   return `${read("year")}-${read("month")}-${read("day")}`;
 }
 
+/** Hour in the learner's configured time zone, used only for time-based badges. */
+export function userLocalHour(timeZone: string | null | undefined, date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: safeTimeZone(timeZone), hour: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  return Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+}
+
 export function dateDistanceInDays(from: string, to: string) {
   const start = Date.UTC(Number(from.slice(0, 4)), Number(from.slice(5, 7)) - 1, Number(from.slice(8, 10)));
   const end = Date.UTC(Number(to.slice(0, 4)), Number(to.slice(5, 7)) - 1, Number(to.slice(8, 10)));

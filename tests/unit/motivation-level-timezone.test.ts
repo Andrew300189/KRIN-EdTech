@@ -1,5 +1,5 @@
 import { calculateUserLevel, leaderboardScoreMinor } from "@/modules/motivation/services/motivation.service";
-import { dateDistanceInDays, localWeekStart, userLocalDate } from "@/modules/motivation/utils/local-date";
+import { dateDistanceInDays, localWeekStart, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
 
 describe("motivation levels and local dates", () => {
   it("uses a progressive, non-linear level curve", () => {
@@ -11,6 +11,7 @@ describe("motivation levels and local dates", () => {
     const moment = new Date("2026-07-30T22:30:00.000Z");
     expect(userLocalDate("Europe/Kyiv", moment)).toBe("2026-07-31");
     expect(userLocalDate("UTC", moment)).toBe("2026-07-30");
+    expect(userLocalHour("Europe/Kyiv", moment)).toBe(1);
     expect(dateDistanceInDays("2026-07-30", "2026-07-31")).toBe(1);
   });
   it("uses a stable Monday key for a once-per-week learner reward", () => {

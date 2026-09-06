@@ -4,7 +4,7 @@ import {
   placementLegacyLevel,
   type PlacementCefrLevel,
 } from "./placement-test-result";
-import { recordPlacementTestCompletion } from "@/modules/motivation/services/motivation.service";
+import { recordPerfectPlacementTestBadge, recordPlacementTestCompletion } from "@/modules/motivation/services/motivation.service";
 
 export type PlacementCourseRecommendation = {
   id: string;
@@ -86,7 +86,9 @@ export async function savePlacementTestResult(userId: string, answers: boolean[]
         takePlacementTest: false,
       },
     });
-    return recordPlacementTestCompletion(tx, userId);
+    const motivationReward = await recordPlacementTestCompletion(tx, userId);
+    const badge = await recordPerfectPlacementTestBadge(tx, userId, answers);
+    return { ...motivationReward, achievements: badge ? [badge.title] : [] };
   });
 
   return {

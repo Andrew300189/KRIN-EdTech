@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-config";
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
-import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate } from "@/modules/motivation/utils/local-date";
+import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
@@ -19,6 +19,27 @@ const eventExperienceType: Record<RewardEvent, ExperienceType> = {
 const eventCoinType: Record<RewardEvent, CoinType> = {
   EXERCISE_CORRECT: "LESSON_REWARD", LESSON_COMPLETED: "LESSON_REWARD", HOMEWORK_COMPLETED: "LESSON_REWARD", VOCABULARY_REVIEW: "LESSON_REWARD", VOCABULARY_SESSION_COMPLETED: "LESSON_REWARD", WARM_UP_COMPLETED: "LESSON_REWARD", DAILY_GOAL: "DAILY_GOAL_REWARD", COURSE_COMPLETED: "COURSE_REWARD",
 };
+
+const specialBadgeCodes = new Set(["NIGHT_WATCH", "UNBEATABLE_PLACEMENT"]);
+
+const specialBadgeDefinition = {
+  NIGHT_WATCH: {
+    title: "Night Watch",
+    description: "Completed a lesson between 03:00 and 03:59 local time.",
+    icon: "🌙",
+    category: "TIME" as const,
+    rarity: "EPIC" as const,
+    order: 910,
+  },
+  UNBEATABLE_PLACEMENT: {
+    title: "Unbeatable",
+    description: "Completed the 100-question placement test with no mistakes.",
+    icon: "🛡️",
+    category: "ACCURACY" as const,
+    rarity: "LEGENDARY" as const,
+    order: 920,
+  },
+} as const;
 
 /** The diagnostic is a one-time milestone, rather than 100 separate rewards. */
 export const PLACEMENT_TEST_COMPLETION_XP = 25;
@@ -207,6 +228,10 @@ async function evaluateAchievements(tx: Tx, userId: string, date: string) {
   const [achievements, level, streak] = await Promise.all([tx.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }), tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} })]);
   const unlocked: Array<{ title: string; experience: number; coins: number }> = [];
   for (const achievement of achievements) {
+    // These hidden, event-specific badges are verified at their precise
+    // source event below. A generic aggregate would make them unlock under
+    // the wrong conditions.
+    if (specialBadgeCodes.has(achievement.code)) continue;
     const config = (achievement.conditionConfig ?? {}) as { target?: unknown };
     const target = Math.max(1, Number(config.target ?? 1));
     const progress = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
@@ -219,6 +244,43 @@ async function evaluateAchievements(tx: Tx, userId: string, date: string) {
     }
   }
   return unlocked;
+}
+
+async function awardSpecialBadge(tx: Tx, userId: string, code: keyof typeof specialBadgeDefinition) {
+  const definition = specialBadgeDefinition[code];
+  const achievement = await tx.achievement.upsert({
+    where: { code },
+    create: {
+      code,
+      title: definition.title,
+      description: definition.description,
+      icon: definition.icon,
+      category: definition.category,
+      rarity: definition.rarity,
+      // The type is retained for the existing schema; evaluation is guarded
+      // above and this badge can only be earned at its source event.
+      conditionType: "ACTIVE_MINUTES",
+      conditionConfig: json({ target: 1, source: code }),
+      isTrophy: true,
+      isHidden: true,
+      order: definition.order,
+    },
+    update: {},
+  });
+  const existing = await tx.userAchievement.findUnique({ where: { userId_achievementId: { userId, achievementId: achievement.id } }, select: { completed: true } });
+  if (existing?.completed) return null;
+  await tx.userAchievement.upsert({
+    where: { userId_achievementId: { userId, achievementId: achievement.id } },
+    create: { userId, achievementId: achievement.id, progress: 1, target: 1, completed: true, completedAt: new Date() },
+    update: { progress: 1, target: 1, completed: true, completedAt: new Date() },
+  });
+  return { title: achievement.title, icon: achievement.icon };
+}
+
+/** Called only after a server-validated, complete 100-question placement test. */
+export async function recordPerfectPlacementTestBadge(tx: Tx, userId: string, answers: readonly boolean[]) {
+  if (answers.length !== 100 || !answers.every(Boolean)) return null;
+  return awardSpecialBadge(tx, userId, "UNBEATABLE_PLACEMENT");
 }
 
 async function checkDailyGoalCompletionInTransaction(tx: Tx, userId: string, date: string) {
@@ -354,8 +416,11 @@ export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: s
     const previous = await tx.learningActivity.findFirst({ where: { userId, type: "COURSE_COMPLETED", courseId } });
     if (!previous) { await tx.learningActivity.create({ data: { userId, type: "COURSE_COMPLETED", courseId } }); await rewardForEvent(tx, userId, context.date, "COURSE_COMPLETED", courseId, "Course completed"); }
   }
+  const nightWatch = userLocalHour(context.timeZone) === 3
+    ? await awardSpecialBadge(tx, userId, "NIGHT_WATCH")
+    : null;
   await evaluateAchievements(tx, userId, context.date);
-  return reward;
+  return { ...reward, achievements: nightWatch ? [nightWatch.title] : [] };
 }
 
 /**
