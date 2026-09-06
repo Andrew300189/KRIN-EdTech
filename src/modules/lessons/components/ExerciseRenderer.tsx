@@ -8,6 +8,7 @@ import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExe
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
 import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
+import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hints";
 import { useLocale } from "@/core/i18n/locale";
@@ -140,6 +141,10 @@ function normalizeMatchingForm(value: string) {
   return value.trim().toLowerCase().replace(/[.!?]+$/u, "");
 }
 
+function displayTranslation(value: string) {
+  return value.trim().replace(/^(?:translation|перевод|переклад)\s*:\s*/iu, "");
+}
+
 export function ExerciseRenderer({ exercise, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
   const { locale } = useLocale();
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
@@ -199,18 +204,15 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       ? shuffleTokens(options, exercise.id, correctOrderedTokens)
       : options
   ), [correctOrderedTokens, exercise.id, options, ordered]);
-  const authoredTranslation = useMemo(() => {
-    for (const value of [content.translation, content.translationRu, content.translatedText]) {
-      if (typeof value === "string" && value.trim()) return value.trim();
-    }
-    return null;
-  }, [content]);
-  const translationSource = useMemo(() => {
-    for (const value of [content.authoringSource, content.source, exercise.question]) {
-      if (typeof value === "string" && value.trim()) return value.trim();
-    }
-    return "";
-  }, [content, exercise.question]);
+  const translationTarget = useMemo(
+    () => getExerciseTranslationTarget({ question: exercise.question, content }),
+    [content, exercise.question],
+  );
+  const authoredTranslation = useMemo(
+    () => getAuthoredExerciseTranslation(content, translationTarget),
+    [content, translationTarget],
+  );
+  const translationSource = translationTarget.source;
   const visibleHint = learnerFriendlyHint(exercise, locale);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
@@ -331,7 +333,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     }
     setTranslationError(null);
     if (previewMode) {
-      if (authoredTranslation) setTranslation(authoredTranslation);
+      if (authoredTranslation) setTranslation(displayTranslation(authoredTranslation));
       else setTranslationError("Translation is unavailable in preview.");
       return;
     }
@@ -342,7 +344,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       const payload = await response.json().catch(() => null) as { data?: TranslationResult; error?: string } | null;
       if (!response.ok || !payload?.data?.translation) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
       if (requestId !== translationRequestRef.current) return;
-      setTranslation(payload.data.translation);
+      setTranslation(displayTranslation(payload.data.translation));
       if (payload.data.cost > 0) notifyMotivationUpdated();
     } catch (caught) {
       if (requestId !== translationRequestRef.current) return;

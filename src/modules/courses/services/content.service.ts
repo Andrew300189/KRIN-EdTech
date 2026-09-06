@@ -30,6 +30,7 @@ import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/co
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
 import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLessonEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
+import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
 import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian, verbToBeCourseSlug } from "@/modules/courses/localization/verb-to-be-ukrainian";
 import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
@@ -1650,13 +1651,9 @@ export async function getExerciseTranslationSource(userId: string, exerciseId: s
   const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
 
-  const content = exercise.content && typeof exercise.content === "object" && !Array.isArray(exercise.content)
-    ? exercise.content as Record<string, unknown>
-    : {};
-  const authoredTranslation = [content.translation, content.translationRu, content.translatedText]
-    .find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim() ?? null;
-  const source = [content.authoringSource, content.source, exercise.question]
-    .find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim() ?? "";
+  const target = getExerciseTranslationTarget({ question: exercise.question, content: exercise.content });
+  const authoredTranslation = getAuthoredExerciseTranslation(exercise.content, target);
+  const source = target.source;
   if (!authoredTranslation && !source) throw new Error("Translation is unavailable for this task.");
   return { authoredTranslation, source };
 }
