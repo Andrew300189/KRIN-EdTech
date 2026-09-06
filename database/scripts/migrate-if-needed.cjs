@@ -28,6 +28,14 @@ const prisma = new PrismaClient({
   datasources: { db: { url: databaseUrl } },
 });
 
+// This data-only migration failed before PostgreSQL could execute its first
+// statement because an early version referenced a non-existent table. It is
+// safe to roll back Prisma's failed-attempt marker: it changes no schema and
+// no course data was written. The corrected migration is then applied below.
+const retrySafeFailedMigrations = new Set([
+  "20260906090000_add_to_be_practice_rules",
+]);
+
 function localMigrationNames() {
   return readdirSync(migrationsDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -61,7 +69,38 @@ function runMigrations() {
   }
 }
 
+function markMigrationRolledBack(migrationName) {
+  const prismaCli = join(projectRoot, "node_modules", "prisma", "build", "index.js");
+  const result = spawnSync(
+    process.execPath,
+    [prismaCli, "migrate", "resolve", "--rolled-back", migrationName],
+    {
+      cwd: projectRoot,
+      env: { ...process.env, DATABASE_URL: databaseUrl },
+      stdio: "inherit",
+    },
+  );
+
+  if (result.status !== 0) {
+    throw new Error(`Could not roll back failed migration marker: ${migrationName}.`);
+  }
+}
+
+async function resolveRetrySafeFailedMigrations() {
+  const failed = await prisma.$queryRawUnsafe(
+    'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL',
+  );
+
+  for (const { migration_name: migrationName } of failed) {
+    if (!retrySafeFailedMigrations.has(migrationName)) continue;
+
+    console.log(`Retrying corrected data migration: ${migrationName}.`);
+    markMigrationRolledBack(migrationName);
+  }
+}
+
 async function main() {
+  await resolveRetrySafeFailedMigrations();
   const local = localMigrationNames();
   const applied = await appliedMigrationNames();
   const pending = local.filter((migrationName) => !applied.has(migrationName));
