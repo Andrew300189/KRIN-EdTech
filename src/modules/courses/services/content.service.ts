@@ -772,9 +772,14 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
     },
     blocks: lesson.blocks.map((block) => {
       const blockTranslation = block.translations[0];
+      // Prisma's generated relation type permits an omitted translation field,
+      // while the lesson player deliberately accepts only a visible title or
+      // null. Normalise it here so a fresh production Prisma generation and
+      // the local client agree on the public lesson shape.
+      const blockTitle = blockTranslation?.title ?? block.title ?? null;
       return {
         ...block,
-        title: localizeText(blockTranslation?.title ?? block.title),
+        title: localizeText(blockTitle) ?? null,
         content: localizeJson(blockTranslation?.content ?? block.content),
         exercises: block.exercises.map((exercise) => {
           const exerciseTranslation = exercise.translations[0];
