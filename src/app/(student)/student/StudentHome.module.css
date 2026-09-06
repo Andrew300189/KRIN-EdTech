@@ -71,12 +71,16 @@
 .leaderboardList { display: grid; gap: 0.3rem; margin: 0.62rem 0 0; padding: 0; list-style: none; }
 .leaderboardRow { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: 0.42rem; border: 1px solid color-mix(in srgb, var(--border) 86%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-elevated) 86%, transparent); padding: 0.37rem 0.42rem; }
 .currentLeaderboardRow { border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); background: color-mix(in srgb, var(--primary) 9%, var(--surface-elevated)); }
-.leaderboardPlace { color: color-mix(in srgb, #b45309 84%, var(--text-primary)); font-size: 0.72rem; font-weight: 900; text-align: center; }
+.leaderboardPlace { display: grid; width: 1.55rem; height: 1.55rem; place-items: center; border-radius: 50%; color: var(--text-secondary); font-size: .69rem; font-weight: 900; text-align: center; }
+.firstPlace { border: 1px solid #f4c94c; background: linear-gradient(135deg, #fff8c9, #e9ac24); color: #6f4700; box-shadow: 0 .18rem .45rem rgb(217 145 14 / 23%); }
+.secondPlace { border: 1px solid #cbd5e1; background: linear-gradient(135deg, #f8fafc, #aebdce); color: #334155; box-shadow: 0 .18rem .45rem rgb(71 85 105 / 16%); }
+.thirdPlace { border: 1px solid #db985b; background: linear-gradient(135deg, #ffe6cd, #b96831); color: #5f2d10; box-shadow: 0 .18rem .45rem rgb(146 64 14 / 16%); }
+.otherPlace { border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); background: var(--surface-secondary); }
 .leaderboardLearner { display: grid; min-width: 0; gap: 0.06rem; }
 .leaderboardLearner strong { overflow: hidden; color: var(--text-primary); font-size: 0.74rem; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboardLearner span { overflow: hidden; color: var(--text-muted); font-size: 0.64rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.leaderboardScore { display: grid; justify-items: end; color: var(--text-primary); font-size: 0.75rem; font-weight: 900; line-height: 1; }
-.leaderboardScore small { margin-top: 0.1rem; color: var(--text-muted); font-size: 0.56rem; font-weight: 700; }
+.leaderboardScore { display: grid; justify-items: end; color: var(--text-primary); font-size: .68rem; font-weight: 900; line-height: 1; }
+.leaderboardScore small { max-width: 3.4rem; margin-top: .1rem; overflow: hidden; color: var(--text-muted); font-size: .5rem; font-weight: 700; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .ownRank { margin: 0.5rem 0 0; color: var(--text-secondary); font-size: 0.69rem; line-height: 1.32; }
 .ownRank strong { color: var(--primary); }
 .mistakeCount { min-width: 1.8rem; text-align: center; }
@@ -86,7 +90,7 @@
 .textLink { display: inline-flex; margin-top: auto; padding-top: 0.65rem; }
 .primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .placementPanel { padding: 0.75rem; } .placementCourseList { grid-template-columns: 1fr; } .placementRecommendationsHeading { align-items: flex-start; flex-direction: column; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .leaderboardPanel .helperText { display: block; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .leaderboardRow { padding: 0.34rem 0.4rem; } .leaderboardLearner strong { font-size: 0.72rem; } .ownRank { display: block; } .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
-@media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (min-width: 1024px) {
   .page { height: 100%; min-height: 0; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 0.7rem; overflow: hidden; }
   .hero { min-height: 6.25rem; padding: 0.9rem 1.1rem; }

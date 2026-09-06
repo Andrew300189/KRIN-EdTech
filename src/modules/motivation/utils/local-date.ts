@@ -27,3 +27,11 @@ export function subtractLocalDays(date: string, days: number) {
   value.setUTCDate(value.getUTCDate() - days);
   return value.toISOString().slice(0, 10);
 }
+
+/** The Monday that starts the calendar week containing a user's local date.
+ * Keeping the key date-only prevents an Easter-egg claim from moving when a
+ * learner's browser and the server are in different time zones. */
+export function localWeekStart(date: string) {
+  const weekday = new Date(`${date}T12:00:00.000Z`).getUTCDay();
+  return subtractLocalDays(date, (weekday + 6) % 7);
+}

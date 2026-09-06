@@ -9,9 +9,8 @@ import { CoursePurchasePanel } from "@/modules/courses/components/CoursePurchase
 import { CourseHeroActions } from "@/modules/courses/components/CourseHeroActions";
 import { FunnelEventReporter } from "@/modules/analytics/components/FunnelEventReporter";
 import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHeader";
-import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
-import { LessonCardAnimation } from "@/modules/courses/components/LessonCardAnimation";
 import { listPublicCourseReviews } from "@/modules/courses/services/course-review.service";
+import { CourseLearningPath } from "@/modules/courses/components/CourseLearningPath";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const courseTypeLabels = { STANDARD: "Standard course", INTENSIVE: "Intensive course", EXAM_PREP: "Exam preparation", PROFESSIONAL: "Professional English", SPECIALIZATION: "Specialisation", SKILL: "Skill course" } as const;
@@ -136,17 +135,12 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
           </article>)}</div> : <p className={styles.noCourseReviews}>The first verified learner review will appear here after course completion.</p>}
         </section>
 
-        <dialog id="course-content-dialog" className={styles.courseContentDialog} aria-labelledby="outline-title"><div className={styles.dialogHeader}><div><p className={styles.programmeEyebrow}>Course programme</p><h2 id="outline-title">{course.modules.length} {course.modules.length === 1 ? "module" : "modules"} · {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}</h2></div><form method="dialog"><button type="submit" className={styles.dialogCloseButton} aria-label="Close course content">Close</button></form></div><section className={styles.outline} aria-labelledby="programme-title"><div className={styles.outlineHeading}><h2 id="programme-title">Published programme</h2><p>Module and lesson titles are visible before purchase.</p></div>
-          {course.modules.length ? <div className={styles.moduleList}>{course.modules.map((module) => <details key={module.id} className={styles.module} name="course-modules"><summary className={styles.moduleHeader}><div><p className={styles.moduleEyebrow}>Module {module.order}</p><h3>{module.title}</h3>{module.description ? <p>{module.description}</p> : null}</div><span className={styles.moduleCount}>{module.lessons.length} lessons</span></summary><ol className={styles.lessonList}>{module.lessons.map((lesson) => {
-            const access = accessByLessonId.get(lesson.id);
-            const lessonProgress = progressByLessonId.get(lesson.id);
-            const state = lessonProgress?.status === "COMPLETED" ? "Completed" : lessonProgress ? "In progress" : access?.allowed ? "Available" : lesson.isFree ? "Free lesson" : access?.reason === "AUTH_REQUIRED" ? "Sign in to unlock" : "Locked";
-            const stateClass = state === "Completed" ? styles.completed : state === "In progress" ? styles.inProgress : state === "Locked" || state === "Sign in to unlock" ? styles.locked : "";
-            const earnedExperience = lessonProgress?.status === "COMPLETED" ? lessonProgress.experienceEarned : 0;
-            const content = <><LessonCardAnimation lessonOrder={lesson.order} /><span className={styles.lessonTitle}><b>{lesson.order}.</b>{lesson.title}</span><span className={`${styles.lessonState} ${stateClass}`}>{state}{lessonProgress ? ` · ${lessonProgress.completionPercent}%` : ""}</span><LessonXpBadge className={styles.lessonXpBadge} experience={earnedExperience} correctAnswers={lessonProgress?.attemptAccuracy.correctAnswers ?? 0} incorrectAnswers={lessonProgress?.attemptAccuracy.incorrectAnswers ?? 0} progressPercent={lessonProgress?.completionPercent ?? 0} /></>;
-            return <li key={lesson.id}>{access?.allowed ? <Link href={`${coursePath}/lessons/${lesson.localizedSlug ?? lesson.slug}`} className={styles.lessonLink}>{content}</Link> : <div className={styles.lockedLesson}>{content}</div>}</li>;
-          })}</ol></details>)}</div> : <p className={styles.empty}>No published modules are available yet. The course page does not substitute unrelated content.</p>}
-        </section></dialog>
+        <dialog id="course-content-dialog" className={styles.courseContentDialog} aria-labelledby="outline-title">
+          <div className={styles.dialogHeader}><div><p className={styles.programmeEyebrow}>Course programme</p><h2 id="outline-title">{course.modules.length} {course.modules.length === 1 ? "module" : "modules"} · {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}</h2></div><form method="dialog"><button type="submit" className={styles.dialogCloseButton} aria-label="Close course content">Close</button></form></div>
+          <div className={styles.outline}>
+            {course.modules.length ? <CourseLearningPath modules={course.modules} accessByLessonId={accessByLessonId} progressByLessonId={progressByLessonId} coursePath={coursePath} locale={locale ?? course.contentLocale} /> : <p className={styles.empty}>No published modules are available yet. The course page does not substitute unrelated content.</p>}
+          </div>
+        </dialog>
       </div>
       <aside className={styles.courseSidebar}>{purchase}{courseFaq}</aside>
     </div>

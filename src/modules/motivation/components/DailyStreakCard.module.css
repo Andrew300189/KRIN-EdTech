@@ -1,0 +1,18 @@
+.card { display: grid; gap: .55rem; min-width: 0; border: 1px solid color-mix(in srgb, #f97316 42%, var(--border)); border-radius: var(--radius-lg); background: linear-gradient(135deg, color-mix(in srgb, #f97316 13%, var(--surface-elevated)), color-mix(in srgb, #f59e0b 5%, var(--surface-elevated)) 54%, var(--surface-elevated)); box-shadow: var(--shadow-sm); padding: .82rem; }
+.heading { display: flex; min-width: 0; align-items: center; gap: .55rem; }
+.flame { display: grid; width: 2.45rem; height: 2.45rem; flex: 0 0 auto; place-items: center; border: 1px solid rgb(249 115 22 / 30%); border-radius: 50%; background: rgb(255 247 237 / 82%); font-size: 1.25rem; box-shadow: 0 .35rem .8rem rgb(234 88 12 / 14%); }
+.heading p { margin: 0; color: color-mix(in srgb, #c2410c 82%, var(--text-primary)); font-size: .64rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.heading h3 { margin: .1rem 0 0; color: var(--text-primary); font-size: 1rem; font-weight: 850; letter-spacing: -.025em; }
+.heading h3 strong { color: #ea580c; font-size: 1.35rem; }
+.freezeStatus { display: inline-grid; min-width: 1.75rem; height: 1.75rem; margin-left: auto; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font-size: .78rem; font-weight: 900; }
+.freezeReady { border-color: rgb(59 130 246 / 38%); background: rgb(239 246 255 / 88%); color: #2563eb; }
+.copy { min-height: 2.25rem; margin: 0; color: var(--text-secondary); font-size: .73rem; line-height: 1.38; }
+.meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem .55rem; color: var(--text-muted); font-size: .65rem; font-weight: 750; }
+.meta span:first-child { color: color-mix(in srgb, #2563eb 82%, var(--text-primary)); }
+.buyButton { display: flex; min-height: 2.3rem; align-items: center; justify-content: space-between; gap: .55rem; margin-top: .1rem; border: 1px solid rgb(234 88 12 / 18%); border-radius: .72rem; background: #ea580c; color: #fff; cursor: pointer; padding: .45rem .62rem; font: inherit; font-size: .72rem; font-weight: 900; text-align: left; box-shadow: 0 .45rem .85rem rgb(234 88 12 / 18%); }
+.buyButton:hover:not(:disabled) { background: #c2410c; }
+.buyButton:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
+.buyButton small { font-size: .62rem; font-weight: 800; opacity: .94; white-space: nowrap; }
+.balance { margin: -.12rem 0 0; color: var(--text-muted); font-size: .62rem; font-weight: 700; text-align: right; }
+.buyButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .card, .buyButton { transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease; } .card:hover { border-color: color-mix(in srgb, #f97316 62%, var(--border)); transform: translateY(-1px); } }

@@ -5,7 +5,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { toast } from "sonner";
 import { AppModal } from "@/core/components/AppModal";
 import { ThemeToggle } from "@/core/components/ThemeToggle";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/core/i18n/locale";
 import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { courseSkillCatalog, courseSkillLevels, type CourseSkillSlug } from "@/modules/courses/data/skill-course-catalog";
+import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import styles from "./PublicSiteHeader.module.css";
 
 const levelOrder = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -134,7 +136,7 @@ function LanguagePicker() {
 
 /** Shared public navigation with keyboard-accessible skill and mobile menus. */
 export function PublicSiteHeader() {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginIntent, setLoginIntent] = useState<"learner" | "teacher">("learner");
@@ -142,6 +144,15 @@ export function PublicSiteHeader() {
   const [canAccessCms, setCanAccessCms] = useState(false);
   const [headerUser, setHeaderUser] = useState<HeaderUser | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const logoClicks = useRef(0);
+  const logoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
+
+  const easterEggCopy = locale === "uk"
+    ? "Ви знайшли пасхалку KRIN: +500 XP!"
+    : locale === "ru"
+      ? "Вы нашли пасхалку KRIN: +500 XP!"
+      : "You found a KRIN Easter egg: +500 XP!";
 
   useEffect(() => {
     let active = true;
@@ -177,6 +188,41 @@ export function PublicSiteHeader() {
     };
   }, []);
 
+  useEffect(() => () => {
+    if (logoClickTimer.current) clearTimeout(logoClickTimer.current);
+  }, []);
+
+  async function claimLogoEasterEgg() {
+    try {
+      const response = await fetch("/api/profile/motivation/easter-egg", { method: "POST" });
+      const payload = await response.json().catch(() => null) as { data?: { claimed?: boolean; experience?: number } } | null;
+      if (response.ok && payload?.data?.claimed && payload.data.experience) {
+        toast.success(easterEggCopy, { description: `+${payload.data.experience} XP` });
+        notifyMotivationUpdated();
+      }
+    } catch {
+      // A hidden bonus must never interfere with normal logo navigation.
+    }
+  }
+
+  function handleBrandClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+    // Four quick clicks reveal the Easter egg. A normal logo click still goes
+    // home after a short delay, while the fourth secret click stays in place to
+    // display its reward. The server owns the weekly cooldown and XP credit.
+    event.preventDefault();
+    logoClicks.current += 1;
+    if (logoClickTimer.current) clearTimeout(logoClickTimer.current);
+    if (logoClicks.current >= 4) {
+      logoClicks.current = 0;
+      void claimLogoEasterEgg();
+      return;
+    }
+    logoClickTimer.current = setTimeout(() => {
+      logoClicks.current = 0;
+      router.push("/");
+    }, 360);
+  }
+
   const openLogin = (intent: "learner" | "teacher", initialView: "login" | "register" = "login") => {
     setLoginIntent(intent);
     setLoginInitialView(initialView);
@@ -187,7 +233,7 @@ export function PublicSiteHeader() {
 
   return <header className={styles.header}>
     <div className={styles.inner}>
-      <Link href="/" className={styles.brand} aria-label="KRIN EdTech home">
+      <Link href="/" className={styles.brand} aria-label="KRIN EdTech home" onClick={handleBrandClick}>
         <span className={styles.brandLogoFrame}>
           <img
             src="/icons/a-detailed-flat-vector-illustration-of-a-single-wh.svg"

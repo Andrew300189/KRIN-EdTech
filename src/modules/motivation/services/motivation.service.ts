@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-config";
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
-import { dateDistanceInDays, safeTimeZone, subtractLocalDays, userLocalDate } from "@/modules/motivation/utils/local-date";
+import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate } from "@/modules/motivation/utils/local-date";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
@@ -420,6 +420,92 @@ export async function getMotivationOverview(userId: string) {
 }
 
 export const XP_PER_KRIN_COIN = 1_000;
+/** A freeze protects one missed calendar day in a qualified daily streak. */
+export const STREAK_FREEZE_PRICE_COINS = 1;
+export const WEEKLY_EASTER_EGG_XP = 500;
+
+/**
+ * Buys a single, server-recorded streak freeze. The balance check and the
+ * deduction share one transaction, so a double click cannot spend coins the
+ * learner no longer has. A freeze is consumed automatically only when the
+ * learner returns after exactly one missed qualified day.
+ */
+export async function purchaseStreakFreeze(userId: string) {
+  return prisma.$transaction(async (tx) => {
+    const context = await userContext(tx, userId);
+    const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+    const deduction = await tx.userWallet.updateMany({
+      where: { id: wallet.id, balance: { gte: STREAK_FREEZE_PRICE_COINS } },
+      data: {
+        balance: { decrement: STREAK_FREEZE_PRICE_COINS },
+        lifetimeSpent: { increment: STREAK_FREEZE_PRICE_COINS },
+      },
+    });
+    if (!deduction.count) throw new Error("Insufficient KRIN Coins");
+
+    const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    const purchaseId = randomUUID();
+    await tx.coinTransaction.create({
+      data: {
+        userId,
+        walletId: wallet.id,
+        amount: -STREAK_FREEZE_PRICE_COINS,
+        balanceBefore: wallet.balance,
+        balanceAfter: updatedWallet.balance,
+        balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
+        balanceAfterMinor: updatedWallet.balance * 100 + updatedWallet.fractionalBalance,
+        type: "PURCHASE",
+        sourceType: "STREAK_FREEZE",
+        sourceId: purchaseId,
+        idempotencyKey: `streak-freeze:${userId}:${purchaseId}`,
+        localDate: context.date,
+        description: "Streak Freeze purchased",
+      },
+    });
+    const streak = await tx.userStreak.upsert({
+      where: { userId },
+      create: { userId, freezeCount: 1 },
+      update: { freezeCount: { increment: 1 } },
+    });
+    return { streak, wallet: updatedWallet, price: STREAK_FREEZE_PRICE_COINS };
+  });
+}
+
+/**
+ * Awards the logo Easter egg at most once in the learner's calendar week.
+ * The unique experience idempotency key is the durable guard: it protects
+ * concurrent requests and does not trust any client-side cooldown.
+ */
+export async function claimWeeklyEasterEgg(userId: string) {
+  return prisma.$transaction(async (tx) => {
+    const context = await userContext(tx, userId);
+    const weekStart = localWeekStart(context.date);
+    const weekKey = `easter-egg:${userId}:${weekStart}`;
+    const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey: weekKey }, select: { id: true } });
+    if (existing) return { claimed: false, experience: 0, weekStart };
+    const reward = await creditExperienceAndCoins(tx, {
+      userId,
+      experienceAmount: WEEKLY_EASTER_EGG_XP,
+      coinAmount: 0,
+      experienceType: "ACHIEVEMENT_REWARD",
+      coinType: "ACHIEVEMENT_REWARD",
+      sourceType: "EASTER_EGG",
+      sourceId: weekStart,
+      idempotencyKey: weekKey,
+      description: "KRIN explorer Easter egg",
+      date: context.date,
+    });
+    return { claimed: reward.awarded, experience: reward.experience, weekStart };
+  }).catch((error: unknown) => {
+    // Concurrent weekly claims race on the unique idempotency key. The losing
+    // transaction is rolled back in full, then behaves as an already-claimed
+    // request instead of surfacing a database implementation detail.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { claimed: false, experience: 0, weekStart: "" };
+    }
+    throw error;
+  });
+}
 
 export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number) {
   const exchangedExperience = Math.trunc(requestedExperience);
@@ -586,6 +672,12 @@ function motivationMinor(whole: number, fraction: number | null | undefined) {
   return Math.max(0, whole) * 100 + Math.max(0, Math.min(99, fraction ?? 0));
 }
 
+/** Rank in XP-equivalent hundredths: a KRIN Coin has the same value as the
+ * 1,000 XP that are required to exchange for it. */
+export function leaderboardScoreMinor(experienceMinor: number, coinsMinor: number) {
+  return Math.max(0, experienceMinor) + Math.max(0, coinsMinor) * XP_PER_KRIN_COIN;
+}
+
 function rankLearners(rows: LeaderboardSource[], currentUserId?: string): LearnerLeaderboardEntry[] {
   return rows
     .map((row) => {
@@ -599,7 +691,10 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
         level: row.level?.level ?? 1,
         experienceMinor,
         coinsMinor,
-        totalMinor: experienceMinor + coinsMinor,
+        // A KRIN Coin is obtained by exchanging 1,000 XP. Ranking it as one
+        // point would make an exchange destroy a learner's position, so the
+        // score always uses the XP-equivalent value instead.
+        totalMinor: leaderboardScoreMinor(experienceMinor, coinsMinor),
         createdAt: row.createdAt,
       };
     })
@@ -653,13 +748,16 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;
-  // Other learners' balances are intentionally not sent to the browser. Their
-  // order is still calculated from XP + coins, while each person sees their
-  // own exact amounts and place.
+  // The dashboard leaderboard deliberately shows XP and KRIN Coin balances
+  // for every listed participant. `totalMinor` is the XP-equivalent score
+  // used only for placement: 1 KRIN Coin = 1,000 XP.
   const entries = ranked.slice(0, Math.min(Math.max(limit, 1), 10)).map((entry) => ({
     rank: entry.rank,
     userId: entry.userId,
     displayName: entry.displayName,
+    experienceMinor: entry.experienceMinor,
+    coinsMinor: entry.coinsMinor,
+    totalMinor: entry.totalMinor,
     isCurrentUser: entry.isCurrentUser,
   }));
   return { entries, current, participantCount: ranked.length };
