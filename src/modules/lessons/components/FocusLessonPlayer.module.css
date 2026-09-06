@@ -1376,20 +1376,22 @@
   padding: 0;
 }
 
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary) {
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control) {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
+  border: 0;
   border-radius: inherit;
+  background: transparent;
   color: #92400e;
+  cursor: pointer;
+  font: inherit;
   font-size: .78rem;
   font-weight: 800;
-  list-style: none;
   padding: 8px 11px;
 }
 
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary::-webkit-details-marker) { display: none; }
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger summary::before) {
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control::before) {
   width: 6px;
   height: 6px;
   border-radius: 999px;
@@ -1397,9 +1399,10 @@
   content: "";
   margin-right: 7px;
 }
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open]) { display: block; padding: 0 11px 10px; }
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open] summary) { padding-left: 0; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[data-open]) { display: block; padding: 0 11px 10px; }
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger p) { color: #78350f; font-size: .84rem; font-weight: 600; line-height: 1.45; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control:focus-visible) { outline: 2px solid #d97706; outline-offset: 3px; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control:disabled) { cursor: wait; opacity: .6; }
 
 /* Matches the hint control's compact shape, while indigo distinguishes a
    translation from help with the answer. */

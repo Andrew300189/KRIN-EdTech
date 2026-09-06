@@ -23,6 +23,7 @@ type AttemptResult = {
 };
 type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number };
+type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number };
 
 function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
@@ -167,6 +168,9 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [translation, setTranslation] = useState<string | null>(null);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [translationSending, setTranslationSending] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
+  const [hintSending, setHintSending] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
@@ -238,6 +242,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     setSolution(null);
     setConfirmSolution(false);
     setError(null);
+    setHintOpen(false);
+    setHintError(null);
     setHintUsed(false);
     setAttemptStartedAt(Date.now());
   }
@@ -298,6 +304,32 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     }
   }
 
+  async function toggleHint() {
+    if (hintOpen) {
+      setHintOpen(false);
+      return;
+    }
+    setHintError(null);
+    if (previewMode) {
+      setHintOpen(true);
+      setHintUsed(true);
+      return;
+    }
+    setHintSending(true);
+    try {
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/hint`, { method: "POST" });
+      const payload = await response.json().catch(() => null) as { data?: HintPurchaseResult; error?: string } | null;
+      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to show the hint.");
+      setHintOpen(true);
+      setHintUsed(true);
+      if (payload.data.cost > 0) notifyMotivationUpdated();
+    } catch (caught) {
+      setHintError(caught instanceof Error ? caught.message : "Unable to show the hint.");
+    } finally {
+      setHintSending(false);
+    }
+  }
+
   async function openSolution() {
     setSolutionSending(true); setError(null);
     try {
@@ -328,6 +360,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const visibleInstruction = compactToBeMatching ? "Впишите правильную форму: am, is или are." : exercise.instruction;
   const visibleHint = learnerFriendlyHint(exercise, locale);
   const hintLabel = locale === "uk" ? "Показати підказку" : locale === "ru" ? "Показать подсказку" : "Show hint";
+  const hintOpeningLabel = locale === "uk" ? "Відкриваємо…" : locale === "ru" ? "Открываем…" : "Opening…";
+  const hintHideLabel = locale === "uk" ? "Сховати підказку" : locale === "ru" ? "Скрыть подсказку" : "Hide hint";
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const taskLabel = locale === "uk" ? "Що потрібно зробити" : locale === "ru" ? "Что нужно сделать" : "Your task";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
@@ -366,7 +400,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
-    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <details className="lesson-exercise-hint-trigger" onToggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) setHintUsed(true); }}><summary className="cursor-pointer font-medium">{hintLabel}</summary><p className="mt-2">{visibleHint}</p></details> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
+    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <div className="lesson-exercise-hint-trigger" data-open={hintOpen || undefined}><button type="button" onClick={() => void toggleHint()} disabled={hintSending} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintSending ? hintOpeningLabel : hintOpen ? hintHideLabel : `${hintLabel} · 1 XP`}</button>{hintOpen ? <p>{visibleHint}</p> : null}</div> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
+    {hintError ? <p className="mt-2 text-sm text-amber-700" role="status">{hintError}</p> : null}
     {translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}

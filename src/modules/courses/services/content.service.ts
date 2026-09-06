@@ -41,6 +41,7 @@ type CefrLevelCode = (typeof CEFR_LEVEL_CODES)[number];
 /** A solution is deliberately a small, predictable XP spend across all lessons. */
 const EXERCISE_SOLUTION_XP_COST = 2;
 const EXERCISE_TRANSLATION_XP_COST = 2;
+const EXERCISE_HINT_XP_COST = 1;
 
 /** Converts route/query input to the closed CEFR enum before it reaches Prisma. */
 export function normalizeCefrLevelCode(value: string | undefined | null): CefrLevelCode | null {
@@ -1697,6 +1698,75 @@ export async function purchaseExerciseTranslation(userId: string, exerciseId: st
     });
   } catch (error) {
     // A concurrent request may create the ledger entry after the first check.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (charge) {
+        const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+      }
+    }
+    throw error;
+  }
+}
+
+/** Charges once for an available hint, with the same replay protection as a solution. */
+export async function purchaseExerciseHint(userId: string, exerciseId: string) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      id: true,
+      hint: true,
+      hintsEnabled: true,
+      isGeneratedReview: true,
+      contentStatus: true,
+      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+    },
+  });
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  if (!exercise.hintsEnabled || !exercise.hint?.trim()) throw new Error("A hint is unavailable for this task.");
+  if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
+  const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("You cannot access this lesson.");
+
+  const idempotencyKey = `exercise-hint-xp:${userId}:${exerciseId}`;
+  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (previousCharge) {
+    const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (existingCharge) {
+        const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+      }
+
+      const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const debited = await tx.userLevel.updateMany({
+        where: { id: level.id, lifetimeExperience: { gte: EXERCISE_HINT_XP_COST } },
+        data: { lifetimeExperience: { decrement: EXERCISE_HINT_XP_COST } },
+      });
+      if (!debited.count) throw new Error("You need at least 1 XP to show this hint.");
+
+      const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { id: level.id } });
+      const updatedLevel = await tx.userLevel.update({ where: { id: level.id }, data: calculateUserLevel(reducedLevel.lifetimeExperience) });
+      await tx.experienceTransaction.create({
+        data: {
+          userId,
+          amount: -EXERCISE_HINT_XP_COST,
+          type: "HINT_PURCHASE",
+          sourceType: "EXERCISE_HINT",
+          sourceId: exerciseId,
+          idempotencyKey,
+          localDate: new Date().toISOString().slice(0, 10),
+          description: "Exercise hint",
+        },
+      });
+      return { alreadyPurchased: false, cost: EXERCISE_HINT_XP_COST, balance: updatedLevel.lifetimeExperience };
+    });
+  } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
       if (charge) {
