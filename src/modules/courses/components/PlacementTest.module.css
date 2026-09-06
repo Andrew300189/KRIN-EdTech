@@ -627,6 +627,12 @@
   color: #166534;
 }
 
+.ptBuilderAnswerWrong {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
 /* ── Word chips ──────────────────────────────────────────────────────── */
 .ptChip {
   display: inline-flex;
@@ -872,7 +878,8 @@
 :global(html[data-theme="dark"]) .ptResultGateError,
 :global(html[data-theme="dark"]) .ptOptionWrong,
 :global(html[data-theme="dark"]) .ptChipWrong,
-:global(html[data-theme="dark"]) .ptFeedbackWrong { background: rgb(240 105 126 / 13%); border-color: rgb(240 105 126 / 42%); color: #ffb5c0; }
+:global(html[data-theme="dark"]) .ptFeedbackWrong,
+:global(html[data-theme="dark"]) .ptBuilderAnswerWrong { background: rgb(240 105 126 / 13%); border-color: rgb(240 105 126 / 42%); color: #ffb5c0; }
 :global(html[data-theme="dark"]) .ptOptionCorrect,
 :global(html[data-theme="dark"]) .ptChipCorrect,
 :global(html[data-theme="dark"]) .ptBuilderAnswer,

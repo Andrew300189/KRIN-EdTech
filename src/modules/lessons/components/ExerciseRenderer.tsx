@@ -409,6 +409,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const taskLabel = locale === "uk" ? "Що потрібно зробити" : locale === "ru" ? "Что нужно сделать" : "Your task";
   const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
+  const wellDoneLabel = locale === "uk" ? "Чудово!" : locale === "ru" ? "Отлично!" : "Well done!";
+  const repeatSuccessLabel = locale === "uk" ? "Бали за цю вправу нараховуються лише один раз." : locale === "ru" ? "Баллы за это задание начисляются только один раз." : "XP is awarded for a correct first attempt.";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
   const streak = result?.motivationReward?.streak ?? null;
   const streakTone = streak?.tone && /^[a-z-]+$/.test(streak.tone) ? streak.tone : null;
@@ -425,8 +427,8 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
         : result.motivationReward?.awarded
         ? <><strong>+{result.motivationReward.experience} XP</strong>{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
         : result.attemptNumber > 1 && !previewMode
-          ? <><strong>Correct answer</strong><span>XP is earned for a correct first attempt.</span></>
-          : <strong>Correct answer</strong>}
+          ? <><strong>{wellDoneLabel}</strong><span>{repeatSuccessLabel}</span></>
+          : <strong>{wellDoneLabel}</strong>}
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
     <div className="lesson-exercise-heading"><div className="lesson-exercise-instruction" role="note"><span className="lesson-exercise-instruction-label">{taskLabel}</span><p>{visibleInstruction}</p></div>{result && !result.isCorrect ? <span className="lesson-exercise-inline-status" role="status">−{Math.abs(result.scoreAwarded)} points · saved for review</span> : null}</div>
