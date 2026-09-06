@@ -6,6 +6,7 @@ import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSc
 import { dateDistanceInDays, safeTimeZone, subtractLocalDays, userLocalDate } from "@/modules/motivation/utils/local-date";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
+import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
@@ -98,7 +99,7 @@ async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: R
  * answer.  The idempotency key is the protection against replays, rather than
  * a daily cap that could silently stop XP partway through a long lesson.
  */
-async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, exerciseId: string, difficulty: number) {
+async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, exerciseId: string, difficulty: number, streakBonus = 0) {
   const idempotencyKey = `exercise_correct:${userId}:${exerciseId}`;
   const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
   if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
@@ -106,8 +107,9 @@ async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, 
   const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
   if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
 
-  const experienceAmount = experienceForExerciseDifficulty(difficulty);
-  return creditExperienceAndCoins(tx, {
+  const baseExperience = experienceForExerciseDifficulty(difficulty);
+  const experienceAmount = baseExperience + streakBonus;
+  const reward = await creditExperienceAndCoins(tx, {
     userId,
     experienceAmount,
     coinAmount: 0,
@@ -116,22 +118,26 @@ async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, 
     sourceType: "EXERCISE_CORRECT",
     sourceId: exerciseId,
     idempotencyKey,
-    description: `First correct exercise attempt (+${experienceAmount} XP)`,
+    description: streakBonus
+      ? `First correct exercise attempt (+${baseExperience} XP + ${streakBonus} XP streak bonus)`
+      : `First correct exercise attempt (+${baseExperience} XP)`,
     date,
   });
+  return { ...reward, baseExperience, streakBonus };
 }
 
 /** A spaced-retrieval answer earns 1.5 XP exactly. XP elsewhere remains in
  * whole numbers, so the fractional hundredths are kept alongside the legacy
  * integer balance instead of rounding a learner's reward away. */
-async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, exerciseId: string) {
+async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, exerciseId: string, streakBonus = 0) {
   const idempotencyKey = `exercise_correct:${userId}:${exerciseId}`;
   const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
   if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
   const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
   if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
 
-  const amountMinor = 150;
+  const baseExperience = 1.5;
+  const amountMinor = 150 + (streakBonus * 100);
   const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
   const nextMinorTotal = (current.lifetimeExperience * 100) + current.fractionalExperience + amountMinor;
   const nextExperience = Math.floor(nextMinorTotal / 100);
@@ -151,7 +157,9 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
       sourceId: exerciseId,
       idempotencyKey,
       localDate: date,
-      description: "Correct spaced review question (+1.5 XP)",
+      description: streakBonus
+        ? `Correct spaced review question (+${baseExperience} XP + ${streakBonus} XP streak bonus)`
+        : "Correct spaced review question (+1.5 XP)",
     },
   });
   await tx.userDailyActivity.update({
@@ -161,7 +169,7 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
       experienceEarnedMinor: { increment: amountMinor },
     },
   });
-  return { awarded: true, experience: amountMinor / 100, coins: 0, levelUp: updated.level > current.level, level: updated.level };
+  return { awarded: true, experience: amountMinor / 100, coins: 0, levelUp: updated.level > current.level, level: updated.level, baseExperience, streakBonus };
 }
 
 async function updateStreakForDate(tx: Tx, userId: string, date: string) {
@@ -290,15 +298,25 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
   await tx.learningActivity.create({ data: { userId: input.userId, type: input.isCorrect ? "EXERCISE_CORRECT" : "EXERCISE_INCORRECT", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
   await tx.userDailyActivity.update({ where: { userId_date: { userId: input.userId, date: context.date } }, data: { exercisesCompleted: { increment: 1 }, correctAnswers: { increment: input.isCorrect ? 1 : 0 }, incorrectAnswers: { increment: input.isCorrect ? 0 : 1 } } });
-  const level = await tx.userLevel.upsert({ where: { userId: input.userId }, create: { userId: input.userId, currentCorrectStreak: input.isCorrect ? 1 : 0, bestCorrectStreak: input.isCorrect ? 1 : 0 }, update: input.isCorrect ? { currentCorrectStreak: { increment: 1 } } : { currentCorrectStreak: 0 } });
-  if (input.isCorrect && level.currentCorrectStreak + 1 > level.bestCorrectStreak) await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: level.currentCorrectStreak + 1 } });
-  const reward = input.isCorrect && input.isFirstAttemptCorrect
+  // A streak represents a chain of perfect first answers. A wrong answer
+  // always breaks it, and a later retry cannot rebuild it or harvest bonus XP.
+  const qualifiesForStreak = input.isCorrect && input.isFirstAttemptCorrect;
+  const level = await tx.userLevel.upsert({
+    where: { userId: input.userId },
+    create: { userId: input.userId, currentCorrectStreak: qualifiesForStreak ? 1 : 0, bestCorrectStreak: qualifiesForStreak ? 1 : 0 },
+    update: qualifiesForStreak ? { currentCorrectStreak: { increment: 1 } } : { currentCorrectStreak: 0 },
+  });
+  if (qualifiesForStreak && level.currentCorrectStreak > level.bestCorrectStreak) {
+    await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: level.currentCorrectStreak } });
+  }
+  const streak = qualifiesForStreak ? correctAnswerStreak(level.currentCorrectStreak) : null;
+  const reward = qualifiesForStreak
     ? input.isSpacedReview
-      ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId)
-      : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, input.difficulty)
+      ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId, streak?.bonusExperience)
+      : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, input.difficulty, streak?.bonusExperience)
     : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
-  return reward;
+  return { ...reward, streak };
 }
 
 /** Awards a focused-review completion exactly once per persisted review run.
