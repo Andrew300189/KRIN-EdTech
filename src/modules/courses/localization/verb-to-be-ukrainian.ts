@@ -112,6 +112,12 @@ const exactReplacements: ReadonlyArray<readonly [string, string]> = [
   ["Количество → вопрос", "Кількість → запитання"],
   ["Количество → отрицание", "Кількість → заперечення"],
   ["Форма → пример", "Форма → приклад"],
+  // A few legacy exercise templates were authored in English. Their grammar
+  // examples remain English; only the learner instruction is localized.
+  ["Build the sentence in natural English word order.", "Складіть речення англійською у природному порядку слів."],
+  ["Choose the correct form of to be: am, is, or are.", "Оберіть правильну форму to be: am, is або are."],
+  ["Match every prompt with its complete English sentence.", "Зіставте кожне завдання з повним англійським реченням."],
+  ["Type the missing form of to be.", "Впишіть пропущену форму to be."],
 ];
 
 // The curriculum contains generated feedback with hundreds of different English
@@ -186,7 +192,7 @@ function replaceEvery(value: string, source: string, target: string) {
 
 /** Preserves English grammar examples while translating the surrounding learner copy. */
 export function translateVerbToBeTextToUkrainian(value: string | null | undefined) {
-  if (!value || !/[А-Яа-яЁё]/.test(value)) return value;
+  if (!value) return value;
 
   const exactCopy = exactReplacements.reduce(
     (translated, [source, target]) => replaceEvery(translated, source, target),

@@ -454,7 +454,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const hintOpeningLabel = locale === "uk" ? "Відкриваємо…" : locale === "ru" ? "Открываем…" : "Opening…";
   const hintHideLabel = locale === "uk" ? "Сховати підказку" : locale === "ru" ? "Скрыть подсказку" : "Hide hint";
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
-  const taskLabel = locale === "uk" ? "Що потрібно зробити" : locale === "ru" ? "Что нужно сделать" : "Your task";
   const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
   const solutionCopy = locale === "uk"
     ? { show: "Показати розв’язання", saved: "Показати збережене розв’язання?", confirm: "Показати розв’язання за {cost} XP?", opening: "Відкриваємо…", cancel: "Скасувати", later: "Пізніше", example: "Приклад:", reviewRule: "Повторити правило", allErrors: "Показати всі помилки" }
@@ -477,7 +476,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
         : <strong>{answerFeedback.wellDone}</strong>}
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
-    <div className="lesson-exercise-heading"><div className="lesson-exercise-instruction" role="note"><span className="lesson-exercise-instruction-label">{taskLabel}</span><p>{visibleInstruction}</p></div></div>
+    <div className="lesson-exercise-heading"><div className="lesson-exercise-instruction" role="note"><p>{visibleInstruction}</p></div></div>
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}

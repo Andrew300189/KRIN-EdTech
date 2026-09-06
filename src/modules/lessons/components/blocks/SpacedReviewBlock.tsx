@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExerciseBlock } from "./ExerciseBlock";
 import type { LessonBlock, LessonExercise } from "../lesson-content";
 import styles from "./SpacedReviewBlock.module.css";
+import { translateVerbToBeJsonToUkrainian } from "@/modules/courses/localization/verb-to-be-ukrainian";
 
 type ReviewRun = {
   id: string;
@@ -15,6 +16,7 @@ type ReviewRun = {
 type Props = {
   lessonId: string;
   block: LessonBlock;
+  contentLocale?: "ru" | "uk";
   previewMode?: boolean;
   playerStyle?: boolean;
   onReviewComplete: () => void;
@@ -22,7 +24,7 @@ type Props = {
 
 /** The questions themselves are generated and authorised by the server. This
  * component only presents that persisted ten-question set one at a time. */
-export function SpacedReviewBlock({ lessonId, block, previewMode = false, playerStyle = false, onReviewComplete }: Props) {
+export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onReviewComplete }: Props) {
   const [run, setRun] = useState<ReviewRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -65,7 +67,10 @@ export function SpacedReviewBlock({ lessonId, block, previewMode = false, player
   }
 
   const activeRun = run?.status === "ACTIVE" ? run : null;
-  const reviewBlock: LessonBlock | null = activeRun ? { ...block, exercises: activeRun.questions } : null;
+  const reviewBlock: LessonBlock | null = activeRun ? {
+    ...block,
+    exercises: contentLocale === "uk" ? activeRun.questions.map((question) => translateVerbToBeJsonToUkrainian(question)) : activeRun.questions,
+  } : null;
 
   return <section className={styles.root} aria-label="Spaced review">
     <header className={styles.heading}>
@@ -86,6 +91,7 @@ export function SpacedReviewBlock({ lessonId, block, previewMode = false, player
         <ExerciseBlock
           key={activeRun.id}
           block={reviewBlock}
+          contentLocale={contentLocale}
           playerStyle={playerStyle}
           individualExerciseStep
           sequentialOnly

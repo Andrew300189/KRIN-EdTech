@@ -6,6 +6,10 @@ describe("legacy To Be Ukrainian learner copy", () => {
     expect(translateVerbToBeTextToUkrainian("I am ready.")).toBe("I am ready.");
   });
 
+  it("translates legacy English exercise instructions without translating examples", () => {
+    expect(translateVerbToBeTextToUkrainian("Choose the correct form of to be: am, is, or are.")).toBe("Оберіть правильну форму to be: am, is або are.");
+  });
+
   it("translates Russian explanatory text nested in exercise content", () => {
     expect(translateVerbToBeJsonToUkrainian({ prompt: "Впишите пропущенное слово: I ___ ready." })).toEqual({
       prompt: "Впишіть пропущене слово: I ___ ready.",
