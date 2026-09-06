@@ -41,6 +41,21 @@ type StoredProgress = {
   };
 };
 
+/**
+ * The learner moves through a lesson entirely in React state. This is the
+ * small, serialisable snapshot that is flushed at a meaningful boundary
+ * (exit, completion, or page unload), rather than on every next/back click.
+ */
+type PendingLessonProgress = {
+  completed: string[];
+  current: string | null;
+  activeSeconds: number;
+};
+
+function progressSnapshotSignature(snapshot: PendingLessonProgress) {
+  return JSON.stringify(snapshot);
+}
+
 type LessonWord = {
   wordId: string;
   role: string;
@@ -264,6 +279,12 @@ export function LessonPlayer({
   const reviewAdvanceStartedRef = useRef(false);
   const advanceStepRef = useRef<() => void>(() => undefined);
   const successEffectSequenceRef = useRef(0);
+  const pendingProgressRef = useRef<PendingLessonProgress>({
+    completed: [],
+    current: reviewBlockId ?? blocks[0]?.id ?? null,
+    activeSeconds: 0,
+  });
+  const persistedProgressSignatureRef = useRef<string | null>(null);
 
   useEffect(() => { if (saveError) toast.error(saveError); }, [saveError]);
   useEffect(() => { if (reviewError) toast.error(reviewError); }, [reviewError]);
@@ -319,6 +340,17 @@ export function LessonPlayer({
   );
   const guestPreviewKey = `krin:lesson-preview:${lessonId}`;
   const destination = reviewSession ? "/student/mistakes" : (returnHref ?? `/courses/${courseSlug}`);
+
+  // Keep a synchronous copy as well as React state. `pagehide` has no render
+  // cycle to wait for, so this guarantees that a tab/window close sends the
+  // learner's latest location in one compact request.
+  useEffect(() => {
+    pendingProgressRef.current = {
+      completed: completedBlocks,
+      current: currentBlockId,
+      activeSeconds: elapsedSeconds,
+    };
+  }, [completedBlocks, currentBlockId, elapsedSeconds]);
 
   useEffect(() => {
     if (previewMode) return;
@@ -457,7 +489,9 @@ export function LessonPlayer({
     void create();
     window.addEventListener("pointerdown", noteInteraction);
     window.addEventListener("keydown", noteInteraction);
-    const timer = window.setInterval(heartbeat, 30_000);
+    // Presence is useful for active-learning analytics, but a minute is
+    // enough resolution and halves serverless/DB writes from this channel.
+    const timer = window.setInterval(heartbeat, 60_000);
     return () => {
       live = false;
       window.clearInterval(timer);
@@ -554,21 +588,23 @@ export function LessonPlayer({
     }
   }
 
-  async function persistProgress(complete = false, snapshot?: { completed: string[]; current: string | null }) {
+  async function persistProgress(complete = false, snapshot?: PendingLessonProgress) {
     if (previewMode || !canSaveProgress || isReviewSession) return null;
-    const savedCompleted = snapshot?.completed ?? completedBlocks;
-    const savedCurrent = snapshot?.current ?? currentBlockId;
+    const savedSnapshot = snapshot ?? pendingProgressRef.current;
+    const savedCompleted = savedSnapshot.completed;
+    const savedCurrent = savedSnapshot.current;
     setSaveError(null);
     const response = await fetch(`/api/learning/lessons/${lessonId}/progress`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completedBlockIds: savedCompleted, currentBlockId: savedCurrent, activeSeconds: 0, complete }),
+      body: JSON.stringify({ completedBlockIds: savedCompleted, currentBlockId: savedCurrent, activeSeconds: savedSnapshot.activeSeconds, complete }),
     });
     const payload = await response.json() as { data?: StoredProgress; error?: string };
     if (!response.ok || !payload.data) {
       setSaveError(payload.error ?? "Unable to save your progress.");
       return null;
     }
+    persistedProgressSignatureRef.current = progressSnapshotSignature(savedSnapshot);
     setStoredProgress(payload.data);
     if (complete) setLessonReward(payload.data.motivationReward ?? null);
     if (payload.data.motivationReward?.awarded) {
@@ -582,11 +618,29 @@ export function LessonPlayer({
   }
 
   useEffect(() => {
-    if (previewMode || !canSaveProgress || isReviewSession || elapsedSeconds === 0 || elapsedSeconds % 30 !== 0) return;
-    void persistProgress();
-  // Saving happens at the clock boundary, not every render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsedSeconds, canSaveProgress, isReviewSession, previewMode]);
+    if (previewMode || !canSaveProgress || isReviewSession) return;
+    const flushBeforePageCloses = () => {
+      const snapshot = pendingProgressRef.current;
+      // Explicit Save & exit and lesson completion already persisted this
+      // exact snapshot. Do not duplicate that write during route teardown.
+      if (persistedProgressSignatureRef.current === progressSnapshotSignature(snapshot)) return;
+      // `keepalive` lets the browser finish this single small request while a
+      // user closes a tab or changes page. It is a safety net, not a timer.
+      void fetch(`/api/learning/lessons/${lessonId}/progress`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          completedBlockIds: snapshot.completed,
+          currentBlockId: snapshot.current,
+          activeSeconds: snapshot.activeSeconds,
+          complete: false,
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", flushBeforePageCloses);
+    return () => window.removeEventListener("pagehide", flushBeforePageCloses);
+  }, [canSaveProgress, isReviewSession, lessonId, previewMode]);
 
   function triggerSuccessEffect(burst: boolean) {
     successEffectSequenceRef.current += 1;
@@ -607,7 +661,7 @@ export function LessonPlayer({
     setCompletedBlocks(nextCompleted);
     if (nextBlock) {
       setCurrentBlockId(nextBlock.id);
-      await persistProgress(false, { completed: nextCompleted, current: nextBlock.id });
+      pendingProgressRef.current = { completed: nextCompleted, current: nextBlock.id, activeSeconds: elapsedSeconds };
       return;
     }
 
@@ -615,12 +669,14 @@ export function LessonPlayer({
     // skipped task behind without being redirected to an unrelated block.
     const firstIncompleteRequiredBlock = blocks.find((block) => block.isRequired && !nextCompleted.includes(block.id));
     if (firstIncompleteRequiredBlock) {
-      await persistProgress(false, { completed: nextCompleted, current: activeBlock.id });
+      pendingProgressRef.current = { completed: nextCompleted, current: activeBlock.id, activeSeconds: elapsedSeconds };
       setFinished(true);
       return;
     }
 
-    const saved = await persistProgress(true, { completed: nextCompleted, current: activeBlock.id });
+    const completionSnapshot = { completed: nextCompleted, current: activeBlock.id, activeSeconds: elapsedSeconds };
+    pendingProgressRef.current = completionSnapshot;
+    const saved = await persistProgress(true, completionSnapshot);
     if (canSaveProgress && !saved) return;
     if (!previewMode && !canSaveProgress && !previewCompleteReported.current) {
       previewCompleteReported.current = true;
@@ -641,7 +697,7 @@ export function LessonPlayer({
     autoAdvanceTimerRef.current = null;
     setAutoAdvanceRequested(false);
     setCurrentBlockId(previousBlock.id);
-    void persistProgress(false, { completed: completedBlocks, current: previousBlock.id });
+    pendingProgressRef.current = { completed: completedBlocks, current: previousBlock.id, activeSeconds: elapsedSeconds };
   }
 
   advanceStepRef.current = () => { void advanceStep(); };
@@ -805,6 +861,7 @@ export function LessonPlayer({
                       if (!canOpenBlock) return;
                       setAutoAdvanceRequested(false);
                       setCurrentBlockId(block.id);
+                      pendingProgressRef.current = { completed: completedBlocks, current: block.id, activeSeconds: elapsedSeconds };
                       setFinished(false);
                     }}
                   >
@@ -870,7 +927,7 @@ export function LessonPlayer({
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
             {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             <div className={styles.completionActions}>
-              <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => router.push(destination)}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
+              <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
               {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
               {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
             </div>
@@ -959,10 +1016,10 @@ export function LessonPlayer({
                     // block. Correctness changes the visual result and score,
                     // but a retry is optional before moving on.
                     if (isFinalExercise) {
-                      // Exercise attempts are already stored by the attempt
-                      // endpoint. Save the enclosing lesson step immediately
-                      // as well, before its completion transition begins.
-                      void persistProgress(false);
+                      // The answer endpoint securely records the answer.
+                      // The enclosing lesson progress stays local until the
+                      // learner finishes or leaves, avoiding a second write
+                      // for each exercise card.
                       setStepVerified(true);
                       // A wrong final answer still counts as an attempted
                       // prompt, so the learner may move on manually. Only a
