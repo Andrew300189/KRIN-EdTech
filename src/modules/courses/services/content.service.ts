@@ -569,30 +569,38 @@ export async function getPublishedCourseBySlug(slug: string, localeInput?: strin
   });
   if (!course) return null;
   const courseTranslation = course.translations[0];
+  const usesVerbToBeUkrainianCopy = locale === "uk" && course.slug === verbToBeCourseSlug;
+  const localizeText = (value: string | null | undefined) => (
+    usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
+  );
+  const localizeJson = <T,>(value: T) => (
+    usesVerbToBeUkrainianCopy ? translateVerbToBeJsonToUkrainian(value) : value
+  );
   return {
     ...course,
-    // A localized URL is valid only once the course-level locale has been
-    // published. Child records may fall back individually to English.
-    contentLocale: courseTranslation ? locale : defaultContentLocale,
+    // The legacy To Be course has a complete Ukrainian read-time copy. It is
+    // intentionally treated as a published course locale even though it
+    // predates individual CMS translation records.
+    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy ? locale : defaultContentLocale,
     localizedSlug: courseTranslation?.slug ?? course.slug,
-    title: courseTranslation?.title ?? course.title,
-    shortDescription: courseTranslation?.shortDescription ?? course.shortDescription,
-    fullDescription: courseTranslation?.fullDescription ?? course.fullDescription,
-    learningOutcomes: courseTranslation?.learningOutcomes ?? course.learningOutcomes,
-    prerequisites: courseTranslation?.prerequisites ?? course.prerequisites,
+    title: localizeText(courseTranslation?.title ?? course.title) ?? course.title,
+    shortDescription: localizeText(courseTranslation?.shortDescription ?? course.shortDescription) ?? course.shortDescription,
+    fullDescription: localizeText(courseTranslation?.fullDescription ?? course.fullDescription) ?? course.fullDescription,
+    learningOutcomes: localizeJson(courseTranslation?.learningOutcomes ?? course.learningOutcomes),
+    prerequisites: localizeJson(courseTranslation?.prerequisites ?? course.prerequisites),
     modules: course.modules.map((courseModule) => {
       const moduleTranslation = courseModule.translations[0];
       return {
         ...courseModule,
-        title: moduleTranslation?.title ?? courseModule.title,
-        description: moduleTranslation?.description ?? courseModule.description,
+        title: localizeText(moduleTranslation?.title ?? courseModule.title) ?? courseModule.title,
+        description: localizeText(moduleTranslation?.description ?? courseModule.description) ?? courseModule.description,
         lessons: courseModule.lessons.map((lesson) => {
           const lessonTranslation = lesson.translations[0];
           return {
             ...lesson,
             localizedSlug: lessonTranslation?.slug ?? lesson.slug,
-            title: lessonTranslation?.title ?? lesson.title,
-            description: lessonTranslation?.description ?? lesson.description,
+            title: localizeText(lessonTranslation?.title ?? lesson.title) ?? lesson.title,
+            description: localizeText(lessonTranslation?.description ?? lesson.description) ?? lesson.description,
           };
         }),
       };
@@ -753,22 +761,22 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
     ...lesson,
     // Course publication authorizes the locale route. Missing child copies
     // intentionally fall back to the canonical English lesson data.
-    contentLocale: courseTranslation ? locale : defaultContentLocale,
+    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy ? locale : defaultContentLocale,
     localizedSlug: lessonTranslation?.slug ?? lesson.slug,
-    title: lessonTranslation?.title ?? lesson.title,
-    description: lessonTranslation?.description ?? lesson.description,
-    phraseOfTheDay: lessonTranslation?.phraseOfTheDay ?? lesson.phraseOfTheDay,
-    motivationalQuote: lessonTranslation?.motivationalQuote ?? lesson.motivationalQuote,
-    learningObjectives: lessonTranslation?.learningObjectives ?? lesson.learningObjectives,
-    previewText: lessonTranslation?.previewText ?? lesson.previewText,
+    title: localizeText(lessonTranslation?.title ?? lesson.title) ?? lesson.title,
+    description: localizeText(lessonTranslation?.description ?? lesson.description),
+    phraseOfTheDay: localizeText(lessonTranslation?.phraseOfTheDay ?? lesson.phraseOfTheDay),
+    motivationalQuote: localizeText(lessonTranslation?.motivationalQuote ?? lesson.motivationalQuote),
+    learningObjectives: localizeJson(lessonTranslation?.learningObjectives ?? lesson.learningObjectives),
+    previewText: localizeText(lessonTranslation?.previewText ?? lesson.previewText),
     module: {
       ...lesson.module,
-      title: moduleTranslation?.title ?? lesson.module.title,
-      description: moduleTranslation?.description ?? lesson.module.description,
-      course: { ...lesson.module.course, title: courseTranslation?.title ?? lesson.module.course.title, localizedSlug: courseTranslation?.slug ?? lesson.module.course.slug },
+      title: localizeText(moduleTranslation?.title ?? lesson.module.title) ?? lesson.module.title,
+      description: localizeText(moduleTranslation?.description ?? lesson.module.description),
+      course: { ...lesson.module.course, title: localizeText(courseTranslation?.title ?? lesson.module.course.title) ?? lesson.module.course.title, localizedSlug: courseTranslation?.slug ?? lesson.module.course.slug },
       lessons: lesson.module.lessons.map((item) => {
         const itemTranslation = item.translations[0];
-        return { ...item, slug: itemTranslation?.slug ?? item.slug, title: itemTranslation?.title ?? item.title };
+        return { ...item, slug: itemTranslation?.slug ?? item.slug, title: localizeText(itemTranslation?.title ?? item.title) ?? item.title };
       }),
     },
     blocks: lesson.blocks.map((block) => {
@@ -1557,7 +1565,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
  * XP debit is recorded with a deterministic key so a double click, retry, or
  * network replay can never charge the learner twice.
  */
-export async function openExerciseSolution(userId: string, exerciseId: string) {
+export async function openExerciseSolution(userId: string, exerciseId: string, localeInput?: string | null) {
   const exercise = await prisma.exercise.findUnique({
     where: { id: exerciseId },
     select: {
@@ -1567,13 +1575,26 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
       correctAnswer: true,
       explanation: true,
       content: true,
-      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+      lessonBlock: {
+        select: {
+          contentStatus: true,
+          lessonId: true,
+          lesson: { select: { module: { select: { course: { select: { slug: true } } } } } },
+        },
+      },
     },
   });
   if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
   if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
   const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
+  const localizeToUkrainian = normalizeContentLocale(localeInput) === "uk"
+    && exercise.lessonBlock.lesson.module.course.slug === verbToBeCourseSlug;
+  const solution = {
+    correctAnswer: exercise.correctAnswer,
+    explanation: localizeToUkrainian ? translateVerbToBeTextToUkrainian(exercise.explanation) : exercise.explanation,
+    feedback: localizeToUkrainian ? translateVerbToBeJsonToUkrainian(getExerciseFeedback(exercise.content)) : getExerciseFeedback(exercise.content),
+  };
 
   const latestAttempt = await prisma.exerciseAttempt.findFirst({
     where: { userId, exerciseId },
@@ -1587,7 +1608,7 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
   if (previousCharge || latestAttempt.solutionOpened) {
     if (!latestAttempt.solutionOpened) await prisma.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
     const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+    return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, ...solution };
   }
 
   try {
@@ -1613,7 +1634,7 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
         },
       });
       await tx.exerciseAttempt.update({ where: { id: latestAttempt.id }, data: { solutionOpened: true } });
-      return { alreadyOpened: false, cost: EXERCISE_SOLUTION_XP_COST, balance: updatedLevel.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+      return { alreadyOpened: false, cost: EXERCISE_SOLUTION_XP_COST, balance: updatedLevel.lifetimeExperience, ...solution };
     });
   } catch (error) {
     // A concurrent request can lose the unique idempotency-key race only after
@@ -1622,7 +1643,7 @@ export async function openExerciseSolution(userId: string, exerciseId: string) {
       const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
       if (charge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, correctAnswer: exercise.correctAnswer, explanation: exercise.explanation, feedback: getExerciseFeedback(exercise.content) };
+        return { alreadyOpened: true, cost: 0, balance: level.lifetimeExperience, ...solution };
       }
     }
     throw error;

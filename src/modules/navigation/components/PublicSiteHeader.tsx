@@ -4,6 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppModal } from "@/core/components/AppModal";
 import { ThemeToggle } from "@/core/components/ThemeToggle";
@@ -90,8 +91,23 @@ function MenuIcon({ open }: { open: boolean }) {
 
 function LanguagePicker() {
   const { locale, setLocale, t } = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  const selectLocale = (nextLocale: (typeof supportedLocales)[number]) => {
+    setLocale(nextLocale);
+    setOpen(false);
+
+    // The legacy To Be course provides Ukrainian content at a locale-specific
+    // URL. A language choice on that course must therefore change the route,
+    // not only the interface preference stored in the browser.
+    const canonicalCoursePath = pathname.replace(/^\/(?:uk|ru)(?=\/courses\/verb-to-be-masterclass(?:\/|$))/, "");
+    if (!/^\/courses\/verb-to-be-masterclass(?:\/|$)/.test(canonicalCoursePath)) return;
+    const targetPath = nextLocale === "uk" ? `/uk${canonicalCoursePath}` : canonicalCoursePath;
+    if (targetPath !== pathname) router.push(targetPath);
+  };
 
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
@@ -107,7 +123,7 @@ function LanguagePicker() {
     </button>
     {open ? <div className={styles.localeMenu} role="listbox" aria-label={t("header.language")}>
       {supportedLocales.map((supportedLocale) => (
-        <button key={supportedLocale} type="button" role="option" aria-selected={locale === supportedLocale} className={`${styles.localeOption} ${locale === supportedLocale ? styles.localeOptionActive : ""}`} onClick={() => { setLocale(supportedLocale); setOpen(false); }}>
+        <button key={supportedLocale} type="button" role="option" aria-selected={locale === supportedLocale} className={`${styles.localeOption} ${locale === supportedLocale ? styles.localeOptionActive : ""}`} onClick={() => selectLocale(supportedLocale)}>
           <span className={styles.localeCode}>{supportedLocale.toUpperCase()}</span>
           <span>{localeNames[supportedLocale]}</span>
         </button>

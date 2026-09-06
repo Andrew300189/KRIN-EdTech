@@ -11,4 +11,9 @@ describe("legacy To Be Ukrainian learner copy", () => {
       prompt: "Впишіть пропущене слово: I ___ ready.",
     });
   });
+
+  it("translates the legacy course title and summary", () => {
+    expect(translateVerbToBeTextToUkrainian("Глагол to be: Present Simple для A1")).toBe("Дієслово to be: Present Simple для A1");
+    expect(translateVerbToBeTextToUkrainian("Полный A1-курс по to be: утверждения, отрицания и вопросы в 40 интерактивных уроках по 20 минут.")).toBe("Повний A1-курс з to be: твердження, заперечення та запитання у 40 інтерактивних уроках по 20 хвилин.");
+  });
 });

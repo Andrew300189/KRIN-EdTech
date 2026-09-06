@@ -8,6 +8,7 @@ import styles from "./ExerciseBlock.module.css";
 
 type ExerciseBlockProps = {
   block: LessonBlock;
+  contentLocale?: "ru" | "uk";
   completed?: boolean;
   previewMode?: boolean;
   playerStyle?: boolean;
@@ -30,7 +31,7 @@ type ExerciseBlockProps = {
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, contentLocale, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -160,6 +161,7 @@ export function ExerciseBlock({ block, previewMode = false, playerStyle = false,
     <div key={exercise.id} data-task-index={index + 1} hidden={!showAllExercises && index !== activeIndex}>
       <ExerciseRenderer
         exercise={exercise}
+        contentLocale={contentLocale}
         previewMode={previewMode}
         hideContext={hideContext}
         hideContextText={hideContextText}

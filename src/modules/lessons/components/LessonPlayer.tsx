@@ -65,6 +65,8 @@ type Props = {
   returnHref?: string;
   /** Optional localized public path. Data APIs continue to use canonical IDs. */
   lessonHrefPrefix?: string;
+  /** Keeps controls in sync with a localized course route. */
+  contentLocale?: "ru" | "uk";
   /** A secure, user-owned error review opened from My mistakes. */
   reviewMistake?: { exerciseId: string; returnHref: string };
   /** A server-owned sequence of outstanding mistakes. */
@@ -170,9 +172,10 @@ export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
   autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
-  reviewMistake, reviewSession,
+  reviewMistake, reviewSession, contentLocale,
 }: Props) {
-  const { locale } = useLocale();
+  const { locale: selectedLocale } = useLocale();
+  const locale = contentLocale ?? selectedLocale;
   const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
   const reviewTargetExerciseId = reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId;
@@ -830,6 +833,7 @@ export function LessonPlayer({
                 <LessonBlockRenderer
                   lessonId={lessonId}
                   block={activeBlock}
+                  contentLocale={contentLocale}
                   completed={completedBlocks.includes(activeBlock.id)}
                   onToggleComplete={() => undefined}
                   canSaveProgress={false}

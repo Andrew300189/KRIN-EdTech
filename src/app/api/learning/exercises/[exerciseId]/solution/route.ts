@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const limit = consumeRateLimit(`exercise-solution:${guard.user.id}:${exerciseId}`, 8, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Too many solution requests. Please wait before trying again." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
   try {
-    return NextResponse.json({ data: await openExerciseSolution(guard.user.id, exerciseId) });
+    return NextResponse.json({ data: await openExerciseSolution(guard.user.id, exerciseId, request.headers.get("x-krin-content-locale")) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to open the solution.";
     return NextResponse.json({ error: message }, { status: /access|sign in/i.test(message) ? 403 : 400 });

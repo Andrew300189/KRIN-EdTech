@@ -28,6 +28,9 @@ function resultDescription(outcomes: string[], fallback: string, language: strin
   if (!visibleOutcomes.length) return fallback;
   const lowerCaseInitial = (value: string) => value.slice(0, 1).toLocaleLowerCase(language) + value.slice(1);
   const list = visibleOutcomes.map(lowerCaseInitial).join(", ");
+  if (language.toLowerCase().startsWith("uk")) {
+    return `Після курсу ви зможете ${list} — без здогадок і плутанини в базових ситуаціях.`;
+  }
   return language.toLowerCase().startsWith("ru")
     ? `После курса вы сможете ${list} — без угадывания и путаницы в базовых ситуациях.`
     : `After this course, you will be able to ${list} without guessing in everyday situations.`;
@@ -64,8 +67,10 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
   )) ?? firstAvailable;
   const trialLesson = lessons.find((lesson, index) => course.accessPlan === "FREE" || lesson.isFree || index < course.firstFreeLessonCount) ?? null;
   const outcomes = strings(course.learningOutcomes);
-  const courseResult = resultDescription(outcomes, course.shortDescription, course.language);
-  const learningOutcomesTitle = course.contentLocale.toLowerCase().startsWith("ru") ? "Чему вы научитесь" : "What you will learn";
+  const courseResult = resultDescription(outcomes, course.shortDescription, course.contentLocale);
+  const learningOutcomesTitle = course.contentLocale.toLowerCase().startsWith("uk")
+    ? "Чого ви навчитеся"
+    : course.contentLocale.toLowerCase().startsWith("ru") ? "Чему вы научитесь" : "What you will learn";
   const selectedPriceId = first(query.price);
   const author = course.instructor;
   const profile = author.teacherProfile?.status === "ACTIVE" ? author.teacherProfile : null;
