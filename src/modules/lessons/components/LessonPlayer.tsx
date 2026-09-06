@@ -230,6 +230,52 @@ const lessonFeedbackCopy = {
   },
 } as const;
 
+const lessonChromeCopy = {
+  en: {
+    previousStep: "Previous step", nextStep: "Next step", finishLesson: "Finish lesson", finish: "Finish",
+    saveAndExit: "Save & exit", backToCourse: "Back to course", preview: "Preview", active: "Active",
+    minutes: "min", selfPaced: "Self-paced", score: "Score", theoryForStep: "Theory for this step",
+    theoryDescription: "Use this explanation while you practise", showTheory: "Show theory", hideTheory: "Hide theory",
+    requiredStep: "Required step", noStepsTitle: "No lesson steps yet", noStepsDescription: "Add content blocks in the lesson editor to build the learner flow.",
+    goalFallback: "Take one focused step at a time.", step: "step",
+  },
+  ru: {
+    previousStep: "Предыдущий шаг", nextStep: "Следующий шаг", finishLesson: "Завершить урок", finish: "Готово",
+    saveAndExit: "Сохранить и выйти", backToCourse: "К содержанию курса", preview: "Предпросмотр", active: "Время",
+    minutes: "мин", selfPaced: "В своём темпе", score: "Баллы", theoryForStep: "Теория к этому шагу",
+    theoryDescription: "Используйте это объяснение во время практики", showTheory: "Показать теорию", hideTheory: "Скрыть теорию",
+    requiredStep: "Обязательный шаг", noStepsTitle: "В уроке пока нет шагов", noStepsDescription: "Добавьте блоки в редакторе урока, чтобы собрать учебный путь.",
+    goalFallback: "Двигайтесь по одному понятному шагу за раз.", step: "шаг",
+  },
+  uk: {
+    previousStep: "Попередній крок", nextStep: "Наступний крок", finishLesson: "Завершити урок", finish: "Готово",
+    saveAndExit: "Зберегти й вийти", backToCourse: "До змісту курсу", preview: "Попередній перегляд", active: "Час",
+    minutes: "хв", selfPaced: "У своєму темпі", score: "Бали", theoryForStep: "Теорія до цього кроку",
+    theoryDescription: "Користуйтеся цим поясненням під час практики", showTheory: "Показати теорію", hideTheory: "Сховати теорію",
+    requiredStep: "Обов’язковий крок", noStepsTitle: "В уроці ще немає кроків", noStepsDescription: "Додайте блоки в редакторі уроку, щоб побудувати навчальний шлях.",
+    goalFallback: "Рухайтеся одним зрозумілим кроком за раз.", step: "крок",
+  },
+} as const;
+
+const blockTypeCopy = {
+  THEORY: { en: "Theory", ru: "Теория", uk: "Теорія" },
+  INTRO: { en: "Introduction", ru: "Введение", uk: "Вступ" },
+  EXERCISE: { en: "Exercise", ru: "Задание", uk: "Завдання" },
+  REVIEW: { en: "Review", ru: "Повторение", uk: "Повторення" },
+  HOMEWORK: { en: "Homework", ru: "Домашнее задание", uk: "Домашнє завдання" },
+  VOCABULARY: { en: "Vocabulary", ru: "Словарь", uk: "Словник" },
+  PHRASE_OF_THE_DAY: { en: "Phrase of the day", ru: "Фраза дня", uk: "Фраза дня" },
+  VIDEO: { en: "Video", ru: "Видео", uk: "Відео" },
+  AUDIO: { en: "Audio", ru: "Аудио", uk: "Аудіо" },
+  IMAGE: { en: "Image", ru: "Изображение", uk: "Зображення" },
+  LISTENING: { en: "Listening", ru: "Аудирование", uk: "Аудіювання" },
+} as const;
+
+function localizedBlockType(type: string, locale: "en" | "ru" | "uk") {
+  const copy = blockTypeCopy[type as keyof typeof blockTypeCopy];
+  return copy ? copy[locale] : type.replace(/_/g, " ");
+}
+
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
@@ -296,6 +342,7 @@ export function LessonPlayer({
   const activeBlock = blocks[activeIndex] ?? null;
   const activeBlockRule = activeBlock ? learnerRuleForBlock(activeBlock, locale) : null;
   const headerCopy = blockHeaderCopy[locale] ?? blockHeaderCopy.en;
+  const chromeCopy = lessonChromeCopy[locale] ?? lessonChromeCopy.en;
   const activeAttemptedExerciseIds = activeBlock?.exercises
     .filter((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id))
     .map((exercise) => exercise.id) ?? [];
@@ -800,8 +847,8 @@ export function LessonPlayer({
             className={`${styles.sideNavigationButton} ${styles.sideNavigationPrevious}`}
             disabled={activeIndex === 0}
             onClick={goToPreviousBlock}
-            aria-label="Previous lesson step"
-            title="Previous step"
+            aria-label={chromeCopy.previousStep}
+            title={chromeCopy.previousStep}
           >
             <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />
           </button>
@@ -810,21 +857,21 @@ export function LessonPlayer({
             className={`${styles.sideNavigationButton} ${styles.sideNavigationNext} ${isFinalBlock ? styles.sideNavigationFinish : ""}`}
             disabled={!canAdvance}
             onClick={() => void advanceStep()}
-            aria-label={isFinalBlock ? "Finish lesson" : "Next lesson step"}
-            title={isFinalBlock ? "Finish lesson" : "Next step"}
+            aria-label={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
+            title={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
           >
-            {isFinalBlock ? <span>Finish</span> : <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />}
+            {isFinalBlock ? <span>{chromeCopy.finish}</span> : <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />}
           </button>
         </nav>
       ) : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
-            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label="Save progress and exit lesson">Save & exit</button>
-            {!previewMode ? <button type="button" className={styles.backToCourseLink} onClick={() => void openCourseContent()} aria-label="Save progress and open course content">Back to course</button> : null}
+            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label={chromeCopy.saveAndExit}>{chromeCopy.saveAndExit}</button>
+            {!previewMode ? <button type="button" className={styles.backToCourseLink} onClick={() => void openCourseContent()} aria-label={chromeCopy.backToCourse}>{chromeCopy.backToCourse}</button> : null}
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
-            <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? "Preview" : `Active ${formattedTime}`}</span></div>
+            <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
             <div className={styles.iceProgress} role="progressbar" aria-label="Correct-answer lesson progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
               <span className={styles.iceProgressFill} style={{ width: `${progressPercent}%` }} />
             </div>
@@ -839,7 +886,7 @@ export function LessonPlayer({
                 const isReviewableAfterCompletion = Boolean(lessonIsCompleted);
                 const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent;
                 const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : "locked";
-                const label = block.title?.trim() || `${block.type.replace(/_/g, " ")} step`;
+                const label = block.title?.trim() || `${localizedBlockType(block.type, locale)} ${chromeCopy.step}`;
                 const attemptVisual = canOpenBlock
                   ? getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
                   : null;
@@ -878,7 +925,7 @@ export function LessonPlayer({
 
         <section className={styles.lessonContext} aria-labelledby="lesson-title">
           <h1 id="lesson-title">{title}</h1>
-          <p>{moduleTitle} · {estimatedDuration ? `${estimatedDuration} min` : "Self-paced"}{storedProgress ? ` · Score ${storedProgress.score}` : ""}</p>
+          <p>{moduleTitle} · {estimatedDuration ? `${estimatedDuration} ${chromeCopy.minutes}` : chromeCopy.selfPaced}{storedProgress ? ` · ${chromeCopy.score} ${storedProgress.score}` : ""}</p>
         </section>
 
         {reviewSession && reviewIntroOpen ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-intro-title">
@@ -933,7 +980,7 @@ export function LessonPlayer({
             </div>
           </section>
         ) : !activeBlock ? (
-          <section className={styles.empty}><h2>No lesson steps yet</h2><p>Add content blocks in the lesson editor to build the learner flow.</p></section>
+          <section className={styles.empty}><h2>{chromeCopy.noStepsTitle}</h2><p>{chromeCopy.noStepsDescription}</p></section>
         ) : (
           <LessonWordHoverDictionary sourceLessonId={lessonId} words={vocabulary}>
           <section className={`${styles.workspace} ${reviewDialogOpen ? styles.workspacePaused : ""}`} aria-label="Current lesson step" aria-hidden={reviewDialogOpen}>
@@ -941,8 +988,8 @@ export function LessonPlayer({
             {activeTheory ? (
               <section className={styles.theory}>
                 <button type="button" className={styles.theoryToggle} onClick={() => setTheoryCollapsed((value) => !value)} aria-expanded={!theoryCollapsed}>
-                  <span><span className={styles.theoryEyebrow}>Theory for this step</span><span className={styles.theoryTitle}>Use this explanation while you practise</span></span>
-                  <span>{theoryCollapsed ? "Show theory" : "Hide theory"}</span>
+                  <span><span className={styles.theoryEyebrow}>{chromeCopy.theoryForStep}</span><span className={styles.theoryTitle}>{chromeCopy.theoryDescription}</span></span>
+                  <span>{theoryCollapsed ? chromeCopy.showTheory : chromeCopy.hideTheory}</span>
                 </button>
                 <div className={`${styles.theoryPanel} ${theoryCollapsed ? styles.theoryPanelCollapsed : ""}`}><div className={styles.theoryInner}><p className={styles.theoryText}>{activeTheory}</p></div></div>
               </section>
@@ -950,12 +997,12 @@ export function LessonPlayer({
 
             <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
               {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
-                <span className={styles.taskType}>{activeBlock.type.replace(/_/g, " ")}</span>
-                {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
+                <span className={styles.taskType}>{localizedBlockType(activeBlock.type, locale)}</span>
+                {activeBlock.isRequired ? <span className={styles.required}>{chromeCopy.requiredStep}</span> : null}
               </div> : null}
               {!isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
-                <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
+                <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
               </div> : null}
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
