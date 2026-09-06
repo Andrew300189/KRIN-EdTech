@@ -937,20 +937,6 @@
   font-weight: 800;
 }
 
-.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry) {
-  margin-left: .3rem;
-  border: 0;
-  background: transparent;
-  color: #9f1239;
-  cursor: pointer;
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry:hover) { color: #4c0519; }
-.exerciseTaskCard .focusContent :global(.lesson-exercise-inline-retry:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
-
 .exerciseTaskCard .focusContent :global(.lesson-exercise-inline-hint) {
   margin: .65rem 0 0;
   color: #9a4a08;
@@ -1196,6 +1182,23 @@
   font-weight: 720;
   letter-spacing: -.012em;
   line-height: 1.52;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-question-row) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .65rem 1rem;
+  margin-top: 10px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-question-row .lesson-exercise-question) {
+  margin-top: 0;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-question-row .lesson-exercise-translation-result) {
+  justify-self: end;
+  margin: 0;
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-passage) {
@@ -1465,6 +1468,37 @@
   padding: .58rem 1rem;
 }
 
+.exerciseTaskCard .focusContent :global(.lesson-exercise-retry-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #16a34a;
+  box-shadow: 0 .45rem 1rem rgb(22 163 74 / 24%);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: .7rem 1.15rem;
+  transition: background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-retry-button:hover) {
+  background: #15803d;
+  box-shadow: 0 .6rem 1.2rem rgb(21 128 61 / 30%);
+  transform: translateY(-1px);
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-retry-button:focus-visible) {
+  outline: 3px solid #86efac;
+  outline-offset: 3px;
+}
+
 /* Let the document grow naturally on desktop. A lesson can contain lengthy
    theory or a full exercise, and clipping it into a viewport-sized canvas
    makes controls overlap and prevents the learner from reaching the end. */
@@ -1615,6 +1649,8 @@
   .exerciseTaskCard .focusContent :global(.lesson-exercise-result-actions),
   .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm) { justify-content: flex-start; }
   .exerciseTaskCard .focusContent :global(.lesson-exercise-solution-confirm > span) { max-width: none; text-align: left; }
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-question-row) { grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .exerciseTaskCard .focusContent :global(.lesson-exercise-question-row .lesson-exercise-translation-result) { justify-self: start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

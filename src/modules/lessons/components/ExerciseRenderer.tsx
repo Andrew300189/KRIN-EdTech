@@ -174,6 +174,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
+  const translationRequestRef = useRef(0);
   const answerEvaluationContent = useMemo(
     () => contentWithOrderSensitiveAnswerValidation(content, exercise.engineKey),
     [content, exercise.engineKey],
@@ -201,6 +202,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     }
     return "";
   }, [content, exercise.question]);
+  const visibleHint = learnerFriendlyHint(exercise, locale);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
@@ -237,6 +239,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
 
   function restartExercise() {
     submissionInFlightRef.current = false;
+    translationRequestRef.current += 1;
     setAnswer(initialAnswer);
     setResult(null);
     setSolution(null);
@@ -245,6 +248,9 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     setHintOpen(false);
     setHintError(null);
     setHintUsed(false);
+    setTranslation(null);
+    setTranslationError(null);
+    setTranslationSending(false);
     setAttemptStartedAt(Date.now());
   }
 
@@ -256,6 +262,10 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
       const scoreAwarded = isCorrect ? exercise.basePoints : -exercise.basePoints;
       setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
+      if (!isCorrect) {
+        clearTranslation();
+        void revealHint();
+      }
       onAttemptResolved?.({ exerciseId: exercise.id, isCorrect });
       setSending(false);
       submissionInFlightRef.current = false;
@@ -267,6 +277,10 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
+      if (!payload.data.isCorrect) {
+        clearTranslation();
+        void revealHint();
+      }
       onAttemptResolved?.({ exerciseId: exercise.id, isCorrect: payload.data.isCorrect });
       if (typeof payload.data.openMistakeCount === "number") {
         window.dispatchEvent(new CustomEvent("mistakes:changed", { detail: { count: payload.data.openMistakeCount } }));
@@ -280,8 +294,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
 
   async function toggleTranslation() {
     if (translation) {
-      setTranslation(null);
-      setTranslationError(null);
+      clearTranslation();
       return;
     }
     setTranslationError(null);
@@ -290,25 +303,32 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       else setTranslationError("Translation is unavailable in preview.");
       return;
     }
+    const requestId = ++translationRequestRef.current;
     setTranslationSending(true);
     try {
       const response = await fetch(`/api/learning/exercises/${exercise.id}/translation`, { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: TranslationResult; error?: string } | null;
       if (!response.ok || !payload?.data?.translation) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
+      if (requestId !== translationRequestRef.current) return;
       setTranslation(payload.data.translation);
       if (payload.data.cost > 0) notifyMotivationUpdated();
     } catch (caught) {
+      if (requestId !== translationRequestRef.current) return;
       setTranslationError(caught instanceof Error ? caught.message : "Translation is temporarily unavailable.");
     } finally {
-      setTranslationSending(false);
+      if (requestId === translationRequestRef.current) setTranslationSending(false);
     }
   }
 
-  async function toggleHint() {
-    if (hintOpen) {
-      setHintOpen(false);
-      return;
-    }
+  function clearTranslation() {
+    translationRequestRef.current += 1;
+    setTranslation(null);
+    setTranslationError(null);
+    setTranslationSending(false);
+  }
+
+  async function revealHint() {
+    if (hintOpen || !exercise.hintsEnabled || !visibleHint) return;
     setHintError(null);
     if (previewMode) {
       setHintOpen(true);
@@ -328,6 +348,14 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     } finally {
       setHintSending(false);
     }
+  }
+
+  function toggleHint() {
+    if (hintOpen) {
+      setHintOpen(false);
+      return;
+    }
+    void revealHint();
   }
 
   async function openSolution() {
@@ -358,12 +386,12 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
   const passage = typeof content.passage === "string" ? content.passage : null;
   const visibleFeedback = solution ? { explanation: solution.explanation, correctAnswer: solution.correctAnswer, feedback: solution.feedback } : result?.isCorrect ? result : null;
   const visibleInstruction = compactToBeMatching ? "Впишите правильную форму: am, is или are." : exercise.instruction;
-  const visibleHint = learnerFriendlyHint(exercise, locale);
   const hintLabel = locale === "uk" ? "Показати підказку" : locale === "ru" ? "Показать подсказку" : "Show hint";
   const hintOpeningLabel = locale === "uk" ? "Відкриваємо…" : locale === "ru" ? "Открываем…" : "Opening…";
   const hintHideLabel = locale === "uk" ? "Сховати підказку" : locale === "ru" ? "Скрыть подсказку" : "Hide hint";
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const taskLabel = locale === "uk" ? "Що потрібно зробити" : locale === "ru" ? "Что нужно сделать" : "Your task";
+  const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
 
   return <section className={`lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}`} aria-label={visibleInstruction}>
@@ -375,12 +403,13 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
           : <strong>Correct answer</strong>}
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
-    <div className="lesson-exercise-heading"><div className="lesson-exercise-instruction" role="note"><span className="lesson-exercise-instruction-label">{taskLabel}</span><p>{visibleInstruction}</p></div>{result && !result.isCorrect ? <span className="lesson-exercise-inline-status" role="status">−{Math.abs(result.scoreAwarded)} points · saved for review <button type="button" onClick={restartExercise} className="lesson-exercise-inline-retry">Try again</button></span> : null}</div>
+    <div className="lesson-exercise-heading"><div className="lesson-exercise-instruction" role="note"><span className="lesson-exercise-instruction-label">{taskLabel}</span><p>{visibleInstruction}</p></div>{result && !result.isCorrect ? <span className="lesson-exercise-inline-status" role="status">−{Math.abs(result.scoreAwarded)} points · saved for review</span> : null}</div>
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
-    {!compactToBeMatching ? <p className="lesson-exercise-question mt-3 text-slate-700">{exercise.question}</p> : null}
-    {result && !result.isCorrect && feedbackHint ? <p className="lesson-exercise-inline-hint" role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
+    {!compactToBeMatching ? <div className="lesson-exercise-question-row"><p className="lesson-exercise-question text-slate-700">{exercise.question}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
+    {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
+    {result && !result.isCorrect && hintOpen && feedbackHint ? <p className="lesson-exercise-inline-hint" role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className="lesson-exercise-answer-list mt-4 space-y-2">
       {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
@@ -400,13 +429,13 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
-    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <div className="lesson-exercise-hint-trigger" data-open={hintOpen || undefined}><button type="button" onClick={() => void toggleHint()} disabled={hintSending} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintSending ? hintOpeningLabel : hintOpen ? hintHideLabel : `${hintLabel} · 1 XP`}</button>{hintOpen ? <p>{visibleHint}</p> : null}</div> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
+    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <div className="lesson-exercise-hint-trigger" data-open={hintOpen || undefined}><button type="button" onClick={toggleHint} disabled={hintSending} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintSending ? hintOpeningLabel : hintOpen ? hintHideLabel : `${hintLabel} · 1 XP`}</button>{hintOpen ? <p>{visibleHint}</p> : null}</div> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
     {hintError ? <p className="mt-2 text-sm text-amber-700" role="status">{hintError}</p> : null}
-    {translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">Later</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? "Show the saved solution?" : `Show solution for ${result.solution.cost} XP?`}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? "Opening…" : "Show solution"}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">Cancel</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? "Show solution" : `Show solution · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
     {visibleFeedback ? <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800">{visibleFeedback.correctAnswer !== null && !result?.isCorrect ? <p>Correct answer: {displayAnswer(visibleFeedback.correctAnswer)}</p> : null}{visibleFeedback.explanation ? <p className="mt-1">{visibleFeedback.explanation}</p> : null}{visibleFeedback.feedback?.example ? <p className="mt-2 rounded bg-blue-50 p-2">Example: {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="mt-2 inline-block font-semibold text-blue-700 hover:underline">Review the rule</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="mt-3"><summary className="cursor-pointer font-semibold">Show all errors</summary><ul className="mt-2 space-y-2">{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</div> : null}
+    {result && !result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-retry-button">{retryLabel}</button> : null}
     {result?.isCorrect && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="mt-3 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{extraSending ? "Preparing extra practice…" : "Try another exercise in this lesson"}</button> : null}
     {extraExercise ? <div className="mt-5 border-t border-slate-200 pt-5"><h3 className="mb-3 text-base font-bold text-slate-900">Extra practice</h3><ExerciseRenderer exercise={extraExercise} /></div> : null}
   </section>;
