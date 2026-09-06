@@ -167,16 +167,23 @@ const fallbackReplacements: ReadonlyArray<readonly [string, string]> = [
   ["о погоде", "про погоду"],
 ];
 
+// Keep this module compatible with the project's ES2020 production target.
+// String.prototype.replaceAll requires ES2021 and made Vercel's type check
+// fail before a deployment could be published.
+function replaceEvery(value: string, source: string, target: string) {
+  return value.split(source).join(target);
+}
+
 /** Preserves English grammar examples while translating the surrounding learner copy. */
 export function translateVerbToBeTextToUkrainian(value: string | null | undefined) {
   if (!value || !/[А-Яа-яЁё]/.test(value)) return value;
 
   const exactCopy = exactReplacements.reduce(
-    (translated, [source, target]) => translated.replaceAll(source, target),
+    (translated, [source, target]) => replaceEvery(translated, source, target),
     value,
   );
   return fallbackReplacements.reduce(
-    (translated, [source, target]) => translated.replaceAll(source, target),
+    (translated, [source, target]) => replaceEvery(translated, source, target),
     exactCopy,
   ).replace(/(^|\s)С (?=[A-Za-z])/g, "$1З ");
 }
