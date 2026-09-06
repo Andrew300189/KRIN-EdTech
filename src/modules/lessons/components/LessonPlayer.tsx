@@ -14,6 +14,7 @@ import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./FocusLessonPlayer.module.css";
 
 type StoredProgress = {
@@ -85,10 +86,21 @@ function learnerGoalForBlock(block: LessonBlock) {
 }
 
 /** A short grammar rule is intentionally separate from the learner's goal. */
-function learnerRuleForBlock(block: LessonBlock) {
-  const rule = asObject(block.settings).practiceRule;
+function learnerRuleForBlock(block: LessonBlock, locale: string) {
+  const settings = asObject(block.settings);
+  const translatedRules = asObject(settings.practiceRuleTranslations);
+  const translatedRule = translatedRules[locale];
+  if (typeof translatedRule === "string" && translatedRule.trim()) return translatedRule.trim();
+
+  const rule = settings.practiceRule;
   return typeof rule === "string" && rule.trim() ? rule.trim() : null;
 }
+
+const blockHeaderCopy: Record<string, { rule: string; goal: string }> = {
+  en: { rule: "Step rule", goal: "Lesson goal" },
+  ru: { rule: "Правило шага", goal: "Цель урока" },
+  uk: { rule: "Правило кроку", goal: "Мета уроку" },
+};
 
 function isSpacedReviewBlock(block: LessonBlock | null | undefined) {
   return Boolean(block && block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
@@ -160,6 +172,7 @@ export function LessonPlayer({
   autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
   reviewMistake, reviewSession,
 }: Props) {
+  const { locale } = useLocale();
   const router = useRouter();
   const [completedBlocks, setCompletedBlocks] = useState<string[]>([]);
   const reviewTargetExerciseId = reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId;
@@ -204,6 +217,8 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
+  const activeBlockRule = activeBlock ? learnerRuleForBlock(activeBlock, locale) : null;
+  const headerCopy = blockHeaderCopy[locale] ?? blockHeaderCopy.en;
   const activeAttemptedExerciseIds = activeBlock?.exercises
     .filter((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id))
     .map((exercise) => exercise.id) ?? [];
@@ -808,8 +823,8 @@ export function LessonPlayer({
                 {activeBlock.isRequired ? <span className={styles.required}>Required step</span> : null}
               </div> : null}
               {!isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
-                <span className={styles.lessonGoalTopLabel}>{learnerRuleForBlock(activeBlock) ? "Правило шага" : "Цель урока"}</span>
-                <p>{learnerRuleForBlock(activeBlock) ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
+                <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
+                <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? "Take one focused step at a time."}</p>
               </div> : null}
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
