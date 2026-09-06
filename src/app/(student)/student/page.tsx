@@ -3,7 +3,7 @@ import { requireRole } from "@/core/server/role-guard";
 import { prisma } from "@/core/server/prisma";
 import { CmsManagedSlotBanner } from "@/modules/cms/components/CmsManagedSlotBanner";
 import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.service";
-import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
+import { getInterruptedLesson, listLearnerCourses } from "@/modules/courses/services/learner-course.service";
 import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
 import { getPlacementDashboardResult } from "@/modules/courses/services/placement-test.service";
 import { getDashboardLeaderboard, getMotivationOverview } from "@/modules/motivation/services/motivation.service";
@@ -37,7 +37,7 @@ export default async function StudentHomePage({
   // content. Existing test takers see their normal dashboard on later visits.
   const showPlacementRecommendation = query.placement === "complete";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague, interruptedLesson] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -57,6 +57,7 @@ export default async function StudentHomePage({
     getPlacementDashboardResult(guard.user.id),
     getDashboardLeaderboard(guard.user.id),
     getWeeklyLeague(guard.user.id),
+    getInterruptedLesson(guard.user.id),
   ]);
 
   const next = courses.find((course) => course.nextLesson) ?? courses[0];
@@ -85,6 +86,17 @@ export default async function StudentHomePage({
           <Link href="/profile/support" className={styles.secondaryAction}><LocalizedText id="student.home.help" fallback="Help" /></Link>
         </div>
       </header>
+
+      {interruptedLesson ? <section className={styles.resumeBanner} aria-labelledby="resume-lesson-heading">
+        <span className={styles.resumeIcon} aria-hidden="true">↗</span>
+        <div className={styles.resumeCopy}>
+          <p><LocalizedText id="student.resume.eyebrow" fallback="Continue where you paused" /></p>
+          <h3 id="resume-lesson-heading"><LocalizedText id="student.resume.title" fallback="Your lesson is {progress}% complete" values={{ progress: interruptedLesson.completionPercent }} /></h3>
+          <span><LocalizedText id="student.resume.copy" fallback="Finish “{lesson}” now and close this learning step." values={{ lesson: interruptedLesson.lessonTitle }} /></span>
+        </div>
+        <div className={styles.resumeProgress} aria-label={`${interruptedLesson.completionPercent}% complete`}><strong>{interruptedLesson.completionPercent}%</strong><span><i style={{ width: `${interruptedLesson.completionPercent}%` }} /></span></div>
+        <Link href={`/courses/${encodeURIComponent(interruptedLesson.courseSlug)}/lessons/${encodeURIComponent(interruptedLesson.lessonSlug)}`} className={styles.resumeAction}><LocalizedText id="student.resume.action" fallback="Finish now" /></Link>
+      </section> : null}
 
       {showPlacementRecommendation && placementResult ? <PlacementRecommendationPanel result={placementResult} /> : null}
 

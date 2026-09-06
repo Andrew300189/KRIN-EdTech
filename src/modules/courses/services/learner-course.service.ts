@@ -35,6 +35,15 @@ export type LearnerCourseCard = {
   nextLesson: { slug: string; title: string } | null;
 };
 
+export type InterruptedLesson = {
+  lessonTitle: string;
+  lessonSlug: string;
+  courseTitle: string;
+  courseSlug: string;
+  completionPercent: number;
+  lastSeenAt: Date;
+};
+
 function plansAvailableTo(subscriptionPlan: SubscriptionPlan | undefined) {
   const rank = subscriptionPlan ? PLAN_ORDER.indexOf(subscriptionPlan) : -1;
   return rank >= 0 ? PLAN_ORDER.slice(0, rank + 1) : [];
@@ -209,4 +218,48 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
         : null,
     };
   });
+}
+
+/**
+ * The dashboard uses only durable lesson progress for this nudge.  A lesson
+ * with no completed step is not a meaningful interruption, and a completed
+ * lesson never appears here.  The most recently opened unfinished lesson is
+ * the one a learner is most likely to want to close out.
+ */
+export async function getInterruptedLesson(userId: string): Promise<InterruptedLesson | null> {
+  const progress = await prisma.lessonProgress.findFirst({
+    where: {
+      userId,
+      status: "STARTED",
+      completionPercent: { gt: 0, lt: 100 },
+      lesson: {
+        isPublished: true,
+        module: {
+          isPublished: true,
+          course: { isPublished: true, isTemplate: false },
+        },
+      },
+    },
+    orderBy: { lastSeenAt: "desc" },
+    select: {
+      completionPercent: true,
+      lastSeenAt: true,
+      lesson: {
+        select: {
+          title: true,
+          slug: true,
+          module: { select: { course: { select: { title: true, slug: true } } } },
+        },
+      },
+    },
+  });
+  if (!progress) return null;
+  return {
+    lessonTitle: progress.lesson.title,
+    lessonSlug: progress.lesson.slug,
+    courseTitle: progress.lesson.module.course.title,
+    courseSlug: progress.lesson.module.course.slug,
+    completionPercent: Math.max(1, Math.min(99, progress.completionPercent)),
+    lastSeenAt: progress.lastSeenAt,
+  };
 }
