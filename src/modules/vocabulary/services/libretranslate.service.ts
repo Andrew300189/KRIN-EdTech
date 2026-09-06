@@ -6,6 +6,10 @@ type LibreTranslateResponse = {
   translatedText?: unknown;
 };
 
+type MyMemoryResponse = {
+  responseData?: { translatedText?: unknown };
+};
+
 export class TranslationProviderError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -39,19 +43,11 @@ function targetLanguage(value: string | null | undefined) {
   return /^[a-z]{2,3}$/.test(normalized) ? normalized : "ru";
 }
 
-/**
- * Translates learner-selected vocabulary or a short exercise sentence. It is
- * intentionally server-only: the provider key and endpoint never reach the
- * lesson bundle.
- */
-export async function translateEnglishTerm(termInput: string, targetLocale: string | null | undefined) {
-  const term = termInput.trim().replace(/\s+/g, " ");
-  if (!term || term.length > 1000) throw new TranslationProviderError("Enter a word, phrase or short sentence.", 400);
-  const target = targetLanguage(targetLocale);
+function publicFallbackEnabled() {
+  return process.env.TRANSLATION_PUBLIC_FALLBACK_ENABLED !== "false";
+}
 
-  const cachedTranslation = await getCachedTranslation(term, "en", target);
-  if (cachedTranslation) return cachedTranslation;
-
+async function translateWithLibreTranslate(term: string, target: string) {
   const response = await fetch(providerUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -75,6 +71,55 @@ export async function translateEnglishTerm(termInput: string, targetLocale: stri
   const payload = await response.json().catch(() => null) as LibreTranslateResponse | null;
   const translation = typeof payload?.translatedText === "string" ? payload.translatedText.trim() : "";
   if (!translation) throw new TranslationProviderError("Translation is temporarily unavailable.", 502);
+  return translation;
+}
+
+/**
+ * Keeps short, learner-selected vocabulary usable while the platform-owned
+ * LibreTranslate instance is offline. The result is cached by the caller,
+ * so a repeated lookup does not create a second provider request.
+ */
+async function translateWithPublicFallback(term: string, target: string) {
+  const url = new URL("https://api.mymemory.translated.net/get");
+  url.searchParams.set("q", term);
+  url.searchParams.set("langpair", `en|${target}`);
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(6_000),
+  });
+  if (!response.ok) throw new TranslationProviderError("Translation is temporarily unavailable.", 502);
+
+  const payload = await response.json().catch(() => null) as MyMemoryResponse | null;
+  const translation = typeof payload?.responseData?.translatedText === "string" ? payload.responseData.translatedText.trim() : "";
+  if (!translation) throw new TranslationProviderError("Translation is temporarily unavailable.", 502);
+  return translation;
+}
+
+/**
+ * Translates learner-selected vocabulary or a short exercise sentence. It is
+ * intentionally server-only: the provider key and endpoint never reach the
+ * lesson bundle.
+ */
+export async function translateEnglishTerm(termInput: string, targetLocale: string | null | undefined) {
+  const term = termInput.trim().replace(/\s+/g, " ");
+  if (!term || term.length > 1000) throw new TranslationProviderError("Enter a word, phrase or short sentence.", 400);
+  const target = targetLanguage(targetLocale);
+
+  const cachedTranslation = await getCachedTranslation(term, "en", target);
+  if (cachedTranslation) return cachedTranslation;
+
+  let translation: string;
+  try {
+    translation = await translateWithLibreTranslate(term, target);
+  } catch (error) {
+    // Do not bypass an intentional rate limit or malformed input. These are
+    // meaningful errors and should reach the learner unchanged.
+    if (!(error instanceof TranslationProviderError) || error.status === 400 || error.status === 429 || !publicFallbackEnabled()) throw error;
+    translation = await translateWithPublicFallback(term, target);
+  }
+
   await cacheTranslation(term, "en", target, translation);
   return translation;
 }
