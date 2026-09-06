@@ -31,6 +31,7 @@ import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow
 import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLessonEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
+import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian, verbToBeCourseSlug } from "@/modules/courses/localization/verb-to-be-ukrainian";
 import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
 import { SPACED_REVIEW_QUESTION_COUNT, SPACED_REVIEW_SYSTEM, SPACED_REVIEW_XP, isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 
@@ -738,6 +739,13 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
   const lessonTranslation = lesson.translations[0];
   const moduleTranslation = lesson.module.translations[0];
   const courseTranslation = lesson.module.course.translations[0];
+  const usesVerbToBeUkrainianCopy = locale === "uk" && lesson.module.course.slug === verbToBeCourseSlug;
+  const localizeText = (value: string | null | undefined) => (
+    usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
+  );
+  const localizeJson = <T,>(value: T) => (
+    usesVerbToBeUkrainianCopy ? translateVerbToBeJsonToUkrainian(value) : value
+  );
   return {
     ...lesson,
     // Course publication authorizes the locale route. Missing child copies
@@ -764,17 +772,17 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
       const blockTranslation = block.translations[0];
       return {
         ...block,
-        title: blockTranslation?.title ?? block.title,
-        content: blockTranslation?.content ?? block.content,
+        title: localizeText(blockTranslation?.title ?? block.title),
+        content: localizeJson(blockTranslation?.content ?? block.content),
         exercises: block.exercises.map((exercise) => {
           const exerciseTranslation = exercise.translations[0];
           return {
             ...exercise,
-            instruction: exerciseTranslation?.instruction ?? exercise.instruction,
-            question: exerciseTranslation?.question ?? exercise.question,
-            content: exerciseTranslation?.content ?? exercise.content,
-            explanation: exerciseTranslation?.explanation ?? exercise.explanation,
-            hint: exerciseTranslation?.hint ?? exercise.hint,
+            instruction: localizeText(exerciseTranslation?.instruction ?? exercise.instruction),
+            question: localizeText(exerciseTranslation?.question ?? exercise.question),
+            content: localizeJson(exerciseTranslation?.content ?? exercise.content),
+            explanation: localizeText(exerciseTranslation?.explanation ?? exercise.explanation),
+            hint: localizeText(exerciseTranslation?.hint ?? exercise.hint),
           };
         }),
       };
