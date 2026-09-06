@@ -1911,7 +1911,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
   const saved = await prisma.$transaction(async (tx) => {
     const blocks = await tx.lessonBlock.findMany({
       where: { lessonId },
-      select: { id: true, type: true, settings: true, isRequired: true },
+      select: { id: true, type: true, settings: true, isRequired: true, exercises: { select: { id: true } } },
     });
     if (blocks.length === 0) {
       const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { id: true } });
@@ -1924,16 +1924,11 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     if (value.currentBlockId && !allowed.has(value.currentBlockId)) {
       throw new Error("The current block does not belong to this lesson");
     }
-    const completedThisVisit = new Set(value.completedBlockIds);
     const spacedReviewBlock = blocks.find((block) => block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
     const spacedReviewCompleted = !spacedReviewBlock || Boolean(await tx.lessonSpacedReviewRun.findFirst({
       where: { userId, lessonId, status: "COMPLETED" },
       select: { id: true },
     }));
-    const allRequiredBlocksComplete = blocks
-      .filter((block) => block.isRequired)
-      .every((block) => completedThisVisit.has(block.id))
-      && spacedReviewCompleted;
     const [attempts, sessionTime] = await Promise.all([
       tx.exerciseAttempt.findMany({
         where: { userId, lessonId },
@@ -1952,19 +1947,38 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       where: { userId_lessonId: { userId, lessonId } },
       select: { status: true, completedBlocks: true, completedAt: true },
     });
+    // Completion is monotonic. A late browser snapshot must never turn a
+    // previously completed step back into 75% just because it did not contain
+    // every id. Exercise blocks can additionally be proven from immutable
+    // server-side attempts, so a successful last answer cannot be lost when a
+    // tab is closed before React finishes its state update.
+    const attemptedExerciseIds = new Set(attempts.map((attempt) => attempt.exerciseId));
+    const completedExerciseBlockIds = blocks
+      .filter((block) => block.exercises.length > 0 && block.exercises.every((exercise) => attemptedExerciseIds.has(exercise.id)))
+      .map((block) => block.id);
+    const completedBlockIds = new Set([
+      ...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId)),
+      ...value.completedBlockIds,
+      ...completedExerciseBlockIds,
+    ]);
+    const requiredBlocks = blocks.filter((block) => block.isRequired);
+    const allRequiredBlocksComplete = requiredBlocks.every((block) => completedBlockIds.has(block.id))
+      && spacedReviewCompleted;
     const wasCompleted = previousProgress?.status === "COMPLETED";
-    const completedNow = value.complete && allRequiredBlocksComplete;
+    // If all required blocks are already verified, finish automatically. The
+    // optional final “Finish” click remains supported, but access no longer
+    // depends on a fragile client-side timing window.
+    const completionRequested = value.complete || (requiredBlocks.length > 0 && allRequiredBlocksComplete);
+    const completedNow = completionRequested && allRequiredBlocksComplete;
     // A learner may reopen a finished lesson for practice. That new attempt
     // must never turn the historical completion back into STARTED.
-    const status = resolveLessonProgressStatus(previousProgress?.status, value.complete, allRequiredBlocksComplete);
-    const persistedCompletedBlockIds = wasCompleted
-      ? [...new Set([...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId)), ...value.completedBlockIds])]
-      : value.completedBlockIds;
+    const status = resolveLessonProgressStatus(previousProgress?.status, completionRequested, allRequiredBlocksComplete);
+    const persistedCompletedBlockIds = [...completedBlockIds];
     const completionPercent = status === "COMPLETED"
       ? 100
       : blocks.length === 0
         ? 0
-        : Math.round((completedThisVisit.size / blocks.length) * 100);
+        : Math.round((completedBlockIds.size / blocks.length) * 100);
     const progress = await tx.lessonProgress.upsert({
       where: { userId_lessonId: { userId, lessonId } },
       create: {

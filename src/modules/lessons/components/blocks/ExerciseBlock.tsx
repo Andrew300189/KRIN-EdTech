@@ -109,10 +109,17 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
   }
 
   function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null) {
+    // A block is ready to advance only after every card has received an
+    // answer. Previously this used the *position* of the final card, so a
+    // learner could reach the last question from “Show all tasks”, see 100%
+    // in the UI, yet have an incomplete block saved on the server.
+    const nextAnswered = answeredIndexes.includes(index) ? answeredIndexes : [...answeredIndexes, index];
+    const allExercisesAnswered = exercises.every((_, exerciseIndex) => nextAnswered.includes(exerciseIndex));
+    setAnsweredIndexes(nextAnswered);
     onAttemptResolved?.({
       exerciseId,
       isCorrect,
-      isFinalExercise: index === exercises.length - 1,
+      isFinalExercise: allExercisesAnswered,
       difficulty: exercises[index]?.difficulty,
       streakTone,
     });
@@ -130,10 +137,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
 
     // Keep an incorrect answer in view. It gets the red edge and shake, but
     // never schedules the automatic transition to the next task.
-    if (!isCorrect) return;
-    const nextAnswered = answeredIndexes.includes(index) ? answeredIndexes : [...answeredIndexes, index];
-    setAnsweredIndexes(nextAnswered);
-    if (index === exercises.length - 1) return;
+    if (!isCorrect || allExercisesAnswered) return;
 
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
     // Keep the confirmation visible long enough to be understood, then move
@@ -153,11 +157,14 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
       setShowAllExercises(false);
       setActiveIndex(index);
     }
+    const nextAnswered = answeredIndexes.includes(index) ? answeredIndexes : [...answeredIndexes, index];
+    const allExercisesAnswered = exercises.every((_, exerciseIndex) => nextAnswered.includes(exerciseIndex));
+    setAnsweredIndexes(nextAnswered);
     if (index < exercises.length - 1) {
       openNextExercise(index);
       return;
     }
-    onAttemptDeferred?.({ exerciseId, isFinalExercise: true });
+    onAttemptDeferred?.({ exerciseId, isFinalExercise: allExercisesAnswered });
   }
 
   const exerciseCards = exercises.map((exercise, index) => (
