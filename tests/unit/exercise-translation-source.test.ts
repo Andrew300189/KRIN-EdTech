@@ -18,11 +18,22 @@ describe("exercise translation source", () => {
     expect(getAuthoredExerciseTranslation(content, target)).toBeNull();
   });
 
-  it("uses the learner-visible question for ordinary exercise cards", () => {
-    const content = { authoringSource: "A hidden author note", translation: "Я люблю кофе." };
+  it("uses the learner-visible question and ignores legacy CMS translation fields", () => {
+    const content = {
+      authoringSource: "A hidden author note",
+      translation: "A writer note that must not be shown to a learner.",
+      learnerTranslation: "Я люблю кофе.",
+    };
     const target = getExerciseTranslationTarget({ question: "I like coffee.", content });
 
     expect(target).toEqual({ source: "I like coffee.", canUseAuthoredTranslation: true });
     expect(getAuthoredExerciseTranslation(content, target)).toBe("Я люблю кофе.");
+  });
+
+  it("never renders a generic legacy translation as a learner answer", () => {
+    const content = { translation: "A CMS instruction, not a prompt translation." };
+    const target = getExerciseTranslationTarget({ question: "They are ready.", content });
+
+    expect(getAuthoredExerciseTranslation(content, target)).toBeNull();
   });
 });

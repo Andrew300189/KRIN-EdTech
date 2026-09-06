@@ -59,5 +59,10 @@ export function getExerciseTranslationTarget(input: { question?: string | null; 
 export function getAuthoredExerciseTranslation(contentInput: unknown, target: ExerciseTranslationTarget) {
   if (!target.canUseAuthoredTranslation) return null;
   const content = record(contentInput);
-  return firstText([content.translation, content.translationRu, content.translatedText]) || null;
+  // `translation`, `translationRu` and `translatedText` were historically
+  // overloaded in the CMS. They can contain a rule, a writer's note or a
+  // translation of another part of the card. Never show those values to a
+  // learner as the answer to “show translation”. Authors can intentionally
+  // supply a vetted prompt translation through one of these explicit fields.
+  return firstText([content.learnerTranslation, content.promptTranslation]) || null;
 }
