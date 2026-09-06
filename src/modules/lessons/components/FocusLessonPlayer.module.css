@@ -1371,6 +1371,49 @@
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[open] summary) { padding-left: 0; }
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger p) { color: #78350f; font-size: .84rem; font-weight: 600; line-height: 1.45; }
 
+/* Matches the hint control's compact shape, while indigo distinguishes a
+   translation from help with the answer. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 8px 11px;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger::before) {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6366f1;
+  content: "";
+  margin-right: 7px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:hover:not(:disabled)),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger[aria-expanded="true"]) {
+  border-color: #a5b4fc;
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:focus-visible) {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:disabled) {
+  cursor: wait;
+  opacity: .6;
+}
+
 /* Let the document grow naturally on desktop. A lesson can contain lengthy
    theory or a full exercise, and clipping it into a viewport-sized canvas
    makes controls overlap and prevents the learner from reaching the end. */
