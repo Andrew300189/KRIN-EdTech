@@ -104,14 +104,81 @@ const exactReplacements: ReadonlyArray<readonly [string, string]> = [
   ["Форма → пример", "Форма → приклад"],
 ];
 
+// The curriculum contains generated feedback with hundreds of different English
+// sentences. These stable Russian fragments complete the localization while
+// deliberately leaving those English sentences and answers untouched.
+const fallbackReplacements: ReadonlyArray<readonly [string, string]> = [
+  ["Закрепите", "Закріпіть"],
+  ["Сопоставьте", "Зіставте"],
+  ["Соберите", "Складіть"],
+  ["Впишите", "Впишіть"],
+  ["Найдите", "Знайдіть"],
+  ["Выберите", "Оберіть"],
+  ["Проверьте", "Перевірте"],
+  ["Определите", "Визначте"],
+  ["Сначала", "Спочатку"],
+  ["Ситуация", "Ситуація"],
+  ["Количество", "Кількість"],
+  ["Подлежащее", "Підмет"],
+  ["подлежащее", "підмет"],
+  ["утверждение", "твердження"],
+  ["Утверждение", "Твердження"],
+  ["отрицание", "заперечення"],
+  ["Отрицание", "Заперечення"],
+  ["вопрос", "запитання"],
+  ["Вопрос", "Запитання"],
+  ["ответ", "відповідь"],
+  ["Ответ", "Відповідь"],
+  ["перевод", "переклад"],
+  ["Перевод", "Переклад"],
+  ["ошибка", "помилка"],
+  ["Ошибка", "Помилка"],
+  ["исправление", "виправлення"],
+  ["предложение", "речення"],
+  ["Предложение", "Речення"],
+  ["полное", "повне"],
+  ["Полное", "Повне"],
+  ["полный", "повний"],
+  ["правильный", "правильний"],
+  ["Правильный", "Правильний"],
+  ["правильная", "правильна"],
+  ["Правильная", "Правильна"],
+  ["правильное", "правильне"],
+  ["Правильное", "Правильне"],
+  ["Верный", "Правильний"],
+  ["Верно", "Правильно"],
+  ["нужно", "потрібно"],
+  ["Нужно", "Потрібно"],
+  ["нужна", "потрібна"],
+  ["Нужна", "Потрібна"],
+  ["нужен", "потрібен"],
+  ["Нужен", "Потрібен"],
+  ["используется", "використовується"],
+  ["Всегда", "Завжди"],
+  ["всегда", "завжди"],
+  ["поэтому", "тому"],
+  ["Например", "Наприклад"],
+  ["например", "наприклад"],
+  ["единственное число", "однина"],
+  ["множественное число", "множина"],
+  ["один человек", "одна людина"],
+  ["несколько людей", "кілька людей"],
+  ["обычная фраза", "звичайна фраза"],
+  ["о погоде", "про погоду"],
+];
+
 /** Preserves English grammar examples while translating the surrounding learner copy. */
 export function translateVerbToBeTextToUkrainian(value: string | null | undefined) {
   if (!value || !/[А-Яа-яЁё]/.test(value)) return value;
 
-  return exactReplacements.reduce(
+  const exactCopy = exactReplacements.reduce(
     (translated, [source, target]) => translated.replaceAll(source, target),
     value,
   );
+  return fallbackReplacements.reduce(
+    (translated, [source, target]) => translated.replaceAll(source, target),
+    exactCopy,
+  ).replace(/(^|\s)С (?=[A-Za-z])/g, "$1З ");
 }
 
 /** Recursively translates text stored inside an exercise JSON payload. */
