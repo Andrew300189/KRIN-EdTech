@@ -310,6 +310,20 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
     void checkAnswer(event.currentTarget.value);
   }
 
+  function submitCompactMatchingOnEnter(event: KeyboardEvent<HTMLInputElement>, leftItem: string) {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    // The final keystroke can still be pending in React state. Construct the
+    // answer from the native field value so Enter checks the exact text the
+    // learner sees, and only submit once every matching field is complete.
+    const candidate = { ...(answer as JsonObject), [leftItem]: event.currentTarget.value };
+    const isComplete = matchingLeft.length > 0 && matchingLeft.every((item) => {
+      const value = candidate[item];
+      return typeof value === "string" && value.trim().length > 0;
+    });
+    if (isComplete) void checkAnswer(compactMatchingSubmission(candidate));
+  }
+
   async function toggleTranslation() {
     if (translation) {
       clearTranslation();
@@ -440,7 +454,7 @@ export function ExerciseRenderer({ exercise, previewMode = false, hideContext = 
       {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
         const current = String((answer as JsonObject)[leftItem] ?? "");
-        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{leftItem}</span><span className="lesson-exercise-answer-label">Впишите слово</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder="am, is или are" autoComplete="off" /></label>;
+        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{leftItem}</span><span className="lesson-exercise-answer-label">Впишите слово</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder="am, is или are" autoComplete="off" /></label>;
       })}
       {matching && !compactToBeMatching && matchingLeft.map((leftItem) => {
         const storedValue = String((answer as JsonObject)[leftItem] ?? "");
