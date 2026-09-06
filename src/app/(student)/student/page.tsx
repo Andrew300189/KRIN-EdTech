@@ -6,10 +6,12 @@ import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.
 import { listLearnerCourses } from "@/modules/courses/services/learner-course.service";
 import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
 import { getPlacementDashboardResult } from "@/modules/courses/services/placement-test.service";
-import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
+import { getDashboardLeaderboard, getMotivationOverview } from "@/modules/motivation/services/motivation.service";
+import { LocalizedText } from "@/core/i18n/LocalizedText";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
+import { StudentLeaderboardPanel } from "./StudentLeaderboardPanel";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -29,7 +31,7 @@ export default async function StudentHomePage({
   // content. Existing test takers see their normal dashboard on later visits.
   const showPlacementRecommendation = query.placement === "complete";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -47,6 +49,7 @@ export default async function StudentHomePage({
       },
     }),
     getPlacementDashboardResult(guard.user.id),
+    getDashboardLeaderboard(guard.user.id),
   ]);
 
   const next = courses.find((course) => course.nextLesson) ?? courses[0];
@@ -59,19 +62,19 @@ export default async function StudentHomePage({
   const completedMinutes = Math.floor(motivation.daily.activeSeconds / 60);
   const dailyGoal = motivation.dailyGoalMinutes;
   const dailyProgress = Math.min(100, Math.round((completedMinutes / dailyGoal) * 100));
-  const nextLessonLabel = next?.nextLesson?.title ?? "Choose a course to build your plan";
+  const nextLessonLabel = next?.nextLesson?.title;
   return (
     <section className={styles.page}>
       <FirstVisitQueryCleaner active={isFirstVisit} />
       <PlacementResultSync />
       <header className={styles.hero}>
         <div>
-          <h2>{isFirstVisit ? "Welcome" : "Welcome back"}, {name}</h2>
-          <p>One focused lesson is enough for today. Your next step is ready below.</p>
+          <h2><LocalizedText id={isFirstVisit ? "student.home.welcome" : "student.home.welcomeBack"} fallback={`${isFirstVisit ? "Welcome" : "Welcome back"}, {name}`} values={{ name }} /></h2>
+          <p><LocalizedText id="student.home.hero" fallback="One focused lesson is enough for today. Your next step is ready below." /></p>
         </div>
         <div className={styles.heroActions}>
-          <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}>{next ? "Continue learning" : "Choose a course"}</Link>
-          <Link href="/profile/support" className={styles.secondaryAction}>Help</Link>
+          <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link>
+          <Link href="/profile/support" className={styles.secondaryAction}><LocalizedText id="student.home.help" fallback="Help" /></Link>
         </div>
       </header>
 
@@ -79,50 +82,51 @@ export default async function StudentHomePage({
 
       <CmsManagedSlotBanner slot={managedSlot} variant="compact" />
 
-      <section className={styles.overviewGrid} aria-label="Learning overview">
+      <section className={styles.overviewGrid}>
         <article className={`${styles.statCard} ${styles.currentCourseCard}`}>
-          <p>Current course</p>
-          {next ? <Link href={`/student/courses/${next.slug}`} className={styles.courseTitle}>{next.title}</Link> : <h3>No course selected</h3>}
-          <span className={styles.levelBadge}>{next?.level ?? "Choose a level when ready"}</span>
+          <p><LocalizedText id="student.home.currentCourse" fallback="Current course" /></p>
+          {next ? <Link href={`/student/courses/${next.slug}`} className={styles.courseTitle}>{next.title}</Link> : <h3><LocalizedText id="student.home.noCourse" fallback="No course selected" /></h3>}
+          <span className={styles.levelBadge}>{next?.level ?? <LocalizedText id="student.home.chooseLevel" fallback="Choose a level when ready" />}</span>
         </article>
-        <article className={styles.statCard}><p>Overall progress</p><strong>{overallProgress}%</strong><span>{completedLessons} of {totalLessons} lessons</span></article>
-        <article className={styles.statCard}><p>Today&apos;s pace</p><strong>{completedMinutes}/{dailyGoal} min</strong><span>{dailyProgress}% of your goal</span></article>
-        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.exchangeBalanceMinor / 100).toFixed(2)}</strong><span>Click XP above to exchange</span></article>
-        <article className={styles.statCard}><p>Review queue</p><strong>{reviewCount}</strong><span>{reviewCount === 1 ? "word ready to review" : "words ready to review"}</span></article>
+        <article className={styles.statCard}><p><LocalizedText id="student.home.overallProgress" fallback="Overall progress" /></p><strong>{overallProgress}%</strong><span><LocalizedText id="student.home.lessonsOf" fallback={`${completedLessons} of ${totalLessons} lessons`} values={{ completed: completedLessons, total: totalLessons }} /></span></article>
+        <article className={styles.statCard}><p><LocalizedText id="student.home.todayPace" fallback="Today's pace" /></p><strong><LocalizedText id="student.home.minutes" fallback={`${completedMinutes}/${dailyGoal} min`} values={{ completed: completedMinutes, goal: dailyGoal }} /></strong><span><LocalizedText id="student.home.goalProgress" fallback={`${dailyProgress}% of your goal`} values={{ progress: dailyProgress }} /></span></article>
+        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.exchangeBalanceMinor / 100).toFixed(2)}</strong><span><LocalizedText id="student.home.coinsHint" fallback="Click XP above to exchange" /></span></article>
+        <article className={styles.statCard}><p><LocalizedText id="student.home.reviewQueue" fallback="Review queue" /></p><strong>{reviewCount}</strong><span><LocalizedText id={reviewCount === 1 ? "student.home.wordReady" : "student.home.wordsReady"} fallback={reviewCount === 1 ? "word ready to review" : "words ready to review"} /></span></article>
       </section>
 
-      <section className={styles.dashboardGrid} aria-label="Your next learning step">
+      <section className={styles.dashboardGrid}>
         <article className={`${styles.panel} ${styles.focusPanel}`}>
           <div className={styles.cardHeading}>
-            <h3>{nextLessonLabel}</h3>
-            {next ? <span className={styles.statusTag}>{next.progress}% complete</span> : null}
+            <h3>{nextLessonLabel ?? <LocalizedText id="student.home.planPrompt" fallback="Choose a course to build your plan" />}</h3>
+            {next ? <span className={styles.statusTag}><LocalizedText id="student.home.complete" fallback={`${next.progress}% complete`} values={{ progress: next.progress }} /></span> : null}
           </div>
           {next ? (
             <>
-              <p className={styles.cardText}>Continue <strong>{next.title}</strong> at a pace that works for you.</p>
+              <p className={styles.cardText}><LocalizedText id="student.home.continueCourse" fallback={`Continue ${next.title} at a pace that works for you.`} values={{ title: next.title }} /></p>
               <progress className={styles.nativeProgress} value={next.progress} max="100">{next.progress}%</progress>
               <div className={styles.focusFooter}>
                 <div className={styles.quickLinks}>
-                  <Link href="/student/vocabulary">{reviewCount ? `${reviewCount} words to review` : "Vocabulary review"}</Link>
-                  <Link href="/student/homework">{assignmentCount ? `${assignmentCount} homework items` : "Homework"}</Link>
-                  <Link href="/profile/settings/motivation">Study pace</Link>
+                  <Link href="/student/vocabulary"><LocalizedText id={reviewCount ? "student.home.wordsToReview" : "student.home.vocabularyReview"} fallback={reviewCount ? `${reviewCount} words to review` : "Vocabulary review"} values={{ count: reviewCount }} /></Link>
+                  <Link href="/student/homework"><LocalizedText id={assignmentCount ? "student.home.homeworkItems" : "student.home.homework"} fallback={assignmentCount ? `${assignmentCount} homework items` : "Homework"} values={{ count: assignmentCount }} /></Link>
+                  <Link href="/profile/settings/motivation"><LocalizedText id="student.home.studyPace" fallback="Study pace" /></Link>
                 </div>
-                <Link href={courseHref(next)} className={styles.primaryAction}>Start lesson</Link>
+                <Link href={courseHref(next)} className={styles.primaryAction}><LocalizedText id="student.home.startLesson" fallback="Start lesson" /></Link>
               </div>
             </>
           ) : (
             <>
-              <p className={styles.cardText}>Choose a published course to get a simple next-lesson plan. You can try a free lesson before paying.</p>
-              <Link href="/student/catalog" className={`${styles.primaryAction} ${styles.inlineAction}`}>Browse courses</Link>
+              <p className={styles.cardText}><LocalizedText id="student.home.noCourseCopy" fallback="Choose a published course to get a simple next-lesson plan. You can try a free lesson before paying." /></p>
+              <Link href="/student/catalog" className={`${styles.primaryAction} ${styles.inlineAction}`}><LocalizedText id="student.home.browseCourses" fallback="Browse courses" /></Link>
             </>
           )}
         </article>
 
         <div className={styles.sideStack}>
+          <StudentLeaderboardPanel {...leaderboard} />
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
-            <div className={styles.cardHeading}><h3>{recentMistakes.length ? "Review and improve" : "You are all caught up"}</h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
-            {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? "Practice item"}</strong><span>{mistake.explanation ?? `Review after ${mistake.occurrenceCount} attempt${mistake.occurrenceCount === 1 ? "" : "s"}.`}</span></li>)}</ul> : <p className={styles.helperText}>New mistakes will appear here with their explanations.</p>}
-            <Link href="/student/mistakes" className={styles.textLink}>Open mistakes</Link>
+            <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
+            {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? <LocalizedText id="student.home.practiceItem" fallback="Practice item" />}</strong><span>{mistake.explanation ?? <LocalizedText id="student.home.reviewAfterAttempts" fallback={`Review after ${mistake.occurrenceCount} attempts.`} values={{ count: mistake.occurrenceCount }} />}</span></li>)}</ul> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}
+            <Link href="/student/mistakes" className={styles.textLink}><LocalizedText id="student.home.openMistakes" fallback="Open mistakes" /></Link>
           </article>
         </div>
       </section>

@@ -532,10 +532,115 @@ export async function updateMotivationSettings(userId: string, input: unknown) {
   return prisma.user.update({ where: { id: userId }, data: { dailyGoalMinutes: value.dailyGoalMinutes, timeZone, ...(value.showInLeaderboard === undefined ? {} : { showInLeaderboard: value.showInLeaderboard }) }, select: { dailyGoalMinutes: true, timeZone: true, showInLeaderboard: true } });
 }
 
-/** Public ranking only contains opted-in learner display data; never emails. */
+type LeaderboardSource = {
+  id: string;
+  name: string;
+  firstName: string | null;
+  createdAt: Date;
+  level: {
+    level: number;
+    lifetimeExperience: number;
+    fractionalExperience: number;
+  } | null;
+  wallet: {
+    balance: number;
+    fractionalBalance: number;
+  } | null;
+};
+
+export type LearnerLeaderboardEntry = {
+  rank: number;
+  userId: string;
+  displayName: string;
+  level: number;
+  /** XP and coins are kept in hundredths for stable sorting and display. */
+  experienceMinor: number;
+  coinsMinor: number;
+  totalMinor: number;
+  isCurrentUser: boolean;
+};
+
+function motivationMinor(whole: number, fraction: number | null | undefined) {
+  return Math.max(0, whole) * 100 + Math.max(0, Math.min(99, fraction ?? 0));
+}
+
+function rankLearners(rows: LeaderboardSource[], currentUserId?: string): LearnerLeaderboardEntry[] {
+  return rows
+    .map((row) => {
+      const experienceMinor = motivationMinor(row.level?.lifetimeExperience ?? 0, row.level?.fractionalExperience);
+      // Coins use the spendable wallet balance. exchangeBalanceMinor is an
+      // exchange-history counter, so it would omit coins earned in lessons.
+      const coinsMinor = motivationMinor(row.wallet?.balance ?? 0, row.wallet?.fractionalBalance);
+      return {
+        userId: row.id,
+        displayName: row.firstName?.trim() || row.name.trim().split(/\s+/)[0] || "Learner",
+        level: row.level?.level ?? 1,
+        experienceMinor,
+        coinsMinor,
+        totalMinor: experienceMinor + coinsMinor,
+        createdAt: row.createdAt,
+      };
+    })
+    // The score is only XP + coins. The remaining fields merely make equal
+    // scores stable instead of moving places between dashboard refreshes.
+    .sort((left, right) => right.totalMinor - left.totalMinor || left.createdAt.getTime() - right.createdAt.getTime() || left.userId.localeCompare(right.userId))
+    .map(({ createdAt: _createdAt, ...entry }, index) => ({
+      ...entry,
+      rank: index + 1,
+      isCurrentUser: entry.userId === currentUserId,
+    }));
+}
+
+async function leaderboardSources(where: Prisma.UserWhereInput) {
+  const rows = await prisma.user.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      firstName: true,
+      createdAt: true,
+      userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true } },
+      wallet: { select: { balance: true, fractionalBalance: true } },
+    },
+  });
+  return rows.map(({ userLevelProgress, ...row }) => ({ ...row, level: userLevelProgress }));
+}
+
+/** Public ranking remains XP-only: a learner's KRIN Coin balance stays private. */
 export async function listPublicLeaderboard(limit = 20) {
-  const rows = await prisma.userLevel.findMany({ where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null } }, orderBy: [{ lifetimeExperience: "desc" }, { level: "desc" }, { updatedAt: "asc" }], take: Math.min(Math.max(limit, 1), 50), select: { level: true, lifetimeExperience: true, user: { select: { name: true } } } });
-  return rows.map((row, index) => ({ rank: index + 1, displayName: row.user.name.trim().split(/\s+/)[0] || "Learner", level: row.level, experience: row.lifetimeExperience }));
+  const rows = await prisma.userLevel.findMany({
+    where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null } },
+    orderBy: [{ lifetimeExperience: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
+    take: Math.min(Math.max(limit, 1), 50),
+    select: { level: true, lifetimeExperience: true, user: { select: { name: true } } },
+  });
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    displayName: row.user.name.trim().split(/\s+/)[0] || "Learner",
+    level: row.level,
+    experience: row.lifetimeExperience,
+  }));
+}
+
+/** A learner always sees their own place, even when they hide their name from the public board. */
+export async function getDashboardLeaderboard(userId: string, limit = 3) {
+  const rows = await leaderboardSources({
+    isBlocked: false,
+    deletedAt: null,
+    OR: [{ showInLeaderboard: true }, { id: userId }],
+  });
+  const ranked = rankLearners(rows, userId);
+  const current = ranked.find((entry) => entry.userId === userId) ?? null;
+  // Other learners' balances are intentionally not sent to the browser. Their
+  // order is still calculated from XP + coins, while each person sees their
+  // own exact amounts and place.
+  const entries = ranked.slice(0, Math.min(Math.max(limit, 1), 10)).map((entry) => ({
+    rank: entry.rank,
+    userId: entry.userId,
+    displayName: entry.displayName,
+    isCurrentUser: entry.isCurrentUser,
+  }));
+  return { entries, current, participantCount: ranked.length };
 }
 
 export async function listRewardRules() { return prisma.rewardRule.findMany({ orderBy: { eventType: "asc" } }); }

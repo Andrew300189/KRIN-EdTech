@@ -6,6 +6,7 @@ import {
   PENDING_PLACEMENT_RESULT_KEY,
   PLACEMENT_DASHBOARD_PATH,
 } from "@/modules/courses/services/placement-test-result";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./StudentHome.module.css";
 
 type PendingPlacementResult = {
@@ -27,6 +28,7 @@ function readPendingResult(): PendingPlacementResult | null {
 
 /** Transfers the anonymous result only after an authenticated dashboard is open. */
 export function PlacementResultSync() {
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState<"idle" | "saving" | "error">("idle");
@@ -52,23 +54,23 @@ export function PlacementResultSync() {
       .then(async (response) => ({ response, payload: await response.json().catch(() => null) }))
       .then(({ response, payload }) => {
         if (!active) return;
-        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "We could not save your placement result.");
+        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : t("student.placement.saveRequestError"));
         window.sessionStorage.removeItem(PENDING_PLACEMENT_RESULT_KEY);
         router.replace(PLACEMENT_DASHBOARD_PATH.replace("?placement=1", "?placement=complete"));
       })
       .catch((cause: unknown) => {
         if (!active) return;
         setState("error");
-        setError(cause instanceof Error ? cause.message : "We could not save your placement result.");
+        setError(cause instanceof Error ? cause.message : t("student.placement.saveRequestError"));
       });
 
     return () => { active = false; };
-  }, [retry, router, shouldSave]);
+  }, [retry, router, shouldSave, t]);
 
   if (!shouldSave) return null;
 
   return <section className={styles.placementSync} aria-live="polite">
-    {state === "saving" ? <><span aria-hidden>✨</span><div><strong>Building your personal course plan…</strong><p>Your result is being saved securely to your dashboard.</p></div></> : null}
-    {state === "error" ? <><span aria-hidden>!</span><div><strong>Your result is ready, but was not saved yet.</strong><p>{error}</p><button type="button" onClick={() => { setError(""); setState("idle"); setRetry((value) => value + 1); }}>Try again</button></div></> : null}
+    {state === "saving" ? <><span aria-hidden>✨</span><div><strong>{t("student.placement.saving")}</strong><p>{t("student.placement.savingCopy")}</p></div></> : null}
+    {state === "error" ? <><span aria-hidden>!</span><div><strong>{t("student.placement.saveError")}</strong><p>{error}</p><button type="button" onClick={() => { setError(""); setState("idle"); setRetry((value) => value + 1); }}>{t("student.placement.tryAgain")}</button></div></> : null}
   </section>;
 }

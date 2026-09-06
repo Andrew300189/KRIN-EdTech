@@ -7,16 +7,16 @@ import {
 import { WorkspaceShell } from "@/modules/teaching/components/WorkspaceShell";
 
 const navigation = [
-  { href: "/student", label: "Home" },
-  { href: "/student/courses", label: "My courses", notificationSection: "courses" as const },
-  { href: "/student/vocabulary", label: "Vocabulary", notificationSection: "vocabulary" as const },
-  { href: "/student/catalog", label: "Catalog" },
-  { href: "/student/homework", label: "Homework" },
-  { href: "/student/progress", label: "Progress" },
-  { href: "/student/mistakes", label: "My mistakes" },
-  { href: "/student/achievements", label: "Achievements", notificationSection: "achievements" as const },
-  { href: "/student/support", label: "Support", notificationSection: "support" as const },
-  { href: "/student/settings", label: "Settings", notificationSection: "settings" as const },
+  { href: "/student", label: "Home", labelKey: "student.nav.home" },
+  { href: "/student/courses", label: "My courses", labelKey: "student.nav.courses", notificationSection: "courses" as const },
+  { href: "/student/vocabulary", label: "Vocabulary", labelKey: "student.nav.vocabulary", notificationSection: "vocabulary" as const },
+  { href: "/student/catalog", label: "Catalog", labelKey: "student.nav.catalog" },
+  { href: "/student/homework", label: "Homework", labelKey: "student.nav.homework" },
+  { href: "/student/progress", label: "Progress", labelKey: "student.nav.progress" },
+  { href: "/student/mistakes", label: "My mistakes", labelKey: "student.nav.mistakes" },
+  { href: "/student/achievements", label: "Achievements", labelKey: "student.nav.achievements", notificationSection: "achievements" as const },
+  { href: "/student/support", label: "Support", labelKey: "student.nav.support", notificationSection: "support" as const },
+  { href: "/student/settings", label: "Settings", labelKey: "student.nav.settings", notificationSection: "settings" as const },
 ];
 
 export default async function StudentLayout({

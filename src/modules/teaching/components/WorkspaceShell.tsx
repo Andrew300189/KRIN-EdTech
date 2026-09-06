@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
+import { useLocale } from "@/core/i18n/locale";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { SearchContext } from "@/modules/search/types";
 import styles from "./WorkspaceShell.module.css";
@@ -13,6 +14,7 @@ import styles from "./WorkspaceShell.module.css";
 type WorkspaceNavigationItem = {
   href: string;
   label: string;
+  labelKey?: string;
   notificationSection?: NotificationBadgeSection;
 };
 
@@ -64,6 +66,7 @@ export function WorkspaceShell({
   showExperience = false,
   lockDesktopViewport = false,
 }: WorkspaceShellProps) {
+  const { t } = useLocale();
   const pathname = usePathname();
   const shouldLockDesktopViewport = lockDesktopViewport && (pathname === "/student" || pathname === "/student/achievements");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -162,7 +165,7 @@ export function WorkspaceShell({
   const sidebar = (isMobileDrawer = false) => (
     <aside
       ref={isMobileDrawer ? drawerRef : undefined}
-      aria-label={`${title} navigation`}
+      aria-label={title.trim() ? `${title} ${t("workspace.navigation")}` : t("workspace.navigation")}
       className={styles.sidebar}
       tabIndex={isMobileDrawer ? -1 : undefined}
     >
@@ -180,7 +183,7 @@ export function WorkspaceShell({
               className={styles.closeButton}
               type="button"
               onClick={() => closeMenu(true)}
-              aria-label="Close navigation"
+              aria-label={t("workspace.closeNavigation")}
             >
               <CloseIcon />
             </button>
@@ -189,7 +192,7 @@ export function WorkspaceShell({
         <p className={styles.workspaceName}>{title}</p>
       </div>
 
-      <nav className={styles.navigation} aria-label={`${title} sections`}>
+      <nav className={styles.navigation} aria-label={t("workspace.navigation")}>
         {navigation.map((item) => {
           const active = isActive(item.href);
           const mistakeBadgeCount = item.href === "/student/mistakes" ? openMistakeCount : 0;
@@ -202,9 +205,9 @@ export function WorkspaceShell({
               aria-current={active ? "page" : undefined}
               className={`${styles.navigationLink} ${active ? styles.navigationLinkActive : ""}`}
             >
-              <span>{item.label}</span>
-              {mistakeBadgeCount > 0 ? <span className={styles.navigationCountBadge} aria-label={`${mistakeBadgeCount} mistakes to review`}>{mistakeBadgeCount > 99 ? "99+" : mistakeBadgeCount}</span> : null}
-              {!mistakeBadgeCount && item.notificationSection && (navigationBadges[item.notificationSection] ?? 0) > 0 ? <span className={styles.navigationBadge} role="img" aria-label="New updates" /> : null}
+              <span>{item.labelKey ? t(item.labelKey) : item.label}</span>
+              {mistakeBadgeCount > 0 ? <span className={styles.navigationCountBadge} aria-label={t("workspace.mistakesToReview", { count: mistakeBadgeCount })}>{mistakeBadgeCount > 99 ? "99+" : mistakeBadgeCount}</span> : null}
+              {!mistakeBadgeCount && item.notificationSection && (navigationBadges[item.notificationSection] ?? 0) > 0 ? <span className={styles.navigationBadge} role="img" aria-label={t("workspace.newUpdates")} /> : null}
             </Link>
           );
         })}
@@ -213,7 +216,7 @@ export function WorkspaceShell({
       <div className={styles.sidebarFooter}>
         <Link href="/" onClick={() => closeMenu()} className={styles.homeLink}>
           <span aria-hidden="true">←</span>
-          Back to home
+          {t("workspace.backToHome")}
         </Link>
       </div>
     </aside>
@@ -229,12 +232,12 @@ export function WorkspaceShell({
           className={styles.mobileMenu}
           role="dialog"
           aria-modal="true"
-          aria-label="Workspace navigation"
+          aria-label={t("workspace.navigation")}
         >
           <button
             className={styles.menuBackdrop}
             type="button"
-            aria-label="Close navigation"
+            aria-label={t("workspace.closeNavigation")}
             onClick={() => closeMenu(true)}
           />
           <div className={styles.mobileDrawer}>{sidebar(true)}</div>
@@ -248,7 +251,7 @@ export function WorkspaceShell({
               <button
                 ref={menuButtonRef}
                 type="button"
-                aria-label="Open navigation"
+                aria-label={t("workspace.openNavigation")}
                 aria-expanded={menuOpen}
                 onClick={() => setMenuOpen(true)}
                 className={styles.menuButton}
@@ -271,7 +274,7 @@ export function WorkspaceShell({
                 className={styles.signOutButton}
                 disabled={isSigningOut}
               >
-                {isSigningOut ? "Signing out…" : "Sign out"}
+                {isSigningOut ? t("workspace.signingOut") : t("workspace.signOut")}
               </button>
             </div>
           </div>
@@ -284,8 +287,8 @@ export function WorkspaceShell({
                 dialogUntil="lg"
                 placeholder={
                   searchContext === "TEACHER"
-                    ? "Search groups, learners, courses and assignments"
-                    : "Search courses, topics, lessons and words"
+                    ? t("workspace.teacherSearch")
+                    : t("workspace.studentSearch")
                 }
               />
             </div>

@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
@@ -19,6 +20,7 @@ function experienceLabel(level: MotivationOverview["level"]) {
 }
 
 export function ExperienceStatus({ className = "" }: { className?: string }) {
+  const { t } = useLocale();
   const [overview, setOverview] = useState<MotivationOverview | null>(null);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
@@ -77,13 +79,13 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
         body: JSON.stringify({ experience: requested }),
       });
       const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || "Unable to exchange XP.");
+      if (!response.ok) throw new Error(payload?.error || t("student.xp.exchangeError"));
       setAmount("");
-      setMessage(`${requested} XP exchanged for ${previewCoins.toFixed(2)} KRIN Coins.`);
+      setMessage(t("student.xp.exchanged", { xp: requested, coins: previewCoins.toFixed(2) }));
       await load();
       notifyMotivationUpdated();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to exchange XP.");
+      setMessage(error instanceof Error ? error.message : t("student.xp.exchangeError"));
     } finally {
       setSubmitting(false);
     }
@@ -91,19 +93,19 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
 
   return <div ref={rootRef} className={`${styles.root} ${className}`}>
     <div className={styles.status}>
-      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { setOpen((value) => !value); setMessage(null); }} title="Exchange XP for KRIN Coins">
+      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { setOpen((value) => !value); setMessage(null); }} title={t("student.xp.exchangeHint")}>
         <span>Lv. {overview.level.level}</span><strong>{experienceText} XP</strong>
       </button>
       <span className={styles.coins} aria-label={`${coinBalance(overview).toFixed(2)} KRIN Coins`}><span aria-hidden="true">◉</span> {coinBalance(overview).toFixed(2)}</span>
     </div>
-    {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label="Exchange XP for KRIN Coins">
-      <div className={styles.popoverHeading}><div><strong>Exchange XP</strong><span>1,000 XP = 1 KRIN Coin</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Close">×</button></div>
-      <p className={styles.available}>Available: <strong>{experienceText} XP</strong></p>
+    {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label={t("student.xp.exchangeHint")}>
+      <div className={styles.popoverHeading}><div><strong>{t("student.xp.exchangeTitle")}</strong><span>{t("student.xp.rate")}</span></div><button type="button" onClick={() => setOpen(false)} aria-label={t("student.xp.close")}>×</button></div>
+      <p className={styles.available}>{t("student.xp.available")} <strong>{experienceText} XP</strong></p>
       <form onSubmit={(event) => void exchange(event)}>
-        <label htmlFor={`${popoverId}-amount`}>XP to exchange</label>
-        <div className={styles.amountRow}><input id={`${popoverId}-amount`} type="number" min="10" max={experience} step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000" autoFocus /><button type="button" onClick={() => setAmount(String(experience))}>All</button></div>
-        <div className={styles.preview}><span>You receive</span><strong>{previewCoins.toFixed(2)} KRIN Coins</strong></div>
-        <button className={styles.exchangeButton} type="submit" disabled={submitting || requested < 10 || requested > experience}>{submitting ? "Exchanging…" : "Exchange"}</button>
+        <label htmlFor={`${popoverId}-amount`}>{t("student.xp.amount")}</label>
+        <div className={styles.amountRow}><input id={`${popoverId}-amount`} type="number" min="10" max={experience} step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000" autoFocus /><button type="button" onClick={() => setAmount(String(experience))}>{t("student.xp.all")}</button></div>
+        <div className={styles.preview}><span>{t("student.xp.receive")}</span><strong>{previewCoins.toFixed(2)} KRIN Coins</strong></div>
+        <button className={styles.exchangeButton} type="submit" disabled={submitting || requested < 10 || requested > experience}>{submitting ? t("student.xp.exchanging") : t("student.xp.exchange")}</button>
       </form>
       {message ? <p className={styles.message} role="status">{message}</p> : null}
     </div> : null}
