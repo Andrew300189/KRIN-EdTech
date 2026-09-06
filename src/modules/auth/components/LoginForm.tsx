@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { getSafeInternalPath } from "@/core/utils/safe-internal-path";
 import styles from "./AuthForms.module.css";
 
@@ -65,6 +66,8 @@ export function LoginForm({
   const forgotHref = safeNextPath
     ? `/forgot-password?next=${encodeURIComponent(safeNextPath)}`
     : "/forgot-password";
+
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   const updateIdentifier = (value: string) => {
     if (email === undefined) setIdentifier(value);
@@ -136,9 +139,16 @@ export function LoginForm({
         credentials: "same-origin",
         body: JSON.stringify({ email: identifierValue }),
       });
-      setResendState(response.ok ? "sent" : "error");
+      if (response.ok) {
+        setResendState("sent");
+        toast.success("If an unverified account matches this email, a new confirmation link has been sent.");
+      } else {
+        setResendState("error");
+        toast.error("We could not send a new confirmation link right now. Please try again shortly.");
+      }
     } catch {
       setResendState("error");
+      toast.error("We could not send a new confirmation link right now. Please try again shortly.");
     }
   };
 

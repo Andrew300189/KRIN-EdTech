@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { LessonVocabularyPanel } from "@/modules/vocabulary/components/LessonVocabularyPanel";
 import { LessonWordHoverDictionary } from "@/modules/vocabulary/components/LessonWordHoverDictionary";
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
@@ -214,6 +215,9 @@ export function LessonPlayer({
   const reviewReturnStartedRef = useRef(false);
   const reviewAdvanceStartedRef = useRef(false);
   const advanceStepRef = useRef<() => void>(() => undefined);
+
+  useEffect(() => { if (saveError) toast.error(saveError); }, [saveError]);
+  useEffect(() => { if (reviewError) toast.error(reviewError); }, [reviewError]);
 
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
   const nextLesson = currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;

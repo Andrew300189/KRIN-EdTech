@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element -- Published lesson images can come from the CMS media URL configured by the owner. */
 
 import Link from "next/link";
-import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExercise } from "./lesson-content";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
@@ -223,6 +224,10 @@ export function ExerciseRenderer({ exercise, contentLocale, previewMode = false,
   );
   const translationSource = translationTarget.source;
   const visibleHint = learnerFriendlyHint(exercise, locale);
+
+  useEffect(() => { if (error) toast.error(error); }, [error]);
+  useEffect(() => { if (translationError) toast.error(translationError); }, [translationError]);
+  useEffect(() => { if (hintError) toast.error(hintError); }, [hintError]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;

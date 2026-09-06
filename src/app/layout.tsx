@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ScrollToTopButton from "@/core/components/ScrollToTopButton";
 import { SkipToMainContent } from "@/core/components/SkipToMainContent";
+import { ToastProvider } from "@/core/components/ToastProvider";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
 
@@ -100,6 +101,7 @@ export default function RootLayout({
           <div id="main-content" tabIndex={-1}>{children}</div>
           <WebVitalsReporter />
           <ScrollToTopButton />
+          <ToastProvider />
         </LocaleProvider>
       </body>
     </html>

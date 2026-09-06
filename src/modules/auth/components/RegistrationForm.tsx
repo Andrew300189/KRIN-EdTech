@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { getSafeInternalPath } from "@/core/utils/safe-internal-path";
 import styles from "./AuthForms.module.css";
@@ -31,11 +32,15 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
   const passwordsMatch = !confirmPassword || password === confirmPassword;
 
   useEffect(() => { setEmail(initialEmail); }, [initialEmail]);
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submittingRef.current) return;
-    if (!passwordsMatch) return;
+    if (!passwordsMatch) {
+      setError("Passwords do not match.");
+      return;
+    }
     submittingRef.current = true;
     setError("");
     setAccountExists(false);
