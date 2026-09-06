@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { Prisma, type CourseAccessMode, type CourseType, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
+import { cachePublicContent } from "@/core/server/public-content-cache";
 import {
   addUserWordSchema,
   type CreateCourseCategoryInput,
@@ -19,6 +20,7 @@ import {
   updateLessonBlockSchema,
 } from "@/modules/courses/schemas/content.schemas";
 import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
+import { calculateExerciseProgressDelta } from "@/modules/courses/utils/exercise-progress-delta";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
 import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
@@ -137,7 +139,7 @@ async function nextOrder(
   return (last?.order ?? 0) + 1;
 }
 
-export async function listPublishedLanguageLevels() {
+async function listPublishedLanguageLevelsUncached() {
   return prisma.languageLevel.findMany({
     where: { isPublished: true },
     orderBy: { order: "asc" },
@@ -145,8 +147,13 @@ export async function listPublishedLanguageLevels() {
   });
 }
 
+export const listPublishedLanguageLevels = cachePublicContent(
+  ["published-language-levels"],
+  listPublishedLanguageLevelsUncached,
+);
+
 /** Owner-selected curriculum entries rendered below the legacy landing content. */
-export async function listHomepageCurriculumNodes() {
+async function listHomepageCurriculumNodesUncached() {
   return prisma.curriculumNode.findMany({
     where: { contentStatus: "PUBLISHED", showOnHomepage: true, level: { isPublished: true } },
     orderBy: [{ level: { order: "asc" } }, { order: "asc" }],
@@ -169,8 +176,13 @@ export async function listHomepageCurriculumNodes() {
   });
 }
 
+export const listHomepageCurriculumNodes = cachePublicContent(
+  ["homepage-curriculum-nodes"],
+  listHomepageCurriculumNodesUncached,
+);
+
 /** Courses explicitly selected by the owner for the homepage feature area. */
-export async function listHomepageCourses() {
+async function listHomepageCoursesUncached() {
   return prisma.course.findMany({
     where: { isPublished: true, isTemplate: false, isVisibleOnHomepage: true, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
     orderBy: [{ isFeatured: "desc" }, { order: "asc" }, { createdAt: "desc" }],
@@ -179,8 +191,13 @@ export async function listHomepageCourses() {
   });
 }
 
+export const listHomepageCourses = cachePublicContent(
+  ["homepage-courses"],
+  listHomepageCoursesUncached,
+);
+
 /** Discovery-only recommendations; entitlement checks still happen at lesson access time. */
-export async function listStudentDashboardRecommendations() {
+async function listStudentDashboardRecommendationsUncached() {
   return prisma.course.findMany({
     where: { isPublished: true, isTemplate: false, isVisibleInStudentDashboard: true, isVisibleInRecommendations: true, accessMode: { not: "HIDDEN" }, level: { isPublished: true }, category: { isPublished: true } },
     orderBy: [{ isFeatured: "desc" }, { updatedAt: "desc" }],
@@ -189,8 +206,13 @@ export async function listStudentDashboardRecommendations() {
   });
 }
 
+export const listStudentDashboardRecommendations = cachePublicContent(
+  ["student-dashboard-recommendations"],
+  listStudentDashboardRecommendationsUncached,
+);
+
 /** Visible courses for a legacy academy path, managed by the canonical Course row. */
-export async function listPublishedAcademyCourses(academySlug: string) {
+async function listPublishedAcademyCoursesUncached(academySlug: string) {
   return prisma.course.findMany({
     where: { isPublished: true, isTemplate: false, isVisibleInAcademy: true, accessMode: { not: "HIDDEN" }, academySlug, level: { isPublished: true }, category: { isPublished: true } },
     orderBy: [{ isFeatured: "desc" }, { order: "asc" }],
@@ -199,7 +221,12 @@ export async function listPublishedAcademyCourses(academySlug: string) {
   });
 }
 
-export async function getPublishedLevelWithCourses(code: string) {
+export const listPublishedAcademyCourses = cachePublicContent(
+  ["published-academy-courses"],
+  listPublishedAcademyCoursesUncached,
+);
+
+async function getPublishedLevelWithCoursesUncached(code: string) {
   const levelCode = normalizeCefrLevelCode(code);
   if (!levelCode) return null;
 
@@ -225,12 +252,17 @@ export async function getPublishedLevelWithCourses(code: string) {
   });
 }
 
+export const getPublishedLevelWithCourses = cachePublicContent(
+  ["published-level-with-courses"],
+  getPublishedLevelWithCoursesUncached,
+);
+
 /**
  * Public CEFR navigation is read from the CMS-managed curriculum tree. Unlike
  * the legacy course catalogue, it deliberately contains no fallback that can
  * leak sections or topics from another level.
  */
-export async function getPublishedCurriculumLevelPage(code: string) {
+async function getPublishedCurriculumLevelPageUncached(code: string) {
   const levelCode = normalizeCefrLevelCode(code);
   if (!levelCode) return null;
 
@@ -259,6 +291,11 @@ export async function getPublishedCurriculumLevelPage(code: string) {
 
   return { level, sections };
 }
+
+export const getPublishedCurriculumLevelPage = cachePublicContent(
+  ["published-curriculum-level-page"],
+  getPublishedCurriculumLevelPageUncached,
+);
 
 type PublishedCurriculumPageInput = {
   levelCode: string;
@@ -343,16 +380,21 @@ async function getPublishedCurriculumPage(input: PublishedCurriculumPageInput) {
   };
 }
 
+const getPublishedCurriculumPageCached = cachePublicContent(
+  ["published-curriculum-page"],
+  getPublishedCurriculumPage,
+);
+
 export async function getPublishedCurriculumSectionPage(levelCode: string, sectionSlug: string) {
-  return getPublishedCurriculumPage({ levelCode, sectionSlug });
+  return getPublishedCurriculumPageCached({ levelCode, sectionSlug });
 }
 
 export async function getPublishedCurriculumTopicPage(levelCode: string, sectionSlug: string, topicSlug: string) {
-  return getPublishedCurriculumPage({ levelCode, sectionSlug, topicSlug });
+  return getPublishedCurriculumPageCached({ levelCode, sectionSlug, topicSlug });
 }
 
 export async function getPublishedCurriculumSubtopicPage(levelCode: string, sectionSlug: string, topicSlug: string, subtopicSlug: string) {
-  return getPublishedCurriculumPage({ levelCode, sectionSlug, topicSlug, subtopicSlug });
+  return getPublishedCurriculumPageCached({ levelCode, sectionSlug, topicSlug, subtopicSlug });
 }
 
 export type CourseCatalogFilters = {
@@ -399,7 +441,7 @@ function publishedCourseWhere(filters: CourseCatalogFilters): Prisma.CourseWhere
   };
 }
 
-export async function listPublishedCourseCategories() {
+async function listPublishedCourseCategoriesUncached() {
   return prisma.courseCategory.findMany({
     where: { isPublished: true },
     orderBy: { order: "asc" },
@@ -408,6 +450,11 @@ export async function listPublishedCourseCategories() {
     },
   });
 }
+
+export const listPublishedCourseCategories = cachePublicContent(
+  ["published-course-categories"],
+  listPublishedCourseCategoriesUncached,
+);
 
 export async function listManagedCourseCategories() {
   return prisma.courseCategory.findMany({
@@ -457,7 +504,7 @@ export async function updateCourseCategory(actorId: string, categoryId: string, 
   return category;
 }
 
-export async function getPublishedCourseCategoryBySlug(slug: string) {
+async function getPublishedCourseCategoryBySlugUncached(slug: string) {
   return prisma.courseCategory.findFirst({
     where: { slug, isPublished: true },
     include: {
@@ -470,7 +517,12 @@ export async function getPublishedCourseCategoryBySlug(slug: string) {
   });
 }
 
-export async function listPublishedCourses(filters: CourseCatalogFilters = {}) {
+export const getPublishedCourseCategoryBySlug = cachePublicContent(
+  ["published-course-category-by-slug"],
+  getPublishedCourseCategoryBySlugUncached,
+);
+
+async function listPublishedCoursesUncached(filters: CourseCatalogFilters = {}) {
   const orderBy = filters.sort === "title"
     ? [{ title: "asc" as const }]
     : filters.sort === "duration"
@@ -489,11 +541,21 @@ export async function listPublishedCourses(filters: CourseCatalogFilters = {}) {
   });
 }
 
-export async function countPublishedCourses(filters: CourseCatalogFilters = {}) {
+export const listPublishedCourses = cachePublicContent(
+  ["published-course-catalogue"],
+  listPublishedCoursesUncached,
+);
+
+async function countPublishedCoursesUncached(filters: CourseCatalogFilters = {}) {
   return prisma.course.count({ where: publishedCourseWhere(filters) });
 }
 
-export async function getPublishedCourseBySlug(slug: string, localeInput?: string | null) {
+export const countPublishedCourses = cachePublicContent(
+  ["published-course-catalogue-count"],
+  countPublishedCoursesUncached,
+);
+
+async function getPublishedCourseBySlugUncached(slug: string, localeInput?: string | null) {
   const locale = normalizeContentLocale(localeInput);
   const shouldUseTranslation = Boolean(localeInput) && locale !== defaultContentLocale;
   const course = await prisma.course.findFirst({
@@ -608,7 +670,12 @@ export async function getPublishedCourseBySlug(slug: string, localeInput?: strin
   };
 }
 
-export async function getPublishedModuleById(courseSlug: string, moduleId: string) {
+export const getPublishedCourseBySlug = cachePublicContent(
+  ["published-course-by-slug"],
+  getPublishedCourseBySlugUncached,
+);
+
+async function getPublishedModuleByIdUncached(courseSlug: string, moduleId: string) {
   return prisma.courseModule.findFirst({
     where: {
       id: moduleId,
@@ -634,7 +701,12 @@ export async function getPublishedModuleById(courseSlug: string, moduleId: strin
   });
 }
 
-export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: string, localeInput?: string | null) {
+export const getPublishedModuleById = cachePublicContent(
+  ["published-module-by-id"],
+  getPublishedModuleByIdUncached,
+);
+
+async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: string, localeInput?: string | null) {
   const locale = normalizeContentLocale(localeInput);
   const shouldUseTranslation = Boolean(localeInput) && locale !== defaultContentLocale;
   const lesson = await prisma.lesson.findFirst({
@@ -809,6 +881,11 @@ export async function getPublishedLessonBySlug(courseSlug: string, lessonSlug: s
     }),
   };
 }
+
+export const getPublishedLessonBySlug = cachePublicContent(
+  ["published-lesson-by-slug"],
+  getPublishedLessonBySlugUncached,
+);
 
 export async function listManagedCourses() {
   return prisma.course.findMany({
@@ -1422,7 +1499,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       tx.exerciseAttempt.findFirst({
         where: { userId, exerciseId },
         orderBy: { attemptNumber: "desc" },
-        select: { attemptNumber: true, solutionOpened: true },
+        select: { attemptNumber: true, solutionOpened: true, isCorrect: true },
       }),
       tx.exerciseAttempt.findFirst({
         where: { userId, exerciseId },
@@ -1497,11 +1574,13 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       });
     }
 
-    const attempts = await tx.exerciseAttempt.findMany({
-      where: { userId, lessonId: exercise.lessonBlock.lessonId },
-      select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true, hintUsed: true, solutionOpened: true },
+    const progressDelta = calculateExerciseProgressDelta({
+      previousAttempt: previous,
+      isCorrect,
+      scoreAwarded,
+      hintUsed: value.hintUsed,
+      solutionOpened: value.solutionOpened,
     });
-    const result = calculateLessonResult(attempts);
     await tx.lessonProgress.upsert({
       where: { userId_lessonId: { userId, lessonId: exercise.lessonBlock.lessonId } },
       create: {
@@ -1509,19 +1588,19 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
         lessonId: exercise.lessonBlock.lessonId,
         status: "STARTED",
         completedBlocks: [],
-        score: result.score,
-        correctAnswers: result.correctAnswers,
-        incorrectAnswers: result.incorrectAnswers,
-        hintsUsed: attempts.filter((attempt) => attempt.hintUsed).length,
-        solutionsOpened: attempts.filter((attempt) => attempt.solutionOpened).length,
+        score: progressDelta.score,
+        correctAnswers: progressDelta.correctAnswers,
+        incorrectAnswers: progressDelta.incorrectAnswers,
+        hintsUsed: progressDelta.hintsUsed,
+        solutionsOpened: progressDelta.solutionsOpened,
         lastSeenAt: new Date(),
       },
       update: {
-        score: result.score,
-        correctAnswers: result.correctAnswers,
-        incorrectAnswers: result.incorrectAnswers,
-        hintsUsed: attempts.filter((attempt) => attempt.hintUsed).length,
-        solutionsOpened: attempts.filter((attempt) => attempt.solutionOpened).length,
+        score: { increment: progressDelta.score },
+        correctAnswers: { increment: progressDelta.correctAnswers },
+        incorrectAnswers: { increment: progressDelta.incorrectAnswers },
+        hintsUsed: { increment: progressDelta.hintsUsed },
+        solutionsOpened: { increment: progressDelta.solutionsOpened },
         lastSeenAt: new Date(),
       },
     });

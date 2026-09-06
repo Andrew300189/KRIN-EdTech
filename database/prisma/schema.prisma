@@ -974,6 +974,8 @@ model ExerciseAttempt {
   @@unique([userId, exerciseId, attemptNumber])
   @@unique([userId, exerciseId, idempotencyKey])
   @@index([userId, createdAt])
+  @@index([userId, exerciseId, solutionOpened])
+  @@index([userId, lessonId, createdAt])
   @@index([exerciseId, createdAt])
   @@index([lessonId, createdAt])
 }

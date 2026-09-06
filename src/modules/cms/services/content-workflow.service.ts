@@ -1,5 +1,6 @@
 import { Prisma, type CmsContentEntityType, type CmsContentStatus, type CmsContentVersionAction } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
+import { invalidatePublicContentCache } from "@/core/server/public-content-cache";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 
 export type CmsWorkflowAction = "PUBLISH" | "SUBMIT_FOR_REVIEW" | "UNPUBLISH" | "SCHEDULE" | "ARCHIVE" | "RESTORE";
@@ -150,7 +151,7 @@ export async function recordCmsContentVersion(input: {
   snapshot: unknown;
   note?: string;
 }) {
-  return prisma.$transaction((tx) => writeVersion(
+  const version = await prisma.$transaction((tx) => writeVersion(
     tx,
     input.actorId,
     input.entityType,
@@ -159,6 +160,8 @@ export async function recordCmsContentVersion(input: {
     input.snapshot,
     input.note,
   ));
+  invalidatePublicContentCache();
+  return version;
 }
 
 async function writeAudit(
@@ -352,7 +355,7 @@ export async function transitionCmsContent(input: {
   }
 
   const now = new Date();
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const updated = await updateWorkflowRecord(tx, input.entityType, input.entityId, transition.status, now, transition.scheduledAt, input.actorId);
     await writeVersion(tx, input.actorId, input.entityType, input.entityId, transition.versionAction, updated, input.note);
     await writeAudit(tx, input.actorId, `CMS_${input.action}`, input.entityType, input.entityId, {
@@ -362,6 +365,8 @@ export async function transitionCmsContent(input: {
     });
     return updated;
   });
+  invalidatePublicContentCache();
+  return updated;
 }
 
 export async function listCmsContentHistory(entityType: CmsContentEntityType, entityId: string) {

@@ -17,14 +17,37 @@ const cachedClientIsCurrent = Boolean(
   "courseReview" in cachedPrisma,
 );
 
+function runtimeDatabaseUrl() {
+  // Runtime requests must prefer DATABASE_URL. Keep an unpooled URL only for
+  // Prisma migrations and local development; a serverless request against an
+  // unpooled Neon endpoint can create too many direct connections.
+  const configuredUrl = process.env.DATABASE_URL || process.env.DIRECT_DATABASE_URL;
+  if (!configuredUrl) return undefined;
+
+  const url = new URL(configuredUrl);
+  const isNeon = url.hostname.endsWith(".neon.tech");
+  const isPooledNeonUrl = url.hostname.includes("-pooler.");
+
+  // Neon identifies the transaction pooler through the endpoint hostname.
+  // This normalisation protects production if a direct Neon URL is pasted
+  // into DATABASE_URL by mistake, but leaves local and non-Neon databases
+  // untouched.
+  if (isNeon && !isPooledNeonUrl) {
+    const [endpoint, ...domain] = url.hostname.split(".");
+    url.hostname = `${endpoint}-pooler.${domain.join(".")}`;
+  }
+
+  return url.toString();
+}
+
 export const prisma =
   (cachedClientIsCurrent ? cachedPrisma : undefined) ??
   new PrismaClient({
     datasources: {
       db: {
-        // Managed platforms such as Neon provide DATABASE_URL. Prefer it so a
-        // legacy direct connection cannot override the production database.
-        url: process.env.DATABASE_URL || process.env.DIRECT_DATABASE_URL,
+        // Serverless runtime: pooled Neon URL. The migration script explicitly
+        // selects DATABASE_URL_UNPOOLED/DIRECT_DATABASE_URL instead.
+        url: runtimeDatabaseUrl(),
       },
     },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
