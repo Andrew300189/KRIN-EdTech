@@ -47,7 +47,7 @@ UPDATE "LessonBlock" AS block
 SET "settings" = COALESCE(block."settings", '{}'::jsonb) || jsonb_build_object('practiceRule', rule_map.rule),
     "updatedAt" = CURRENT_TIMESTAMP
 FROM "Lesson" AS lesson
-JOIN "Module" AS module ON module."id" = lesson."moduleId"
+JOIN "CourseModule" AS module ON module."id" = lesson."moduleId"
 JOIN "Course" AS course ON course."id" = module."courseId"
 JOIN rule_map ON rule_map.lesson_number = ((module."order" - 1) * 10 + lesson."order")
 WHERE block."lessonId" = lesson."id"
