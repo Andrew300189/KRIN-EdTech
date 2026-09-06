@@ -133,6 +133,33 @@ function shuffleTokens(tokens: string[], seed: string, protectedOrder: string[] 
   return best;
 }
 
+/**
+ * Authors naturally tend to place the answer first (or in one familiar slot).
+ * Keep the order stable for a given card — so it never jumps during React
+ * renders — but rearrange every choice card with its own exercise id. A lone
+ * correct answer is also deliberately moved away from its authored position.
+ */
+function shuffleChoiceOptions(options: string[], exerciseId: string, correctAnswer: unknown) {
+  if (options.length < 2) return options;
+  const shuffled = shuffleTokens(options, `${exerciseId}:choice-options`, []);
+  const correctValues = Array.isArray(correctAnswer)
+    ? correctAnswer.filter((value): value is string => typeof value === "string")
+    : typeof correctAnswer === "string" ? [correctAnswer] : [];
+
+  // For a single-answer card, never preserve the position the author used.
+  // That prevents an accidentally consistent first/third answer pattern while
+  // still leaving server-side answer evaluation entirely value based.
+  if (correctValues.length === 1) {
+    const authoredIndex = options.indexOf(correctValues[0]);
+    const shuffledIndex = shuffled.indexOf(correctValues[0]);
+    if (authoredIndex >= 0 && authoredIndex === shuffledIndex) {
+      const nextIndex = (shuffledIndex + 1) % shuffled.length;
+      [shuffled[shuffledIndex], shuffled[nextIndex]] = [shuffled[nextIndex], shuffled[shuffledIndex]];
+    }
+  }
+  return shuffled;
+}
+
 /** Keep punctuation in the validated answer, but not on a word card. */
 function displaySentenceBuilderToken(token: string) {
   return token.replace(/\.+$/u, "");
@@ -217,6 +244,17 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       ? shuffleTokens(options, exercise.id, correctOrderedTokens)
       : options
   ), [correctOrderedTokens, exercise.id, options, ordered]);
+  const choiceOptions = useMemo(() => (
+    choice ? shuffleChoiceOptions(options, exercise.id, exercise.correctAnswer) : options
+  ), [choice, exercise.correctAnswer, exercise.id, options]);
+  const matchingOptions = useMemo(() => (
+    matching && !compactToBeMatching
+      ? shuffleTokens(matchingRight, `${exercise.id}:matching-options`, [])
+      : matchingRight
+  ), [compactToBeMatching, exercise.id, matching, matchingRight]);
+  const categoryOptions = useMemo(() => (
+    classification ? shuffleTokens(categories, `${exercise.id}:category-options`, []) : categories
+  ), [categories, classification, exercise.id]);
   const translationTarget = useMemo(
     () => getExerciseTranslationTarget({ question: exercise.question, content }),
     [content, exercise.question],
@@ -488,7 +526,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {result && !result.isCorrect && hintOpen && feedbackHint ? <p className="lesson-exercise-inline-hint" role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className="lesson-exercise-answer-list mt-4 space-y-2">
-      {choice && options.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} /><span>{option}</span></label>; })}
+      {choice && choiceOptions.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className="lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500"><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
         const current = String((answer as JsonObject)[leftItem] ?? "");
         const answerLabel = locale === "uk" ? "Впишіть слово" : locale === "ru" ? "Впишите слово" : "Type the word";
@@ -500,10 +538,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
         return <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={storedValue} onChange={(event) => {
           const next = { ...(answer as JsonObject), [leftItem]: event.target.value };
           changeAnswer(next);
-        }}><option value="">Choose a match</option>{matchingRight.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>;
+        }}><option value="">Choose a match</option>{matchingOptions.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>;
       })}
       {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => changeAnswer([...answer as string[], option])} className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className="lesson-exercise-token-answer list-none flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700" aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
-      {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })}><option value="">Choose a category</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
+      {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })}><option value="">Choose a category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
       {!choice && !matching && !ordered && !classification ? <label className="lesson-exercise-text-answer block"><span className="lesson-exercise-answer-label">{correctedWordOnly ? "Correct word" : "Your answer"}</span>{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} rows={5} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={renderer === "recording" ? "Write a transcript or response for review" : "Write your answer"} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={correctedWordOnly ? "Type only the corrected word" : "Type your answer"} />}</label> : null}
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
