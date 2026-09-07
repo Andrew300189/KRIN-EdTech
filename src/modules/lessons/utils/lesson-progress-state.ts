@@ -1,7 +1,7 @@
 export type LessonProgressStatus = "STARTED" | "COMPLETED";
 
 type LessonProgressSnapshot = {
-  status: LessonProgressStatus;
+  status: string;
   completionPercent: number;
 };
 
