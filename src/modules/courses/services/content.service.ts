@@ -2132,52 +2132,7 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
   return experienceByLesson;
 }
 
-/**
- * Repairs legacy/in-flight progress only when the database can already prove
- * that every required step has been attempted. This is deliberately invoked
- * on read, rather than on a timer: it performs one write at most (the status
- * becomes COMPLETED) and lets learners who were stranded at 75% resume
- * without having to repeat or manually save a lesson.
- */
-async function reconcileVerifiedLessonCompletionOnRead(userId: string, lessonId: string) {
-  const progress = await prisma.lessonProgress.findUnique({
-    where: { userId_lessonId: { userId, lessonId } },
-    select: { status: true, completedBlocks: true, currentBlockId: true },
-  });
-  if (!progress || progress.status === "COMPLETED") return;
-
-  const [blocks, attempts] = await Promise.all([
-    prisma.lessonBlock.findMany({
-      where: { lessonId },
-      select: { id: true, type: true, settings: true, isRequired: true, exercises: { select: { id: true } } },
-    }),
-    prisma.exerciseAttempt.findMany({ where: { userId, lessonId }, select: { exerciseId: true } }),
-  ]);
-  const completed = new Set(stringIdsFromJson(progress.completedBlocks));
-  const attemptedExerciseIds = new Set(attempts.map((attempt) => attempt.exerciseId));
-  for (const block of blocks) {
-    if (block.exercises.length > 0 && block.exercises.every((exercise) => attemptedExerciseIds.has(exercise.id))) {
-      completed.add(block.id);
-    }
-  }
-  const requiredBlocks = blocks.filter((block) => block.isRequired);
-  const spacedReviewBlock = blocks.find((block) => block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
-  const spacedReviewComplete = !spacedReviewBlock || Boolean(await prisma.lessonSpacedReviewRun.findFirst({
-    where: { userId, lessonId, status: "COMPLETED" },
-    select: { id: true },
-  }));
-  if (requiredBlocks.length === 0 || !spacedReviewComplete || !requiredBlocks.every((block) => completed.has(block.id))) return;
-
-  await saveLessonProgress(userId, lessonId, {
-    completedBlockIds: [...completed],
-    currentBlockId: progress.currentBlockId,
-    activeSeconds: 0,
-    complete: true,
-  });
-}
-
 export async function getLessonProgress(userId: string, lessonId: string) {
-  await reconcileVerifiedLessonCompletionOnRead(userId, lessonId);
   const [progress, accuracyByLesson, experienceByLesson] = await Promise.all([
     prisma.lessonProgress.findUnique({
     where: { userId_lessonId: { userId, lessonId } },
