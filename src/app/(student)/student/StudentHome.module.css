@@ -72,6 +72,14 @@
 .leaderboardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .leaderboardHeading h3 { margin-top: 0.1rem; }
 .leaderboardFormula { display: block; margin-top: 0.18rem; color: var(--text-muted); font-size: 0.68rem; font-weight: 750; }
+.leaderboardTools { display: flex; align-items: center; gap: 0.35rem; }
+.refreshLeaderboardButton { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: 50%; background: color-mix(in srgb, var(--surface-elevated) 88%, var(--primary)); color: var(--primary); cursor: pointer; box-shadow: 0 0.2rem 0.55rem color-mix(in srgb, var(--primary) 13%, transparent); transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease; }
+.refreshLeaderboardButton svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.85; }
+.refreshLeaderboardButton:hover:not(:disabled) { border-color: var(--primary); background: var(--primary); color: #fff; transform: rotate(-12deg); }
+.refreshLeaderboardButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.refreshLeaderboardButton:disabled { cursor: wait; opacity: 0.78; }
+.refreshingLeaderboard svg { animation: leaderboard-refresh-spin 700ms linear infinite; }
+@keyframes leaderboard-refresh-spin { to { transform: rotate(360deg); } }
 .currentRankBadge { display: grid; min-width: 2.25rem; min-height: 2.25rem; place-items: center; border: 1px solid color-mix(in srgb, #f59e0b 44%, transparent); border-radius: 50%; background: color-mix(in srgb, #f59e0b 13%, var(--surface-elevated)); color: color-mix(in srgb, #b45309 82%, var(--text-primary)); font-size: 0.83rem; font-weight: 900; }
 .leaderboardList { display: grid; gap: 0.3rem; margin: 0.62rem 0 0; padding: 0; list-style: none; }
 .leaderboardRow { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto; align-items: center; gap: 0.42rem; border: 1px solid color-mix(in srgb, var(--border) 86%, transparent); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-elevated) 86%, transparent); padding: 0.37rem 0.42rem; }
@@ -94,6 +102,7 @@
 .mistakeList strong { overflow: hidden; color: var(--text-secondary); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
 .textLink { display: inline-flex; margin-top: auto; padding-top: 0.65rem; }
 .primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .refreshLeaderboardButton, .refreshLeaderboardButton:hover:not(:disabled) { transition: none; transform: none; } .refreshingLeaderboard svg { animation: none; } }
 @media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .resumeBanner { grid-template-columns: auto minmax(0, 1fr); gap: .6rem; padding: .72rem; }.resumeProgress, .resumeAction { grid-column: 1 / -1; }.resumeAction { width: 100%; }.resumeCopy h3, .resumeCopy span { white-space: normal; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .placementPanel { padding: 0.75rem; } .placementCourseList { grid-template-columns: 1fr; } .placementRecommendationsHeading { align-items: flex-start; flex-direction: column; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .leaderboardPanel .helperText { display: block; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .leaderboardRow { padding: 0.34rem 0.4rem; } .leaderboardLearner strong { font-size: 0.72rem; } .ownRank { display: block; } .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
 @media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (min-width: 1024px) {

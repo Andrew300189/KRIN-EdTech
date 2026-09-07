@@ -1,5 +1,7 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n/locale";
 import styles from "./StudentHome.module.css";
 
@@ -33,6 +35,7 @@ const copy = {
     total: "XP equivalent",
     xp: "XP",
     coins: "coins",
+    refresh: "Refresh ranking",
   },
   uk: {
     eyebrow: "Рейтинг спільноти",
@@ -45,6 +48,7 @@ const copy = {
     total: "XP-еквівалент",
     xp: "XP",
     coins: "монет",
+    refresh: "Оновити рейтинг",
   },
   ru: {
     eyebrow: "Рейтинг сообщества",
@@ -57,6 +61,7 @@ const copy = {
     total: "XP-эквивалент",
     xp: "XP",
     coins: "монет",
+    refresh: "Обновить рейтинг",
   },
 } as const;
 
@@ -73,8 +78,14 @@ function placeClass(rank: number) {
 
 export function StudentLeaderboardPanel({ entries, current, participantCount }: Props) {
   const { locale } = useLocale();
+  const router = useRouter();
+  const [isRefreshing, startRefresh] = useTransition();
   const text = copy[locale] ?? copy.en;
   const participantText = text.among.replace("{count}", String(participantCount));
+
+  function refreshLeaderboard() {
+    startRefresh(() => router.refresh());
+  }
 
   return (
     <article className={`${styles.panel} ${styles.leaderboardPanel}`} aria-labelledby="student-leaderboard-title">
@@ -84,7 +95,24 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
           <h3 id="student-leaderboard-title">{text.title}</h3>
           <span className={styles.leaderboardFormula}>{text.formula}</span>
         </div>
-        {current ? <span className={styles.currentRankBadge}>#{current.rank}</span> : null}
+        <div className={styles.leaderboardTools}>
+          <button
+            type="button"
+            className={`${styles.refreshLeaderboardButton} ${isRefreshing ? styles.refreshingLeaderboard : ""}`}
+            onClick={refreshLeaderboard}
+            disabled={isRefreshing}
+            aria-label={text.refresh}
+            title={text.refresh}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 11a8 8 0 0 0-14.8-4.2" />
+              <path d="M5.2 3.5v4.7h4.7" />
+              <path d="M4 13a8 8 0 0 0 14.8 4.2" />
+              <path d="M18.8 20.5v-4.7h-4.7" />
+            </svg>
+          </button>
+          {current ? <span className={styles.currentRankBadge}>#{current.rank}</span> : null}
+        </div>
       </div>
 
       {entries.length ? (
