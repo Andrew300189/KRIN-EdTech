@@ -3,6 +3,7 @@ import { hasAnyRole, parseRole } from "@/core/utils/role";
 import { hasPremiumSubscriptionAccess } from "@/modules/payments/services/subscription-access";
 import { entitlementAllowsLesson, hasLessonEntitlement, listActiveLessonEntitlements } from "@/modules/payments/services/entitlement.service";
 import { hasReachedLessonCompletion, isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
+import { reconcileLessonProgressFromPublishedBlocks } from "@/modules/courses/services/lesson-progress-reconciliation.service";
 
 export type LessonAccessReason = "AVAILABLE" | "AUTH_REQUIRED" | "PREMIUM_REQUIRED" | "SEQUENCE_LOCKED" | "PREREQUISITE_LOCKED" | "UNPUBLISHED" | "NOT_FOUND";
 export type LessonAccessResult = { allowed: boolean; reason: LessonAccessReason; lessonId?: string; courseSlug?: string };
@@ -184,6 +185,10 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
 
   if (lesson.prerequisiteLessonId && !hasAnyRole(parseRole(user?.role), ["content_manager"])) {
     if (!userId) return { allowed: false, reason: "AUTH_REQUIRED", lessonId, courseSlug: course.slug };
+    // A previous player version could include hidden CMS drafts in the lesson
+    // denominator. Repair that harmless historic record before deciding
+    // access, so a learner is never locked behind a lesson they completed.
+    await reconcileLessonProgressFromPublishedBlocks(userId, lesson.prerequisiteLessonId);
     const prerequisiteProgress = await prisma.lessonProgress.findUnique({
       where: { userId_lessonId: { userId, lessonId: lesson.prerequisiteLessonId } },
       select: { status: true, completionPercent: true },

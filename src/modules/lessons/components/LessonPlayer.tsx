@@ -758,6 +758,18 @@ export function LessonPlayer({
     router.push(destination);
   }
 
+  async function openNextLesson() {
+    if (!nextLesson) return;
+    // Navigation must wait for the one completion write. Relying on pagehide
+    // created a race: the destination's server-side access gate could read
+    // the old 75% record before the browser had sent the final snapshot.
+    if (canSaveProgress && !previewMode && storedProgress?.status !== "COMPLETED") {
+      const saved = await persistProgress(true);
+      if (!saved || saved.status !== "COMPLETED") return;
+    }
+    router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
+  }
+
   async function openCourseContent() {
     const saved = await persistProgress(false);
     if (canSaveProgress && !previewMode && !saved) return;
@@ -979,7 +991,7 @@ export function LessonPlayer({
             {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             <div className={styles.completionActions}>
               <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
-              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`)}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
+              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => void openNextLesson()}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
               {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
             </div>
           </section>

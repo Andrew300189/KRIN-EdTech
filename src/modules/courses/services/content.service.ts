@@ -38,6 +38,7 @@ import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/
 import { translateVerbToBeJsonToEnglish, translateVerbToBeTextToEnglish, verbToBeEnglishCourseSlug } from "@/modules/courses/localization/verb-to-be-english";
 import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian, verbToBeCourseSlug } from "@/modules/courses/localization/verb-to-be-ukrainian";
 import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
+import { reconcileLessonProgressFromPublishedBlocks } from "@/modules/courses/services/lesson-progress-reconciliation.service";
 import { SPACED_REVIEW_QUESTION_COUNT, SPACED_REVIEW_SYSTEM, SPACED_REVIEW_XP, isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 
 const CEFR_LEVEL_CODES = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -2004,7 +2005,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
   if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
   const saved = await prisma.$transaction(async (tx) => {
     const blocks = await tx.lessonBlock.findMany({
-      where: { lessonId },
+      // The learner only receives published blocks. Counting drafts here made
+      // a fully completed visible lesson persist as 75% when three hidden
+      // draft blocks happened to exist in the CMS.
+      where: { lessonId, contentStatus: "PUBLISHED" },
       select: { id: true, type: true, settings: true, isRequired: true, exercises: { select: { id: true } } },
     });
     if (blocks.length === 0) {
@@ -2227,6 +2231,10 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
 }
 
 export async function getLessonProgress(userId: string, lessonId: string) {
+  // Keep legacy incomplete snapshots from trapping a learner after every
+  // published step has already been completed. This is idempotent and writes
+  // only when a genuine stale record is found.
+  await reconcileLessonProgressFromPublishedBlocks(userId, lessonId);
   const [progress, accuracyByLesson, experienceByLesson] = await Promise.all([
     prisma.lessonProgress.findUnique({
     where: { userId_lessonId: { userId, lessonId } },
