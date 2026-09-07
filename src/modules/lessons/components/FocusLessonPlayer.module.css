@@ -416,8 +416,8 @@
   transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.sideNavigationPrevious { left: -6.4rem; }
-.sideNavigationNext { right: -6.4rem; }
+.sideNavigationPrevious { left: .9rem; }
+.sideNavigationNext { right: .9rem; }
 .sideNavigationButton img { display: block; width: 3.1rem; height: 3.1rem; }
 .sideNavigationPrevious img { transform: rotate(180deg); }
 .sideNavigationFinish { color: var(--primary); font-size: .88rem; font-weight: 900; letter-spacing: .02em; }
@@ -1824,8 +1824,8 @@
     height: 3.4rem;
   }
 
-  .sideNavigationPrevious { left: -4.15rem; }
-  .sideNavigationNext { right: -4.15rem; }
+  .sideNavigationPrevious { left: .75rem; }
+  .sideNavigationNext { right: .75rem; }
   .sideNavigationButton img { width: 1.95rem; height: 1.95rem; }
   .sideNavigationFinish { font-size: .68rem; }
 }
