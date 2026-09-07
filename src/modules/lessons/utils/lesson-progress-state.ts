@@ -17,7 +17,8 @@ export function isLessonProgressComplete(progress: LessonProgressSnapshot | null
 
 /** A prerequisite can deliberately open before 100% when CMS sets a lower threshold. */
 export function hasReachedLessonCompletion(progress: LessonProgressSnapshot | null | undefined, requiredPercent: number) {
-  return Boolean(progress) && (isLessonProgressComplete(progress) || progress.completionPercent >= requiredPercent);
+  if (!progress) return false;
+  return isLessonProgressComplete(progress) || progress.completionPercent >= requiredPercent;
 }
 
 /**
