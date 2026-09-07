@@ -1,0 +1,149 @@
+.page {
+  display: grid;
+  min-height: calc(100vh - 7rem);
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3.5rem);
+  background:
+    radial-gradient(circle at 9% 12%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 23rem),
+    radial-gradient(circle at 93% 90%, color-mix(in srgb, var(--info) 9%, transparent), transparent 25rem);
+}
+
+.card {
+  display: grid;
+  width: min(100%, 46rem);
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)), var(--surface-elevated) 58%, color-mix(in srgb, var(--warning) 6%, var(--surface-elevated)));
+  box-shadow: var(--shadow-lg);
+  padding: clamp(1.15rem, 4vw, 2rem);
+}
+
+.icon {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--warning) 52%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--warning) 13%, var(--surface));
+  color: var(--warning);
+  box-shadow: var(--shadow-sm);
+}
+
+.icon svg {
+  width: 1.55rem;
+  height: 1.55rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.content { min-width: 0; }
+
+.eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.71rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+}
+
+.content h1 {
+  margin: 0.4rem 0 0;
+  color: var(--text-primary);
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+  line-height: 1.13;
+}
+
+.message {
+  max-width: 38rem;
+  margin: 0.7rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.95rem 0 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  color: var(--text-secondary);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.tip span { color: var(--primary); font-weight: 900; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.15rem;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.primaryAction {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  box-shadow: var(--shadow-sm);
+}
+
+.primaryAction:hover { background: var(--primary-hover); }
+
+.secondaryAction {
+  border-color: var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+}
+
+.secondaryAction:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+@media (max-width: 35rem) {
+  .page { min-height: calc(100vh - 4.5rem); padding: 0.75rem; }
+  .card { grid-template-columns: 1fr; gap: 0.8rem; padding: 1rem; }
+  .icon { width: 2.8rem; height: 2.8rem; border-radius: 0.85rem; }
+  .message { font-size: 0.9rem; }
+  .actions > a { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .primaryAction, .secondaryAction { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease; }
+  .primaryAction:hover, .secondaryAction:hover { transform: translateY(-1px); }
+}

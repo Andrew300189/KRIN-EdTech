@@ -7,10 +7,52 @@ import { getPublishedLessonBySlug } from "@/modules/courses/services/content.ser
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { LessonPlayer } from "@/modules/lessons/components/LessonPlayer";
 import { createLessonWarmUp } from "@/modules/vocabulary/services/vocabulary.service";
+import accessStyles from "@/modules/courses/components/LessonAccessGate.module.css";
 
-function AccessUpsell({ reason, returnTo, courseHref }: { reason: string; returnTo: string; courseHref: string }) {
+function AccessUpsell({ reason, returnTo, courseHref, locale }: { reason: string; returnTo: string; courseHref: string; locale: "ru" | "uk" }) {
   const signedOut = reason === "AUTH_REQUIRED";
-  return <main className="mx-auto max-w-3xl px-6 py-12"><section className="rounded-3xl border border-amber-200 bg-amber-50 p-7"><h1 className="text-3xl font-bold text-amber-950">{signedOut ? "Sign in to continue" : "Premium access required"}</h1><p className="mt-3 text-amber-900">{signedOut ? "Sign in to open this lesson and save your progress." : "This lesson is locked until your eligible access is active."}</p><Link href={signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : courseHref} className="mt-5 inline-flex rounded-full bg-violet-600 px-4 py-2 font-semibold text-white hover:bg-violet-700">{signedOut ? "Sign in" : "Back to course"}</Link></section></main>;
+  const moduleLocked = reason === "SEQUENCE_LOCKED";
+  const lessonLocked = reason === "PREREQUISITE_LOCKED";
+  const ukrainian = locale === "uk";
+  const copy = ukrainian
+    ? {
+      title: signedOut ? "Увійдіть, щоб продовжити" : moduleLocked ? "Спершу завершіть попередній модуль" : lessonLocked ? "Спершу завершіть попередній урок" : "Потрібен доступ Premium",
+      message: signedOut ? "Увійдіть, щоб відкрити цей урок і зберігати свій прогрес." : moduleLocked ? "Цей модуль відкриється після завершення попереднього модуля." : lessonLocked ? "Цей урок відкриється автоматично, щойно ви завершите попередній урок." : "Цей урок доступний з активним планом Premium або Corporate.",
+      eyebrow: signedOut ? "ВАШЕ НАВЧАННЯ ЧЕКАЄ" : "УРОК ЩЕ НЕ ВІДКРИТО",
+      tip: "Завершіть попередній урок і поверніться сюди — доступ оновиться автоматично.",
+      action: signedOut ? "Увійти" : moduleLocked || lessonLocked ? "До курсу" : "Переглянути плани",
+      dashboard: "Відкрити кабінет",
+    }
+    : {
+      title: signedOut ? "Войдите, чтобы продолжить" : moduleLocked ? "Сначала завершите предыдущий модуль" : lessonLocked ? "Сначала завершите предыдущий урок" : "Нужен доступ Premium",
+      message: signedOut ? "Войдите, чтобы открыть этот урок и сохранять свой прогресс." : moduleLocked ? "Этот модуль откроется после завершения предыдущего модуля." : lessonLocked ? "Этот урок откроется автоматически, как только вы завершите предыдущий урок." : "Этот урок доступен при активном плане Premium или Corporate.",
+      eyebrow: signedOut ? "ВАШЕ ОБУЧЕНИЕ ЖДЁТ" : "УРОК ЕЩЁ НЕ ОТКРЫТ",
+      tip: "Завершите предыдущий урок и вернитесь сюда — доступ обновится автоматически.",
+      action: signedOut ? "Войти" : moduleLocked || lessonLocked ? "К курсу" : "Посмотреть планы",
+      dashboard: "Открыть кабинет",
+    };
+  const backToCourse = moduleLocked || lessonLocked;
+  const href = signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing";
+
+  return (
+    <main className={accessStyles.page}>
+      <section className={accessStyles.card} aria-labelledby="lesson-access-title">
+        <div className={accessStyles.icon} aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M7.5 10V7.75a4.5 4.5 0 0 1 9 0V10M6.75 10h10.5c.69 0 1.25.56 1.25 1.25v7.5c0 .69-.56 1.25-1.25 1.25H6.75c-.69 0-1.25-.56-1.25-1.25v-7.5c0-.69.56-1.25 1.25-1.25Z" /></svg>
+        </div>
+        <div className={accessStyles.content}>
+          <p className={accessStyles.eyebrow}>{copy.eyebrow}</p>
+          <h1 id="lesson-access-title">{copy.title}</h1>
+          <p className={accessStyles.message}>{copy.message}</p>
+          {backToCourse ? <p className={accessStyles.tip}><span aria-hidden="true">↳</span> {copy.tip}</p> : null}
+          <div className={accessStyles.actions}>
+            <Link href={href} className={accessStyles.primaryAction}>{copy.action} <span aria-hidden="true">→</span></Link>
+            {backToCourse ? <Link href="/student" className={accessStyles.secondaryAction}>{copy.dashboard}</Link> : null}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
 
 export default async function LocalizedLessonPage({ params }: { params: Promise<{ locale: string; slug: string; lessonSlug: string }> }) {
@@ -23,7 +65,7 @@ export default async function LocalizedLessonPage({ params }: { params: Promise<
   const access = await canAccessLesson(authenticated?.user.id ?? null, lesson.id);
   const courseHref = `/${locale}/courses/${lesson.module.course.localizedSlug}`;
   const lessonHref = `${courseHref}/lessons/${lesson.localizedSlug}`;
-  if (!access.allowed) return <AccessUpsell reason={access.reason} returnTo={lessonHref} courseHref={courseHref} />;
+  if (!access.allowed) return <AccessUpsell reason={access.reason} returnTo={lessonHref} courseHref={courseHref} locale={locale} />;
   const [warmUp, warmUpConfiguration] = authenticated ? await Promise.all([
     createLessonWarmUp(authenticated.user.id, lesson.id),
     prisma.warmUpConfiguration.findUnique({ where: { id: "default" }, select: { isRequired: true } }),

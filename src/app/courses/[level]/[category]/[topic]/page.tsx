@@ -11,6 +11,7 @@ import { createLessonWarmUp } from "@/modules/vocabulary/services/vocabulary.ser
 import { PublicCurriculumLayout } from "@/modules/courses/components/PublicCurriculumLayout";
 import curriculumStyles from "@/modules/courses/components/PublicCurriculumCards.module.css";
 import { PublicCurriculumCourseCards } from "@/modules/courses/components/PublicCurriculumCourseCards";
+import accessStyles from "@/modules/courses/components/LessonAccessGate.module.css";
 
 const CEFR_LEVEL_CODES = new Set(["A1", "A2", "B1", "B2", "C1", "C2"]);
 const isCefrLevelCode = (value: string) => CEFR_LEVEL_CODES.has(value.toUpperCase());
@@ -48,7 +49,28 @@ function AccessUpsell({ reason, returnTo, courseHref }: { reason: "AUTH_REQUIRED
         ? "This lesson opens automatically after its prerequisite lesson reaches the required completion percentage."
         : "This lesson is locked until Premium or Corporate access is active.";
   const backToCourse = moduleLocked || lessonLocked;
-  return <main className="mx-auto max-w-3xl px-6 py-12"><section className="rounded-2xl border border-amber-200 bg-amber-50 p-7"><h1 className="text-3xl font-bold text-amber-950">{title}</h1><p className="mt-3 text-amber-900">{message}</p><Link href={signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing"} className="mt-5 inline-flex rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">{signedOut ? "Sign in" : backToCourse ? "Back to course" : "View plans"}</Link></section></main>;
+  const label = signedOut ? "Sign in" : backToCourse ? "Back to course" : "View plans";
+  const href = signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing";
+
+  return (
+    <main className={accessStyles.page}>
+      <section className={accessStyles.card} aria-labelledby="lesson-access-title">
+        <div className={accessStyles.icon} aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M7.5 10V7.75a4.5 4.5 0 0 1 9 0V10M6.75 10h10.5c.69 0 1.25.56 1.25 1.25v7.5c0 .69-.56 1.25-1.25 1.25H6.75c-.69 0-1.25-.56-1.25-1.25v-7.5c0-.69.56-1.25 1.25-1.25Z" /></svg>
+        </div>
+        <div className={accessStyles.content}>
+          <p className={accessStyles.eyebrow}>{signedOut ? "YOUR LEARNING IS WAITING" : "LESSON NOT OPEN YET"}</p>
+          <h1 id="lesson-access-title">{title}</h1>
+          <p className={accessStyles.message}>{message}</p>
+          {backToCourse ? <p className={accessStyles.tip}><span aria-hidden="true">↳</span> Finish the previous lesson, then return here — access will update automatically.</p> : null}
+          <div className={accessStyles.actions}>
+            <Link href={href} className={accessStyles.primaryAction}>{label} <span aria-hidden="true">→</span></Link>
+            {backToCourse ? <Link href="/student" className={accessStyles.secondaryAction}>Open dashboard</Link> : null}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
 
 export default async function ModuleOrLessonPage({ params, searchParams }: {
