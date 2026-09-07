@@ -7,6 +7,7 @@ import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, us
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
+import { grantLearningBonusCredits } from "@/modules/motivation/services/learning-bonus.service";
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
@@ -106,10 +107,10 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
  */
 export async function grantEconomyReward(
   tx: Tx,
-  input: { userId: string; experience: number; coins: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+  input: { userId: string; experience: number; coins: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
 ) {
   const context = await userContext(tx, input.userId);
-  return creditExperienceAndCoins(tx, {
+  const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.experience,
     coinAmount: input.coins,
@@ -121,6 +122,17 @@ export async function grantEconomyReward(
     description: input.description,
     date: context.date,
   });
+  if (!reward.awarded) return { ...reward, hintCredits: 0, translationCredits: 0, bonusBalance: null };
+  const bonus = await grantLearningBonusCredits(tx, {
+    userId: input.userId,
+    hintCredits: input.hintCredits ?? 0,
+    translationCredits: input.translationCredits ?? 0,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+    idempotencyKey: input.idempotencyKey,
+    description: input.description,
+  });
+  return { ...reward, hintCredits: bonus.hintCredits, translationCredits: bonus.translationCredits, bonusBalance: bonus.balance };
 }
 
 async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: RewardEvent, sourceId: string, description: string) {
@@ -504,8 +516,14 @@ export async function recordWordAdded(userId: string, wordId: string) {
 export async function getMotivationOverview(userId: string) {
   return prisma.$transaction(async (tx) => {
     const context = await userContext(tx, userId);
-    const [daily, level, wallet, streak] = await Promise.all([ensureDailyActivity(tx, userId, context.date), tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} })]);
-    return { date: context.date, timeZone: context.timeZone, dailyGoalMinutes: context.dailyGoalMinutes, daily, level, wallet, streak };
+    const [daily, level, wallet, streak, learningBonuses] = await Promise.all([
+      ensureDailyActivity(tx, userId, context.date),
+      tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.userLearningBonusBalance.upsert({ where: { userId }, create: { userId }, update: {} }),
+    ]);
+    return { date: context.date, timeZone: context.timeZone, dailyGoalMinutes: context.dailyGoalMinutes, daily, level, wallet, streak, learningBonuses: { hintCredits: learningBonuses.hintCredits, translationCredits: learningBonuses.translationCredits } };
   });
 }
 

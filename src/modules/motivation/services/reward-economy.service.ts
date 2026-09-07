@@ -24,17 +24,30 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
 ] as const;
 
 const DAILY_CHEST_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
-const DAILY_CHEST_REWARDS = [50, 75, 100, 150, 250, 500] as const;
-const WHEEL_REWARDS = [
-  { id: "xp-15", experience: 15, coins: 0 },
-  { id: "xp-25", experience: 25, coins: 0 },
-  { id: "coin-1", experience: 0, coins: 1 },
-  { id: "xp-40", experience: 40, coins: 0 },
-  { id: "coin-2", experience: 0, coins: 2 },
-  { id: "xp-60", experience: 60, coins: 0 },
-] as const;
+type EconomyBonusReward = {
+  id: string;
+  experience: number;
+  coins: number;
+  hintCredits: number;
+  translationCredits: number;
+};
 
-type Tx = Prisma.TransactionClient;
+const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
+  { id: "xp-50", experience: 50, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-100", experience: 100, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-250", experience: 250, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-500", experience: 500, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "hint-credit", experience: 75, coins: 0, hintCredits: 1, translationCredits: 0 },
+  { id: "translation-credit", experience: 75, coins: 0, hintCredits: 0, translationCredits: 1 },
+] as const;
+const WHEEL_REWARDS = [
+  { id: "xp-15", experience: 15, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-25", experience: 25, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "coin-1", experience: 10, coins: 1, hintCredits: 0, translationCredits: 0 },
+  { id: "hint-credit", experience: 10, coins: 0, hintCredits: 1, translationCredits: 0 },
+  { id: "translation-credit", experience: 10, coins: 0, hintCredits: 0, translationCredits: 1 },
+  { id: "xp-60", experience: 60, coins: 0, hintCredits: 0, translationCredits: 0 },
+] as const;
 
 function activeItem(itemId: string) {
   return SHOP_ITEMS.find((item) => item.id === itemId) ?? null;
@@ -70,7 +83,7 @@ export async function getDailyChestState(userId: string) {
 export async function openDailyChest(userId: string) {
   const now = new Date();
   const eligibleBefore = new Date(now.getTime() - DAILY_CHEST_COOLDOWN_MS);
-  const experience = DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)];
+  const rewardChoice = DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)];
 
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.user.updateMany({
@@ -79,18 +92,20 @@ export async function openDailyChest(userId: string) {
     });
     if (!claimed.count) {
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true } });
-      return { opened: false, experience: 0, nextAt: nextChestAt(user.dailyChestClaimedAt) };
+      return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt: nextChestAt(user.dailyChestClaimedAt) };
     }
     const reward = await grantEconomyReward(tx, {
       userId,
-      experience,
-      coins: 0,
+      experience: rewardChoice.experience,
+      coins: rewardChoice.coins,
+      hintCredits: rewardChoice.hintCredits,
+      translationCredits: rewardChoice.translationCredits,
       sourceType: "DAILY_CHEST",
       sourceId: now.toISOString(),
       idempotencyKey: `daily-chest:${userId}:${now.getTime()}`,
-      description: "Daily Mystery Box",
+      description: `Daily Mystery Box:${rewardChoice.id}`,
     });
-    return { opened: reward.awarded, experience: reward.experience, nextAt: new Date(now.getTime() + DAILY_CHEST_COOLDOWN_MS) };
+    return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt: new Date(now.getTime() + DAILY_CHEST_COOLDOWN_MS) };
   });
 }
 
@@ -199,23 +214,45 @@ export async function spinLessonRewardWheel(userId: string, lessonId: string) {
     const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } });
     if (existing) {
       const coins = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
-      return { spun: false, alreadySpun: true, experience: existing.amount, coins: coins?.amount ?? 0, rewardId: existing.description?.match(/wheel:([^\s]+)/)?.[1] ?? null };
+      const bonusTransactions = await tx.learningBonusTransaction.findMany({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: lessonId, amount: { gt: 0 } }, select: { kind: true, amount: true } });
+      return {
+        spun: false,
+        alreadySpun: true,
+        experience: existing.amount,
+        coins: coins?.amount ?? 0,
+        hintCredits: bonusTransactions.filter((item) => item.kind === "HINT").reduce((sum, item) => sum + item.amount, 0),
+        translationCredits: bonusTransactions.filter((item) => item.kind === "TRANSLATION").reduce((sum, item) => sum + item.amount, 0),
+        rewardId: existing.description?.match(/wheel:([^\s]+)/)?.[1] ?? null,
+      };
     }
     const awarded = await grantEconomyReward(tx, {
       userId,
       experience: reward.experience,
       coins: reward.coins,
+      hintCredits: reward.hintCredits,
+      translationCredits: reward.translationCredits,
       sourceType: "LESSON_WHEEL",
       sourceId: lessonId,
       idempotencyKey,
       description: `Lesson wheel:${reward.id}`,
     });
-    return { spun: awarded.awarded, alreadySpun: false, experience: awarded.experience, coins: awarded.coins, rewardId: reward.id };
+    return { spun: awarded.awarded, alreadySpun: false, experience: awarded.experience, coins: awarded.coins, hintCredits: awarded.hintCredits, translationCredits: awarded.translationCredits, rewardId: reward.id };
   }).catch(async (error: unknown) => {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const existing = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
       const coins = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
-      if (existing) return { spun: false, alreadySpun: true, experience: existing.amount, coins: coins?.amount ?? 0, rewardId: null };
+      if (existing) {
+        const bonusTransactions = await prisma.learningBonusTransaction.findMany({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: lessonId, amount: { gt: 0 } }, select: { kind: true, amount: true } });
+        return {
+          spun: false,
+          alreadySpun: true,
+          experience: existing.amount,
+          coins: coins?.amount ?? 0,
+          hintCredits: bonusTransactions.filter((item) => item.kind === "HINT").reduce((sum, item) => sum + item.amount, 0),
+          translationCredits: bonusTransactions.filter((item) => item.kind === "TRANSLATION").reduce((sum, item) => sum + item.amount, 0),
+          rewardId: null,
+        };
+      }
     }
     throw error;
   });

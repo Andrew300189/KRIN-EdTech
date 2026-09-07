@@ -1,0 +1,52 @@
+.card {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)), var(--surface-elevated));
+  box-shadow: var(--shadow-sm);
+  padding: 0.85rem;
+}
+
+.card > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.bonuses { display: grid; gap: 0.38rem; }
+
+.bonus {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.38rem;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.38rem 0.45rem;
+}
+
+.bonus > span {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.85rem;
+}
+
+.bonus div { display: flex; min-width: 0; align-items: baseline; gap: 0.3rem; }
+.bonus strong { color: var(--text-primary); font-size: 1rem; letter-spacing: -0.03em; }
+.bonus small { overflow: hidden; color: var(--text-secondary); font-size: 0.65rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+
+.hint { border-color: color-mix(in srgb, #fbbf24 48%, var(--border)); background: color-mix(in srgb, #fbbf24 10%, var(--surface-elevated)); }
+.hint > span { background: #fff1a8; color: #9a6200; }
+.translation { border-color: color-mix(in srgb, #38bdf8 48%, var(--border)); background: color-mix(in srgb, #38bdf8 10%, var(--surface-elevated)); }
+.translation > span { background: #d9f4ff; color: #0369a1; }
+.helper { color: var(--text-muted); font-size: 0.66rem; font-weight: 650; }
+
+:global([data-theme="dark"]) .hint > span { background: #5d4600; color: #fde68a; }
+:global([data-theme="dark"]) .translation > span { background: #073d5a; color: #bae6fd; }

@@ -26,6 +26,7 @@ import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-prog
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { calculateUserLevel, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
+import { consumeLearningBonusCredit } from "@/modules/motivation/services/learning-bonus.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
@@ -1760,27 +1761,46 @@ export async function getExerciseTranslationSource(userId: string, exerciseId: s
 }
 
 /**
- * Charges a learner once per exercise translation. The unique ledger key makes
- * duplicate clicks and network retries free after the original 2 XP debit.
+ * Unlocks a translation once per exercise. A translation credit is consumed
+ * first; when none is available, the unique XP ledger debit is used instead.
+ * Both ledger keys make duplicate clicks and network retries free.
  */
 export async function purchaseExerciseTranslation(userId: string, exerciseId: string) {
   await getExerciseTranslationSource(userId, exerciseId);
   const idempotencyKey = `exercise-translation-xp:${userId}:${exerciseId}`;
-  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-  if (previousCharge) {
+  const bonusIdempotencyKey = `exercise-translation-credit:${userId}:${exerciseId}`;
+  const [previousCharge, previousBonusCharge] = await Promise.all([
+    prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+    prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+  ]);
+  if (previousCharge || previousBonusCharge) {
     const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(previousBonusCharge) };
   }
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-      if (existingCharge) {
+      const [existingCharge, existingBonusCharge] = await Promise.all([
+        tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+        tx.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+      ]);
+      if (existingCharge || existingBonusCharge) {
         const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(existingBonusCharge) };
       }
 
       const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const bonus = await consumeLearningBonusCredit(tx, {
+        userId,
+        kind: "TRANSLATION",
+        sourceType: "EXERCISE_TRANSLATION",
+        sourceId: exerciseId,
+        idempotencyKey: bonusIdempotencyKey,
+        description: "Exercise translation credit",
+      });
+      if (bonus.consumed) {
+        return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: true, remainingCredits: bonus.balance.translationCredits };
+      }
       const debited = await tx.userLevel.updateMany({
         where: { id: level.id, lifetimeExperience: { gte: EXERCISE_TRANSLATION_XP_COST } },
         data: { lifetimeExperience: { decrement: EXERCISE_TRANSLATION_XP_COST } },
@@ -1801,15 +1821,18 @@ export async function purchaseExerciseTranslation(userId: string, exerciseId: st
           description: "Exercise translation",
         },
       });
-      return { alreadyPurchased: false, cost: EXERCISE_TRANSLATION_XP_COST, balance: updatedLevel.lifetimeExperience };
+      return { alreadyPurchased: false, cost: EXERCISE_TRANSLATION_XP_COST, balance: updatedLevel.lifetimeExperience, bonusUsed: false };
     });
   } catch (error) {
     // A concurrent request may create the ledger entry after the first check.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-      if (charge) {
+      const [charge, bonusCharge] = await Promise.all([
+        prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+        prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+      ]);
+      if (charge || bonusCharge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(bonusCharge) };
       }
     }
     throw error;
@@ -1836,21 +1859,39 @@ export async function purchaseExerciseHint(userId: string, exerciseId: string) {
   if (!access.allowed) throw new Error("You cannot access this lesson.");
 
   const idempotencyKey = `exercise-hint-xp:${userId}:${exerciseId}`;
-  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-  if (previousCharge) {
+  const bonusIdempotencyKey = `exercise-hint-credit:${userId}:${exerciseId}`;
+  const [previousCharge, previousBonusCharge] = await Promise.all([
+    prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+    prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+  ]);
+  if (previousCharge || previousBonusCharge) {
     const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(previousBonusCharge) };
   }
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-      if (existingCharge) {
+      const [existingCharge, existingBonusCharge] = await Promise.all([
+        tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+        tx.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+      ]);
+      if (existingCharge || existingBonusCharge) {
         const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(existingBonusCharge) };
       }
 
       const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const bonus = await consumeLearningBonusCredit(tx, {
+        userId,
+        kind: "HINT",
+        sourceType: "EXERCISE_HINT",
+        sourceId: exerciseId,
+        idempotencyKey: bonusIdempotencyKey,
+        description: "Exercise hint credit",
+      });
+      if (bonus.consumed) {
+        return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: true, remainingCredits: bonus.balance.hintCredits };
+      }
       const debited = await tx.userLevel.updateMany({
         where: { id: level.id, lifetimeExperience: { gte: EXERCISE_HINT_XP_COST } },
         data: { lifetimeExperience: { decrement: EXERCISE_HINT_XP_COST } },
@@ -1871,14 +1912,17 @@ export async function purchaseExerciseHint(userId: string, exerciseId: string) {
           description: "Exercise hint",
         },
       });
-      return { alreadyPurchased: false, cost: EXERCISE_HINT_XP_COST, balance: updatedLevel.lifetimeExperience };
+      return { alreadyPurchased: false, cost: EXERCISE_HINT_XP_COST, balance: updatedLevel.lifetimeExperience, bonusUsed: false };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-      if (charge) {
+      const [charge, bonusCharge] = await Promise.all([
+        prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
+        prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
+      ]);
+      if (charge || bonusCharge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(bonusCharge) };
       }
     }
     throw error;

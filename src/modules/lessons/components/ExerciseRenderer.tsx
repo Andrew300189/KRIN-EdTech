@@ -34,8 +34,8 @@ type AttemptResult = {
   };
 };
 type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
-type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number };
-type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number };
+type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
+type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
 
 function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
@@ -407,7 +407,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       if (!response.ok || !payload?.data?.translation) throw new Error(payload?.error ?? "Translation is temporarily unavailable.");
       if (requestId !== translationRequestRef.current) return;
       setTranslation(displayTranslation(payload.data.translation));
-      if (payload.data.cost > 0) notifyMotivationUpdated();
+      if (payload.data.cost > 0 || payload.data.bonusUsed) notifyMotivationUpdated();
+      if (payload.data.bonusUsed && !payload.data.alreadyPurchased) toast.success(locale === "uk" ? "Використано блакитний бонус перекладу" : locale === "ru" ? "Использован голубой бонус перевода" : "Translation credit used");
     } catch (caught) {
       if (requestId !== translationRequestRef.current) return;
       setTranslationError(caught instanceof Error ? caught.message : "Translation is temporarily unavailable.");
@@ -438,7 +439,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to show the hint.");
       setHintOpen(true);
       setHintUsed(true);
-      if (payload.data.cost > 0) notifyMotivationUpdated();
+      if (payload.data.cost > 0 || payload.data.bonusUsed) notifyMotivationUpdated();
+      if (payload.data.bonusUsed && !payload.data.alreadyPurchased) toast.success(locale === "uk" ? "Використано жовтий бонус підказки" : locale === "ru" ? "Использован жёлтый бонус подсказки" : "Hint credit used");
     } catch (caught) {
       setHintError(caught instanceof Error ? caught.message : "Unable to show the hint.");
     } finally {
@@ -496,6 +498,11 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const hintOpeningLabel = locale === "uk" ? "Відкриваємо…" : locale === "ru" ? "Открываем…" : "Opening…";
   const hintHideLabel = locale === "uk" ? "Сховати підказку" : locale === "ru" ? "Скрыть подсказку" : "Hide hint";
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
+  const hintPriceLabel = locale === "uk" ? "1 жовтий бонус або 1 XP" : locale === "ru" ? "1 жёлтый бонус или 1 XP" : "1 yellow credit or 1 XP";
+  const translationPriceLabel = locale === "uk" ? "1 блакитний бонус або 2 XP" : locale === "ru" ? "1 голубой бонус или 2 XP" : "1 blue credit or 2 XP";
+  const translationOpeningLabel = locale === "uk" ? "Готуємо…" : locale === "ru" ? "Готовим…" : "Preparing…";
+  const translationHideLabel = locale === "uk" ? "Сховати переклад" : locale === "ru" ? "Скрыть перевод" : "Hide translation";
+  const translationShowLabel = locale === "uk" ? "Показати переклад" : locale === "ru" ? "Показать перевод" : "Show translation";
   const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
   const solutionCopy = locale === "uk"
     ? { show: "Показати розв’язання", saved: "Показати збережене розв’язання?", confirm: "Показати розв’язання за {cost} XP?", opening: "Відкриваємо…", cancel: "Скасувати", later: "Пізніше", example: "Приклад:", reviewRule: "Повторити правило", allErrors: "Показати всі помилки" }
@@ -546,7 +553,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     </div>
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
-    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <div className="lesson-exercise-hint-trigger" data-open={hintOpen || undefined}><button type="button" onClick={toggleHint} disabled={hintSending} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintSending ? hintOpeningLabel : hintOpen ? hintHideLabel : `${hintLabel} · 1 XP`}</button>{hintOpen ? <p>{visibleHint}</p> : null}</div> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? "Preparing…" : translation ? "Hide translation" : "Show translation · 2 XP"}</button> : null}</div> : null}
+    {!result && (exercise.hintsEnabled && visibleHint || authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600">{exercise.hintsEnabled && visibleHint ? <div className="lesson-exercise-hint-trigger" data-open={hintOpen || undefined}><button type="button" onClick={toggleHint} disabled={hintSending} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintSending ? hintOpeningLabel : hintOpen ? hintHideLabel : `${hintLabel} · ${hintPriceLabel}`}</button>{hintOpen ? <p>{visibleHint}</p> : null}</div> : null}{authoredTranslation || translationSource ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? translationOpeningLabel : translation ? translationHideLabel : `${translationShowLabel} · ${translationPriceLabel}`}</button> : null}</div> : null}
     {hintError ? <p className="mt-2 text-sm text-amber-700" role="status">{hintError}</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}

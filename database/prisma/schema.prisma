@@ -109,6 +109,8 @@ model User {
   learningSessions              LearningSession[]
   dailyActivities               UserDailyActivity[]
   experienceTransactions        ExperienceTransaction[]
+  learningBonusBalance          UserLearningBonusBalance?
+  learningBonusTransactions     LearningBonusTransaction[]
   wallet                        UserWallet?
   userLevelProgress             UserLevel?
   streak                        UserStreak?
@@ -1382,6 +1384,42 @@ model ExperienceTransaction {
   @@index([userId, createdAt])
   @@index([userId, type, localDate])
   @@index([type, createdAt])
+}
+
+/// Server-owned consumable credits. These are intentionally separate from XP:
+/// a hint or translation credit always covers its matching action in full.
+model UserLearningBonusBalance {
+  id                                String                    @id @default(cuid())
+  userId                            String                    @unique
+  user                              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hintCredits                       Int                       @default(0)
+  translationCredits                Int                       @default(0)
+  lifetimeHintCreditsEarned         Int                       @default(0)
+  lifetimeTranslationCreditsEarned  Int                       @default(0)
+  lifetimeHintCreditsSpent          Int                       @default(0)
+  lifetimeTranslationCreditsSpent   Int                       @default(0)
+  transactions                      LearningBonusTransaction[]
+  updatedAt                         DateTime                  @updatedAt
+}
+
+/// Immutable ledger for the coloured learning credits. Unique keys protect
+/// awards and spends against duplicate browser requests and retry races.
+model LearningBonusTransaction {
+  id             String                @id @default(cuid())
+  userId         String
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balanceId      String
+  balance        UserLearningBonusBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  kind           LearningBonusKind
+  amount         Int
+  sourceType     String
+  sourceId       String
+  idempotencyKey String                @unique
+  description    String?
+  createdAt      DateTime              @default(now())
+
+  @@index([userId, kind, createdAt])
+  @@index([sourceType, sourceId])
 }
 
 model UserLevel {
@@ -3479,6 +3517,11 @@ enum ExperienceTransactionType {
   TRANSLATION_PURCHASE
   HINT_PURCHASE
   REVERSAL
+}
+
+enum LearningBonusKind {
+  HINT
+  TRANSLATION
 }
 
 enum CoinTransactionType {
