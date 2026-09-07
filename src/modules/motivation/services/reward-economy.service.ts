@@ -59,24 +59,24 @@ export type MilestoneChestState = {
 
 const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, readonly EconomyBonusReward[]> = {
   LESSON_3: [
-    { id: "xp-150", experience: 150, coins: 1, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-180", experience: 180, coins: 1, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-220", experience: 220, coins: 1, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-150", experience: 150, coins: 0, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-180", experience: 180, coins: 0, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-220", experience: 220, coins: 0, hintCredits: 1, translationCredits: 0 },
   ],
   EVERY_7_LESSONS: [
-    { id: "xp-300", experience: 300, coins: 2, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-360", experience: 360, coins: 2, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-420", experience: 420, coins: 2, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-300", experience: 300, coins: 1, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-360", experience: 360, coins: 1, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-420", experience: 420, coins: 1, hintCredits: 0, translationCredits: 1 },
   ],
   MODULE: [
-    { id: "xp-600", experience: 600, coins: 4, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-750", experience: 750, coins: 4, hintCredits: 0, translationCredits: 1 },
-    { id: "xp-900", experience: 900, coins: 5, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-600", experience: 600, coins: 2, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-750", experience: 750, coins: 2, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-900", experience: 900, coins: 2, hintCredits: 1, translationCredits: 1 },
   ],
   COURSE: [
-    { id: "xp-1200", experience: 1200, coins: 10, hintCredits: 1, translationCredits: 1 },
-    { id: "xp-1500", experience: 1500, coins: 12, hintCredits: 2, translationCredits: 1 },
-    { id: "xp-1800", experience: 1800, coins: 15, hintCredits: 1, translationCredits: 2 },
+    { id: "xp-1200", experience: 1200, coins: 3, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-1500", experience: 1500, coins: 3, hintCredits: 2, translationCredits: 1 },
+    { id: "xp-1800", experience: 1800, coins: 3, hintCredits: 1, translationCredits: 2 },
   ],
 };
 

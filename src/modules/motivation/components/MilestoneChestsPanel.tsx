@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "../motivation-events";
@@ -62,6 +63,7 @@ function progressText(chest: Chest, state: State, text: (typeof copy)[keyof type
 
 export function MilestoneChestsPanel() {
   const { locale } = useLocale();
+  const router = useRouter();
   const text = copy[locale];
   const [state, setState] = useState<State | null>(null);
   const [opening, setOpening] = useState<ChestKind | null>(null);
@@ -90,6 +92,7 @@ export function MilestoneChestsPanel() {
         notifyMotivationUpdated();
       }
       await load();
+      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The chest is unavailable.");
     } finally {
