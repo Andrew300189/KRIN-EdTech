@@ -65,7 +65,7 @@ export default async function LocalizedLessonPage({ params }: { params: Promise<
   const access = await canAccessLesson(authenticated?.user.id ?? null, lesson.id);
   const courseHref = `/${locale}/courses/${lesson.module.course.localizedSlug}`;
   const lessonHref = `${courseHref}/lessons/${lesson.localizedSlug}`;
-  if (!access.allowed) return <AccessUpsell reason={access.reason} returnTo={lessonHref} courseHref={courseHref} locale={locale} />;
+  if (!access.allowed) return <AccessUpsell reason={access.reason} returnTo={lessonHref} courseHref={courseHref} locale={locale === "uk" ? "uk" : "ru"} />;
   const [warmUp, warmUpConfiguration] = authenticated ? await Promise.all([
     createLessonWarmUp(authenticated.user.id, lesson.id),
     prisma.warmUpConfiguration.findUnique({ where: { id: "default" }, select: { isRequired: true } }),
