@@ -18,6 +18,7 @@ import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.ser
 import { WeeklyLeaguePanel } from "./WeeklyLeaguePanel";
 import { ProfileLevelStatus } from "@/modules/motivation/components/ProfileLevelStatus";
 import { DailyChestCard } from "@/modules/motivation/components/DailyChestCard";
+import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import { LearningBonusBalanceCard } from "@/modules/motivation/components/LearningBonusBalanceCard";
 import styles from "./StudentHome.module.css";
 
@@ -116,6 +117,8 @@ export default async function StudentHomePage({
         <DailyStreakCard initialStreak={motivation.streak} initialCoinBalance={motivation.wallet.balance + motivation.wallet.fractionalBalance / 100} price={STREAK_FREEZE_PRICE_COINS} />
         <DailyChestCard />
       </section>
+
+      <MilestoneChestsPanel />
 
       <section className={styles.dashboardGrid}>
         <article className={`${styles.panel} ${styles.focusPanel}`}>

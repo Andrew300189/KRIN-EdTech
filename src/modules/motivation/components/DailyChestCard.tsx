@@ -10,9 +10,9 @@ type ChestState = { available: boolean; nextAt: string | null };
 type ChestReward = { opened: boolean; experience: number; coins: number; hintCredits: number; translationCredits: number; nextAt: string | null };
 
 const copy = {
-  en: { eyebrow: "Daily Mystery Box", title: "A surprise is waiting", ready: "Open free chest", opening: "Opening…", wait: "Next chest", available: "50–500 XP · bonus credits", hint: "+1 hint credit", translation: "+1 translation credit" },
-  ru: { eyebrow: "Ежедневный сундук", title: "Вас ждёт сюрприз", ready: "Открыть бесплатно", opening: "Открываем…", wait: "Следующий сундук", available: "50–500 XP · бонусы", hint: "+1 бонус подсказки", translation: "+1 бонус перевода" },
-  uk: { eyebrow: "Щоденна скриня", title: "На вас чекає сюрприз", ready: "Відкрити безкоштовно", opening: "Відкриваємо…", wait: "Наступна скриня", available: "50–500 XP · бонуси", hint: "+1 бонус підказки", translation: "+1 бонус перекладу" },
+  en: { eyebrow: "Daily chest", title: "A surprise is waiting", ready: "Open free chest", opening: "Opening…", wait: "Next chest", available: "20–100 XP", hint: "+1 hint credit", translation: "+1 translation credit" },
+  ru: { eyebrow: "Ежедневный сундук", title: "Вас ждёт сюрприз", ready: "Открыть бесплатно", opening: "Открываем…", wait: "Следующий сундук", available: "20–100 XP", hint: "+1 бонус подсказки", translation: "+1 бонус перевода" },
+  uk: { eyebrow: "Щоденна скриня", title: "На вас чекає сюрприз", ready: "Відкрити безкоштовно", opening: "Відкриваємо…", wait: "Наступна скриня", available: "20–100 XP", hint: "+1 бонус підказки", translation: "+1 бонус перекладу" },
 } as const;
 
 function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "hintCredits" | "translationCredits">, text: Pick<(typeof copy)[keyof typeof copy], "hint" | "translation">) {

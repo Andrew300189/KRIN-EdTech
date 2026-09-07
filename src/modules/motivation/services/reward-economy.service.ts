@@ -33,13 +33,59 @@ type EconomyBonusReward = {
 };
 
 const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
-  { id: "xp-50", experience: 50, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-20", experience: 20, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-40", experience: 40, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-60", experience: 60, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-80", experience: 80, coins: 0, hintCredits: 0, translationCredits: 0 },
   { id: "xp-100", experience: 100, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-250", experience: 250, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-500", experience: 500, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "hint-credit", experience: 75, coins: 0, hintCredits: 1, translationCredits: 0 },
-  { id: "translation-credit", experience: 75, coins: 0, hintCredits: 0, translationCredits: 1 },
 ] as const;
+
+export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
+
+type MilestoneChest = {
+  kind: MilestoneChestKind;
+  available: boolean;
+  availableCount: number;
+  nextSourceId: string | null;
+  progress: number;
+  target: number;
+  claimed: boolean;
+};
+
+export type MilestoneChestState = {
+  completedLessons: number;
+  chests: MilestoneChest[];
+};
+
+const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, readonly EconomyBonusReward[]> = {
+  LESSON_3: [
+    { id: "xp-150", experience: 150, coins: 1, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-180", experience: 180, coins: 1, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-220", experience: 220, coins: 1, hintCredits: 1, translationCredits: 0 },
+  ],
+  EVERY_7_LESSONS: [
+    { id: "xp-300", experience: 300, coins: 2, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-360", experience: 360, coins: 2, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-420", experience: 420, coins: 2, hintCredits: 0, translationCredits: 1 },
+  ],
+  MODULE: [
+    { id: "xp-600", experience: 600, coins: 4, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-750", experience: 750, coins: 4, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-900", experience: 900, coins: 5, hintCredits: 1, translationCredits: 1 },
+  ],
+  COURSE: [
+    { id: "xp-1200", experience: 1200, coins: 10, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-1500", experience: 1500, coins: 12, hintCredits: 2, translationCredits: 1 },
+    { id: "xp-1800", experience: 1800, coins: 15, hintCredits: 1, translationCredits: 2 },
+  ],
+};
+
+const MILESTONE_CHEST_SOURCE_TYPE: Record<MilestoneChestKind, string> = {
+  LESSON_3: "MILESTONE_CHEST_3_LESSONS",
+  EVERY_7_LESSONS: "MILESTONE_CHEST_7_LESSONS",
+  MODULE: "MILESTONE_CHEST_MODULE",
+  COURSE: "MILESTONE_CHEST_COURSE",
+};
 const WHEEL_REWARDS = [
   { id: "xp-15", experience: 15, coins: 0, hintCredits: 0, translationCredits: 0 },
   { id: "xp-25", experience: 25, coins: 0, hintCredits: 0, translationCredits: 0 },
@@ -107,6 +153,149 @@ export async function openDailyChest(userId: string) {
     });
     return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt: new Date(now.getTime() + DAILY_CHEST_COOLDOWN_MS) };
   });
+}
+
+function milestoneChestKey(kind: MilestoneChestKind, sourceId: string) {
+  return `${MILESTONE_CHEST_SOURCE_TYPE[kind]}:${sourceId}`;
+}
+
+async function completedModuleTargets(userId: string) {
+  const modules = await prisma.courseModule.findMany({
+    where: {
+      isPublished: true,
+      course: { isPublished: true, isTemplate: false },
+      lessons: { some: { isPublished: true } },
+    },
+    select: {
+      id: true,
+      courseId: true,
+      lessons: {
+        where: { isPublished: true },
+        select: { progress: { where: { userId, status: "COMPLETED" }, select: { id: true } } },
+      },
+    },
+  });
+  return modules.filter((module) => module.lessons.length > 0 && module.lessons.every((lesson) => lesson.progress.length > 0));
+}
+
+/**
+ * The milestone state is derived from immutable lesson completion records and
+ * the reward ledger. There is no browser-owned counter to reset or tamper
+ * with, and missed 7-lesson chests remain available until the learner opens
+ * them.
+ */
+export async function getMilestoneChestState(userId: string): Promise<MilestoneChestState> {
+  const [completedLessons, completedModules, claims] = await Promise.all([
+    prisma.lessonProgress.count({
+      where: { userId, status: "COMPLETED", lesson: { isPublished: true, module: { isPublished: true, course: { isPublished: true, isTemplate: false } } } },
+    }),
+    completedModuleTargets(userId),
+    prisma.experienceTransaction.findMany({
+      where: { userId, sourceType: { in: Object.values(MILESTONE_CHEST_SOURCE_TYPE) } },
+      select: { sourceType: true, sourceId: true },
+    }),
+  ]);
+  const claimed = new Set(claims.map((claim) => `${claim.sourceType}:${claim.sourceId}`));
+  const hasClaim = (kind: MilestoneChestKind, sourceId: string) => claimed.has(milestoneChestKey(kind, sourceId));
+
+  const starterClaimed = hasClaim("LESSON_3", "3");
+  const sevenThresholds = Array.from({ length: Math.floor(completedLessons / 7) }, (_, index) => (index + 1) * 7);
+  const unclaimedSevenThresholds = sevenThresholds.filter((threshold) => !hasClaim("EVERY_7_LESSONS", String(threshold)));
+  const nextSevenThreshold = unclaimedSevenThresholds[0] ?? (sevenThresholds.at(-1) ?? 0) + 7;
+
+  const unclaimedModules = completedModules.filter((module) => !hasClaim("MODULE", module.id));
+  const completedCourseIds = [...new Set(completedModules.map((module) => module.courseId))].filter((courseId) => {
+    const courseModules = completedModules.filter((module) => module.courseId === courseId);
+    return courseModules.length > 0;
+  });
+  // A course chest opens only once every published module in that course has
+  // been completed. Query the module count instead of trusting a page route.
+  const completedCourses = await prisma.course.findMany({
+    where: {
+      id: { in: completedCourseIds },
+      isPublished: true,
+      isTemplate: false,
+      modules: {
+        every: {
+          OR: [
+            { isPublished: false },
+            { lessons: { none: { isPublished: true } } },
+            { lessons: { every: { OR: [{ isPublished: false }, { progress: { some: { userId, status: "COMPLETED" } } }] } } },
+          ],
+        },
+      },
+    },
+    select: { id: true },
+  });
+  const unclaimedCourses = completedCourses.filter((course) => !hasClaim("COURSE", course.id));
+
+  return {
+    completedLessons,
+    chests: [
+      { kind: "LESSON_3", available: completedLessons >= 3 && !starterClaimed, availableCount: completedLessons >= 3 && !starterClaimed ? 1 : 0, nextSourceId: completedLessons >= 3 && !starterClaimed ? "3" : null, progress: Math.min(completedLessons, 3), target: 3, claimed: starterClaimed },
+      { kind: "EVERY_7_LESSONS", available: unclaimedSevenThresholds.length > 0, availableCount: unclaimedSevenThresholds.length, nextSourceId: unclaimedSevenThresholds.length ? String(unclaimedSevenThresholds[0]) : null, progress: Math.min(completedLessons, nextSevenThreshold), target: nextSevenThreshold, claimed: false },
+      { kind: "MODULE", available: unclaimedModules.length > 0, availableCount: unclaimedModules.length, nextSourceId: unclaimedModules[0]?.id ?? null, progress: completedModules.length, target: completedModules.length + (unclaimedModules.length ? 0 : 1), claimed: false },
+      { kind: "COURSE", available: unclaimedCourses.length > 0, availableCount: unclaimedCourses.length, nextSourceId: unclaimedCourses[0]?.id ?? null, progress: completedCourses.length, target: completedCourses.length + (unclaimedCourses.length ? 0 : 1), claimed: false },
+    ],
+  };
+}
+
+async function milestoneIsEligible(tx: Prisma.TransactionClient, userId: string, kind: MilestoneChestKind, sourceId: string) {
+  const completedLessons = () => tx.lessonProgress.count({
+    where: { userId, status: "COMPLETED", lesson: { isPublished: true, module: { isPublished: true, course: { isPublished: true, isTemplate: false } } } },
+  });
+
+  if (kind === "LESSON_3") return sourceId === "3" && await completedLessons() >= 3;
+  if (kind === "EVERY_7_LESSONS") {
+    const threshold = Number(sourceId);
+    return Number.isSafeInteger(threshold) && threshold >= 7 && threshold % 7 === 0 && await completedLessons() >= threshold;
+  }
+  if (kind === "MODULE") {
+    const courseModule = await tx.courseModule.findFirst({
+      where: { id: sourceId, isPublished: true, course: { isPublished: true, isTemplate: false } },
+      select: { lessons: { where: { isPublished: true }, select: { progress: { where: { userId, status: "COMPLETED" }, select: { id: true } } } } },
+    });
+    return Boolean(courseModule && courseModule.lessons.length > 0 && courseModule.lessons.every((lesson) => lesson.progress.length > 0));
+  }
+  const course = await tx.course.findFirst({ where: { id: sourceId, isPublished: true, isTemplate: false }, select: { id: true } });
+  if (!course) return false;
+  const [total, completed] = await Promise.all([
+    tx.lesson.count({ where: { isPublished: true, module: { isPublished: true, courseId: course.id } } }),
+    tx.lessonProgress.count({ where: { userId, status: "COMPLETED", lesson: { isPublished: true, module: { isPublished: true, courseId: course.id } } } }),
+  ]);
+  return total > 0 && completed >= total;
+}
+
+/** Opens one earned milestone chest. The source id is revalidated on the
+ * server and the immutable key makes every threshold, module and course
+ * claimable exactly once. */
+export async function openMilestoneChest(userId: string, kind: MilestoneChestKind, sourceId: string) {
+  const idempotencyKey = `milestone-chest:${userId}:${kind}:${sourceId}`;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (existing) return { opened: false, alreadyOpened: true, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0 };
+      if (!await milestoneIsEligible(tx, userId, kind, sourceId)) throw new Error("This chest has not been unlocked yet.");
+      const rewardChoice = MILESTONE_CHEST_REWARDS[kind][randomInt(MILESTONE_CHEST_REWARDS[kind].length)];
+      const reward = await grantEconomyReward(tx, {
+        userId,
+        experience: rewardChoice.experience,
+        coins: rewardChoice.coins,
+        hintCredits: rewardChoice.hintCredits,
+        translationCredits: rewardChoice.translationCredits,
+        sourceType: MILESTONE_CHEST_SOURCE_TYPE[kind],
+        sourceId,
+        idempotencyKey,
+        description: `Milestone chest:${kind}:${rewardChoice.id}`,
+      });
+      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { opened: false, alreadyOpened: true, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0 };
+    }
+    throw error;
+  }
 }
 
 export async function getShopState(userId: string) {
