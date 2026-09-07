@@ -856,30 +856,6 @@ export function LessonPlayer({
       <CourseLocaleSync courseSlug={courseSlug} routeLocale={routeLocale} />
       <RewardNotification events={rewardEvents} />
       <LessonSuccessEffects effect={successEffect} />
-      {!isReviewSession && activeBlock ? (
-        <nav className={styles.sideNavigation} aria-label="Lesson step navigation">
-          <button
-            type="button"
-            className={`${styles.sideNavigationButton} ${styles.sideNavigationPrevious}`}
-            disabled={activeIndex === 0}
-            onClick={goToPreviousBlock}
-            aria-label={chromeCopy.previousStep}
-            title={chromeCopy.previousStep}
-          >
-            <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`${styles.sideNavigationButton} ${styles.sideNavigationNext} ${isFinalBlock ? styles.sideNavigationFinish : ""}`}
-            disabled={!canAdvance}
-            onClick={() => void advanceStep()}
-            aria-label={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
-            title={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
-          >
-            {isFinalBlock ? <span>{chromeCopy.finish}</span> : <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />}
-          </button>
-        </nav>
-      ) : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
@@ -1008,7 +984,32 @@ export function LessonPlayer({
               </section>
             ) : null}
 
-            <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
+            <div className={styles.taskCardNavigationAnchor}>
+              {!isReviewSession ? (
+                <nav className={styles.sideNavigation} aria-label="Lesson step navigation">
+                  <button
+                    type="button"
+                    className={`${styles.sideNavigationButton} ${styles.sideNavigationPrevious}`}
+                    disabled={activeIndex === 0}
+                    onClick={goToPreviousBlock}
+                    aria-label={chromeCopy.previousStep}
+                    title={chromeCopy.previousStep}
+                  >
+                    <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.sideNavigationButton} ${styles.sideNavigationNext} ${isFinalBlock ? styles.sideNavigationFinish : ""}`}
+                    disabled={!canAdvance}
+                    onClick={() => void advanceStep()}
+                    aria-label={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
+                    title={isFinalBlock ? chromeCopy.finishLesson : chromeCopy.nextStep}
+                  >
+                    {isFinalBlock ? <span>{chromeCopy.finish}</span> : <img src="/icons/lesson-next.svg" alt="" aria-hidden="true" />}
+                  </button>
+                </nav>
+              ) : null}
+              <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
               {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
                 <span className={styles.taskType}>{localizedBlockType(activeBlock.type, locale)}</span>
                 {activeBlock.isRequired ? <span className={styles.required}>{chromeCopy.requiredStep}</span> : null}
@@ -1104,7 +1105,8 @@ export function LessonPlayer({
                   }}
                 />
               </div>
-            </article>
+              </article>
+            </div>
 
             {reviewReturnPending ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Mistake fixed. Returning to your review list…</p></footer> : null}
             {!reviewReturnPending && isReviewSession ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p></footer> : null}
