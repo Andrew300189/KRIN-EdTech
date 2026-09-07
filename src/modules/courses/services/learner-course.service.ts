@@ -2,6 +2,7 @@ import { Prisma, type SubscriptionPlan } from "@/generated/prisma-client-payment
 import { prisma } from "@/core/server/prisma";
 import { getLearningRewardPreview } from "@/modules/motivation/services/motivation.service";
 import { listLessonProgressByLessonIds } from "./content.service";
+import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 
 const PLAN_ORDER: SubscriptionPlan[] = [
   "FREE",
@@ -159,7 +160,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     const progressEntries = requiredLessons.map((lesson) => lessonProgressById.get(lesson.id));
     const totalLessons = requiredLessons.length;
     const completedLessons = progressEntries.filter(
-      (progress) => progress?.status === "COMPLETED",
+      (progress) => isLessonProgressComplete(progress),
     ).length;
     const progress = totalLessons === 0
       ? 0
@@ -169,7 +170,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
             0,
           ) / totalLessons,
         );
-    const nextLesson = lessons.find((lesson) => lessonProgressById.get(lesson.id)?.status !== "COMPLETED");
+    const nextLesson = lessons.find((lesson) => !isLessonProgressComplete(lessonProgressById.get(lesson.id)));
     const lessonAccuracy = progressEntries.reduce(
       (summary, item) => ({
         correctAnswers: summary.correctAnswers + (item?.attemptAccuracy.correctAnswers ?? 0),

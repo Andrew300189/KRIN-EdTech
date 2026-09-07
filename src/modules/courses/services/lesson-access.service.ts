@@ -2,6 +2,7 @@ import { prisma } from "@/core/server/prisma";
 import { hasAnyRole, parseRole } from "@/core/utils/role";
 import { hasPremiumSubscriptionAccess } from "@/modules/payments/services/subscription-access";
 import { entitlementAllowsLesson, hasLessonEntitlement, listActiveLessonEntitlements } from "@/modules/payments/services/entitlement.service";
+import { hasReachedLessonCompletion, isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 
 export type LessonAccessReason = "AVAILABLE" | "AUTH_REQUIRED" | "PREMIUM_REQUIRED" | "SEQUENCE_LOCKED" | "PREREQUISITE_LOCKED" | "UNPUBLISHED" | "NOT_FOUND";
 export type LessonAccessResult = { allowed: boolean; reason: LessonAccessReason; lessonId?: string; courseSlug?: string };
@@ -65,7 +66,7 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
     const prerequisites = modulePrerequisites(courseModule, course.modules);
     const prerequisiteModulesComplete = prerequisites.every((requiredModule) => {
       if (!requiredModule.lessons.length) return false;
-      const completed = requiredModule.lessons.filter((lesson) => progressByLesson.get(lesson.id)?.status === "COMPLETED").length;
+      const completed = requiredModule.lessons.filter((lesson) => isLessonProgressComplete(progressByLesson.get(lesson.id))).length;
       return Math.round((completed / requiredModule.lessons.length) * 100) >= courseModule.requiredCompletionPercent;
     });
 
@@ -87,7 +88,7 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
       if (access.allowed && lesson.prerequisiteLessonId && !privileged) {
         const prerequisite = progressByLesson.get(lesson.prerequisiteLessonId);
         if (!userId) access = { allowed: false, reason: "AUTH_REQUIRED" };
-        else if (prerequisite?.status !== "COMPLETED" || prerequisite.completionPercent < lesson.requiredPrerequisiteCompletion) access = { allowed: false, reason: "PREREQUISITE_LOCKED" };
+        else if (!hasReachedLessonCompletion(prerequisite, lesson.requiredPrerequisiteCompletion)) access = { allowed: false, reason: "PREREQUISITE_LOCKED" };
       }
       results.push([lesson.id, { ...access, lessonId: lesson.id, courseSlug: course.slug }]);
     }
@@ -113,7 +114,11 @@ function modulePrerequisites(module: { id: string; order: number; requiresSequen
 async function meetsModuleCompletionRequirement(userId: string, prerequisites: PublishedCourseModule[], requiredCompletionPercent: number) {
   const prerequisiteLessonIds = prerequisites.flatMap((module) => module.lessons.map((lesson) => lesson.id));
   if (prerequisiteLessonIds.length === 0) return false;
-  const completed = new Set((await prisma.lessonProgress.findMany({ where: { userId, lessonId: { in: prerequisiteLessonIds }, status: "COMPLETED" }, select: { lessonId: true } })).map((progress) => progress.lessonId));
+  const progress = await prisma.lessonProgress.findMany({
+    where: { userId, lessonId: { in: prerequisiteLessonIds } },
+    select: { lessonId: true, status: true, completionPercent: true },
+  });
+  const completed = new Set(progress.filter(isLessonProgressComplete).map((item) => item.lessonId));
   return prerequisites.every((module) => {
     if (module.lessons.length === 0) return false;
     const percentage = Math.round((module.lessons.filter((lesson) => completed.has(lesson.id)).length / module.lessons.length) * 100);
@@ -183,7 +188,7 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
       where: { userId_lessonId: { userId, lessonId: lesson.prerequisiteLessonId } },
       select: { status: true, completionPercent: true },
     });
-    if (prerequisiteProgress?.status !== "COMPLETED" || prerequisiteProgress.completionPercent < lesson.requiredPrerequisiteCompletion) {
+    if (!hasReachedLessonCompletion(prerequisiteProgress, lesson.requiredPrerequisiteCompletion)) {
       return { allowed: false, reason: "PREREQUISITE_LOCKED", lessonId, courseSlug: course.slug };
     }
   }

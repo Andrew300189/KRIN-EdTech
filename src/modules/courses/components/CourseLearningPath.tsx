@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 import styles from "./CourseLearningPath.module.css";
 
 type Lesson = {
@@ -73,7 +74,7 @@ export function CourseLearningPath({ modules, accessByLessonId, progressByLesson
                 pathNumber += 1;
                 const access = accessByLessonId.get(lesson.id);
                 const progress = progressByLessonId.get(lesson.id);
-                const completed = progress?.status === "COMPLETED";
+                const completed = isLessonProgressComplete(progress);
                 const inProgress = !completed && Boolean(progress);
                 const available = Boolean(access?.allowed);
                 const state = completed ? "completed" : inProgress ? "inProgress" : available ? "available" : "locked";

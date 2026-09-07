@@ -1,4 +1,5 @@
 import { prisma } from "@/core/server/prisma";
+import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 
 export const LEARNING_COMPETENCIES = ["READING", "GRAMMAR", "USE_OF_ENGLISH", "VOCABULARY"] as const;
 export type LearningCompetency = (typeof LEARNING_COMPETENCIES)[number];
@@ -75,7 +76,7 @@ export async function getStudentProgressOverview(userId: string): Promise<Studen
         ? entry.lesson.type === "PRACTICE" || entry.lesson.type === "TEST" || entry.lesson.type === "MIXED"
         : entry.lesson.type === key
     ));
-    const completedLessons = entries.filter((entry) => entry.status === "COMPLETED").length;
+    const completedLessons = entries.filter(isLessonProgressComplete).length;
     const correctAnswers = entries.reduce((sum, entry) => sum + entry.correctAnswers, 0);
     const incorrectAnswers = entries.reduce((sum, entry) => sum + entry.incorrectAnswers, 0);
     const answers = correctAnswers + incorrectAnswers;
@@ -123,7 +124,7 @@ export async function getStudentProgressOverview(userId: string): Promise<Studen
   return {
     skills,
     totalLessons: progress.length,
-    completedLessons: progress.filter((entry) => entry.status === "COMPLETED").length,
+    completedLessons: progress.filter(isLessonProgressComplete).length,
     activeMinutes: Math.round(progress.reduce((sum, entry) => sum + entry.activeSeconds, 0) / 60),
     accuracy: totalCorrect + totalIncorrect
       ? Math.round((totalCorrect / (totalCorrect + totalIncorrect)) * 100)

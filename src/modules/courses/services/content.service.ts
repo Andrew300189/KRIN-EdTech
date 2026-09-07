@@ -22,7 +22,7 @@ import {
 import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateExerciseProgressDelta } from "@/modules/courses/utils/exercise-progress-delta";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
-import { resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
+import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { calculateUserLevel, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
@@ -752,11 +752,18 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
                 where: { isPublished: true },
                 orderBy: { order: "asc" },
                 select: {
+                  id: true,
                   order: true,
                   lessons: {
                     where: { isPublished: true },
                     orderBy: { order: "asc" },
-                    select: { id: true },
+                    select: {
+                      id: true,
+                      slug: true,
+                      title: true,
+                      order: true,
+                      translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
+                    },
                   },
                 },
               },
@@ -865,7 +872,22 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
       ...lesson.module,
       title: localizeText(moduleTranslation?.title ?? lesson.module.title) ?? lesson.module.title,
       description: localizeText(moduleTranslation?.description ?? lesson.module.description),
-      course: { ...lesson.module.course, title: localizeText(courseTranslation?.title ?? lesson.module.course.title) ?? lesson.module.course.title, localizedSlug: courseTranslation?.slug ?? lesson.module.course.slug },
+      course: {
+        ...lesson.module.course,
+        title: localizeText(courseTranslation?.title ?? lesson.module.course.title) ?? lesson.module.course.title,
+        localizedSlug: courseTranslation?.slug ?? lesson.module.course.slug,
+        modules: lesson.module.course.modules.map((courseModule) => ({
+          ...courseModule,
+          lessons: courseModule.lessons.map((item) => {
+            const itemTranslation = item.translations[0];
+            return {
+              ...item,
+              slug: itemTranslation?.slug ?? item.slug,
+              title: localizeText(itemTranslation?.title ?? item.title) ?? item.title,
+            };
+          }),
+        })),
+      },
       lessons: lesson.module.lessons.map((item) => {
         const itemTranslation = item.translations[0];
         return { ...item, slug: itemTranslation?.slug ?? item.slug, title: localizeText(itemTranslation?.title ?? item.title) ?? item.title };
@@ -2017,7 +2039,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     const now = new Date();
     const previousProgress = await tx.lessonProgress.findUnique({
       where: { userId_lessonId: { userId, lessonId } },
-      select: { status: true, completedBlocks: true, completedAt: true },
+      select: { status: true, completionPercent: true, completedBlocks: true, completedAt: true },
     });
     // Completion is monotonic. A late browser snapshot must never turn a
     // previously completed step back into 75% just because it did not contain
@@ -2036,7 +2058,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     const requiredBlocks = blocks.filter((block) => block.isRequired);
     const allRequiredBlocksComplete = requiredBlocks.every((block) => completedBlockIds.has(block.id))
       && spacedReviewCompleted;
-    const wasCompleted = previousProgress?.status === "COMPLETED";
+    const wasCompleted = isLessonProgressComplete(previousProgress);
     // If all required blocks are already verified, finish automatically. The
     // optional final “Finish” click remains supported, but access no longer
     // depends on a fragile client-side timing window.
@@ -2044,7 +2066,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     const completedNow = completionRequested && allRequiredBlocksComplete;
     // A learner may reopen a finished lesson for practice. That new attempt
     // must never turn the historical completion back into STARTED.
-    const status = resolveLessonProgressStatus(previousProgress?.status, completionRequested, allRequiredBlocksComplete);
+    const status = resolveLessonProgressStatus(wasCompleted ? "COMPLETED" : previousProgress?.status, completionRequested, allRequiredBlocksComplete);
     const persistedCompletedBlockIds = [...completedBlockIds];
     const completionPercent = status === "COMPLETED"
       ? 100
@@ -2229,9 +2251,11 @@ export async function getLessonProgress(userId: string, lessonId: string) {
   ]);
 
   if (!progress) return null;
+  const completed = isLessonProgressComplete(progress);
   return {
     ...progress,
-    completionPercent: progress.status === "COMPLETED" ? 100 : progress.completionPercent,
+    status: completed ? "COMPLETED" : progress.status,
+    completionPercent: completed ? 100 : progress.completionPercent,
     attemptAccuracy: accuracyByLesson.get(lessonId) ?? emptyLessonAttemptAccuracy(),
     experienceEarned: experienceByLesson.get(lessonId) ?? 0,
   };
@@ -2247,12 +2271,16 @@ export async function listLessonProgressByLessonIds(userId: string, lessonIds: s
     getLatestLessonAttemptAccuracy(userId, lessonIds),
     getLessonExperienceEarned(userId, lessonIds),
   ]);
-  return progress.map((item) => ({
-    ...item,
-    completionPercent: item.status === "COMPLETED" ? 100 : item.completionPercent,
-    attemptAccuracy: accuracyByLesson.get(item.lessonId) ?? emptyLessonAttemptAccuracy(),
-    experienceEarned: experienceByLesson.get(item.lessonId) ?? 0,
-  }));
+  return progress.map((item) => {
+    const completed = isLessonProgressComplete(item);
+    return {
+      ...item,
+      status: completed ? "COMPLETED" : item.status,
+      completionPercent: completed ? 100 : item.completionPercent,
+      attemptAccuracy: accuracyByLesson.get(item.lessonId) ?? emptyLessonAttemptAccuracy(),
+      experienceEarned: experienceByLesson.get(item.lessonId) ?? 0,
+    };
+  });
 }
 
 export async function saveHomeworkSubmission(userId: string, lessonBlockId: string, input: unknown) {

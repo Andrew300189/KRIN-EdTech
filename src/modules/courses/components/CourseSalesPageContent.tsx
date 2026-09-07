@@ -12,6 +12,7 @@ import { PublicSiteHeader } from "@/modules/navigation/components/PublicSiteHead
 import { listPublicCourseReviews } from "@/modules/courses/services/course-review.service";
 import { CourseLearningPath } from "@/modules/courses/components/CourseLearningPath";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
+import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type CourseUiLocale = "en" | "uk" | "ru";
@@ -78,7 +79,7 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
   const firstAvailable = lessons.find((lesson) => accessByLessonId.get(lesson.id)?.allowed) ?? null;
   const nextAvailable = lessons.find((lesson) => (
     accessByLessonId.get(lesson.id)?.allowed
-    && progressByLessonId.get(lesson.id)?.status !== "COMPLETED"
+    && !isLessonProgressComplete(progressByLessonId.get(lesson.id))
   )) ?? firstAvailable;
   const trialLesson = lessons.find((lesson, index) => course.accessPlan === "FREE" || lesson.isFree || index < course.firstFreeLessonCount) ?? null;
   const outcomes = strings(course.learningOutcomes);
