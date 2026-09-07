@@ -633,6 +633,11 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
   if (!course) return null;
   const courseTranslation = course.translations[0];
   const usesVerbToBeUkrainianCopy = locale === "uk" && course.slug === verbToBeCourseSlug;
+  // The canonical legacy copy is Russian. Treat it as an explicit Russian
+  // locale too, so the public route and every surrounding interface label can
+  // be rendered consistently instead of mixing Russian course text with
+  // English UI.
+  const usesVerbToBeRussianCopy = locale === "ru" && course.slug === verbToBeCourseSlug;
   const localizeText = (value: string | null | undefined) => (
     usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
   );
@@ -644,7 +649,7 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
     // The legacy To Be course has a complete Ukrainian read-time copy. It is
     // intentionally treated as a published course locale even though it
     // predates individual CMS translation records.
-    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy ? locale : defaultContentLocale,
+    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
     localizedSlug: courseTranslation?.slug ?? course.slug,
     title: localizeText(courseTranslation?.title ?? course.title) ?? course.title,
     shortDescription: localizeText(courseTranslation?.shortDescription ?? course.shortDescription) ?? course.shortDescription,
@@ -825,6 +830,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
   const moduleTranslation = lesson.module.translations[0];
   const courseTranslation = lesson.module.course.translations[0];
   const usesVerbToBeUkrainianCopy = locale === "uk" && lesson.module.course.slug === verbToBeCourseSlug;
+  const usesVerbToBeRussianCopy = locale === "ru" && lesson.module.course.slug === verbToBeCourseSlug;
   const localizeText = (value: string | null | undefined) => (
     usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
   );
@@ -835,7 +841,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
     ...lesson,
     // Course publication authorizes the locale route. Missing child copies
     // intentionally fall back to the canonical English lesson data.
-    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy ? locale : defaultContentLocale,
+    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
     localizedSlug: lessonTranslation?.slug ?? lesson.slug,
     title: localizeText(lessonTranslation?.title ?? lesson.title) ?? lesson.title,
     description: localizeText(lessonTranslation?.description ?? lesson.description),

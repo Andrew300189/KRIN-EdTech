@@ -7,12 +7,14 @@ type CourseHeroActionsProps = {
   actionClassName: string;
   containerClassName: string;
   startCourseHref: string | null;
+  labels?: { showContent: string; startCourse: string };
 };
 
 export function CourseHeroActions({
   actionClassName,
   containerClassName,
   startCourseHref,
+  labels = { showContent: "Show Content", startCourse: "Start Course" },
 }: CourseHeroActionsProps) {
   function showCourseContent() {
     const contentDialog = document.getElementById("course-content-dialog");
@@ -40,15 +42,15 @@ export function CourseHeroActions({
   return (
     <div className={containerClassName}>
       <button type="button" className={actionClassName} onClick={showCourseContent}>
-        Show Content
+        {labels.showContent}
       </button>
       {startCourseHref ? (
         <Link href={startCourseHref} className={actionClassName}>
-          Start Course
+          {labels.startCourse}
         </Link>
       ) : (
         <button type="button" className={actionClassName} onClick={showPurchaseOptions}>
-          Start Course
+          {labels.startCourse}
         </button>
       )}
     </div>

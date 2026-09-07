@@ -107,12 +107,12 @@ function LanguagePicker() {
     setLocale(nextLocale);
     setOpen(false);
 
-    // The legacy To Be course provides Ukrainian content at a locale-specific
-    // URL. A language choice on that course must therefore change the route,
+    // The legacy To Be course provides Russian and Ukrainian content at
+    // locale-specific URLs. A language choice on that course must change route,
     // not only the interface preference stored in the browser.
     const canonicalCoursePath = pathname.replace(/^\/(?:uk|ru)(?=\/courses\/verb-to-be-masterclass(?:\/|$))/, "");
     if (!/^\/courses\/verb-to-be-masterclass(?:\/|$)/.test(canonicalCoursePath)) return;
-    const targetPath = nextLocale === "uk" ? `/uk${canonicalCoursePath}` : canonicalCoursePath;
+    const targetPath = nextLocale === "uk" || nextLocale === "ru" ? `/${nextLocale}${canonicalCoursePath}` : canonicalCoursePath;
     if (targetPath !== pathname) router.push(targetPath);
   };
 
