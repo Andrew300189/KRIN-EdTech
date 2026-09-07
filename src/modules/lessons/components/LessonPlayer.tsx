@@ -888,9 +888,6 @@ export function LessonPlayer({
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
-            <div className={styles.iceProgress} role="progressbar" aria-label="Correct-answer lesson progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-              <span className={styles.iceProgressFill} style={{ width: `${progressPercent}%` }} />
-            </div>
             <nav
               className={styles.blockTimeline}
               aria-label="Lesson steps. Select an available step to study or practise it."
