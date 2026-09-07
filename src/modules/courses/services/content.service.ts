@@ -35,6 +35,7 @@ import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLess
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
+import { translateVerbToBeJsonToEnglish, translateVerbToBeTextToEnglish, verbToBeEnglishCourseSlug } from "@/modules/courses/localization/verb-to-be-english";
 import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian, verbToBeCourseSlug } from "@/modules/courses/localization/verb-to-be-ukrainian";
 import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
 import { SPACED_REVIEW_QUESTION_COUNT, SPACED_REVIEW_SYSTEM, SPACED_REVIEW_XP, isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
@@ -632,6 +633,7 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
   });
   if (!course) return null;
   const courseTranslation = course.translations[0];
+  const usesVerbToBeEnglishCopy = locale === "en" && course.slug === verbToBeEnglishCourseSlug;
   const usesVerbToBeUkrainianCopy = locale === "uk" && course.slug === verbToBeCourseSlug;
   // The canonical legacy copy is Russian. Treat it as an explicit Russian
   // locale too, so the public route and every surrounding interface label can
@@ -639,17 +641,21 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
   // English UI.
   const usesVerbToBeRussianCopy = locale === "ru" && course.slug === verbToBeCourseSlug;
   const localizeText = (value: string | null | undefined) => (
-    usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
+    usesVerbToBeUkrainianCopy
+      ? translateVerbToBeTextToUkrainian(value)
+      : usesVerbToBeEnglishCopy ? translateVerbToBeTextToEnglish(value) : value
   );
   const localizeJson = <T,>(value: T) => (
-    usesVerbToBeUkrainianCopy ? translateVerbToBeJsonToUkrainian(value) : value
+    usesVerbToBeUkrainianCopy
+      ? translateVerbToBeJsonToUkrainian(value)
+      : usesVerbToBeEnglishCopy ? translateVerbToBeJsonToEnglish(value) : value
   );
   return {
     ...course,
-    // The legacy To Be course has a complete Ukrainian read-time copy. It is
-    // intentionally treated as a published course locale even though it
-    // predates individual CMS translation records.
-    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
+    // The legacy To Be course has read-time copy for its public locales. It
+    // predates individual CMS translation records, but must still expose the
+    // selected locale consistently to every public course component.
+    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
     localizedSlug: courseTranslation?.slug ?? course.slug,
     title: localizeText(courseTranslation?.title ?? course.title) ?? course.title,
     shortDescription: localizeText(courseTranslation?.shortDescription ?? course.shortDescription) ?? course.shortDescription,
@@ -829,19 +835,25 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
   const lessonTranslation = lesson.translations[0];
   const moduleTranslation = lesson.module.translations[0];
   const courseTranslation = lesson.module.course.translations[0];
+  const usesVerbToBeEnglishCopy = locale === "en" && lesson.module.course.slug === verbToBeEnglishCourseSlug;
   const usesVerbToBeUkrainianCopy = locale === "uk" && lesson.module.course.slug === verbToBeCourseSlug;
   const usesVerbToBeRussianCopy = locale === "ru" && lesson.module.course.slug === verbToBeCourseSlug;
   const localizeText = (value: string | null | undefined) => (
-    usesVerbToBeUkrainianCopy ? translateVerbToBeTextToUkrainian(value) : value
+    usesVerbToBeUkrainianCopy
+      ? translateVerbToBeTextToUkrainian(value)
+      : usesVerbToBeEnglishCopy ? translateVerbToBeTextToEnglish(value) : value
   );
   const localizeJson = <T,>(value: T) => (
-    usesVerbToBeUkrainianCopy ? translateVerbToBeJsonToUkrainian(value) : value
+    usesVerbToBeUkrainianCopy
+      ? translateVerbToBeJsonToUkrainian(value)
+      : usesVerbToBeEnglishCopy ? translateVerbToBeJsonToEnglish(value) : value
   );
   return {
     ...lesson,
-    // Course publication authorizes the locale route. Missing child copies
-    // intentionally fall back to the canonical English lesson data.
-    contentLocale: courseTranslation || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
+    // Course publication authorizes the locale route. The legacy course has
+    // read-time English, Ukrainian and Russian copy until CMS child rows are
+    // authored for every lesson, block and exercise.
+    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
     localizedSlug: lessonTranslation?.slug ?? lesson.slug,
     title: localizeText(lessonTranslation?.title ?? lesson.title) ?? lesson.title,
     description: localizeText(lessonTranslation?.description ?? lesson.description),
@@ -1675,12 +1687,22 @@ export async function openExerciseSolution(userId: string, exerciseId: string, l
   if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
   const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
-  const localizeToUkrainian = normalizeContentLocale(localeInput) === "uk"
-    && exercise.lessonBlock.lesson.module.course.slug === verbToBeCourseSlug;
+  const locale = normalizeContentLocale(localeInput);
+  const isVerbToBeExercise = exercise.lessonBlock.lesson.module.course.slug === verbToBeCourseSlug;
+  const localizeSolutionText = (value: string | null | undefined) => (
+    locale === "uk" && isVerbToBeExercise
+      ? translateVerbToBeTextToUkrainian(value)
+      : locale === "en" && isVerbToBeExercise ? translateVerbToBeTextToEnglish(value) : value
+  );
+  const localizeSolutionJson = <T,>(value: T) => (
+    locale === "uk" && isVerbToBeExercise
+      ? translateVerbToBeJsonToUkrainian(value)
+      : locale === "en" && isVerbToBeExercise ? translateVerbToBeJsonToEnglish(value) : value
+  );
   const solution = {
     correctAnswer: exercise.correctAnswer,
-    explanation: localizeToUkrainian ? translateVerbToBeTextToUkrainian(exercise.explanation) : exercise.explanation,
-    feedback: localizeToUkrainian ? translateVerbToBeJsonToUkrainian(getExerciseFeedback(exercise.content)) : getExerciseFeedback(exercise.content),
+    explanation: localizeSolutionText(exercise.explanation),
+    feedback: localizeSolutionJson(getExerciseFeedback(exercise.content)),
   };
 
   const latestAttempt = await prisma.exerciseAttempt.findFirst({
