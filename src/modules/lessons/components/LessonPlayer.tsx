@@ -11,6 +11,7 @@ import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStat
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
+import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonRewardWheel } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
@@ -86,6 +87,8 @@ type Props = {
   lessonHrefPrefix?: string;
   /** Keeps controls in sync with a localized course route. */
   contentLocale?: "ru" | "uk";
+  /** Set by a locale-specific route to avoid changing a shared localized link. */
+  routeLocale?: "ru" | "uk";
   /** A secure, user-owned error review opened from My mistakes. */
   reviewMistake?: { exerciseId: string; returnHref: string };
   /** A server-owned sequence of outstanding mistakes. */
@@ -280,7 +283,7 @@ export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
   autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
-  reviewMistake, reviewSession, contentLocale,
+  reviewMistake, reviewSession, contentLocale, routeLocale,
 }: Props) {
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
@@ -838,6 +841,7 @@ export function LessonPlayer({
 
   return (
     <main className={styles.player}>
+      <CourseLocaleSync courseSlug={courseSlug} routeLocale={routeLocale} />
       <RewardNotification events={rewardEvents} />
       <LessonSuccessEffects effect={successEffect} />
       {!isReviewSession && activeBlock ? (
