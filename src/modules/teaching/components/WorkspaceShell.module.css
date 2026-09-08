@@ -34,7 +34,7 @@
 .cmsLink { border-color: #d5dce8; color: #254a97; }
 .cmsLink:hover, .signOutButton:hover:not(:disabled) { background: #f2f5fa; color: #10213d; }
 .signOutButton:disabled { cursor: wait; opacity: 0.65; }
-.search { margin-top: 0.75rem; max-width: 46rem; }
+.search { margin-top: 0.75rem; max-width: 23rem; }
 .content { width: min(100%, 88rem); margin: 0 auto; padding: 1.25rem 1rem 2.5rem; }
 .brandLink:focus-visible, .closeButton:focus-visible, .menuButton:focus-visible, .navigationLink:focus-visible, .homeLink:focus-visible, .cmsLink:focus-visible, .signOutButton:focus-visible { outline: 3px solid #82a9ff; outline-offset: 2px; }
 @media (min-width: 640px) { .header { padding: 0.9rem 1.5rem; } .content { padding: 1.75rem 1.5rem 3rem; } }
@@ -45,7 +45,7 @@
   .viewportLockedHeader .search { margin-top: 0.5rem; }
   .viewportLockedContent { display: flex; min-height: 0; flex: 1 1 auto; overflow: hidden; padding-block: 1rem; }
   .viewportLockedContent > * { min-height: 0; flex: 1 1 auto; }
-  .headerCompact { display: grid; grid-template-columns: minmax(18rem, 46rem) auto; align-items: center; justify-content: space-between; gap: 1rem; padding-block: .58rem; }
+  .headerCompact { display: grid; grid-template-columns: minmax(18rem, 23rem) auto; align-items: center; justify-content: space-between; gap: 1rem; padding-block: .58rem; }
   .headerCompact .headerRow { grid-column: 2; grid-row: 1; }
   .headerCompact .headerTitle { display: none; }
   .headerCompact .search { grid-column: 1; grid-row: 1; width: 100%; max-width: none; margin-top: 0; }
