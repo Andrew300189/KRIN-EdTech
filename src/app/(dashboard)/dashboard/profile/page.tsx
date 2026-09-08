@@ -108,8 +108,9 @@ export default function ProfilePage() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setProfile((current) => current ? { ...current, avatar: reader.result, avatarDisplayMode: "PHOTO" } : current);
+      const avatar = reader.result;
+      if (typeof avatar === "string") {
+        setProfile((current) => current ? { ...current, avatar, avatarDisplayMode: "PHOTO" } : current);
         setError("");
       }
     };
