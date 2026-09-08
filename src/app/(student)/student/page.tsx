@@ -12,12 +12,9 @@ import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { StudentLeaderboardPanel } from "./StudentLeaderboardPanel";
-import { DailyStreakCard } from "@/modules/motivation/components/DailyStreakCard";
-import { STREAK_FREEZE_PRICE_COINS } from "@/modules/motivation/services/motivation.service";
 import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.service";
 import { WeeklyLeaguePanel } from "./WeeklyLeaguePanel";
 import { ProfileLevelStatus } from "@/modules/motivation/components/ProfileLevelStatus";
-import { DailyChestCard } from "@/modules/motivation/components/DailyChestCard";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import styles from "./StudentHome.module.css";
 
@@ -121,8 +118,6 @@ export default async function StudentHomePage({
         <article className={styles.statCard}><p><LocalizedText id="student.home.overallProgress" fallback="Overall progress" /></p><strong>{overallProgress}%</strong><span><LocalizedText id="student.home.lessonsOf" fallback={`${completedLessons} of ${totalLessons} lessons`} values={{ completed: completedLessons, total: totalLessons }} /></span></article>
         <article className={styles.statCard}><p><LocalizedText id="student.home.todayPace" fallback="Today's pace" /></p><strong><LocalizedText id="student.home.minutes" fallback={`${completedMinutes}/${dailyGoal} min`} values={{ completed: completedMinutes, goal: dailyGoal }} /></strong><span><LocalizedText id="student.home.goalProgress" fallback={`${dailyProgress}% of your goal`} values={{ progress: dailyProgress }} /></span></article>
         <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span><LocalizedText id="student.home.coinsHint" fallback="Click XP above to exchange" /></span></article>
-        <DailyStreakCard initialStreak={motivation.streak} initialCoinBalance={motivation.wallet.balance + motivation.wallet.fractionalBalance / 100} price={STREAK_FREEZE_PRICE_COINS} />
-        <DailyChestCard />
       </section>
 
       <MilestoneChestsPanel />
