@@ -8,6 +8,7 @@ import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
 import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChestHeaderButton";
 import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailyStreakHeaderStatus";
 import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
+import { LeaderboardHeaderStatus, type LeaderboardHeaderSummary } from "@/modules/motivation/components/LeaderboardHeaderStatus";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { useLocale } from "@/core/i18n/locale";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
@@ -29,6 +30,7 @@ type WorkspaceShellProps = {
   showCmsLink?: boolean;
   showExperience?: boolean;
   shopAvatar?: string | null;
+  leaderboardSummary?: LeaderboardHeaderSummary;
   /** Keeps compact student overview pages inside the desktop viewport. */
   lockDesktopViewport?: boolean;
 };
@@ -69,6 +71,7 @@ export function WorkspaceShell({
   showCmsLink = false,
   showExperience = false,
   shopAvatar = null,
+  leaderboardSummary,
   lockDesktopViewport = false,
 }: WorkspaceShellProps) {
   const { t } = useLocale();
@@ -281,6 +284,7 @@ export function WorkspaceShell({
             </div>
 
             <div className={styles.headerActions}>
+              {leaderboardSummary ? <LeaderboardHeaderStatus summary={leaderboardSummary} /> : null}
               <DailyStreakHeaderStatus />
               <LearningBonusHeaderStatus />
               <DailyChestHeaderButton />

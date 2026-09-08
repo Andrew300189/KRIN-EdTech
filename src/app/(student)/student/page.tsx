@@ -6,14 +6,11 @@ import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.
 import { getInterruptedLesson, listLearnerCourses } from "@/modules/courses/services/learner-course.service";
 import { learnerCourseContinueHref } from "@/modules/courses/utils/learner-course-path";
 import { getPlacementDashboardResult } from "@/modules/courses/services/placement-test.service";
-import { getDashboardLeaderboard, getMotivationOverview } from "@/modules/motivation/services/motivation.service";
+import { getMotivationOverview } from "@/modules/motivation/services/motivation.service";
 import { LocalizedText } from "@/core/i18n/LocalizedText";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
-import { StudentLeaderboardPanel } from "./StudentLeaderboardPanel";
-import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.service";
-import { WeeklyLeaguePanel } from "./WeeklyLeaguePanel";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import styles from "./StudentHome.module.css";
 
@@ -34,7 +31,7 @@ export default async function StudentHomePage({
   // content. Existing test takers see their normal dashboard on later visits.
   const showPlacementRecommendation = query.placement === "complete";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague, interruptedLesson, startedLessonCount] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, interruptedLesson, startedLessonCount] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -52,8 +49,6 @@ export default async function StudentHomePage({
       },
     }),
     getPlacementDashboardResult(guard.user.id),
-    getDashboardLeaderboard(guard.user.id),
-    getWeeklyLeague(guard.user.id),
     getInterruptedLesson(guard.user.id),
     // A query-string marker is only present after the optional onboarding
     // flow. Registration and Google sign-in can arrive here without it, so
@@ -148,8 +143,6 @@ export default async function StudentHomePage({
         </article>
 
         <div className={styles.sideStack}>
-          <WeeklyLeaguePanel league={weeklyLeague} />
-          <StudentLeaderboardPanel {...leaderboard} />
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
             {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? <LocalizedText id="student.home.practiceItem" fallback="Practice item" />}</strong><span>{mistake.explanation ?? <LocalizedText id="student.home.reviewAfterAttempts" fallback={`Review after ${mistake.occurrenceCount} attempts.`} values={{ count: mistake.occurrenceCount }} />}</span></li>)}</ul> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}

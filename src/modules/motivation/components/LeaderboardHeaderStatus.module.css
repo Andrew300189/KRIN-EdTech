@@ -1,0 +1,56 @@
+.button {
+  display: inline-flex;
+  height: 2.1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  padding: 0 0.43rem;
+  border: 1px solid #edc567;
+  border-radius: 999px;
+  background: #fff9e8;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-shadow: 0 3px 9px rgb(202 138 4 / 12%);
+}
+
+.button > span { font-size: 0.9rem; }
+.button .top { color: #9a6700; font-size: 0.52rem; font-weight: 900; letter-spacing: 0.04em; }
+.button strong { font-weight: 900; }
+.button:hover { border-color: #dca92d; background: #fff4c8; transform: translateY(-1px); }
+.button:focus-visible { outline: 3px solid rgb(234 179 8 / 34%); outline-offset: 2px; }
+
+.modalBody { display: grid; gap: 0.78rem; }
+.placeCard, .leagueCard { display: flex; align-items: center; gap: 0.7rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-subtle); }
+.placeCard > span { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 2.2rem; place-items: center; border-radius: 50%; background: #fff4c8; font-size: 1.15rem; }
+.placeCard div, .leagueCard div { display: grid; min-width: 0; gap: 0.08rem; }
+.placeCard small, .leagueCard small { color: var(--text-muted); font-size: 0.68rem; font-weight: 850; letter-spacing: 0.05em; text-transform: uppercase; }
+.placeCard strong { color: var(--text-primary); font-size: 1.28rem; line-height: 1; }
+.placeCard div > span, .leagueCard div > span { color: var(--text-secondary); font-size: 0.76rem; font-weight: 700; }
+.leagueCard strong { color: var(--text-primary); font-size: 0.9rem; }
+.tierIcon { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 2.2rem; place-items: center; border-radius: 50%; font-size: 1rem; }
+.bronze .tierIcon { background: #ffeadf; color: #b45309; }
+.silver .tierIcon { background: #edf2f7; color: #64748b; }
+.diamond .tierIcon { background: #e0f2fe; color: #0284c7; }
+.movement { margin: 0; color: var(--text-secondary); font-size: 0.8rem; font-weight: 750; line-height: 1.4; }
+.refresh { min-height: 2.7rem; border: 1px solid #e7c76f; border-radius: 0.78rem; background: #fffdf4; color: #9a6700; cursor: pointer; font: inherit; font-size: 0.84rem; font-weight: 850; }
+.refresh:hover:not(:disabled) { background: #fff5ca; }
+.refresh:disabled { cursor: wait; opacity: 0.65; }
+
+:global(html[data-theme="dark"]) .button { border-color: #725612; background: #382e10; color: var(--text-primary); }
+:global(html[data-theme="dark"]) .button .top { color: #fde68a; }
+:global(html[data-theme="dark"]) .button:hover { background: #4a3d12; }
+:global(html[data-theme="dark"]) .placeCard > span { background: #4a3d12; }
+:global(html[data-theme="dark"]) .bronze .tierIcon { background: #472d1d; color: #fdba74; }
+:global(html[data-theme="dark"]) .silver .tierIcon { background: #273243; color: #cbd5e1; }
+:global(html[data-theme="dark"]) .diamond .tierIcon { background: #082f49; color: #7dd3fc; }
+:global(html[data-theme="dark"]) .refresh { border-color: #725612; background: #382e10; color: #fde68a; }
+
+@media (max-width: 480px) {
+  .button { height: 1.9rem; gap: 0.1rem; padding: 0 0.28rem; font-size: 0.68rem; }
+  .button > span { font-size: 0.77rem; }
+}
