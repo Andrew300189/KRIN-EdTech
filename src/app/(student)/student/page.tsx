@@ -14,7 +14,6 @@ import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { StudentLeaderboardPanel } from "./StudentLeaderboardPanel";
 import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.service";
 import { WeeklyLeaguePanel } from "./WeeklyLeaguePanel";
-import { ProfileLevelStatus } from "@/modules/motivation/components/ProfileLevelStatus";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import styles from "./StudentHome.module.css";
 
@@ -86,7 +85,6 @@ export default async function StudentHomePage({
         <div>
           <h2><LocalizedText id={isFirstVisit ? "student.home.welcome" : "student.home.welcomeBack"} fallback={`${isFirstVisit ? "Welcome" : "Welcome back"}, {name}`} values={{ name }} /></h2>
           <p><LocalizedText id="student.home.hero" fallback="One focused lesson is enough for today. Your next step is ready below." /></p>
-          <ProfileLevelStatus level={motivation.level.level} experience={motivation.level.lifetimeExperience + (motivation.level.fractionalExperience ?? 0) / 100} />
         </div>
         <div className={styles.heroActions}>
           <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link>

@@ -8,14 +8,14 @@ import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation
 import styles from "./DailyStreakHeaderStatus.module.css";
 
 type Streak = { currentStreak: number; longestStreak: number; freezeCount: number };
-type Motivation = { streak?: Streak; wallet?: { balance: number; fractionalBalance: number } };
+type Motivation = { streak?: Streak; wallet?: { balance: number; fractionalBalance: number }; level?: { level: number; lifetimeExperience: number; fractionalExperience?: number } };
 
 const FREEZE_PRICE = 1;
 
 const copy = {
-  en: { title: "Daily streak", description: "Keep your learning rhythm going.", day: "days in a row", freezes: "Days off ready", purchase: "Buy a day off", buying: "Buying…", balance: "Balance", cost: "1 KRIN Coin", purchased: "Your day off is ready. It will protect one missed day.", insufficient: "You need 1 KRIN Coin to buy a day off.", unavailable: "Unable to buy a day off right now.", close: "Close streak details" },
-  ru: { title: "Серия дней", description: "Поддерживайте ритм обучения.", day: "дней подряд", freezes: "Дней отдыха готово", purchase: "Купить день отдыха", buying: "Покупаем…", balance: "Баланс", cost: "1 KRIN Coin", purchased: "День отдыха готов. Он защитит один пропущенный день.", insufficient: "Чтобы купить день отдыха, нужна 1 KRIN Coin.", unavailable: "Сейчас не удалось купить день отдыха.", close: "Закрыть сведения о серии" },
-  uk: { title: "Серія днів", description: "Підтримуйте ритм навчання.", day: "днів поспіль", freezes: "Днів відпочинку готово", purchase: "Купити день відпочинку", buying: "Купуємо…", balance: "Баланс", cost: "1 KRIN Coin", purchased: "День відпочинку готовий. Він захистить один пропущений день.", insufficient: "Щоб купити день відпочинку, потрібна 1 KRIN Coin.", unavailable: "Зараз не вдалося купити день відпочинку.", close: "Закрити відомості про серію" },
+  en: { title: "Daily streak", profileLevel: "Profile level", description: "Keep your learning rhythm going.", day: "days in a row", freezes: "Days off ready", purchase: "Buy a day off", buying: "Buying…", balance: "Balance", cost: "1 KRIN Coin", purchased: "Your day off is ready. It will protect one missed day.", insufficient: "You need 1 KRIN Coin to buy a day off.", unavailable: "Unable to buy a day off right now.", close: "Close streak details" },
+  ru: { title: "Серия дней", profileLevel: "Уровень профиля", description: "Поддерживайте ритм обучения.", day: "дней подряд", freezes: "Дней отдыха готово", purchase: "Купить день отдыха", buying: "Покупаем…", balance: "Баланс", cost: "1 KRIN Coin", purchased: "День отдыха готов. Он защитит один пропущенный день.", insufficient: "Чтобы купить день отдыха, нужна 1 KRIN Coin.", unavailable: "Сейчас не удалось купить день отдыха.", close: "Закрыть сведения о серии" },
+  uk: { title: "Серія днів", profileLevel: "Рівень профілю", description: "Підтримуйте ритм навчання.", day: "днів поспіль", freezes: "Днів відпочинку готово", purchase: "Купити день відпочинку", buying: "Купуємо…", balance: "Баланс", cost: "1 KRIN Coin", purchased: "День відпочинку готовий. Він захистить один пропущений день.", insufficient: "Щоб купити день відпочинку, потрібна 1 KRIN Coin.", unavailable: "Зараз не вдалося купити день відпочинку.", close: "Закрити відомості про серію" },
 } as const;
 
 /** Compact streak badge; clicking it opens the only place to buy a day-off freeze. */
@@ -44,6 +44,7 @@ export function DailyStreakHeaderStatus() {
 
   const streak = motivation?.streak;
   if (!streak) return null;
+  const level = motivation.level;
   const balance = (motivation?.wallet?.balance ?? 0) + (motivation?.wallet?.fractionalBalance ?? 0) / 100;
   const label = `${text.title}: ${streak.currentStreak}`;
 
@@ -70,6 +71,9 @@ export function DailyStreakHeaderStatus() {
   }
 
   return <>
+    {level ? <span className={styles.levelBadge} title={`${text.profileLevel}: ${level.level}`} aria-label={`${text.profileLevel}: ${level.level}`}>
+      <span>Lv.</span><strong>{level.level}</strong>
+    </span> : null}
     <button type="button" className={styles.status} title={label} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
       <span className={styles.fire} aria-hidden="true">🔥</span>
       <strong>{streak.currentStreak}</strong>
