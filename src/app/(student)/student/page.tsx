@@ -34,12 +34,12 @@ export default async function StudentHomePage({
   const guard = await requireRole(["student"]);
   if (!guard.ok) return null;
   const query = await searchParams;
-  const isFirstVisit = query.firstVisit === "1";
+  const arrivedFromOnboarding = query.firstVisit === "1";
   // A recommendation is a post-test hand-off, not permanent dashboard
   // content. Existing test takers see their normal dashboard on later visits.
   const showPlacementRecommendation = query.placement === "complete";
 
-  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague, interruptedLesson] = await Promise.all([
+  const [courses, assignmentCount, reviewCount, managedSlot, motivation, recentMistakes, placementResult, leaderboard, weeklyLeague, interruptedLesson, startedLessonCount] = await Promise.all([
     listLearnerCourses(guard.user.id),
     prisma.assignmentSubmission.count({ where: { studentId: guard.user.id, status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEEDS_REVISION"] } } }),
     prisma.userWord.count({ where: { userId: guard.user.id, status: { in: ["LEARNING", "REVIEW"] } } }),
@@ -60,7 +60,16 @@ export default async function StudentHomePage({
     getDashboardLeaderboard(guard.user.id),
     getWeeklyLeague(guard.user.id),
     getInterruptedLesson(guard.user.id),
+    // A query-string marker is only present after the optional onboarding
+    // flow. Registration and Google sign-in can arrive here without it, so
+    // the greeting must instead be based on real learner activity.
+    prisma.lessonProgress.count({ where: { userId: guard.user.id } }),
   ]);
+
+  // A learner remains new until they have opened their first lesson. This
+  // makes "Welcome" correct for every registration path, while "Welcome
+  // back" appears only after genuine learning progress exists.
+  const isFirstVisit = arrivedFromOnboarding || startedLessonCount === 0;
 
   const next = courses.find((course) => course.nextLesson) ?? courses[0];
   const name = guard.user.firstName || guard.user.name?.split(" ")[0] || "Learner";
@@ -75,7 +84,7 @@ export default async function StudentHomePage({
   const nextLessonLabel = next?.nextLesson?.title;
   return (
     <section className={styles.page}>
-      <FirstVisitQueryCleaner active={isFirstVisit} />
+      <FirstVisitQueryCleaner active={arrivedFromOnboarding} />
       <PlacementResultSync />
       <header className={styles.hero}>
         <div>
