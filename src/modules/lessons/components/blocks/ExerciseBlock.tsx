@@ -28,7 +28,7 @@ type ExerciseBlockProps = {
   /** A system review deliberately keeps retrieval practice one question at a time. */
   sequentialOnly?: boolean;
   reviewRunId?: string;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
@@ -108,7 +108,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
     setActiveIndex(firstMistakeIndex);
   }
 
-  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null) {
+  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null, streakMilestone?: number | null) {
     // A block is ready to advance only after every card has received an
     // answer. Previously this used the *position* of the final card, so a
     // learner could reach the last question from “Show all tasks”, see 100%
@@ -122,6 +122,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
       isFinalExercise: allExercisesAnswered,
       difficulty: exercises[index]?.difficulty,
       streakTone,
+      streakMilestone,
     });
 
     // A block is a completed learning path once every prompt has received an
@@ -177,7 +178,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
         hideContext={hideContext}
         hideContextText={hideContextText}
         reviewRunId={reviewRunId}
-        onAttemptResolved={({ exerciseId, isCorrect, streakTone }) => resolveAttempt(index, exerciseId, isCorrect, streakTone)}
+        onAttemptResolved={({ exerciseId, isCorrect, streakTone, streakMilestone }) => resolveAttempt(index, exerciseId, isCorrect, streakTone, streakMilestone)}
         onDefer={requireCorrectForNext ? undefined : () => deferExercise(index, exercise.id)}
       />
     </div>

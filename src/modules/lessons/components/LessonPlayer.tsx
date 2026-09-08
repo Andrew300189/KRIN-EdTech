@@ -9,6 +9,7 @@ import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/Vocabu
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
+import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
@@ -315,6 +316,7 @@ export function LessonPlayer({
   const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const [persistentStreakTone, setPersistentStreakTone] = useState<string | null>(null);
+  const [streakChestMilestone, setStreakChestMilestone] = useState<number | null>(null);
   const [successEffect, setSuccessEffect] = useState<LessonSuccessEffect | null>(null);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
@@ -856,6 +858,7 @@ export function LessonPlayer({
       <CourseLocaleSync courseSlug={courseSlug} routeLocale={routeLocale} />
       <RewardNotification events={rewardEvents} />
       <LessonSuccessEffects effect={successEffect} />
+      <StreakChestReward milestone={streakChestMilestone} onDismiss={() => setStreakChestMilestone(null)} />
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
@@ -1040,11 +1043,12 @@ export function LessonPlayer({
                     .map((exercise) => exercise.id)}
                   requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
                   reviewRunId={reviewSession?.runId}
-                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone }) => {
+                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone }) => {
                     progressMutationRef.current = true;
                     if (!isCorrect) setPersistentStreakTone(null);
                     else {
                       if (streakTone) setPersistentStreakTone(streakTone);
+                      if (streakMilestone) setStreakChestMilestone(streakMilestone);
                       triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect, difficulty }));
                     }
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
@@ -1099,6 +1103,7 @@ export function LessonPlayer({
                   onSpacedReviewCorrect={(difficulty) => {
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
+                  onStreakChestAvailable={setStreakChestMilestone}
                   onSpacedReviewComplete={() => {
                     setStepVerified(true);
                     setAutoAdvanceRequested(true);

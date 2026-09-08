@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
+import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -39,6 +40,13 @@ const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
   { id: "xp-80", experience: 80, coins: 0, hintCredits: 0, translationCredits: 0 },
   { id: "xp-100", experience: 100, coins: 0, hintCredits: 0, translationCredits: 0 },
 ] as const;
+
+/** A streak chest always awards one of the three learning-reward types. */
+const STREAK_CHEST_REWARDS = [
+  { id: "violet-xp", experience: 15, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "yellow-hint-xp", experience: 8, coins: 0, hintCredits: 1, translationCredits: 0 },
+  { id: "blue-translation-xp", experience: 8, coins: 0, hintCredits: 0, translationCredits: 1 },
+] as const satisfies readonly EconomyBonusReward[];
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
 
@@ -152,6 +160,72 @@ export async function openDailyChest(userId: string) {
       description: `Daily Mystery Box:${rewardChoice.id}`,
     });
     return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt: new Date(now.getTime() + DAILY_CHEST_COOLDOWN_MS) };
+  });
+}
+
+/**
+ * A chest is created only by a real correct-answer streak checkpoint. The
+ * client may choose when to open it, but cannot forge a checkpoint or claim
+ * it twice: the server verifies the learner's best streak and uses an
+ * immutable idempotency key for every milestone.
+ */
+export async function openStreakChest(userId: string, rawMilestone: number) {
+  if (!Number.isSafeInteger(rawMilestone) || rawMilestone < 3 || !correctAnswerStreak(rawMilestone).activated) {
+    throw new Error("This streak chest is unavailable.");
+  }
+  const milestone = rawMilestone;
+
+  return prisma.$transaction(async (tx) => {
+    const level = await tx.userLevel.findUnique({
+      where: { userId },
+      select: { bestCorrectStreak: true },
+    });
+    if (!level || level.bestCorrectStreak < milestone) {
+      throw new Error("Reach this streak to open the chest.");
+    }
+
+    const idempotencyKey = `streak-chest:${userId}:${milestone}`;
+    const existing = await tx.experienceTransaction.findUnique({
+      where: { idempotencyKey },
+      select: { amount: true, description: true },
+    });
+    if (existing) {
+      const bonuses = await tx.learningBonusTransaction.findMany({
+        where: { userId, sourceType: "STREAK_CHEST", sourceId: String(milestone), amount: { gt: 0 } },
+        select: { kind: true, amount: true },
+      });
+      return {
+        opened: false,
+        alreadyOpened: true,
+        rewardId: existing.description?.match(/streak chest:([^\s]+)/)?.[1] ?? null,
+        experience: existing.amount,
+        coins: 0,
+        hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
+        translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
+      };
+    }
+
+    const choice = STREAK_CHEST_REWARDS[randomInt(STREAK_CHEST_REWARDS.length)];
+    const reward = await grantEconomyReward(tx, {
+      userId,
+      experience: choice.experience,
+      coins: choice.coins,
+      hintCredits: choice.hintCredits,
+      translationCredits: choice.translationCredits,
+      sourceType: "STREAK_CHEST",
+      sourceId: String(milestone),
+      idempotencyKey,
+      description: `Streak chest:${choice.id}`,
+    });
+    return {
+      opened: reward.awarded,
+      alreadyOpened: false,
+      rewardId: choice.id,
+      experience: reward.experience,
+      coins: reward.coins,
+      hintCredits: reward.hintCredits,
+      translationCredits: reward.translationCredits,
+    };
   });
 }
 

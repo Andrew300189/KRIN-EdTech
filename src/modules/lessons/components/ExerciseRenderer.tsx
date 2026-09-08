@@ -66,7 +66,7 @@ type ExerciseRendererProps = {
   previewMode?: boolean;
   hideContext?: boolean;
   hideContextText?: boolean;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; streakTone?: string | null }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; streakTone?: string | null; streakMilestone?: number | null }) => void;
   /** Keep an incorrect answer in the review queue and continue without retrying it now. */
   onDefer?: (exerciseId: string) => void;
   /** Server-validated review queue; never trusted as a general access bypass. */
@@ -354,6 +354,11 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
         exerciseId: exercise.id,
         isCorrect: payload.data.isCorrect,
         streakTone: payload.data.motivationReward?.streak?.tone ?? null,
+        streakMilestone: payload.data.isCorrect
+          && payload.data.motivationReward?.awarded
+          && payload.data.motivationReward.streak?.activated
+          ? payload.data.motivationReward.streak.modeStart
+          : null,
       });
       if (typeof payload.data.openMistakeCount === "number") {
         window.dispatchEvent(new CustomEvent("mistakes:changed", { detail: { count: payload.data.openMistakeCount } }));

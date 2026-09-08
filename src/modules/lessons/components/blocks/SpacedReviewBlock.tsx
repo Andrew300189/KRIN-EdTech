@@ -20,6 +20,7 @@ type Props = {
   previewMode?: boolean;
   playerStyle?: boolean;
   onCorrectAnswer?: (difficulty?: number) => void;
+  onStreakChestAvailable?: (milestone: number) => void;
   onReviewComplete: () => void;
 };
 
@@ -34,7 +35,7 @@ const reviewCopy = {
 
 /** The questions themselves are generated and authorised by the server. This
  * component only presents that persisted ten-question set one at a time. */
-export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onCorrectAnswer, onReviewComplete }: Props) {
+export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onCorrectAnswer, onStreakChestAvailable, onReviewComplete }: Props) {
   const [run, setRun] = useState<ReviewRun | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
@@ -106,8 +107,9 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
           playerStyle={playerStyle}
           individualExerciseStep
           sequentialOnly
-          onAttemptResolved={({ isCorrect, difficulty, isFinalExercise }) => {
+          onAttemptResolved={({ isCorrect, difficulty, isFinalExercise, streakMilestone }) => {
             if (isCorrect) onCorrectAnswer?.(difficulty);
+            if (streakMilestone) onStreakChestAvailable?.(streakMilestone);
             if (isFinalExercise) void completeReview();
           }}
           onAttemptDeferred={({ isFinalExercise }) => { if (isFinalExercise) void completeReview(); }}

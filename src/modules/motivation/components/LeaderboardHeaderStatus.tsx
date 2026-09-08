@@ -26,19 +26,12 @@ type LeaderboardData = {
 export type LeaderboardHeaderSummary = {
   rank: number | null;
   participantCount: number;
-  league: {
-    tier: "BRONZE" | "SILVER" | "DIAMOND";
-    groupNumber: number;
-    groupRank: number;
-    groupSize: number;
-    movement: "PROMOTION" | "SAFE" | "RISK" | "PODIUM";
-  };
 };
 
 const copy = {
-  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "XP equivalent", xp: "XP", coins: "coins", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", league: "Weekly league", leagueName: "League", group: "Group", refresh: "Refresh leaderboard", refreshing: "Refreshing…", close: "Close leaderboard", movement: { PROMOTION: "Top 3 — promotion zone", SAFE: "Keep learning to reach the top 3", RISK: "Bottom 3 — stay active to hold your league", PODIUM: "Top 3 — Diamond podium" }, tiers: { BRONZE: "Bronze", SILVER: "Silver", DIAMOND: "Diamond" } },
-  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "XP-эквивалент", xp: "XP", coins: "монет", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", league: "Недельная лига", leagueName: "лига", group: "Группа", refresh: "Обновить рейтинг", refreshing: "Обновляем…", close: "Закрыть рейтинг", movement: { PROMOTION: "Топ-3 — зона повышения", SAFE: "Продолжайте учиться, чтобы войти в топ-3", RISK: "Нижняя тройка — занимайтесь, чтобы удержать лигу", PODIUM: "Топ-3 — пьедестал Алмазной лиги" }, tiers: { BRONZE: "Бронзовая", SILVER: "Серебряная", DIAMOND: "Алмазная" } },
-  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "XP-еквівалент", xp: "XP", coins: "монет", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", league: "Щотижнева ліга", leagueName: "ліга", group: "Група", refresh: "Оновити рейтинг", refreshing: "Оновлюємо…", close: "Закрити рейтинг", movement: { PROMOTION: "Топ-3 — зона підвищення", SAFE: "Продовжуйте навчатися, щоб увійти в топ-3", RISK: "Нижня трійка — займайтесь, щоб втримати лігу", PODIUM: "Топ-3 — подіум Діамантової ліги" }, tiers: { BRONZE: "Бронзова", SILVER: "Срібна", DIAMOND: "Діамантова" } },
+  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "XP equivalent", xp: "XP", coins: "coins", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", refreshing: "Refreshing…", close: "Close leaderboard" },
+  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "XP-эквивалент", xp: "XP", coins: "монет", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", refreshing: "Обновляем…", close: "Закрыть рейтинг" },
+  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "XP-еквівалент", xp: "XP", coins: "монет", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", refreshing: "Оновлюємо…", close: "Закрити рейтинг" },
 } as const;
 
 function placeClass(rank: number) {
@@ -64,7 +57,6 @@ export function LeaderboardHeaderStatus({ summary }: { summary: LeaderboardHeade
   const text = copy[locale];
   const rank = board?.current?.rank ?? summary.rank ?? "—";
   const participantCount = board?.participantCount ?? summary.participantCount;
-  const leagueName = `${text.tiers[summary.league.tier]} ${text.leagueName}`;
 
   const loadLeaderboard = useCallback(async () => {
     setIsLoading(true);
@@ -96,17 +88,10 @@ export function LeaderboardHeaderStatus({ summary }: { summary: LeaderboardHeade
       <span aria-hidden="true">🏆</span><span className={styles.top}>TOP</span><strong>{rank}</strong>
     </button>
     <AppModal open={open} onOpenChange={setOpen} title={text.title} size="large" tall closeLabel={text.close} bodyClassName={styles.modalBody}>
-      <div className={styles.summaryGrid}>
-        <div className={styles.placeCard}>
-          <span aria-hidden="true">🏆</span>
-          <div><small>{text.place}</small><strong>{rank}</strong><span>{text.of} {participantCount}</span></div>
-        </div>
-        <div className={`${styles.leagueCard} ${styles[summary.league.tier.toLowerCase()]}`}>
-          <span className={styles.tierIcon} aria-hidden="true">{summary.league.tier === "SILVER" ? "●" : "◆"}</span>
-          <div><small>{text.league}</small><strong>{leagueName}</strong><span>{text.group} {summary.league.groupNumber} · {summary.league.groupRank} {text.of} {summary.league.groupSize}</span></div>
-        </div>
+      <div className={styles.placeCard}>
+        <span aria-hidden="true">🏆</span>
+        <div><small>{text.place}</small><strong>{rank}</strong><span>{text.of} {participantCount}</span></div>
       </div>
-      <p className={styles.movement}>{text.movement[summary.league.movement]}</p>
       <div className={styles.boardHeading}>
         <strong>{text.all} <span>{participantCount}</span></strong>
         <button type="button" className={styles.refresh} disabled={isLoading || isRefreshing} onClick={refreshLeaderboard}>{isLoading || isRefreshing ? text.refreshing : "↻"}</button>

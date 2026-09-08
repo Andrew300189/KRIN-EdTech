@@ -6,7 +6,6 @@ import {
 } from "@/core/utils/workspace-path";
 import { WorkspaceShell } from "@/modules/teaching/components/WorkspaceShell";
 import { getDashboardLeaderboard } from "@/modules/motivation/services/motivation.service";
-import { getWeeklyLeague } from "@/modules/motivation/services/weekly-league.service";
 
 const navigation = [
   { href: "/student", label: "Home", labelKey: "student.nav.home" },
@@ -35,21 +34,10 @@ export default async function StudentLayout({
         : `${getRoleWorkspacePath(guard.role)}?reason=role_required`,
   );
   const showCmsLink = hasCmsAccess(guard.user.email, guard.user.role);
-  const [leaderboard, weeklyLeague] = await Promise.all([
-    getDashboardLeaderboard(guard.user.id),
-    getWeeklyLeague(guard.user.id),
-  ]);
-  const groupRank = weeklyLeague.members.findIndex((member) => member.isCurrentUser) + 1;
+  const leaderboard = await getDashboardLeaderboard(guard.user.id);
   const leaderboardSummary = {
     rank: leaderboard.current?.rank ?? null,
     participantCount: leaderboard.participantCount,
-    league: {
-      tier: weeklyLeague.tier,
-      groupNumber: weeklyLeague.groupNumber,
-      groupRank: Math.max(1, groupRank),
-      groupSize: weeklyLeague.members.length,
-      movement: weeklyLeague.movement,
-    },
   };
   return (
     <WorkspaceShell
