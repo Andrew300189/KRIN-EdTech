@@ -25,21 +25,42 @@
 .button:focus-visible { outline: 3px solid rgb(234 179 8 / 34%); outline-offset: 2px; }
 
 .modalBody { display: grid; gap: 0.78rem; }
-.placeCard, .leagueCard { display: flex; align-items: center; gap: 0.7rem; padding: 0.8rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-subtle); }
+.summaryGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+.placeCard, .leagueCard { display: flex; align-items: center; gap: 0.7rem; min-width: 0; padding: 0.8rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-subtle); }
 .placeCard > span { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 2.2rem; place-items: center; border-radius: 50%; background: #fff4c8; font-size: 1.15rem; }
 .placeCard div, .leagueCard div { display: grid; min-width: 0; gap: 0.08rem; }
 .placeCard small, .leagueCard small { color: var(--text-muted); font-size: 0.68rem; font-weight: 850; letter-spacing: 0.05em; text-transform: uppercase; }
 .placeCard strong { color: var(--text-primary); font-size: 1.28rem; line-height: 1; }
-.placeCard div > span, .leagueCard div > span { color: var(--text-secondary); font-size: 0.76rem; font-weight: 700; }
+.placeCard div > span, .leagueCard div > span { overflow: hidden; color: var(--text-secondary); font-size: 0.76rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .leagueCard strong { color: var(--text-primary); font-size: 0.9rem; }
 .tierIcon { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 2.2rem; place-items: center; border-radius: 50%; font-size: 1rem; }
 .bronze .tierIcon { background: #ffeadf; color: #b45309; }
 .silver .tierIcon { background: #edf2f7; color: #64748b; }
 .diamond .tierIcon { background: #e0f2fe; color: #0284c7; }
 .movement { margin: 0; color: var(--text-secondary); font-size: 0.8rem; font-weight: 750; line-height: 1.4; }
-.refresh { min-height: 2.7rem; border: 1px solid #e7c76f; border-radius: 0.78rem; background: #fffdf4; color: #9a6700; cursor: pointer; font: inherit; font-size: 0.84rem; font-weight: 850; }
-.refresh:hover:not(:disabled) { background: #fff5ca; }
-.refresh:disabled { cursor: wait; opacity: 0.65; }
+
+.boardHeading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.2rem; padding-top: 0.85rem; border-top: 1px solid var(--border); color: var(--text-primary); }
+.boardHeading strong { font-size: 0.96rem; }
+.boardHeading strong span { display: inline-grid; min-width: 1.35rem; height: 1.35rem; place-items: center; margin-left: 0.25rem; border-radius: 999px; background: #eef2ff; color: #4f46e5; font-size: 0.72rem; }
+.refresh { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border: 1px solid #e7c76f; border-radius: 50%; background: #fffdf4; color: #9a6700; cursor: pointer; font: inherit; font-size: 1.2rem; font-weight: 850; line-height: 1; }
+.refresh:hover:not(:disabled) { background: #fff5ca; transform: rotate(-18deg); }
+.refresh:disabled { width: auto; padding: 0 0.65rem; border-radius: 999px; cursor: wait; font-size: 0.72rem; opacity: 0.65; transform: none; }
+
+.entries { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.entries li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; min-height: 3.8rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border); border-radius: 0.9rem; background: var(--surface-subtle); }
+.entries li.currentEntry { border-color: #a5b4fc; background: #eef2ff; box-shadow: inset 0 0 0 1px rgb(99 102 241 / 8%); }
+.place { display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border-radius: 50%; background: #eef2ff; color: #4f46e5; font-size: 0.78rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.firstPlace { background: linear-gradient(135deg, #fef3c7, #f59e0b); color: #713f12; }
+.secondPlace { background: linear-gradient(135deg, #f8fafc, #94a3b8); color: #334155; }
+.thirdPlace { background: linear-gradient(135deg, #ffedd5, #c2410c); color: #7c2d12; }
+.otherPlace { background: #eef2ff; color: #4f46e5; }
+.learner { display: grid; min-width: 0; gap: 0.12rem; }
+.learner strong { overflow: hidden; color: var(--text-primary); font-size: 0.86rem; text-overflow: ellipsis; white-space: nowrap; }
+.learner span { overflow: hidden; color: var(--text-secondary); font-size: 0.7rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.score { display: grid; justify-items: end; color: var(--text-primary); font-size: 0.82rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.score small { color: var(--text-muted); font-size: 0.57rem; font-weight: 800; text-transform: uppercase; }
+.status { margin: 0; padding: 1.15rem 0.6rem; color: var(--text-secondary); font-size: 0.83rem; font-weight: 700; text-align: center; }
+.error { color: #be123c; }
 
 :global(html[data-theme="dark"]) .button { border-color: #725612; background: #382e10; color: var(--text-primary); }
 :global(html[data-theme="dark"]) .button .top { color: #fde68a; }
@@ -48,9 +69,18 @@
 :global(html[data-theme="dark"]) .bronze .tierIcon { background: #472d1d; color: #fdba74; }
 :global(html[data-theme="dark"]) .silver .tierIcon { background: #273243; color: #cbd5e1; }
 :global(html[data-theme="dark"]) .diamond .tierIcon { background: #082f49; color: #7dd3fc; }
+:global(html[data-theme="dark"]) .boardHeading strong span, :global(html[data-theme="dark"]) .otherPlace { background: #252a57; color: #c7d2fe; }
+:global(html[data-theme="dark"]) .entries li.currentEntry { border-color: #4f46e5; background: #242449; }
 :global(html[data-theme="dark"]) .refresh { border-color: #725612; background: #382e10; color: #fde68a; }
+
+@media (max-width: 600px) {
+  .summaryGrid { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 480px) {
   .button { height: 1.9rem; gap: 0.1rem; padding: 0 0.28rem; font-size: 0.68rem; }
   .button > span { font-size: 0.77rem; }
+  .entries li { grid-template-columns: 1.8rem minmax(0, 1fr); gap: 0.5rem; }
+  .place { width: 1.55rem; height: 1.55rem; }
+  .score { grid-column: 2; justify-items: start; font-size: 0.72rem; }
 }

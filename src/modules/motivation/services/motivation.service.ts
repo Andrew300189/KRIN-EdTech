@@ -752,6 +752,7 @@ type LeaderboardSource = {
   id: string;
   name: string;
   firstName: string | null;
+  showInLeaderboard: boolean;
   createdAt: Date;
   level: {
     level: number;
@@ -774,6 +775,7 @@ export type LearnerLeaderboardEntry = {
   coinsMinor: number;
   totalMinor: number;
   isCurrentUser: boolean;
+  isProfileVisible: boolean;
 };
 
 function motivationMinor(whole: number, fraction: number | null | undefined) {
@@ -803,6 +805,7 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
         // point would make an exchange destroy a learner's position, so the
         // score always uses the XP-equivalent value instead.
         totalMinor: leaderboardScoreMinor(experienceMinor, coinsMinor),
+        isProfileVisible: row.showInLeaderboard,
         createdAt: row.createdAt,
       };
     })
@@ -823,6 +826,7 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
       id: true,
       name: true,
       firstName: true,
+      showInLeaderboard: true,
       createdAt: true,
       userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true } },
       wallet: { select: { balance: true, fractionalBalance: true } },
@@ -847,27 +851,32 @@ export async function listPublicLeaderboard(limit = 20) {
   }));
 }
 
-/** A learner always sees their own place, even when they hide their name from the public board. */
+/**
+ * Every active registered account takes a place in the student ranking. People
+ * who opted out of publishing remain anonymous to everyone except themselves.
+ */
 export async function getDashboardLeaderboard(userId: string, limit = 3) {
   const rows = await leaderboardSources({
     isBlocked: false,
     deletedAt: null,
-    OR: [{ showInLeaderboard: true }, { id: userId }],
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;
-  // The dashboard leaderboard deliberately shows XP and KRIN Coin balances
-  // for every listed participant. `totalMinor` is the XP-equivalent score
-  // used only for placement: 1 KRIN Coin = 1,000 XP.
-  const entries = ranked.slice(0, Math.min(Math.max(limit, 1), 10)).map((entry) => ({
-    rank: entry.rank,
-    userId: entry.userId,
-    displayName: entry.displayName,
-    experienceMinor: entry.experienceMinor,
-    coinsMinor: entry.coinsMinor,
-    totalMinor: entry.totalMinor,
-    isCurrentUser: entry.isCurrentUser,
-  }));
+  // `totalMinor` is the XP-equivalent score used only for placement: 1 KRIN
+  // Coin = 1,000 XP. Profile data stays hidden for learners who opted out.
+  const entries = ranked.slice(0, Math.max(limit, 1)).map((entry) => {
+    const canShowProfile = entry.isProfileVisible || entry.isCurrentUser;
+    return {
+      rank: entry.rank,
+      userId: entry.userId,
+      displayName: canShowProfile ? entry.displayName : null,
+      experienceMinor: canShowProfile ? entry.experienceMinor : null,
+      coinsMinor: canShowProfile ? entry.coinsMinor : null,
+      totalMinor: canShowProfile ? entry.totalMinor : null,
+      isCurrentUser: entry.isCurrentUser,
+      isProfileVisible: entry.isProfileVisible,
+    };
+  });
   return { entries, current, participantCount: ranked.length };
 }
 

@@ -111,7 +111,7 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
               <path d="M18.8 20.5v-4.7h-4.7" />
             </svg>
           </button>
-          {current ? <span className={styles.currentRankBadge}>#{current.rank}</span> : null}
+          {current ? <span className={styles.currentRankBadge}>{current.rank}</span> : null}
         </div>
       </div>
 
