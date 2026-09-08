@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
+import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChestHeaderButton";
+import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { useLocale } from "@/core/i18n/locale";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
@@ -278,6 +280,8 @@ export function WorkspaceShell({
             </div>
 
             <div className={styles.headerActions}>
+              <LearningBonusHeaderStatus />
+              <DailyChestHeaderButton />
               {shopAvatar === "avatar-fox" || shopAvatar === "avatar-owl" ? <span className={styles.shopAvatar} role="img" aria-label={shopAvatar === "avatar-fox" ? "Fox avatar" : "Owl avatar"}>{shopAvatar === "avatar-fox" ? "🦊" : "🦉"}</span> : null}
               {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (

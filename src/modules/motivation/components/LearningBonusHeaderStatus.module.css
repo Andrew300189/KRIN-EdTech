@@ -1,0 +1,59 @@
+.status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.bonus {
+  display: inline-flex;
+  min-width: 2.15rem;
+  height: 2.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0 0.42rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.icon {
+  display: inline-grid;
+  width: 1.05rem;
+  height: 1.05rem;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.73rem;
+}
+
+.bonus strong { color: var(--text-primary); font-weight: 850; }
+
+.hint { border-color: #f6cf60; background: #fff9dc; }
+.hint .icon { background: #fff0ae; color: #a96600; }
+.translation { border-color: #8bdbfa; background: #edfbff; }
+.translation .icon { background: #d7f4ff; color: #0473a9; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+:global(html[data-theme="dark"]) .hint { border-color: #8b6812; background: #3e310d; }
+:global(html[data-theme="dark"]) .hint .icon { background: #5d4600; color: #fde68a; }
+:global(html[data-theme="dark"]) .translation { border-color: #19698e; background: #082f49; }
+:global(html[data-theme="dark"]) .translation .icon { background: #073d5a; color: #bae6fd; }
+
+@media (max-width: 480px) {
+  .status { gap: 0.18rem; }
+  .bonus { min-width: 1.85rem; height: 1.9rem; gap: 0.12rem; padding: 0 0.27rem; font-size: 0.68rem; }
+  .icon { width: 0.92rem; height: 0.92rem; font-size: 0.64rem; }
+}
