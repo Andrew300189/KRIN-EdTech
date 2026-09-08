@@ -670,7 +670,7 @@
   .stepCounter { font-size: .65rem; }
   .stepArea { gap: .2rem; }
   .headerNavigation { gap: .3rem; }
-  .closeLink, .backToCourseLink { min-height: 2.25rem; padding: .45rem .55rem; font-size: .68rem; }
+  .closeLink, .backToCourseLink { min-height: 2.1rem; padding: .4rem .5rem; font-size: .65rem; }
   .taskCard { min-height: 0; border-radius: var(--radius-lg); padding: 1rem; }
   .footer { align-items: stretch; }
   .finishButton { flex: 1; }
@@ -1604,8 +1604,20 @@
   }
 
   .header {
+    grid-template-columns: auto minmax(10rem, 1fr) auto;
     min-height: 3.45rem;
     padding: .48rem .7rem;
+  }
+
+  /* The two navigation controls should take only the space they need.  The
+     flexible progress column absorbs the remaining width, preventing a long
+     localized label from visually colliding with the progress indicator. */
+  .headerNavigation { gap: .3rem; }
+  .headerNavigation .closeLink,
+  .headerNavigation .backToCourseLink {
+    min-height: 2.1rem;
+    padding: .42rem .62rem;
+    font-size: .71rem;
   }
 
   .progress { gap: .22rem; }
