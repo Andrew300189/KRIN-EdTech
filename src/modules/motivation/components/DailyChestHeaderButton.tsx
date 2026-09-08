@@ -4,23 +4,23 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n/locale";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
-import styles from "./DailyChestCard.module.css";
+import styles from "./DailyChestHeaderButton.module.css";
 
 type ChestState = { available: boolean; nextAt: string | null };
 type ChestReward = { opened: boolean; experience: number; coins: number; hintCredits: number; translationCredits: number; nextAt: string | null };
 
 const copy = {
-  en: { eyebrow: "Daily chest", title: "A surprise is waiting", ready: "Open free chest", opening: "Opening…", wait: "Next chest", available: "20–100 XP", hint: "+1 hint credit", translation: "+1 translation credit" },
-  ru: { eyebrow: "Ежедневный сундук", title: "Вас ждёт сюрприз", ready: "Открыть бесплатно", opening: "Открываем…", wait: "Следующий сундук", available: "20–100 XP", hint: "+1 бонус подсказки", translation: "+1 бонус перевода" },
-  uk: { eyebrow: "Щоденна скриня", title: "На вас чекає сюрприз", ready: "Відкрити безкоштовно", opening: "Відкриваємо…", wait: "Наступна скриня", available: "20–100 XP", hint: "+1 бонус підказки", translation: "+1 бонус перекладу" },
+  en: { ready: "Open daily chest", opening: "Opening daily chest", next: "Next daily chest", hint: "hint credit", translation: "translation credit" },
+  ru: { ready: "Открыть ежедневный сундук", opening: "Открываем ежедневный сундук", next: "Следующий ежедневный сундук", hint: "бонус подсказки", translation: "бонус перевода" },
+  uk: { ready: "Відкрити щоденну скриню", opening: "Відкриваємо щоденну скриню", next: "Наступна щоденна скриня", hint: "бонус підказки", translation: "бонус перекладу" },
 } as const;
 
 function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "hintCredits" | "translationCredits">, text: Pick<(typeof copy)[keyof typeof copy], "hint" | "translation">) {
-  const parts = [];
+  const parts: string[] = [];
   if (reward.experience) parts.push(`+${reward.experience} XP`);
   if (reward.coins) parts.push(`+${reward.coins} ◉`);
-  if (reward.hintCredits) parts.push(text.hint);
-  if (reward.translationCredits) parts.push(text.translation);
+  if (reward.hintCredits) parts.push(`+${reward.hintCredits} ${text.hint}`);
+  if (reward.translationCredits) parts.push(`+${reward.translationCredits} ${text.translation}`);
   return parts.join(" · ") || "✦";
 }
 
@@ -32,12 +32,12 @@ function timeRemaining(nextAt: string | null) {
   return `${hours}h ${minutes}m`;
 }
 
-export function DailyChestCard() {
+/** A compact daily-chest shortcut placed beside the learner avatar. */
+export function DailyChestHeaderButton() {
   const { locale } = useLocale();
   const text = copy[locale];
   const [state, setState] = useState<ChestState | null>(null);
   const [opening, setOpening] = useState(false);
-  const [reward, setReward] = useState<ChestReward | null>(null);
   const [clock, setClock] = useState(Date.now());
 
   const loadState = useCallback(async () => {
@@ -46,7 +46,8 @@ export function DailyChestCard() {
       const payload = await response.json().catch(() => null) as { data?: ChestState } | null;
       if (response.ok && payload?.data) setState(payload.data);
     } catch {
-      // A temporary refresh failure never blocks an already rendered dashboard.
+      // The normal profile and avatar controls remain usable when the reward
+      // endpoint is temporarily unavailable.
     }
   }, []);
 
@@ -58,9 +59,14 @@ export function DailyChestCard() {
 
   useEffect(() => {
     if (!state?.nextAt || state.available) return;
-    const timer = window.setInterval(() => setClock(Date.now()), 30_000);
+    const timer = window.setInterval(() => {
+      setClock(Date.now());
+      if (new Date(state.nextAt!).getTime() <= Date.now()) {
+        void loadState();
+      }
+    }, 30_000);
     return () => window.clearInterval(timer);
-  }, [state?.available, state?.nextAt]);
+  }, [loadState, state?.available, state?.nextAt]);
 
   async function openChest() {
     if (opening || !state?.available) return;
@@ -68,27 +74,35 @@ export function DailyChestCard() {
     try {
       const response = await fetch("/api/profile/rewards/daily-chest", { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
-      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to open the Daily Chest.");
+      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.ready);
       setState({ available: false, nextAt: payload.data.nextAt });
       if (payload.data.opened) {
-        setReward(payload.data);
-        notifyMotivationUpdated();
         toast.success(rewardText(payload.data, text));
+        notifyMotivationUpdated();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to open the Daily Chest.");
+      toast.error(error instanceof Error ? error.message : text.ready);
     } finally {
       setOpening(false);
     }
   }
 
-  const remaining = state?.nextAt ? timeRemaining(state.nextAt) : "";
-  // `clock` rerenders the countdown without changing server-owned state.
+  // Do not reserve header space for signed-out visitors or while the account
+  // check is still in flight.
+  if (!state) return null;
+  const label = state.available ? text.ready : `${text.next}: ${timeRemaining(state.nextAt)}`;
   void clock;
-  return <article className={`${styles.card} ${reward ? styles.opened : ""}`}>
-    <div className={styles.sparkles} aria-hidden="true">✦ ✧</div>
-    <p>{text.eyebrow}</p>
-    <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward, text) : text.title}</h3><small>{state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>
-    <button type="button" onClick={() => void openChest()} disabled={!state?.available || opening}>{opening ? text.opening : state?.available ? text.ready : text.wait}</button>
-  </article>;
+
+  return <button
+    type="button"
+    className={`${styles.button} ${state.available ? styles.available : ""} ${opening ? styles.opening : ""}`}
+    onClick={() => void openChest()}
+    disabled={!state.available || opening}
+    aria-label={opening ? text.opening : label}
+    title={label}
+  >
+    <span className={styles.gift} aria-hidden="true">🎁</span>
+    <span className={styles.srOnly}>{label}</span>
+    {state.available ? <span className={styles.readyDot} aria-hidden="true" /> : null}
+  </button>;
 }
