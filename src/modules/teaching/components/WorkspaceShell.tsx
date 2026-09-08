@@ -31,6 +31,7 @@ type WorkspaceShellProps = {
   showExperience?: boolean;
   /** A learner's own profile photo takes precedence over a cosmetic avatar. */
   userAvatar?: string | null;
+  avatarDisplayMode?: "PHOTO" | "SHOP";
   userInitials?: string;
   shopAvatar?: string | null;
   leaderboardSummary?: LeaderboardHeaderSummary;
@@ -74,6 +75,7 @@ export function WorkspaceShell({
   showCmsLink = false,
   showExperience = false,
   userAvatar = null,
+  avatarDisplayMode = "PHOTO",
   userInitials = "",
   shopAvatar = null,
   leaderboardSummary,
@@ -195,6 +197,8 @@ export function WorkspaceShell({
     setProfilePhotoFailed(false);
   }, [userAvatar]);
 
+  const shouldShowProfilePhoto = avatarDisplayMode !== "SHOP" && Boolean(userAvatar) && !profilePhotoFailed;
+
   const sidebar = (isMobileDrawer = false) => (
     <aside
       ref={isMobileDrawer ? drawerRef : undefined}
@@ -299,7 +303,7 @@ export function WorkspaceShell({
               <DailyStreakHeaderStatus />
               <LearningBonusHeaderStatus />
               <DailyChestHeaderButton />
-              {userAvatar && !profilePhotoFailed ? <img
+              {shouldShowProfilePhoto ? <img
                 src={userAvatar}
                 alt={userInitials ? `${userInitials} profile photo` : "Profile photo"}
                 className={styles.profileAvatar}

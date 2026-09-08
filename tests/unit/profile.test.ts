@@ -42,6 +42,16 @@ describe("profile validation", () => {
     expect(validateUserProfilePatch({ avatar: "http://not-secure.example/photo.png" })).toMatchObject({
       success: false,
     });
+    expect(validateUserProfilePatch({ avatarDisplayMode: "OTHER" })).toMatchObject({
+      success: false,
+    });
+  });
+
+  it("accepts an explicit choice between a photo and a shop avatar", () => {
+    expect(validateUserProfilePatch({ avatarDisplayMode: "SHOP" })).toEqual({
+      success: true,
+      data: { avatarDisplayMode: "SHOP" },
+    });
   });
 
   it("keeps the display name synchronized with first and last names", () => {

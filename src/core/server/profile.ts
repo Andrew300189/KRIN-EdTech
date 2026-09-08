@@ -9,6 +9,7 @@ export type UserProfilePatch = {
   timeZone?: string;
   country?: string | null;
   avatar?: string | null;
+  avatarDisplayMode?: "PHOTO" | "SHOP";
 };
 
 type ValidationResult =
@@ -121,6 +122,14 @@ export function validateUserProfilePatch(input: unknown): ValidationResult {
       }
       data.avatar = avatar;
     }
+  }
+
+  if ("avatarDisplayMode" in body) {
+    const avatarDisplayMode = asTrimmedString(body.avatarDisplayMode, 10);
+    if (avatarDisplayMode !== "PHOTO" && avatarDisplayMode !== "SHOP") {
+      return { success: false, error: "Choose a valid profile icon." };
+    }
+    data.avatarDisplayMode = avatarDisplayMode;
   }
 
   if (Object.keys(data).length === 0) {

@@ -53,6 +53,7 @@ type HeaderUser = {
   firstName?: string | null;
   lastName?: string | null;
   avatar?: string | null;
+  avatarDisplayMode?: string | null;
   equippedShopAvatar?: string | null;
 };
 
@@ -272,7 +273,7 @@ export function PublicSiteHeader() {
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
-          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
+          {headerUser.avatar && headerUser.avatarDisplayMode !== "SHOP" ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.loginLink} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <LanguagePicker />
       </div>
@@ -280,7 +281,7 @@ export function PublicSiteHeader() {
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
-          {headerUser.avatar ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
+          {headerUser.avatar && headerUser.avatarDisplayMode !== "SHOP" ? <img src={headerUser.avatar} alt="" className={styles.profileAvatar} /> : <span aria-hidden="true">{shopAvatar(headerUser) ?? userInitials(headerUser)}</span>}
         </Link> : <button type="button" className={styles.mobileLogin} onClick={() => openLogin("learner")}>{t("header.logIn")}</button>}
         <LanguagePicker />
         <button ref={triggerRef} type="button" aria-label={menuOpen ? t("header.closeMenu") : t("header.openMenu")} aria-expanded={menuOpen} aria-controls="public-navigation-menu" onClick={() => setMenuOpen((open) => !open)} className={styles.menuButton}><MenuIcon open={menuOpen} /></button>

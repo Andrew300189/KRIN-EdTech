@@ -40,6 +40,11 @@
 .photoButton:hover { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: color-mix(in srgb, var(--primary) 11%, var(--surface)); transform: translateY(-1px); }
 .photoButton:focus-within { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .photoInput { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; clip-path: inset(50%) !important; white-space: nowrap !important; }
+.avatarChoice { display: flex; flex-wrap: wrap; gap: .24rem .46rem; margin: .12rem 0 0; padding: 0; border: 0; }
+.avatarChoice legend { width: 100%; margin-bottom: .02rem; color: var(--text-muted); font-size: .62rem; font-weight: 750; }
+.avatarChoice label { display: inline-flex; align-items: center; gap: .2rem; color: var(--text-secondary) !important; font-size: .64rem !important; font-weight: 750; cursor: pointer; }
+.avatarChoice input { width: .78rem; height: .78rem; accent-color: var(--primary); }
+.avatarChoice .choiceDisabled { cursor: not-allowed; opacity: .48; }
 .detailsGrid, .preferenceGrid { gap: .3rem .38rem !important; }
 .detailsGrid > :global(div), .preferenceGrid > :global(div) { gap: .15rem !important; }
 .detailsGrid :global(.space-y-2 > * + *), .preferenceGrid :global(.space-y-2 > * + *), .passwordCard :global(.space-y-2 > * + *) { margin-top: .12rem !important; }

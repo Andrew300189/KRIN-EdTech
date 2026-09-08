@@ -16,6 +16,8 @@ function profileResponse(user: {
   lastName: string | null;
   email: string;
   avatar: string | null;
+  avatarDisplayMode: string;
+  equippedShopAvatar: string | null;
   interfaceLanguage: string;
   timeZone: string;
   country: string | null;
@@ -27,6 +29,8 @@ function profileResponse(user: {
     lastName: user.lastName ?? fallback.lastName,
     email: user.email,
     avatar: user.avatar,
+    avatarDisplayMode: user.avatarDisplayMode === "SHOP" ? "SHOP" : "PHOTO",
+    equippedShopAvatar: user.equippedShopAvatar,
     interfaceLanguage: user.interfaceLanguage,
     timeZone: user.timeZone,
     country: user.country,
@@ -58,6 +62,9 @@ export async function PATCH(request: Request) {
     }
 
     const existing = authenticated.user;
+    if (validation.data.avatarDisplayMode === "SHOP" && !existing.equippedShopAvatar) {
+      return NextResponse.json({ error: "Choose or buy a shop avatar before using it." }, { status: 400 });
+    }
     const fallback = profileNameParts(existing.name);
     const firstName = validation.data.firstName ?? existing.firstName ?? fallback.firstName;
     const lastName =
@@ -77,6 +84,8 @@ export async function PATCH(request: Request) {
         lastName: true,
         email: true,
         avatar: true,
+        avatarDisplayMode: true,
+        equippedShopAvatar: true,
         interfaceLanguage: true,
         timeZone: true,
         country: true,

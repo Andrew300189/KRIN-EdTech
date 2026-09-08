@@ -275,6 +275,7 @@ export const AUTHENTICATED_USER_SELECT = {
   firstName: true,
   lastName: true,
   avatar: true,
+  avatarDisplayMode: true,
   equippedShopTheme: true,
   equippedShopAvatar: true,
   emailVerified: true,

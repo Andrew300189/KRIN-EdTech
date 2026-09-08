@@ -21,6 +21,9 @@ model User {
   lastName                      String?
   passwordHash                  String
   avatar                        String?
+  /// Which owned visual represents the learner in headers and profile chips.
+  /// The uploaded photo and a purchased shop avatar are both retained.
+  avatarDisplayMode             String                       @default("PHOTO")
   /// Cosmetic choices are account-scoped and can be equipped only after a
   /// server-side Shop purchase. They contain an item id, never a user URL.
   equippedShopTheme             String?

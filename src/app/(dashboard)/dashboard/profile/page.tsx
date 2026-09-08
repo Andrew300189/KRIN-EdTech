@@ -12,6 +12,8 @@ type UserProfile = {
   lastName: string | null;
   email: string;
   avatar: string | null;
+  avatarDisplayMode: "PHOTO" | "SHOP";
+  equippedShopAvatar: string | null;
   interfaceLanguage: string;
   timeZone: string;
   country: string | null;
@@ -36,6 +38,12 @@ const COMMON_TIME_ZONES = [
   "Asia/Dubai",
   "Asia/Tokyo",
 ];
+
+function shopAvatarLabel(avatar: string | null) {
+  if (avatar === "avatar-fox") return "🦊 Shop avatar";
+  if (avatar === "avatar-owl") return "🦉 Shop avatar";
+  return "Shop avatar";
+}
 
 function initials(profile: UserProfile | null) {
   if (!profile) return "?";
@@ -101,7 +109,7 @@ export default function ProfilePage() {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === "string") {
-        updateProfile("avatar", reader.result);
+        setProfile((current) => current ? { ...current, avatar: reader.result, avatarDisplayMode: "PHOTO" } : current);
         setError("");
       }
     };
@@ -128,6 +136,7 @@ export default function ProfilePage() {
           timeZone: profile.timeZone,
           country: profile.country ?? "",
           avatar: profile.avatar,
+          avatarDisplayMode: profile.avatarDisplayMode,
         }),
       });
       const payload = await response.json();
@@ -233,7 +242,11 @@ export default function ProfilePage() {
               {profile.avatar ? (
                 <button
                   className="rounded-full px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  onClick={() => updateProfile("avatar", null)}
+                  onClick={() => setProfile((current) => current ? {
+                    ...current,
+                    avatar: null,
+                    avatarDisplayMode: current.equippedShopAvatar ? "SHOP" : "PHOTO",
+                  } : current)}
                   type="button"
                 >
                   Remove photo
@@ -241,6 +254,29 @@ export default function ProfilePage() {
               ) : null}
             </div>
             <p className="text-sm text-slate-500">PNG, JPEG, WEBP or GIF, up to 2 MB.</p>
+            <fieldset className={styles.avatarChoice}>
+              <legend>Show in the header</legend>
+              <label className={!profile.avatar ? styles.choiceDisabled : ""}>
+                <input
+                  checked={profile.avatarDisplayMode === "PHOTO"}
+                  disabled={!profile.avatar}
+                  name="avatarDisplayMode"
+                  onChange={() => updateProfile("avatarDisplayMode", "PHOTO")}
+                  type="radio"
+                />
+                My photo
+              </label>
+              <label className={!profile.equippedShopAvatar ? styles.choiceDisabled : ""}>
+                <input
+                  checked={profile.avatarDisplayMode === "SHOP"}
+                  disabled={!profile.equippedShopAvatar}
+                  name="avatarDisplayMode"
+                  onChange={() => updateProfile("avatarDisplayMode", "SHOP")}
+                  type="radio"
+                />
+                {shopAvatarLabel(profile.equippedShopAvatar)}
+              </label>
+            </fieldset>
           </div>
         </section>
 
