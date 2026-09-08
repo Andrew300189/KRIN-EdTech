@@ -17,6 +17,7 @@ import {
 import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { courseSkillCatalog, courseSkillLevels, type CourseSkillSlug } from "@/modules/courses/data/skill-course-catalog";
 import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChestHeaderButton";
+import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailyStreakHeaderStatus";
 import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import styles from "./PublicSiteHeader.module.css";
@@ -273,6 +274,7 @@ export function PublicSiteHeader() {
         <button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>{t("header.iTeach")}</button>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
+        {headerUser ? <DailyStreakHeaderStatus /> : null}
         {headerUser ? <LearningBonusHeaderStatus /> : null}
         {headerUser ? <DailyChestHeaderButton /> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
@@ -283,6 +285,7 @@ export function PublicSiteHeader() {
       <div className={styles.mobileActions}>
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
+        {headerUser ? <DailyStreakHeaderStatus /> : null}
         {headerUser ? <LearningBonusHeaderStatus /> : null}
         {headerUser ? <DailyChestHeaderButton /> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
