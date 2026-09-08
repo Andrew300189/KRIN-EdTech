@@ -29,6 +29,9 @@ type WorkspaceShellProps = {
   searchContext?: SearchContext;
   showCmsLink?: boolean;
   showExperience?: boolean;
+  /** A learner's own profile photo takes precedence over a cosmetic avatar. */
+  userAvatar?: string | null;
+  userInitials?: string;
   shopAvatar?: string | null;
   leaderboardSummary?: LeaderboardHeaderSummary;
   /** Keeps compact student overview pages inside the desktop viewport. */
@@ -70,6 +73,8 @@ export function WorkspaceShell({
   searchContext,
   showCmsLink = false,
   showExperience = false,
+  userAvatar = null,
+  userInitials = "",
   shopAvatar = null,
   leaderboardSummary,
   lockDesktopViewport = false,
@@ -81,6 +86,7 @@ export function WorkspaceShell({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [navigationBadges, setNavigationBadges] = useState<Partial<Record<NotificationBadgeSection, number>>>({});
   const [openMistakeCount, setOpenMistakeCount] = useState(0);
+  const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
 
@@ -183,6 +189,11 @@ export function WorkspaceShell({
       .then((response) => { if (response.ok) setNavigationBadges((current) => ({ ...current, [section]: 0 })); })
       .catch(() => undefined);
   }, [isActive, navigation, pathname]);
+
+  useEffect(() => {
+    // A newly saved photo may replace a previously broken external URL.
+    setProfilePhotoFailed(false);
+  }, [userAvatar]);
 
   const sidebar = (isMobileDrawer = false) => (
     <aside
@@ -288,7 +299,12 @@ export function WorkspaceShell({
               <DailyStreakHeaderStatus />
               <LearningBonusHeaderStatus />
               <DailyChestHeaderButton />
-              {shopAvatar === "avatar-fox" || shopAvatar === "avatar-owl" ? <span className={styles.shopAvatar} role="img" aria-label={shopAvatar === "avatar-fox" ? "Fox avatar" : "Owl avatar"}>{shopAvatar === "avatar-fox" ? "🦊" : "🦉"}</span> : null}
+              {userAvatar && !profilePhotoFailed ? <img
+                src={userAvatar}
+                alt={userInitials ? `${userInitials} profile photo` : "Profile photo"}
+                className={styles.profileAvatar}
+                onError={() => setProfilePhotoFailed(true)}
+              /> : shopAvatar === "avatar-fox" || shopAvatar === "avatar-owl" ? <span className={styles.shopAvatar} role="img" aria-label={shopAvatar === "avatar-fox" ? "Fox avatar" : "Owl avatar"}>{shopAvatar === "avatar-fox" ? "🦊" : "🦉"}</span> : null}
               {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (
                 <Link href="/cms" className={styles.cmsLink}>

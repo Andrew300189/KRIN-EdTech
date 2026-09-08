@@ -36,6 +36,8 @@ export default async function TeacherLayout({
       navigation={navigation}
       searchContext="TEACHER"
       showCmsLink={showCmsLink}
+      userAvatar={guard.user.avatar}
+      userInitials={`${guard.user.firstName?.[0] ?? ""}${guard.user.lastName?.[0] ?? ""}`.trim() || guard.user.name.slice(0, 1).toUpperCase()}
     >
       {children}
     </WorkspaceShell>

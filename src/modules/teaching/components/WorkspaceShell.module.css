@@ -29,7 +29,9 @@
 .headerTitle h1 { overflow: hidden; margin: 0; color: #10213d; font-size: clamp(1rem, 3.7vw, 1.2rem); font-weight: 800; letter-spacing: -0.02em; text-overflow: ellipsis; white-space: nowrap; }
 .menuButton { flex: none; }
 .headerActions { flex: none; gap: 0.4rem; }
-.shopAvatar { display: inline-grid; width: 2.35rem; height: 2.35rem; place-items: center; border: 1px solid #d7c8ff; border-radius: 50%; background: linear-gradient(135deg, #f9f5ff, #edf7ff); font-size: 1.2rem; box-shadow: 0 .35rem .8rem rgb(109 61 242 / 12%); }
+.shopAvatar, .profileAvatar { display: inline-grid; width: 2.35rem; height: 2.35rem; flex: 0 0 2.35rem; place-items: center; border: 1px solid #d7c8ff; border-radius: 50%; background: linear-gradient(135deg, #f9f5ff, #edf7ff); box-shadow: 0 .35rem .8rem rgb(109 61 242 / 12%); }
+.shopAvatar { font-size: 1.2rem; }
+.profileAvatar { object-fit: cover; }
 .cmsLink, .signOutButton { min-height: 2.5rem; padding: 0.56rem 0.72rem; border: 1px solid transparent; background: transparent; color: #526176; cursor: pointer; }
 .cmsLink { border-color: #d5dce8; color: #254a97; }
 .cmsLink:hover, .signOutButton:hover:not(:disabled) { background: #f2f5fa; color: #10213d; }

@@ -46,6 +46,8 @@ export default async function StudentLayout({
       searchContext="STUDENT"
       showCmsLink={showCmsLink}
       showExperience
+      userAvatar={guard.user.avatar}
+      userInitials={`${guard.user.firstName?.[0] ?? ""}${guard.user.lastName?.[0] ?? ""}`.trim() || guard.user.name.slice(0, 1).toUpperCase()}
       shopAvatar={guard.user.equippedShopAvatar}
       leaderboardSummary={leaderboardSummary}
       lockDesktopViewport

@@ -4,6 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./ProfileSettings.module.css";
 
 type UserProfile = {
@@ -42,6 +43,7 @@ function initials(profile: UserProfile | null) {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -134,6 +136,9 @@ export default function ProfilePage() {
       }
       setProfile(payload.profile);
       setSuccess("Profile saved.");
+      // The workspace header is a persistent layout. Refresh it after saving
+      // so the new photo is visible immediately, without another sign-in.
+      router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save profile changes.");
     } finally {
