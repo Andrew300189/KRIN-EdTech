@@ -615,7 +615,7 @@ export async function claimWeeklyEasterEgg(userId: string) {
   });
 }
 
-export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number, requestId = randomUUID()) {
+export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
   if (!Number.isFinite(exchangedExperience) || exchangedExperience < 10) {
     throw new Error("Enter at least 10 XP to receive 0.01 KRIN Coin.");
