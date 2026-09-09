@@ -988,6 +988,108 @@
   color: #881337;
 }
 
+/* A revealed solution is learning material, not a raw database value. Keep
+   its answer, explanation and next step together in one calm, readable card. */
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback) {
+  display: grid;
+  gap: .72rem;
+  margin-top: .9rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: #fff;
+  color: #263650;
+  padding: .95rem 1rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-solution) {
+  border-color: #c7d2fe;
+  background: linear-gradient(135deg, #fbfcff 0%, #f4f2ff 100%);
+  box-shadow: 0 .5rem 1.25rem rgb(79 70 229 / 8%);
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-label) {
+  margin: 0;
+  color: #4f46e5;
+  font-size: .67rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal) {
+  display: grid;
+  gap: .48rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal > span) {
+  color: #475569;
+  font-size: .76rem;
+  font-weight: 800;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-value) {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: .9rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  padding: .48rem .75rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list) {
+  display: grid;
+  gap: .45rem;
+  margin: 0;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list > div) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: .7rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 78%);
+  padding: .56rem .65rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list dt),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list dd) { margin: 0; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list dt) { color: #263650; font-size: .84rem; font-weight: 760; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-answer-reveal-list dd) { color: #4338ca; font-size: .84rem; font-weight: 820; text-align: right; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-explanation) { display: grid; gap: .24rem; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-explanation > strong) { color: #334155; font-size: .76rem; font-weight: 850; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-explanation p) { margin: 0; color: #475569; font-size: .87rem; line-height: 1.52; }
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-example) {
+  margin: 0;
+  border-radius: 11px;
+  background: #eef6ff;
+  color: #1e4f85;
+  font-size: .84rem;
+  line-height: 1.45;
+  padding: .62rem .7rem;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-rule) {
+  width: fit-content;
+  color: #4338ca;
+  font-size: .79rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-rule:hover) { text-decoration: underline; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-details) { color: #475569; font-size: .82rem; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-details summary) { cursor: pointer; color: #334155; font-weight: 800; }
+.exerciseTaskCard .focusContent :global(.lesson-exercise-feedback-details ul) { margin: .6rem 0 0; padding-left: 1.1rem; }
+
 .exerciseTaskCard .focusContent :global(.lesson-exercise-card.focus-answer-incorrect) {
   border-color: #fecdd3 !important;
   background: #fffafb !important;

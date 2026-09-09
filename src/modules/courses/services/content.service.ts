@@ -117,6 +117,28 @@ function getExerciseFeedback(content: Prisma.JsonValue | null): ExerciseFeedback
   return { example, theoryHref, errorDetails };
 }
 
+/**
+ * Lessons can translate the visible options at read time. The server must use
+ * that same localized value when it checks an answer — otherwise a learner
+ * can choose the Ukrainian option they see and still be marked wrong against
+ * the Russian canonical value in the database.
+ */
+function localizeLegacyVerbToBeJson<T>(value: T, localeInput: string | null | undefined, courseSlug: string): T {
+  const locale = normalizeContentLocale(localeInput);
+  if (courseSlug !== verbToBeCourseSlug) return value;
+  if (locale === "uk") return translateVerbToBeJsonToUkrainian(value);
+  if (locale === "en") return translateVerbToBeJsonToEnglish(value);
+  return value;
+}
+
+function localizeLegacyVerbToBeText(value: string | null | undefined, localeInput: string | null | undefined, courseSlug: string) {
+  const locale = normalizeContentLocale(localeInput);
+  if (courseSlug !== verbToBeCourseSlug) return value;
+  if (locale === "uk") return translateVerbToBeTextToUkrainian(value);
+  if (locale === "en") return translateVerbToBeTextToEnglish(value);
+  return value;
+}
+
 async function nextCourseSlug(candidate: string) {
   const existing = await prisma.course.findUnique({
     where: { slug: candidate },
@@ -1438,7 +1460,7 @@ export async function createGrammarTopic(actorId: string, input: unknown) {
  * the real exercise UI before registration while keeping learner history tied
  * only to an authenticated account.
  */
-export async function evaluatePublicExerciseAttempt(exerciseId: string, input: unknown) {
+export async function evaluatePublicExerciseAttempt(exerciseId: string, input: unknown, localeInput?: string | null) {
   const value = submitExerciseSchema.parse(input);
   const exercise = await prisma.exercise.findUnique({
     where: { id: exerciseId },
@@ -1452,33 +1474,43 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
       explanation: true,
       hint: true,
       allowInstantCheck: true,
-      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+      lessonBlock: {
+        select: {
+          contentStatus: true,
+          lessonId: true,
+          lesson: { select: { module: { select: { course: { select: { slug: true } } } } } },
+        },
+      },
     },
   });
   if (!exercise || exercise.isGeneratedReview || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
   const access = await canAccessLesson(null, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("This exercise is available after access is granted.");
-  const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, exercise.correctAnswer, exercise.engineKey) as JsonValue;
+  const courseSlug = exercise.lessonBlock.lesson.module.course.slug;
+  const localizedCorrectAnswer = localizeLegacyVerbToBeJson(exercise.correctAnswer, localeInput, courseSlug);
+  const localizedAlternatives = localizeLegacyVerbToBeJson(exercise.alternativeAnswers, localeInput, courseSlug);
+  const localizedContent = localizeLegacyVerbToBeJson(exercise.content, localeInput, courseSlug);
+  const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, localizedCorrectAnswer, exercise.engineKey) as JsonValue;
   const isCorrect = answerMatches(
     submittedAnswer,
-    exercise.correctAnswer,
-    exercise.alternativeAnswers,
-    contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
+    localizedCorrectAnswer,
+    localizedAlternatives,
+    contentWithOrderSensitiveAnswerValidation(localizedContent, exercise.engineKey),
   );
   return {
     attemptNumber: 0,
     isCorrect,
     scoreAwarded: 0,
     score: 0,
-    explanation: exercise.allowInstantCheck ? exercise.explanation : null,
-    correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
-    hint: exercise.hint,
-    feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+    explanation: exercise.allowInstantCheck ? localizeLegacyVerbToBeText(exercise.explanation, localeInput, courseSlug) : null,
+    correctAnswer: exercise.allowInstantCheck ? localizedCorrectAnswer : null,
+    hint: localizeLegacyVerbToBeText(exercise.hint, localeInput, courseSlug),
+    feedback: exercise.allowInstantCheck ? getExerciseFeedback(localizedContent) : null,
     solution: null,
   };
 }
 
-export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown, reviewRunId?: string) {
+export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown, reviewRunId?: string, localeInput?: string | null) {
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
     where: { id: exerciseId },
@@ -1505,10 +1537,24 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
   return prisma.$transaction(async (tx) => {
     const exercise = await tx.exercise.findUnique({
       where: { id: exerciseId },
-      include: { lessonBlock: { select: { lessonId: true, lesson: { select: { module: { select: { courseId: true } } } } } } },
+      include: {
+        lessonBlock: {
+          select: {
+            lessonId: true,
+            lesson: { select: { module: { select: { courseId: true, course: { select: { slug: true } } } } } },
+          },
+        },
+      },
     });
     if (!exercise) throw new Error("Exercise not found");
-    const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, exercise.correctAnswer, exercise.engineKey) as JsonValue;
+    const courseSlug = exercise.lessonBlock.lesson.module.course.slug;
+    const localizedCorrectAnswer = localizeLegacyVerbToBeJson(exercise.correctAnswer, localeInput, courseSlug);
+    const localizedAlternatives = localizeLegacyVerbToBeJson(exercise.alternativeAnswers, localeInput, courseSlug);
+    const localizedContent = localizeLegacyVerbToBeJson(exercise.content, localeInput, courseSlug);
+    const localizedExplanation = localizeLegacyVerbToBeText(exercise.explanation, localeInput, courseSlug);
+    const localizedHint = localizeLegacyVerbToBeText(exercise.hint, localeInput, courseSlug);
+    const localizedFeedback = getExerciseFeedback(localizedContent);
+    const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, localizedCorrectAnswer, exercise.engineKey) as JsonValue;
 
     if (value.idempotencyKey) {
       const existing = await tx.exerciseAttempt.findUnique({
@@ -1522,10 +1568,10 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
           isCorrect: existing.isCorrect,
           scoreAwarded: existing.scoreAwarded,
           score: existing.scoreAwarded,
-          explanation: exercise.allowInstantCheck ? exercise.explanation : null,
-          correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
-          hint: exercise.hint,
-          feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+          explanation: exercise.allowInstantCheck ? localizedExplanation : null,
+          correctAnswer: exercise.allowInstantCheck ? localizedCorrectAnswer : null,
+          hint: localizedHint,
+          feedback: exercise.allowInstantCheck ? localizedFeedback : null,
           solution: { available: existing.isCorrect === false, cost: EXERCISE_SOLUTION_XP_COST, opened: existing.solutionOpened },
           openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
         };
@@ -1534,9 +1580,9 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
 
     const isCorrect = answerMatches(
       submittedAnswer,
-      exercise.correctAnswer,
-      exercise.alternativeAnswers,
-      contentWithOrderSensitiveAnswerValidation(exercise.content, exercise.engineKey),
+      localizedCorrectAnswer,
+      localizedAlternatives,
+      contentWithOrderSensitiveAnswerValidation(localizedContent, exercise.engineKey),
     );
     const [previous, firstAttempt] = await Promise.all([
       tx.exerciseAttempt.findFirst({
@@ -1671,10 +1717,10 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       isCorrect,
       scoreAwarded,
       score: scoreAwarded,
-      explanation: exercise.allowInstantCheck ? exercise.explanation : null,
-      correctAnswer: exercise.allowInstantCheck ? exercise.correctAnswer : null,
-      hint: exercise.hint,
-      feedback: exercise.allowInstantCheck ? getExerciseFeedback(exercise.content) : null,
+      explanation: exercise.allowInstantCheck ? localizedExplanation : null,
+      correctAnswer: exercise.allowInstantCheck ? localizedCorrectAnswer : null,
+      hint: localizedHint,
+      feedback: exercise.allowInstantCheck ? localizedFeedback : null,
       solution: { available: !isCorrect, cost: EXERCISE_SOLUTION_XP_COST, opened: openedEarlierSolution },
       motivationReward,
       openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
@@ -1710,22 +1756,11 @@ export async function openExerciseSolution(userId: string, exerciseId: string, l
   if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) throw new Error("This review question belongs to a different learner.");
   const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
-  const locale = normalizeContentLocale(localeInput);
-  const isVerbToBeExercise = exercise.lessonBlock.lesson.module.course.slug === verbToBeCourseSlug;
-  const localizeSolutionText = (value: string | null | undefined) => (
-    locale === "uk" && isVerbToBeExercise
-      ? translateVerbToBeTextToUkrainian(value)
-      : locale === "en" && isVerbToBeExercise ? translateVerbToBeTextToEnglish(value) : value
-  );
-  const localizeSolutionJson = <T,>(value: T) => (
-    locale === "uk" && isVerbToBeExercise
-      ? translateVerbToBeJsonToUkrainian(value)
-      : locale === "en" && isVerbToBeExercise ? translateVerbToBeJsonToEnglish(value) : value
-  );
+  const courseSlug = exercise.lessonBlock.lesson.module.course.slug;
   const solution = {
-    correctAnswer: exercise.correctAnswer,
-    explanation: localizeSolutionText(exercise.explanation),
-    feedback: localizeSolutionJson(getExerciseFeedback(exercise.content)),
+    correctAnswer: localizeLegacyVerbToBeJson(exercise.correctAnswer, localeInput, courseSlug),
+    explanation: localizeLegacyVerbToBeText(exercise.explanation, localeInput, courseSlug),
+    feedback: localizeLegacyVerbToBeJson(getExerciseFeedback(exercise.content), localeInput, courseSlug),
   };
 
   const latestAttempt = await prisma.exerciseAttempt.findFirst({

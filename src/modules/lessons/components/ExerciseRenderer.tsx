@@ -184,6 +184,22 @@ function explanationAlreadyStatesAnswer(explanation: string | null | undefined, 
   return visibleAnswer.length > 0 && explanation.toLocaleLowerCase().includes(visibleAnswer);
 }
 
+function AnswerReveal({ answer }: { answer: unknown }) {
+  if (answer && typeof answer === "object" && !Array.isArray(answer)) {
+    const pairs = Object.entries(answer as JsonObject)
+      .filter(([, value]) => typeof value === "string" && value.trim().length > 0);
+    if (pairs.length) {
+      return <dl className="lesson-exercise-answer-reveal-list">
+        {pairs.map(([source, target]) => <div key={source}>
+          <dt>{source}</dt>
+          <dd>{String(target)}</dd>
+        </div>)}
+      </dl>;
+    }
+  }
+  return <strong className="lesson-exercise-answer-reveal-value">{displayAnswer(answer)}</strong>;
+}
+
 export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
@@ -342,7 +358,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     }
     const idempotencyKey = crypto.randomUUID();
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(reviewRunId ? { reviewRunId } : {}) }) });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json", ...(contentLocale ? { "x-krin-content-locale": contentLocale } : {}) }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(reviewRunId ? { reviewRunId } : {}) }) });
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
@@ -510,10 +526,16 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const translationShowLabel = locale === "uk" ? "Показати переклад" : locale === "ru" ? "Показать перевод" : "Show translation";
   const retryLabel = locale === "uk" ? "Спробувати ще раз" : locale === "ru" ? "Попробовать ещё раз" : "Try again";
   const solutionCopy = locale === "uk"
-    ? { show: "Показати розв’язання", saved: "Показати збережене розв’язання?", confirm: "Показати розв’язання за {cost} XP?", opening: "Відкриваємо…", cancel: "Скасувати", later: "Пізніше", example: "Приклад:", reviewRule: "Повторити правило", allErrors: "Показати всі помилки" }
+    ? { show: "Показати розв’язання", saved: "Показати збережене розв’язання?", confirm: "Показати розв’язання за {cost} XP?", opening: "Відкриваємо…", cancel: "Скасувати", later: "Відкласти", example: "Приклад:", reviewRule: "Повторити правило", allErrors: "Показати всі помилки" }
     : locale === "ru"
-      ? { show: "Показать решение", saved: "Показать сохранённое решение?", confirm: "Показать решение за {cost} XP?", opening: "Открываем…", cancel: "Отмена", later: "Позже", example: "Пример:", reviewRule: "Повторить правило", allErrors: "Показать все ошибки" }
-      : { show: "Show solution", saved: "Show the saved solution?", confirm: "Show solution for {cost} XP?", opening: "Opening…", cancel: "Cancel", later: "Later", example: "Example:", reviewRule: "Review the rule", allErrors: "Show all errors" };
+      ? { show: "Показать решение", saved: "Показать сохранённое решение?", confirm: "Показать решение за {cost} XP?", opening: "Открываем…", cancel: "Отмена", later: "Отложить", example: "Пример:", reviewRule: "Повторить правило", allErrors: "Показать все ошибки" }
+      : { show: "Show solution", saved: "Show the saved solution?", confirm: "Show solution for {cost} XP?", opening: "Opening…", cancel: "Cancel", later: "Review later", example: "Example:", reviewRule: "Review the rule", allErrors: "Show all errors" };
+  const incorrectCopy = locale === "uk"
+    ? { title: "Ще трохи практики", description: solution ? "Розв’язання вже нижче. Розберіть його та спробуйте ще раз." : "Підказка вже відкрита. Спробуйте ще раз або відкладіть завдання до повторення.", solution: "Розв’язання" }
+    : locale === "ru"
+      ? { title: "Нужно ещё немного практики", description: solution ? "Решение уже ниже. Разберите его и попробуйте ещё раз." : "Подсказка уже открыта. Попробуйте ещё раз или отложите задание на повторение.", solution: "Решение" }
+      : { title: "A little more practice", description: solution ? "The solution is below. Review it, then try again." : "The hint is open. Try again or save this task for review.", solution: "Solution" };
+  const explanationLabel = locale === "uk" ? "Чому так" : locale === "ru" ? "Почему так" : "Why it works";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
   const streak = result?.motivationReward?.streak ?? null;
   const streakTone = streak?.tone && /^[a-z-]+$/.test(streak.tone) ? streak.tone : null;
@@ -562,8 +584,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {hintError ? <p className="mt-2 text-sm text-amber-700" role="status">{hintError}</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
-    {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? solutionCopy.saved : solutionCopy.confirm.replace("{cost}", String(result.solution.cost))}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? solutionCopy.opening : solutionCopy.show}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">{solutionCopy.cancel}</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? solutionCopy.show : `${solutionCopy.show} · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
-    {visibleFeedback ? <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800">{visibleFeedback.correctAnswer !== null && !result?.isCorrect && !explanationAlreadyStatesAnswer(visibleFeedback.explanation, visibleFeedback.correctAnswer) ? <p>{answerFeedback.correctAnswer} {displayAnswer(visibleFeedback.correctAnswer)}</p> : null}{visibleFeedback.explanation ? <p className="mt-1">{visibleFeedback.explanation}</p> : null}{visibleFeedback.feedback?.example ? <p className="mt-2 rounded bg-blue-50 p-2">{solutionCopy.example} {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="mt-2 inline-block font-semibold text-blue-700 hover:underline">{solutionCopy.reviewRule}</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="mt-3"><summary className="cursor-pointer font-semibold">{solutionCopy.allErrors}</summary><ul className="mt-2 space-y-2">{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</div> : null}
+    {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-copy"><strong className="lesson-exercise-result-title">{incorrectCopy.title}</strong><p className="lesson-exercise-result-meta">{incorrectCopy.description}</p></div><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? solutionCopy.saved : solutionCopy.confirm.replace("{cost}", String(result.solution.cost))}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? solutionCopy.opening : solutionCopy.show}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">{solutionCopy.cancel}</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? solutionCopy.show : `${solutionCopy.show} · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
+    {visibleFeedback ? <section className={`lesson-exercise-feedback ${solution ? "lesson-exercise-feedback-solution" : ""}`}>{solution ? <p className="lesson-exercise-feedback-label">{incorrectCopy.solution}</p> : null}{visibleFeedback.correctAnswer !== null && !result?.isCorrect && !explanationAlreadyStatesAnswer(visibleFeedback.explanation, visibleFeedback.correctAnswer) ? <div className="lesson-exercise-answer-reveal"><span>{answerFeedback.correctAnswer}</span><AnswerReveal answer={visibleFeedback.correctAnswer} /></div> : null}{visibleFeedback.explanation ? <div className="lesson-exercise-explanation"><strong>{explanationLabel}</strong><p>{visibleFeedback.explanation}</p></div> : null}{visibleFeedback.feedback?.example ? <p className="lesson-exercise-feedback-example">{solutionCopy.example} {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="lesson-exercise-feedback-rule">{solutionCopy.reviewRule}</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="lesson-exercise-feedback-details"><summary>{solutionCopy.allErrors}</summary><ul>{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</section> : null}
     {result && !result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-retry-button">{retryLabel}</button> : null}
     {result?.isCorrect && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="mt-3 text-sm font-semibold text-blue-700 hover:underline disabled:opacity-60">{extraSending ? "Preparing extra practice…" : "Try another exercise in this lesson"}</button> : null}
     {extraExercise ? <div className="mt-5 border-t border-slate-200 pt-5"><h3 className="mb-3 text-base font-bold text-slate-900">Extra practice</h3><ExerciseRenderer exercise={extraExercise} /></div> : null}
