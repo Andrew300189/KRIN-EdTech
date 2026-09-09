@@ -115,7 +115,7 @@
 .nextButton:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
 .nextButton:disabled { background: #e2e8f0 !important; box-shadow: none; color: #64748b !important; cursor: not-allowed; opacity: 1; }
 
-.supportActions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: 1rem !important; }
+.supportActions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .65rem !important; }
 
 .translationButton,
 :global(.lesson-exercise-hint-control) {
@@ -131,7 +131,7 @@
   font-size: .78rem;
   font-weight: 850;
   line-height: 1.2;
-  padding: .55rem .8rem;
+  padding: .45rem .7rem;
   transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
