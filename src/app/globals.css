@@ -31,6 +31,47 @@
   height: 0 !important;
 }
 
+/* The document scrollbar is intentionally kept visible: on long public pages
+   it gives visitors an immediate cue that there is more to discover.  The
+   transparent inset makes it a subtle 3px rail at rest; hovering the thumb
+   opens it to the full touch-friendly width without changing page layout. */
+html,
+body {
+  -ms-overflow-style: auto !important;
+  scrollbar-color: color-mix(in srgb, var(--primary) 72%, #4c3ee8) transparent !important;
+  scrollbar-width: thin !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: block !important;
+  width: 0.58rem !important;
+  height: 0.58rem !important;
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  display: block !important;
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  display: block !important;
+  border: 0.18rem solid transparent !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--primary) 64%, #6b5be7) !important;
+  background-clip: padding-box !important;
+  transition: border-width 160ms ease, background-color 160ms ease !important;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  border-width: 0 !important;
+  background-color: var(--primary-hover) !important;
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--background);
