@@ -51,17 +51,6 @@
   white-space: nowrap;
 }
 
-.progress {
-  display: inline-flex;
-  margin-top: 1rem;
-  border-radius: .75rem;
-  background: rgb(255 237 213 / 78%);
-  color: #9a3412;
-  padding: .48rem .65rem;
-  font-size: .8rem;
-  font-weight: 760;
-}
-
 .loading,
 .error,
 .complete,
