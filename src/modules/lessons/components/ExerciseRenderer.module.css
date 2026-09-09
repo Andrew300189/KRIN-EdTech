@@ -90,14 +90,26 @@
 .choice:hover { border-color: #a5b4fc !important; background: #f7f7ff !important; transform: translateX(2px); }
 .choice input { accent-color: #4f46e5; }
 
-.submitRow { display: flex; justify-content: flex-end; margin-top: 1.15rem !important; }
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .65rem;
+  margin-top: .8rem !important;
+}
 
-.nextButton {
+.actionRowWithTranslation { justify-content: space-between; }
+
+.nextButton,
+.translationButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 118px;
+  inline-size: 8.75rem;
   min-height: 44px;
+}
+
+.nextButton {
   border: 0;
   border-radius: 999px;
   background: linear-gradient(135deg, #5148e8, #2e65ec) !important;
@@ -115,12 +127,8 @@
 .nextButton:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
 .nextButton:disabled { background: #e2e8f0 !important; box-shadow: none; color: #64748b !important; cursor: not-allowed; opacity: 1; }
 
-.supportActions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .65rem !important; }
-
 .translationButton,
 :global(.lesson-exercise-hint-control) {
-  display: inline-flex;
-  align-items: center;
   min-height: 38px;
   border: 1px solid #c7d2fe;
   border-radius: 11px;
@@ -134,6 +142,8 @@
   padding: .45rem .7rem;
   transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
+
+.translationButton { min-height: 44px; }
 
 .translationButton::before,
 :global(.lesson-exercise-hint-control)::before {
@@ -169,7 +179,8 @@
 
 @media (max-width: 600px) {
   .card { border-radius: 16px !important; padding: 1rem !important; }
-  .submitRow { justify-content: stretch; }
+  .actionRow { flex-wrap: nowrap; gap: .5rem; }
   .nextButton { width: 100%; }
-  .supportActions > * { flex: 1 1 100%; justify-content: center; }
+  .actionRowWithTranslation .nextButton,
+  .actionRowWithTranslation .translationButton { flex: 1 1 0; inline-size: auto; min-width: 0; width: auto; }
 }
