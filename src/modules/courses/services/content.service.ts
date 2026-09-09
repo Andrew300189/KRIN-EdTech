@@ -1926,7 +1926,11 @@ export async function purchaseExerciseTranslation(userId: string, exerciseId: st
 }
 
 /** Charges once for an available hint, with the same replay protection as a solution. */
-export async function purchaseExerciseHint(userId: string, exerciseId: string) {
+export async function purchaseExerciseHint(
+  userId: string,
+  exerciseId: string,
+  options: { allowFreeFallback?: boolean } = {},
+) {
   const exercise = await prisma.exercise.findUnique({
     where: { id: exerciseId },
     select: {
@@ -1982,7 +1986,15 @@ export async function purchaseExerciseHint(userId: string, exerciseId: string) {
         where: { id: level.id, lifetimeExperience: { gte: EXERCISE_HINT_XP_COST } },
         data: { lifetimeExperience: { decrement: EXERCISE_HINT_XP_COST } },
       });
-      if (!debited.count) throw new Error("You need at least 1 XP to show this hint.");
+      if (!debited.count) {
+        // An automatic hint follows an incorrect answer. Never leave a learner
+        // without help just because their balance is empty; this fallback does
+        // not create a purchase record and therefore does not spend XP/credits.
+        if (options.allowFreeFallback) {
+          return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: false, freeFallback: true };
+        }
+        throw new Error("You need at least 1 XP to show this hint.");
+      }
 
       const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { id: level.id } });
       const updatedLevel = await tx.userLevel.update({ where: { id: level.id }, data: calculateUserLevel(reducedLevel.lifetimeExperience) });

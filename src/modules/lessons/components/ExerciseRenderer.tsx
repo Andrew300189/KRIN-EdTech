@@ -35,7 +35,7 @@ type AttemptResult = {
 };
 type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
-type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
+type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number; freeFallback?: boolean };
 
 function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
@@ -239,7 +239,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [translationSending, setTranslationSending] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
-  const [hintError, setHintError] = useState<string | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
@@ -283,7 +282,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   useEffect(() => { if (error) toast.error(error); }, [error]);
   useEffect(() => { if (translationError) toast.error(translationError); }, [translationError]);
-  useEffect(() => { if (hintError) toast.error(hintError); }, [hintError]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
@@ -327,7 +325,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     setConfirmSolution(false);
     setError(null);
     setHintOpen(false);
-    setHintError(null);
     setHintUsed(false);
     setTranslation(null);
     setTranslationError(null);
@@ -490,22 +487,29 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   async function revealHint() {
     if (hintOpen || !exercise.hintsEnabled || !visibleHint) return;
-    setHintError(null);
     if (previewMode) {
       setHintOpen(true);
       setHintUsed(true);
       return;
     }
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/hint`, { method: "POST" });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/hint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ automatic: true }),
+      });
       const payload = await response.json().catch(() => null) as { data?: HintPurchaseResult; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to show the hint.");
       setHintOpen(true);
-      setHintUsed(true);
+      setHintUsed(!payload.data.freeFallback);
       if (payload.data.cost > 0 || payload.data.bonusUsed) notifyMotivationUpdated();
       if (payload.data.bonusUsed && !payload.data.alreadyPurchased) toast.success(locale === "uk" ? "Використано жовтий бонус підказки" : locale === "ru" ? "Использован жёлтый бонус подсказки" : "Hint credit used");
-    } catch (caught) {
-      setHintError(caught instanceof Error ? caught.message : "Unable to show the hint.");
+    } catch {
+      // The hint text is already part of the loaded exercise. If billing is
+      // temporarily unavailable, show the child-friendly help rather than a
+      // technical server error after the learner has made a mistake.
+      setHintOpen(true);
+      setHintUsed(false);
     }
   }
 
@@ -609,7 +613,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {!result ? <div className="mt-4 flex justify-end"><button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className="lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">{sending ? "Checking…" : "Next →"}</button></div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {!result && (authoredTranslation || translationSource) ? <div className="mt-3 flex flex-wrap items-start gap-2 text-sm text-slate-600"><button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className="lesson-exercise-translation-trigger">{translationSending ? translationOpeningLabel : translation ? translationHideLabel : `${translationShowLabel} · ${translationPriceLabel}`}</button></div> : null}
-    {hintError ? <p className="mt-2 text-sm text-amber-700" role="status">{hintError}</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
     {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-copy"><strong className="lesson-exercise-result-title">{incorrectCopy.title}</strong><p className="lesson-exercise-result-meta">{incorrectCopy.description}</p></div><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? solutionCopy.saved : solutionCopy.confirm.replace("{cost}", String(result.solution.cost))}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? solutionCopy.opening : solutionCopy.show}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">{solutionCopy.cancel}</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? solutionCopy.show : `${solutionCopy.show} · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
