@@ -110,14 +110,14 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
           playerStyle={playerStyle}
           individualExerciseStep
           sequentialOnly
+          requireCorrectForNext
           hidePlayerHeader
           onActiveExerciseChange={setActiveQuestion}
           onAttemptResolved={({ isCorrect, difficulty, isFinalExercise, streakMilestone }) => {
             if (isCorrect) onCorrectAnswer?.(difficulty);
             if (streakMilestone) onStreakChestAvailable?.(streakMilestone);
-            if (isFinalExercise) void completeReview();
+            if (isCorrect && isFinalExercise) void completeReview();
           }}
-          onAttemptDeferred={({ isFinalExercise }) => { if (isFinalExercise) void completeReview(); }}
         />
       </div>
     </> : null}
