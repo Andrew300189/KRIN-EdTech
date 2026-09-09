@@ -37,6 +37,7 @@ const reviewCopy = {
  * component only presents that persisted ten-question set one at a time. */
 export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode = false, playerStyle = false, onCorrectAnswer, onStreakChestAvailable, onReviewComplete }: Props) {
   const [run, setRun] = useState<ReviewRun | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const notifiedComplete = useRef(false);
@@ -83,6 +84,7 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
     ...block,
     exercises: contentLocale === "uk" ? activeRun.questions.map((question) => translateVerbToBeJsonToUkrainian(question)) : activeRun.questions,
   } : null;
+  const taskLabel = contentLocale === "uk" ? "Завдання" : contentLocale === "ru" ? "Задание" : "Task";
 
   return <section className={styles.root} aria-label="Spaced review">
     <header className={styles.heading}>
@@ -90,7 +92,10 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
         <h2>{copy.title}</h2>
         <p>{copy.description}</p>
       </div>
-      <span className={styles.reward}>{copy.reward}</span>
+      <div className={styles.headerMeta}>
+        {activeRun ? <span className={styles.taskCounter}>{taskLabel} <strong>{activeQuestion}</strong> / {activeRun.questions.length}</span> : null}
+        <span className={styles.reward}>{copy.reward}</span>
+      </div>
     </header>
     {previewMode ? <p className={styles.preview}>{copy.preview}</p> : null}
     {!previewMode && !run && !error ? <p className={styles.loading}>{copy.loading}</p> : null}
@@ -105,6 +110,8 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
           playerStyle={playerStyle}
           individualExerciseStep
           sequentialOnly
+          hidePlayerHeader
+          onActiveExerciseChange={setActiveQuestion}
           onAttemptResolved={({ isCorrect, difficulty, isFinalExercise, streakMilestone }) => {
             if (isCorrect) onCorrectAnswer?.(difficulty);
             if (streakMilestone) onStreakChestAvailable?.(streakMilestone);

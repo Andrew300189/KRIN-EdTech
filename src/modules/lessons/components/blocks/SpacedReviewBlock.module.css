@@ -30,6 +30,23 @@
   line-height: 1.55;
 }
 
+.headerMeta {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .7rem;
+}
+
+.taskCounter {
+  color: #9a3412;
+  font-size: .78rem;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.taskCounter strong { color: #7c2d12; font-weight: 900; }
+
 .reward {
   flex: 0 0 auto;
   border: 1px solid #fb923c;
@@ -59,3 +76,7 @@
 .complete { border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-weight: 760; }
 
 .questions { margin-top: 1rem; }
+
+@media (max-width: 560px) {
+  .headerMeta { width: 100%; justify-content: space-between; }
+}

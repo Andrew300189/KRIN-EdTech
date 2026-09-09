@@ -27,12 +27,15 @@ type ExerciseBlockProps = {
   requireCorrectForNext?: boolean;
   /** A system review deliberately keeps retrieval practice one question at a time. */
   sequentialOnly?: boolean;
+  /** Lets a parent supply a compact, contextual progress counter instead. */
+  hidePlayerHeader?: boolean;
+  onActiveExerciseChange?: (questionNumber: number) => void;
   reviewRunId?: string;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, hidePlayerHeader = false, onActiveExerciseChange, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
@@ -72,6 +75,10 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
   useEffect(() => () => {
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    onActiveExerciseChange?.(activeIndex + 1);
+  }, [activeIndex, onActiveExerciseChange]);
 
   useEffect(() => {
     if (!showAllExercises) return;
@@ -193,13 +200,13 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
 
   if (playerStyle) return (
     <div data-lesson-exercise-player>
-      <div className={placementStyles.ptHeader}>
+      {!hidePlayerHeader ? <div className={placementStyles.ptHeader}>
         <span className={placementStyles.ptBadge}><span className={placementStyles.ptBadgeDot} />{individualExerciseStep ? "Question" : "Exercise"}</span>
         <div className="flex items-center gap-3">
           <span className={placementStyles.ptCounter}>{individualExerciseStep ? "Task" : "Exercise"} <strong className={placementStyles.ptCounterBold}>{showAllExercises ? exercises.length : activeIndex + 1}</strong> of {exercises.length}</span>
           {exerciseActions}
         </div>
-      </div>
+      </div> : null}
       <div className={placementStyles.ptBody}>
         <div className={placementStyles.ptQuestion}>
           <div
