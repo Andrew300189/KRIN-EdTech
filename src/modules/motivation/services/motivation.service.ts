@@ -615,15 +615,37 @@ export async function claimWeeklyEasterEgg(userId: string) {
   });
 }
 
-export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number) {
+export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number, requestId = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
   if (!Number.isFinite(exchangedExperience) || exchangedExperience < 10) {
     throw new Error("Enter at least 10 XP to receive 0.01 KRIN Coin.");
   }
   const addedHundredths = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * 100);
+  const experienceIdempotencyKey = `xp-exchange:${userId}:${requestId}`;
+  const coinIdempotencyKey = `xp-exchange-coin:${userId}:${requestId}`;
 
   return prisma.$transaction(async (tx) => {
     const context = await userContext(tx, userId);
+    // A network retry must return the result of the original exchange rather
+    // than deducting the same XP again. The immutable ledger is the source of
+    // truth, so this remains safe across serverless instances.
+    const existing = await tx.experienceTransaction.findUnique({
+      where: { idempotencyKey: experienceIdempotencyKey },
+      select: { amount: true },
+    });
+    if (existing) {
+      const [level, wallet, coin] = await Promise.all([
+        tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+        tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+        tx.coinTransaction.findUnique({ where: { idempotencyKey: coinIdempotencyKey }, select: { amount: true, amountMinor: true } }),
+      ]);
+      return {
+        exchangedExperience: Math.abs(existing.amount),
+        coinsAdded: (coin?.amountMinor ?? ((coin?.amount ?? 0) * 100)) / 100,
+        level,
+        wallet,
+      };
+    }
     await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
     const deducted = await tx.userLevel.updateMany({
       where: { userId, lifetimeExperience: { gte: exchangedExperience } },
@@ -634,15 +656,14 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
     const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { userId } });
     const nextLevel = calculateUserLevel(reducedLevel.lifetimeExperience);
     const level = await tx.userLevel.update({ where: { userId }, data: nextLevel });
-    const exchangeId = randomUUID();
     await tx.experienceTransaction.create({
       data: {
         userId,
         amount: -exchangedExperience,
         type: "XP_EXCHANGE",
         sourceType: "XP_EXCHANGE",
-        sourceId: exchangeId,
-        idempotencyKey: `xp-exchange:${userId}:${exchangeId}`,
+        sourceId: requestId,
+        idempotencyKey: experienceIdempotencyKey,
         localDate: context.date,
         description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
       },
@@ -673,8 +694,8 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
         balanceAfterMinor: updatedWallet.balance * 100 + updatedWallet.fractionalBalance,
         type: "XP_EXCHANGE",
         sourceType: "XP_EXCHANGE",
-        sourceId: exchangeId,
-        idempotencyKey: `xp-exchange-coin:${userId}:${exchangeId}`,
+        sourceId: requestId,
+        idempotencyKey: coinIdempotencyKey,
         localDate: context.date,
         description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
       },

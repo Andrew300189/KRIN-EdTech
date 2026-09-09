@@ -10,13 +10,16 @@ export async function POST(request: NextRequest) {
   const limit = consumeRateLimit(`xp-coin-exchange:${guard.user.id}`, 10, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Too many exchange attempts. Try again in a minute." }, { status: 429 });
 
-  const body = await request.json().catch(() => null) as { experience?: unknown } | null;
+  const body = await request.json().catch(() => null) as { experience?: unknown; idempotencyKey?: unknown } | null;
   if (!body || typeof body.experience !== "number") {
     return NextResponse.json({ error: "Enter the amount of XP to exchange." }, { status: 400 });
   }
+  const idempotencyKey = typeof body.idempotencyKey === "string" && /^[a-z0-9-]{16,80}$/i.test(body.idempotencyKey)
+    ? body.idempotencyKey
+    : undefined;
 
   try {
-    return NextResponse.json({ data: await exchangeExperienceForKrinCoin(guard.user.id, body.experience) });
+    return NextResponse.json({ data: await exchangeExperienceForKrinCoin(guard.user.id, body.experience, idempotencyKey) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to exchange XP." }, { status: 400 });
   }

@@ -10,6 +10,13 @@ type MotivationOverview = {
   wallet: { balance: number; fractionalBalance?: number };
 };
 
+type ExchangeResult = {
+  exchangedExperience: number;
+  coinsAdded: number;
+  level: MotivationOverview["level"];
+  wallet: MotivationOverview["wallet"];
+};
+
 function coinBalance(overview: MotivationOverview) {
   // exchangeBalanceMinor tracks only Coins created by XP exchange. Lesson,
   // chest and wheel rewards are spendable too, so the visible balance must
@@ -22,6 +29,14 @@ function experienceLabel(level: MotivationOverview["level"]) {
   return hundredths ? `${level.lifetimeExperience}.${String(hundredths).padStart(2, "0")}` : String(level.lifetimeExperience);
 }
 
+function exchangeExperienceAmount(value: string) {
+  // Mobile keyboards and Ukrainian/Russian number formatting can insert
+  // spaces between thousands. XP is always whole, so retain digits only.
+  const digits = value.replace(/\D/g, "");
+  const amount = Number(digits);
+  return Number.isSafeInteger(amount) ? amount : 0;
+}
+
 export function ExperienceStatus({ className = "" }: { className?: string }) {
   const { t } = useLocale();
   const [overview, setOverview] = useState<MotivationOverview | null>(null);
@@ -30,6 +45,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const exchangeRequestIdRef = useRef<string | null>(null);
   const popoverId = useId();
 
   const load = useCallback(async () => {
@@ -67,7 +83,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
   if (!overview) return null;
   const experience = overview.level.lifetimeExperience;
   const experienceText = experienceLabel(overview.level);
-  const requested = Math.max(0, Math.trunc(Number(amount) || 0));
+  const requested = exchangeExperienceAmount(amount);
   const previewCoins = Math.round((requested / 1_000) * 100) / 100;
 
   async function exchange(event: FormEvent<HTMLFormElement>) {
@@ -75,17 +91,23 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
     if (requested < 10 || requested > experience) return;
     setSubmitting(true);
     setMessage(null);
+    const requestId = exchangeRequestIdRef.current ?? crypto.randomUUID();
+    exchangeRequestIdRef.current = requestId;
     try {
       const response = await fetch("/api/profile/motivation/exchange", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ experience: requested }),
+        body: JSON.stringify({ experience: requested, idempotencyKey: requestId }),
       });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error || t("student.xp.exchangeError"));
+      const payload = await response.json().catch(() => null) as { data?: ExchangeResult; error?: string } | null;
+      if (!response.ok || !payload?.data) {
+        exchangeRequestIdRef.current = null;
+        throw new Error(payload?.error || t("student.xp.exchangeError"));
+      }
       setAmount("");
-      setMessage(t("student.xp.exchanged", { xp: requested, coins: previewCoins.toFixed(2) }));
-      await load();
+      exchangeRequestIdRef.current = null;
+      setOverview({ level: payload.data.level, wallet: payload.data.wallet });
+      setMessage(t("student.xp.exchanged", { xp: payload.data.exchangedExperience, coins: payload.data.coinsAdded.toFixed(2) }));
       notifyMotivationUpdated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t("student.xp.exchangeError"));
@@ -96,7 +118,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
 
   return <div ref={rootRef} className={`${styles.root} ${className}`}>
     <div className={styles.status}>
-      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { setOpen((value) => !value); setMessage(null); }} title={t("student.xp.exchangeHint")}>
+      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { if (!open) setAmount((current) => current || String(experience)); setOpen(!open); setMessage(null); }} title={t("student.xp.exchangeHint")}>
         <span>Lv. {overview.level.level}</span><strong>{experienceText} XP</strong>
       </button>
       <span className={styles.coins} aria-label={`${coinBalance(overview).toFixed(2)} KRIN Coins`}><span aria-hidden="true">◉</span> {coinBalance(overview).toFixed(2)}</span>
@@ -106,7 +128,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
       <p className={styles.available}>{t("student.xp.available")} <strong>{experienceText} XP</strong></p>
       <form onSubmit={(event) => void exchange(event)}>
         <label htmlFor={`${popoverId}-amount`}>{t("student.xp.amount")}</label>
-        <div className={styles.amountRow}><input id={`${popoverId}-amount`} type="number" min="10" max={experience} step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000" autoFocus /><button type="button" onClick={() => setAmount(String(experience))}>{t("student.xp.all")}</button></div>
+        <div className={styles.amountRow}><input id={`${popoverId}-amount`} type="text" inputMode="numeric" pattern="[0-9 ]*" value={amount} onChange={(event) => { exchangeRequestIdRef.current = null; setAmount(event.target.value.replace(/\D/g, "")); }} placeholder="1000" autoFocus /><button type="button" onClick={() => { exchangeRequestIdRef.current = null; setAmount(String(experience)); }}>{t("student.xp.all")}</button></div>
         <div className={styles.preview}><span>{t("student.xp.receive")}</span><strong>{previewCoins.toFixed(2)} KRIN Coins</strong></div>
         <button className={styles.exchangeButton} type="submit" disabled={submitting || requested < 10 || requested > experience}>{submitting ? t("student.xp.exchanging") : t("student.xp.exchange")}</button>
       </form>
