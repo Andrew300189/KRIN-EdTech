@@ -304,7 +304,7 @@ export function WorkspaceShell({
               <LearningBonusHeaderStatus />
               <DailyChestHeaderButton />
               {shouldShowProfilePhoto ? <img
-                src={userAvatar}
+                src={userAvatar ?? undefined}
                 alt={userInitials ? `${userInitials} profile photo` : "Profile photo"}
                 className={styles.profileAvatar}
                 onError={() => setProfilePhotoFailed(true)}
