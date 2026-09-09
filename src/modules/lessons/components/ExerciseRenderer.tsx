@@ -551,7 +551,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
         ? "Впишите правильную форму: am, is или are."
         : "Type the correct form: am, is, or are."
     : exercise.instruction;
-  const visibleQuestion = exercise.question.replace(/^(?:Новый пример|Новий приклад):\s*/iu, "");
+  const visibleQuestion = exercise.question.replace(/^(?:[\p{L}]+\s+)?(?:пример|приклад):\s*/iu, "");
   const answerFeedback = learnerAnswerFeedback(locale);
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const translationOpeningLabel = locale === "uk" ? "Готуємо…" : locale === "ru" ? "Готовим…" : "Preparing…";
