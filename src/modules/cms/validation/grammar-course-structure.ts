@@ -4,7 +4,10 @@ export type GrammarStructureIssue = {
   path?: string;
 };
 
-type SkillLink = { grammarSkillId?: string } | { id?: string };
+// CMS queries expose relation rows as grammarSkillId, while the pure unit
+// validator also accepts compact { id } fixtures. Keeping both optional on a
+// single shape makes that compatibility explicit to every TypeScript build.
+type SkillLink = { grammarSkillId?: string; id?: string };
 
 type ExerciseShape = {
   id: string;
