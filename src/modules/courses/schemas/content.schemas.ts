@@ -152,6 +152,7 @@ export const createModuleSchema = z.object({
   requiresSequentialCompletion: z.boolean().default(false),
   unlockAfterModuleId: z.string().cuid().nullable().optional(),
   requiredCompletionPercent: z.number().int().min(1).max(100).default(100),
+  minimumFinalLessonScore: z.number().int().min(0).max(100).default(0),
   isPublished: z.boolean().default(false),
 });
 
@@ -165,8 +166,10 @@ export const createLessonSchema = z.object({
   slug: z.string().trim().regex(slugPattern).max(160).optional(),
   description: z.string().trim().max(5000).optional(),
   type: lessonTypeSchema,
+  curriculumRole: z.enum(["STANDARD", "OVERVIEW", "DEEP_DIVE", "PRACTICE", "REVIEW", "FINAL"]).default("STANDARD"),
   order: z.number().int().min(1).max(10000).optional(),
   estimatedDuration: z.number().int().min(0).max(10000).default(0),
+  minimumCompletionScore: z.number().int().min(0).max(100).default(0),
   phraseOfTheDay: z.string().trim().max(500).optional(),
   motivationalQuote: z.string().trim().max(1000).optional(),
   learningObjectives: z.array(z.string().trim().min(1).max(300)).max(20).default([]),
@@ -176,6 +179,7 @@ export const createLessonSchema = z.object({
   autoUnlockNextLesson: z.boolean().default(true),
   isPublished: z.boolean().default(false),
   isFree: z.boolean().default(false),
+  grammarSkillIds: z.array(z.string().cuid()).max(100).default([]),
 });
 
 export const updateLessonSchema = createLessonSchema
@@ -188,6 +192,10 @@ export const createLessonBlockSchema = z.object({
   title: z.string().trim().max(160).optional(),
   content: jsonValueSchema.optional(),
   settings: jsonValueSchema.optional(),
+  learningFragmentKey: z.string().trim().regex(slugPattern).max(120).optional(),
+  isLearningFragment: z.boolean().default(false),
+  requiresTwelveExercises: z.boolean().default(false),
+  grammarSkillIds: z.array(z.string().cuid()).max(100).default([]),
   order: z.number().int().min(1).max(10000).optional(),
   isRequired: z.boolean().default(false),
 });
@@ -215,6 +223,7 @@ export const createExerciseSchema = z.object({
   solutionCost: z.number().int().min(0).max(10000).default(0),
   allowInstantCheck: z.boolean().default(true),
   allowExtraExercise: z.boolean().default(false),
+  grammarSkillIds: z.array(z.string().cuid()).max(100).default([]),
   order: z.number().int().min(1).max(10000).optional(),
 });
 

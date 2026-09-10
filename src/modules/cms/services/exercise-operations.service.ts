@@ -17,6 +17,14 @@ function toInputJson(value: unknown) {
   return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
 }
 
+async function assertCourseGrammarSkills(courseId: string, skillIds: readonly string[]) {
+  const uniqueSkillIds = [...new Set(skillIds)];
+  if (!uniqueSkillIds.length) return uniqueSkillIds;
+  const count = await prisma.grammarSkill.count({ where: { courseId, id: { in: uniqueSkillIds } } });
+  if (count !== uniqueSkillIds.length) throw new Error("Every selected grammar skill must belong to this course.");
+  return uniqueSkillIds;
+}
+
 function jsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -71,7 +79,10 @@ function configForValidation(source: {
 }
 
 export async function updateCmsExercise(actorId: string, exerciseId: string, input: UpdateExerciseInput) {
-  const source = await prisma.exercise.findUnique({ where: { id: exerciseId } });
+  const source = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    include: { lessonBlock: { select: { lesson: { select: { module: { select: { courseId: true } } } } } } },
+  });
   if (!source) throw new Error("Exercise not found.");
   const mergedConfiguration = configForValidation(source, input);
   const engineKey = mergedConfiguration.engineKey;
@@ -80,6 +91,9 @@ export async function updateCmsExercise(actorId: string, exerciseId: string, inp
     : source.variantKey ?? getDefaultExerciseSubtype(engineKey);
   const issues = validateExerciseConfiguration({ ...mergedConfiguration, variantKey });
   if (issues.length) throw new Error(issues.join(" "));
+  const grammarSkillIds = input.grammarSkillIds === undefined
+    ? undefined
+    : await assertCourseGrammarSkills(source.lessonBlock.lesson.module.courseId, input.grammarSkillIds);
   const updated = await prisma.exercise.update({
     where: { id: exerciseId },
     data: {
@@ -100,6 +114,7 @@ export async function updateCmsExercise(actorId: string, exerciseId: string, inp
       ...(input.solutionCost !== undefined ? { solutionCost: input.solutionCost } : {}),
       ...(input.allowInstantCheck !== undefined ? { allowInstantCheck: input.allowInstantCheck } : {}),
       ...(input.allowExtraExercise !== undefined ? { allowExtraExercise: input.allowExtraExercise } : {}),
+      ...(grammarSkillIds !== undefined ? { grammarSkills: { deleteMany: {}, create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } } : {}),
     },
   });
   await recordCmsContentVersion({ actorId, entityType: "EXERCISE", entityId: updated.id, action: "UPDATED", snapshot: updated });

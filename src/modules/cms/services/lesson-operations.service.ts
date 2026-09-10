@@ -9,6 +9,14 @@ function inputJson(value: Prisma.JsonValue | null) {
   return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
 }
 
+async function assertCourseGrammarSkills(courseId: string, skillIds: readonly string[]) {
+  const uniqueSkillIds = [...new Set(skillIds)];
+  if (!uniqueSkillIds.length) return uniqueSkillIds;
+  const count = await prisma.grammarSkill.count({ where: { courseId, id: { in: uniqueSkillIds } } });
+  if (count !== uniqueSkillIds.length) throw new Error("Every selected grammar skill must belong to this course.");
+  return uniqueSkillIds;
+}
+
 /** Prevents an explicit prerequisite from becoming a forward reference or cycle. */
 export function validateLessonOrder(lessons: LessonForOrder[], orderedIds: string[]) {
   if (lessons.length !== orderedIds.length || new Set(orderedIds).size !== orderedIds.length) {
@@ -50,7 +58,7 @@ async function validateLessonPrerequisite(input: {
 export async function updateCmsLesson(actorId: string, lessonId: string, input: UpdateLessonInput) {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
-    select: { id: true, moduleId: true, order: true, prerequisiteLessonId: true },
+    select: { id: true, moduleId: true, order: true, prerequisiteLessonId: true, module: { select: { courseId: true } } },
   });
   if (!lesson) throw new Error("Lesson not found.");
   const prerequisiteLessonId = input.prerequisiteLessonId === undefined
@@ -67,6 +75,9 @@ export async function updateCmsLesson(actorId: string, lessonId: string, input: 
     const matching = await prisma.lesson.findUnique({ where: { slug: input.slug }, select: { id: true } });
     if (matching && matching.id !== lessonId) throw new Error("A lesson with this slug already exists.");
   }
+  const grammarSkillIds = input.grammarSkillIds === undefined
+    ? undefined
+    : await assertCourseGrammarSkills(lesson.module.courseId, input.grammarSkillIds);
 
   const updated = await prisma.lesson.update({
     where: { id: lessonId },
@@ -75,7 +86,9 @@ export async function updateCmsLesson(actorId: string, lessonId: string, input: 
       ...(input.slug !== undefined ? { slug: input.slug } : {}),
       ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
       ...(input.type !== undefined ? { type: input.type } : {}),
+      ...(input.curriculumRole !== undefined ? { curriculumRole: input.curriculumRole } : {}),
       ...(input.estimatedDuration !== undefined ? { estimatedDuration: input.estimatedDuration } : {}),
+      ...(input.minimumCompletionScore !== undefined ? { minimumCompletionScore: input.minimumCompletionScore } : {}),
       ...(input.phraseOfTheDay !== undefined ? { phraseOfTheDay: input.phraseOfTheDay?.trim() || null } : {}),
       ...(input.motivationalQuote !== undefined ? { motivationalQuote: input.motivationalQuote?.trim() || null } : {}),
       ...(input.learningObjectives !== undefined ? { learningObjectives: input.learningObjectives as Prisma.InputJsonValue } : {}),
@@ -84,6 +97,7 @@ export async function updateCmsLesson(actorId: string, lessonId: string, input: 
       ...(input.requiredPrerequisiteCompletion !== undefined ? { requiredPrerequisiteCompletion: input.requiredPrerequisiteCompletion } : {}),
       ...(input.autoUnlockNextLesson !== undefined ? { autoUnlockNextLesson: input.autoUnlockNextLesson } : {}),
       ...(input.isFree !== undefined ? { isFree: input.isFree } : {}),
+      ...(grammarSkillIds !== undefined ? { grammarSkills: { deleteMany: {}, create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } } : {}),
     },
   });
   await recordCmsContentVersion({ actorId, entityType: "LESSON", entityId: updated.id, action: "UPDATED", snapshot: updated });
@@ -137,7 +151,8 @@ export async function duplicateCmsLesson(actorId: string, lessonId: string, targ
     where: { id: lessonId },
     include: {
       module: { select: { id: true, courseId: true } },
-      blocks: { orderBy: { order: "asc" }, include: { exercises: { orderBy: { order: "asc" } } } },
+      grammarSkills: { select: { grammarSkillId: true } },
+      blocks: { orderBy: { order: "asc" }, include: { grammarSkills: { select: { grammarSkillId: true } }, exercises: { orderBy: { order: "asc" }, include: { grammarSkills: { select: { grammarSkillId: true } } } } } },
     },
   });
   if (!source) throw new Error("Lesson not found.");
@@ -161,8 +176,10 @@ export async function duplicateCmsLesson(actorId: string, lessonId: string, targ
         title: `${source.title} (copy)`,
         description: source.description,
         type: source.type,
+        curriculumRole: source.curriculumRole,
         order: (last?.order ?? 0) + 1,
         estimatedDuration: source.estimatedDuration,
+        minimumCompletionScore: source.minimumCompletionScore,
         phraseOfTheDay: source.phraseOfTheDay,
         motivationalQuote: source.motivationalQuote,
         learningObjectives: inputJson(source.learningObjectives),
@@ -170,15 +187,20 @@ export async function duplicateCmsLesson(actorId: string, lessonId: string, targ
         isPublished: false,
         contentStatus: "DRAFT",
         isFree: source.isFree,
+        grammarSkills: source.module.courseId === targetModule.courseId && source.grammarSkills.length ? { create: source.grammarSkills.map(({ grammarSkillId }) => ({ grammarSkillId })) } : undefined,
         blocks: {
           create: source.blocks.map((block) => ({
             type: block.type,
             title: block.title,
             content: inputJson(block.content),
             settings: inputJson(block.settings),
+            learningFragmentKey: block.learningFragmentKey,
+            isLearningFragment: block.isLearningFragment,
+            requiresTwelveExercises: block.requiresTwelveExercises,
             order: block.order,
             isRequired: block.isRequired,
             contentStatus: "DRAFT",
+            grammarSkills: source.module.courseId === targetModule.courseId && block.grammarSkills.length ? { create: block.grammarSkills.map(({ grammarSkillId }) => ({ grammarSkillId })) } : undefined,
             exercises: {
               create: block.exercises.map((exercise) => ({
                 type: exercise.type,
@@ -200,6 +222,7 @@ export async function duplicateCmsLesson(actorId: string, lessonId: string, targ
                 allowExtraExercise: exercise.allowExtraExercise,
                 order: exercise.order,
                 contentStatus: "DRAFT",
+                grammarSkills: source.module.courseId === targetModule.courseId && exercise.grammarSkills.length ? { create: exercise.grammarSkills.map(({ grammarSkillId }) => ({ grammarSkillId })) } : undefined,
               })),
             },
           })),

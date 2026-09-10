@@ -70,6 +70,17 @@ function nullableText(value: string | undefined) {
   return trimmed ? trimmed : null;
 }
 
+/** Keeps authoring links inside the course that owns the current lesson. */
+async function assertCourseGrammarSkills(courseId: string, skillIds: readonly string[]) {
+  const uniqueSkillIds = [...new Set(skillIds)];
+  if (!uniqueSkillIds.length) return uniqueSkillIds;
+  const count = await prisma.grammarSkill.count({ where: { courseId, id: { in: uniqueSkillIds } } });
+  if (count !== uniqueSkillIds.length) {
+    throw new Error("Every selected grammar skill must belong to this course.");
+  }
+  return uniqueSkillIds;
+}
+
 function mistakeTypeForExercise(type: string) {
   if (type.includes("LISTENING") || type === "DICTATION") return "LISTENING";
   if (type.includes("TRANSLATION")) return "TRANSLATION";
@@ -1117,6 +1128,11 @@ export async function createCourseModule(
       title: input.title,
       description: nullableText(input.description),
       order,
+      isRequired: input.isRequired,
+      requiresSequentialCompletion: input.requiresSequentialCompletion,
+      unlockAfterModuleId: input.unlockAfterModuleId ?? null,
+      requiredCompletionPercent: input.requiredCompletionPercent,
+      minimumFinalLessonScore: input.minimumFinalLessonScore,
       isPublished: input.isPublished,
       contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
       publishedAt: input.isPublished ? new Date() : null,
@@ -1148,6 +1164,7 @@ export async function createLesson(
 ) {
   const courseModule = await prisma.courseModule.findUnique({ where: { id: moduleId }, select: { courseId: true } });
   if (!courseModule) throw new Error("Course module not found");
+  const grammarSkillIds = await assertCourseGrammarSkills(courseModule.courseId, input.grammarSkillIds);
   const order = await nextOrder(
     () => prisma.lesson.findFirst({ where: { moduleId }, orderBy: { order: "desc" }, select: { order: true } }),
     input.order,
@@ -1166,8 +1183,10 @@ export async function createLesson(
         title: input.title,
         description: nullableText(input.description),
         type: input.type,
+        curriculumRole: input.curriculumRole,
         order,
         estimatedDuration: input.estimatedDuration,
+        minimumCompletionScore: input.minimumCompletionScore,
         phraseOfTheDay: nullableText(input.phraseOfTheDay),
         motivationalQuote: nullableText(input.motivationalQuote),
         learningObjectives: input.learningObjectives as Prisma.InputJsonValue,
@@ -1179,6 +1198,7 @@ export async function createLesson(
         contentStatus: input.isPublished ? "PUBLISHED" : "DRAFT",
         publishedAt: input.isPublished ? new Date() : null,
         isFree: input.isFree,
+        grammarSkills: grammarSkillIds.length ? { create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } : undefined,
       },
     });
     // The first lesson in a module introduces a topic. Every following lesson
@@ -1212,6 +1232,12 @@ export async function createLessonBlock(
   lessonId: string,
   input: CreateLessonBlockInput,
 ) {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: { module: { select: { courseId: true } } },
+  });
+  if (!lesson) throw new Error("Lesson not found");
+  const grammarSkillIds = await assertCourseGrammarSkills(lesson.module.courseId, input.grammarSkillIds);
   const systemReview = (await prisma.lessonBlock.findMany({
     where: { lessonId, type: "REVIEW", contentStatus: { not: "ARCHIVED" } },
     select: { id: true, order: true, settings: true },
@@ -1229,8 +1255,12 @@ export async function createLessonBlock(
           title: nullableText(input.title),
           content: toPrismaJson(input.content),
           settings: toPrismaJson(input.settings),
+          learningFragmentKey: nullableText(input.learningFragmentKey),
+          isLearningFragment: input.isLearningFragment,
+          requiresTwelveExercises: input.requiresTwelveExercises,
           order: systemReview.order,
           isRequired: input.isRequired,
+          grammarSkills: grammarSkillIds.length ? { create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } : undefined,
         },
       });
       return block;
@@ -1252,8 +1282,12 @@ export async function createLessonBlock(
       title: nullableText(input.title),
       content: toPrismaJson(input.content),
       settings: toPrismaJson(input.settings),
+      learningFragmentKey: nullableText(input.learningFragmentKey),
+      isLearningFragment: input.isLearningFragment,
+      requiresTwelveExercises: input.requiresTwelveExercises,
       order,
       isRequired: input.isRequired,
+      grammarSkills: grammarSkillIds.length ? { create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } : undefined,
     },
   });
   await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId, type: block.type });
@@ -1264,13 +1298,25 @@ export async function createLessonBlock(
 
 export async function updateLessonBlock(actorId: string, blockId: string, input: unknown) {
   const value = updateLessonBlockSchema.parse(input);
+  const source = await prisma.lessonBlock.findUnique({
+    where: { id: blockId },
+    select: { lesson: { select: { module: { select: { courseId: true } } } } },
+  });
+  if (!source) throw new Error("Lesson block not found");
+  const grammarSkillIds = value.grammarSkillIds === undefined
+    ? undefined
+    : await assertCourseGrammarSkills(source.lesson.module.courseId, value.grammarSkillIds);
   const block = await prisma.lessonBlock.update({
     where: { id: blockId },
     data: {
       ...(value.title !== undefined ? { title: nullableText(value.title) } : {}),
       ...(value.content !== undefined ? { content: toPrismaJson(value.content) } : {}),
       ...(value.settings !== undefined ? { settings: toPrismaJson(value.settings) } : {}),
+      ...(value.learningFragmentKey !== undefined ? { learningFragmentKey: nullableText(value.learningFragmentKey) } : {}),
+      ...(value.isLearningFragment !== undefined ? { isLearningFragment: value.isLearningFragment } : {}),
+      ...(value.requiresTwelveExercises !== undefined ? { requiresTwelveExercises: value.requiresTwelveExercises } : {}),
       ...(value.isRequired !== undefined ? { isRequired: value.isRequired } : {}),
+      ...(grammarSkillIds !== undefined ? { grammarSkills: { deleteMany: {}, create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } } : {}),
     },
   });
   await writeContentAudit(actorId, "UPDATE", "LessonBlock", block.id, { lessonId: block.lessonId });
@@ -1280,13 +1326,26 @@ export async function updateLessonBlock(actorId: string, blockId: string, input:
 }
 
 export async function duplicateLessonBlock(actorId: string, blockId: string) {
-  const source = await prisma.lessonBlock.findUnique({ where: { id: blockId } });
+  const source = await prisma.lessonBlock.findUnique({ where: { id: blockId }, include: { grammarSkills: { select: { grammarSkillId: true } } } });
   if (!source) throw new Error("Lesson block not found");
   const order = await nextOrder(
     () => prisma.lessonBlock.findFirst({ where: { lessonId: source.lessonId }, orderBy: { order: "desc" }, select: { order: true } }),
   );
   const block = await prisma.lessonBlock.create({
-    data: { lessonId: source.lessonId, type: source.type, title: source.title ? `${source.title} (copy)` : null, content: source.content ?? Prisma.JsonNull, settings: source.settings ?? Prisma.JsonNull, order, isRequired: source.isRequired, contentStatus: "DRAFT" },
+    data: {
+      lessonId: source.lessonId,
+      type: source.type,
+      title: source.title ? `${source.title} (copy)` : null,
+      content: source.content ?? Prisma.JsonNull,
+      settings: source.settings ?? Prisma.JsonNull,
+      learningFragmentKey: source.learningFragmentKey,
+      isLearningFragment: source.isLearningFragment,
+      requiresTwelveExercises: source.requiresTwelveExercises,
+      order,
+      isRequired: source.isRequired,
+      contentStatus: "DRAFT",
+      grammarSkills: source.grammarSkills.length ? { create: source.grammarSkills.map(({ grammarSkillId }) => ({ grammarSkillId })) } : undefined,
+    },
   });
   await writeContentAudit(actorId, "CREATE", "LessonBlock", block.id, { lessonId: block.lessonId, copiedFrom: source.id });
   await recordCmsContentVersion({ actorId, entityType: "LESSON_BLOCK", entityId: block.id, action: "CREATED", snapshot: block });
@@ -1368,9 +1427,13 @@ export async function createExercise(
   lessonBlockId: string,
   input: CreateExerciseInput,
 ) {
-  const block = await prisma.lessonBlock.findUnique({ where: { id: lessonBlockId }, select: { type: true } });
+  const block = await prisma.lessonBlock.findUnique({
+    where: { id: lessonBlockId },
+    select: { type: true, lesson: { select: { module: { select: { courseId: true } } } } },
+  });
   if (!block) throw new Error("Lesson block not found");
   if (block.type !== "EXERCISE") throw new Error("Exercises can only be added to EXERCISE blocks");
+  const grammarSkillIds = await assertCourseGrammarSkills(block.lesson.module.courseId, input.grammarSkillIds);
   const order = await nextOrder(
     () => prisma.exercise.findFirst({ where: { lessonBlockId }, orderBy: { order: "desc" }, select: { order: true } }),
     input.order,
@@ -1407,6 +1470,7 @@ export async function createExercise(
       solutionCost: input.solutionCost,
       allowInstantCheck: input.allowInstantCheck,
       allowExtraExercise: input.allowExtraExercise,
+      grammarSkills: grammarSkillIds.length ? { create: grammarSkillIds.map((grammarSkillId) => ({ grammarSkillId })) } : undefined,
       order,
     },
   });

@@ -100,6 +100,7 @@ model User {
   lessonProgress                LessonProgress[]
   exerciseAttempts              ExerciseAttempt[]
   mistakes                      UserMistake[]
+  grammarSkillProgress          UserGrammarSkillProgress[]
   mistakeReviewRuns             MistakeReviewRun[]
   spacedReviewRuns              LessonSpacedReviewRun[]
   userWords                     UserWord[]
@@ -262,6 +263,7 @@ model Course {
   studentCourses       StudentCourse[]
   assignments          Assignment[]
   modules              CourseModule[]
+  grammarSkills        GrammarSkill[]
   learningActivities   LearningActivity[]
   learningSessions     LearningSession[]
   commerceProducts     Product[]
@@ -443,6 +445,9 @@ model CourseModule {
   unlocksModules   CourseModule[]  @relation("CourseModuleUnlockDependency")
   /// Percentage of prerequisite lessons that must be completed to unlock this module.
   requiredCompletionPercent Int     @default(100)
+  /// Minimum score in this module's final lesson. A zero keeps legacy module
+  /// gating unchanged; grammar modules explicitly require at least 75.
+  minimumFinalLessonScore Int       @default(0)
   isPublished      Boolean          @default(false)
   contentStatus    CmsContentStatus @default(DRAFT)
   scheduledAt      DateTime?
@@ -497,8 +502,15 @@ model Lesson {
   description        String?
   // Preserved so legacy lessons retain their original category.
   type               LessonType
+  /// Curriculum role is separate from the legacy lesson activity type. Older
+  /// lessons remain STANDARD while grammar courses opt into a structured
+  /// overview, deep-dive, practice, review and final sequence.
+  curriculumRole     LessonCurriculumRole       @default(STANDARD)
   order              Int
   estimatedDuration  Int                         @default(0)
+  /// Minimum score needed to record the lesson as complete. Existing lessons
+  /// retain their current all-required-block completion rule with zero.
+  minimumCompletionScore Int                     @default(0)
   phraseOfTheDay     String?
   motivationalQuote  String?
   learningObjectives Json?
@@ -521,6 +533,7 @@ model Lesson {
   learningSessions   LearningSession[]
   assignments        Assignment[]
   grammarTopics      LessonGrammarTopic[]
+  grammarSkills      LessonGrammarSkill[]
   translations       LessonTranslation[]
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
@@ -561,6 +574,11 @@ model LessonBlock {
   title               String?
   content             Json?
   settings            Json?
+  /// Stable key connecting one teaching fragment with its practice block.
+  /// This makes the twelve-exercise requirement auditable rather than visual.
+  learningFragmentKey String?
+  isLearningFragment  Boolean              @default(false)
+  requiresTwelveExercises Boolean          @default(false)
   order               Int
   isRequired          Boolean              @default(false)
   contentStatus       CmsContentStatus     @default(DRAFT)
@@ -568,6 +586,7 @@ model LessonBlock {
   publishedAt         DateTime?
   archivedAt          DateTime?
   exercises           Exercise[]
+  grammarSkills       LessonBlockGrammarSkill[]
   homeworkSubmissions HomeworkSubmission[]
   translations        LessonBlockTranslation[]
   createdAt           DateTime             @default(now())
@@ -635,6 +654,92 @@ model GrammarRule {
 
   @@unique([grammarTopicId, order])
   @@index([grammarTopicId, title])
+}
+
+/// A course-owned, measurable outcome, for example "Present Simple: do /
+/// does". GrammarTopic remains a taxonomy; skills power validation, adaptive
+/// review and learner reporting without introducing a second course model.
+model GrammarSkill {
+  id            String       @id @default(cuid())
+  courseId      String
+  course        Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  slug          String
+  title         String
+  description   String?
+  order         Int          @default(0)
+  lessonLinks   LessonGrammarSkill[]
+  blockLinks    LessonBlockGrammarSkill[]
+  exerciseLinks ExerciseGrammarSkill[]
+  userProgress  UserGrammarSkillProgress[]
+  mistakes      UserMistake[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([courseId, slug])
+  @@unique([courseId, order])
+  @@index([courseId, order])
+}
+
+model LessonGrammarSkill {
+  id             String       @id @default(cuid())
+  lessonId       String
+  grammarSkillId String
+  lesson         Lesson       @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  grammarSkill   GrammarSkill @relation(fields: [grammarSkillId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([lessonId, grammarSkillId])
+  @@index([grammarSkillId])
+}
+
+model LessonBlockGrammarSkill {
+  id             String       @id @default(cuid())
+  lessonBlockId  String
+  grammarSkillId String
+  lessonBlock    LessonBlock  @relation(fields: [lessonBlockId], references: [id], onDelete: Cascade)
+  grammarSkill   GrammarSkill @relation(fields: [grammarSkillId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([lessonBlockId, grammarSkillId])
+  @@index([grammarSkillId])
+}
+
+model ExerciseGrammarSkill {
+  id             String       @id @default(cuid())
+  exerciseId     String
+  grammarSkillId String
+  exercise       Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  grammarSkill   GrammarSkill @relation(fields: [grammarSkillId], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@unique([exerciseId, grammarSkillId])
+  @@index([grammarSkillId])
+}
+
+/// Server-owned adaptive state derived from immutable exercise attempts. Two
+/// consecutive errors make a skill due for review; the browser never writes
+/// this state directly.
+model UserGrammarSkillProgress {
+  id                String             @id @default(cuid())
+  userId            String
+  grammarSkillId    String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grammarSkill      GrammarSkill       @relation(fields: [grammarSkillId], references: [id], onDelete: Cascade)
+  status            GrammarSkillStatus @default(LEARNING)
+  attemptCount      Int                @default(0)
+  correctCount      Int                @default(0)
+  incorrectCount    Int                @default(0)
+  consecutiveErrors Int                @default(0)
+  masteryPercent    Int                @default(0)
+  nextReviewAt      DateTime?
+  lastPracticedAt   DateTime?
+  masteredAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([userId, grammarSkillId])
+  @@index([userId, status, nextReviewAt])
+  @@index([grammarSkillId, status])
 }
 
 model Word {
@@ -808,6 +913,7 @@ model Exercise {
   mistakes           UserMistake[]
   vocabularyLinks    ExerciseVocabulary[]
   grammarLinks       ExerciseGrammarTopic[]
+  grammarSkills      ExerciseGrammarSkill[]
   learningActivities LearningActivity[]
   spacedReviewItems  LessonSpacedReviewRunItem[]
   savedTemplates     CmsExerciseTemplate[] @relation("CmsExerciseTemplateSource")
@@ -1018,6 +1124,8 @@ model UserMistake {
   exercise        Exercise? @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
   lessonId        String?
   lesson          Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  grammarSkillId  String?
+  grammarSkill    GrammarSkill? @relation(fields: [grammarSkillId], references: [id], onDelete: SetNull)
   submittedAnswer Json?
   expectedAnswer  Json?
   explanation     String?
@@ -1032,6 +1140,7 @@ model UserMistake {
 
   @@index([userId, resolvedAt, lastOccurredAt])
   @@index([exerciseId, userId])
+  @@index([userId, grammarSkillId, resolvedAt])
 }
 
 /// A secure, server-owned review queue. It records only mistakes that belong
@@ -3470,6 +3579,21 @@ enum LessonType {
   MIXED
   GRAMMAR
   VOCABULARY
+}
+
+enum LessonCurriculumRole {
+  STANDARD
+  OVERVIEW
+  DEEP_DIVE
+  PRACTICE
+  REVIEW
+  FINAL
+}
+
+enum GrammarSkillStatus {
+  LEARNING
+  REVIEW_DUE
+  MASTERED
 }
 
 enum LearningActivityType {

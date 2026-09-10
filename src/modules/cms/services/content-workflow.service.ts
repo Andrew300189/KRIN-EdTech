@@ -2,6 +2,7 @@ import { Prisma, type CmsContentEntityType, type CmsContentStatus, type CmsConte
 import { prisma } from "@/core/server/prisma";
 import { invalidatePublicContentCache } from "@/core/server/public-content-cache";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
+import { validateGrammarCourseStructure } from "@/modules/cms/validation/grammar-course-structure";
 
 export type CmsWorkflowAction = "PUBLISH" | "SUBMIT_FOR_REVIEW" | "UNPUBLISH" | "SCHEDULE" | "ARCHIVE" | "RESTORE";
 
@@ -20,6 +21,49 @@ type WorkflowRecord = {
 };
 
 type WorkflowClient = Prisma.TransactionClient;
+
+async function grammarCourseIssues(courseId: string): Promise<CmsIntegrityIssue[]> {
+  const modules = await prisma.courseModule.findMany({
+    where: { courseId },
+    orderBy: { order: "asc" },
+    select: {
+      id: true,
+      minimumFinalLessonScore: true,
+      lessons: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          curriculumRole: true,
+          minimumCompletionScore: true,
+          grammarSkills: { select: { grammarSkillId: true } },
+          blocks: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              type: true,
+              title: true,
+              content: true,
+              learningFragmentKey: true,
+              isLearningFragment: true,
+              requiresTwelveExercises: true,
+              grammarSkills: { select: { grammarSkillId: true } },
+              exercises: {
+                orderBy: { order: "asc" },
+                select: {
+                  id: true,
+                  correctAnswer: true,
+                  explanation: true,
+                  grammarSkills: { select: { grammarSkillId: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  return validateGrammarCourseStructure({ modules });
+}
 
 function isLiveOrScheduled(status: CmsContentStatus) {
   return status === "PUBLISHED" || status === "SCHEDULED";
@@ -245,6 +289,7 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
         }
       }
     }
+    issues.push(...await grammarCourseIssues(course.id));
   }
 
   if (entityType === "CURRICULUM_NODE") {
@@ -272,6 +317,7 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
       const previous = await prisma.courseModule.findFirst({ where: { courseId: courseModule.courseId, order: { lt: courseModule.order } }, orderBy: { order: "desc" }, select: { contentStatus: true } });
       if (previous && !isLiveOrScheduled(previous.contentStatus)) issues.push({ code: "SEQUENCE_NOT_READY", message: "Publish or schedule the previous module before this sequential module." });
     }
+    issues.push(...await grammarCourseIssues(courseModule.courseId));
   }
 
   if (entityType === "LESSON") {
@@ -283,13 +329,14 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
       if (lesson.prerequisiteLesson.moduleId !== lesson.moduleId || lesson.prerequisiteLesson.order >= lesson.order) issues.push({ code: "LESSON_PREREQUISITE_ORDER", message: "A lesson prerequisite must be an earlier lesson in the same module." });
       else if (!isLiveOrScheduled(lesson.prerequisiteLesson.contentStatus)) issues.push({ code: "LESSON_PREREQUISITE_NOT_READY", message: "Publish or schedule the prerequisite lesson before this lesson." });
     }
+    issues.push(...await grammarCourseIssues(lesson.module.courseId));
   }
 
   if (entityType === "LESSON_BLOCK") {
     const block = await prisma.lessonBlock.findUnique({
       where: { id: entityId },
       include: {
-        lesson: true,
+        lesson: { select: { id: true, contentStatus: true, module: { select: { courseId: true } } } },
         exercises: {
           select: {
             id: true,
@@ -312,15 +359,24 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
         issues.push({ code: "INVALID_EXERCISE_CONFIGURATION", path: `exercise:${exercise.id}`, message });
       }
     }
+    issues.push(...await grammarCourseIssues(block.lesson.module.courseId));
   }
 
   if (entityType === "EXERCISE") {
-    const exercise = await prisma.exercise.findUnique({ where: { id: entityId }, include: { lessonBlock: true } });
+    const exercise = await prisma.exercise.findUnique({
+      where: { id: entityId },
+      include: {
+        lessonBlock: {
+          include: { lesson: { select: { module: { select: { courseId: true } } } } },
+        },
+      },
+    });
     if (!exercise) return [{ code: "NOT_FOUND", message: "Exercise not found." }];
     if (!isLiveOrScheduled(exercise.lessonBlock.contentStatus)) issues.push({ code: "BLOCK_NOT_READY", message: "Publish or schedule the parent block before this exercise." });
     for (const message of validateExerciseConfiguration(exercise)) {
       issues.push({ code: "INVALID_EXERCISE_CONFIGURATION", message });
     }
+    issues.push(...await grammarCourseIssues(exercise.lessonBlock.lesson.module.courseId));
   }
 
   if (entityType === "CONTENT_SLOT") {
