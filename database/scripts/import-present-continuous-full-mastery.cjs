@@ -411,7 +411,10 @@ function buildPlan() {
         const lessonWithOrder = { ...lessonPlan, order };
         const skillSlugs = [...new Set(lessonPlan.topics.map((focus, fragmentIndex) => inferSkill(moduleIndex, focus, fragmentIndex)))];
         const fragments = lessonPlan.topics.flatMap((focus, fragmentIndex) => fragmentBlocks(lessonWithOrder, moduleIndex, focus, fragmentIndex, fragmentIndex * 2));
-        const reviewBlocks = [3, 6, 9].map((afterFragment, reviewIndex) => reviewBlock(lessonPlan, moduleIndex, afterFragment, afterFragment * 2 + reviewIndex + 1));
+        // The first twenty orders belong to theory/practice pairs. Reserve the
+        // next three unique slots for mini-reviews before mixed practice (24)
+        // and the final lesson summary (25).
+        const reviewBlocks = [3, 6, 9].map((afterFragment, reviewIndex) => reviewBlock(lessonPlan, moduleIndex, afterFragment, 21 + reviewIndex));
         const finalSkill = skillSlugs.at(-1) ?? "present-continuous-production";
         return {
           ...lessonPlan,
@@ -472,6 +475,7 @@ function validatePlan(plan) {
       assert(lessonPlan.minimumCompletionScore >= 60, `${lessonPlan.slug} needs a 60% completion threshold.`);
       const fragments = lessonPlan.blocks.filter((block) => block.isLearningFragment);
       assert(fragments.length === 10, `${lessonPlan.slug} must persist ten theory fragments.`);
+      assert(new Set(lessonPlan.blocks.map((block) => block.order)).size === lessonPlan.blocks.length, `${lessonPlan.slug} must assign a unique order to every block.`);
       for (const block of lessonPlan.blocks) {
         blockCount += 1;
         assert(block.grammarSkillSlugs?.every((slug) => skillSlugs.has(slug)), `${lessonPlan.slug} has an unknown skill link.`);

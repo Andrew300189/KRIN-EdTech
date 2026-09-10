@@ -17,6 +17,7 @@ describe("Present Continuous full-mastery course plan", () => {
       blocks: Array<{ isLearningFragment?: boolean; requiresTwelveExercises?: boolean; exercises?: Array<{ explanation?: string; skillSlug?: string }> }>;
     }>) {
       expect(lesson.blocks.filter((block) => block.isLearningFragment)).toHaveLength(10);
+      expect(new Set(lesson.blocks.map((block) => block.order)).size).toBe(lesson.blocks.length);
       for (const practice of lesson.blocks.filter((block) => block.requiresTwelveExercises)) {
         expect(practice.exercises).toHaveLength(12);
         expect(practice.exercises?.every((exercise) => Boolean(exercise.explanation?.trim()) && Boolean(exercise.skillSlug))).toBe(true);
