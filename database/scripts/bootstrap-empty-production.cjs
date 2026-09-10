@@ -29,6 +29,7 @@ const prisma = new PrismaClient({
 });
 
 const COURSE_SLUG = "verb-to-be-masterclass";
+const PRESENT_SIMPLE_COURSE_SCRIPT = "database/scripts/import-present-simple-full-mastery.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -41,10 +42,10 @@ function restoreDates(data) {
   return restored;
 }
 
-function runSeedScript(relativePath) {
+function runSeedScript(relativePath, args = []) {
   const projectRoot = path.resolve(__dirname, "../..");
   const databaseUrl = process.env.DATABASE_URL || process.env.DIRECT_DATABASE_URL;
-  const result = spawnSync(process.execPath, [path.join(projectRoot, relativePath)], {
+  const result = spawnSync(process.execPath, [path.join(projectRoot, relativePath), ...args], {
     cwd: projectRoot,
     env: {
       ...process.env,
@@ -59,6 +60,16 @@ function runSeedScript(relativePath) {
   if (result.status !== 0) {
     throw new Error(`Initial data setup failed while running ${relativePath}.`);
   }
+}
+
+function ensurePresentSimpleMasteryCourse() {
+  // Vercel injects the production database credentials during a production
+  // build. The importer first checks the stable course slug, so it creates
+  // the authored course once and is a no-op for all later deployments.
+  if (process.env.VERCEL_ENV !== "production") return;
+
+  console.log("Ensuring the authored Present Simple mastery course is available…");
+  runSeedScript(PRESENT_SIMPLE_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
@@ -158,40 +169,39 @@ async function main() {
   const before = await hasRealPlatformData();
   if (before.existingCourse) {
     console.log("Initial course already exists; production bootstrap skipped.");
-    return;
-  }
-  if (before.otherCourses || before.nonSystemUsers) {
+  } else if (before.otherCourses || before.nonSystemUsers) {
     console.log("Database already contains platform data; production bootstrap skipped to preserve it.");
-    return;
+  } else {
+    console.log("Empty database detected. Adding core platform records and the authored A1 course…");
+    runSeedScript("database/prisma/seed.cjs");
+
+    const author = await prisma.user.findUnique({
+      where: { email: SYSTEM_AUTHOR_EMAIL },
+      select: { id: true },
+    });
+    if (!author) throw new Error("The system content author was not created by the initial seed.");
+
+    await createCourseFromSnapshot(author.id);
+    await prisma.course.updateMany({
+      where: { slug: { in: DEMO_COURSE_SLUGS } },
+      data: {
+        isPublished: false,
+        isVisibleInCatalog: false,
+        isVisibleOnHomepage: false,
+        isVisibleInSearch: false,
+      },
+    });
+
+    const [modules, lessons, blocks, exercises] = await Promise.all([
+      prisma.courseModule.count({ where: { course: { slug: COURSE_SLUG } } }),
+      prisma.lesson.count({ where: { module: { course: { slug: COURSE_SLUG } } } }),
+      prisma.lessonBlock.count({ where: { lesson: { module: { course: { slug: COURSE_SLUG } } } } }),
+      prisma.exercise.count({ where: { lessonBlock: { lesson: { module: { course: { slug: COURSE_SLUG } } } } } }),
+    ]);
+    console.log(JSON.stringify({ course: COURSE_SLUG, modules, lessons, blocks, exercises }));
   }
 
-  console.log("Empty database detected. Adding core platform records and the authored A1 course…");
-  runSeedScript("database/prisma/seed.cjs");
-
-  const author = await prisma.user.findUnique({
-    where: { email: SYSTEM_AUTHOR_EMAIL },
-    select: { id: true },
-  });
-  if (!author) throw new Error("The system content author was not created by the initial seed.");
-
-  await createCourseFromSnapshot(author.id);
-  await prisma.course.updateMany({
-    where: { slug: { in: DEMO_COURSE_SLUGS } },
-    data: {
-      isPublished: false,
-      isVisibleInCatalog: false,
-      isVisibleOnHomepage: false,
-      isVisibleInSearch: false,
-    },
-  });
-
-  const [modules, lessons, blocks, exercises] = await Promise.all([
-    prisma.courseModule.count({ where: { course: { slug: COURSE_SLUG } } }),
-    prisma.lesson.count({ where: { module: { course: { slug: COURSE_SLUG } } } }),
-    prisma.lessonBlock.count({ where: { lesson: { module: { course: { slug: COURSE_SLUG } } } } }),
-    prisma.exercise.count({ where: { lessonBlock: { lesson: { module: { course: { slug: COURSE_SLUG } } } } } }),
-  ]);
-  console.log(JSON.stringify({ course: COURSE_SLUG, modules, lessons, blocks, exercises }));
+  ensurePresentSimpleMasteryCourse();
 }
 
 main()
