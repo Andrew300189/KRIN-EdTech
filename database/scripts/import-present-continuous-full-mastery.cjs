@@ -113,12 +113,12 @@ const MODULES = [
     lessons: [
       lesson("present-continuous-m4-01-overview", "1. Огляд усіх форм Present Continuous", "OVERVIEW", "Основні випадки вживання|Стверджувальна форма|Заперечна форма|Загальне питання|Спеціальне питання|Короткі відповіді|Утворення V-ing|Signal words|Типові помилки|Загальна система"),
       lesson("present-continuous-m4-02-transformations", "2. Ствердження -> заперечення -> питання", "DEEP_DIVE", "Ствердження з am|Ствердження з is|Ствердження з are|Додавання not|Скорочене заперечення|Перестановка am/is/are|Загальне питання|Спеціальне питання|Коротка відповідь|Змішані трансформації"),
-      lesson("present-continuous-m4-03-vs-simple", "3. Present Continuous і Present Simple: основна різниця", "COMPARISON", "Дія зараз|Регулярна дія|Тимчасова ситуація|Постійна ситуація|Now і every day|At the moment і usually|Різниця у формі дієслова|Вибір допоміжного дієслова|Вибір часу за змістом|Змішана практика"),
-      lesson("present-continuous-m4-04-context", "4. Present Continuous і Present Simple у контексті", "COMPARISON", "Постійна робота і дія зараз|Постійне та тимчасове проживання|Регулярне навчання і поточний проєкт|Звичка і тимчасова поведінка|Факт і поточний процес|Розклад і дія|Звичка та always з емоцією|Один контекст із двома часами|Редагування тексту|Змішана практика"),
+      lesson("present-continuous-m4-03-vs-simple", "3. Present Continuous і Present Simple: основна різниця", "DEEP_DIVE", "Дія зараз|Регулярна дія|Тимчасова ситуація|Постійна ситуація|Now і every day|At the moment і usually|Різниця у формі дієслова|Вибір допоміжного дієслова|Вибір часу за змістом|Змішана практика"),
+      lesson("present-continuous-m4-04-context", "4. Present Continuous і Present Simple у контексті", "DEEP_DIVE", "Постійна робота і дія зараз|Постійне та тимчасове проживання|Регулярне навчання і поточний проєкт|Звичка і тимчасова поведінка|Факт і поточний процес|Розклад і дія|Звичка та always з емоцією|Один контекст із двома часами|Редагування тексту|Змішана практика"),
       lesson("present-continuous-m4-05-stative", "5. Stative verbs", "DEEP_DIVE", "Що таке дієслова стану|Знання та розуміння|Думка|Бажання|Почуття|Володіння|Сприйняття|Чому не Continuous|Правильний Present Simple|Змішана практика"),
       lesson("present-continuous-m4-06-changing-meaning", "6. Дієслова, що змінюють значення", "DEEP_DIVE", "Принцип зміни значення|Think|Have|See|Look|Taste|Smell|Feel|Be|Змішана контекстна практика"),
       lesson("present-continuous-m4-07-future-arrangements", "7. Present Continuous для майбутніх домовленостей", "PRACTICE", "Майбутнє значення|Особиста домовленість|Призначена зустріч|Запланований візит|Подорож із деталями|План на вечір|Час і місце|Домовленість з іншою людиною|Не дія зараз|Діалог про плани"),
-      lesson("present-continuous-m4-08-future-forms", "8. Present Continuous, will і be going to", "COMPARISON", "Загальна ідея майбутнього|Домовленість із Present Continuous|Намір із be going to|Спонтанне рішення з will|Прогноз-мнення з will|Прогноз за ознаками з going to|Час, місце і домовленість|Вибір за контекстом|Типові помилки|Змішана практика"),
+      lesson("present-continuous-m4-08-future-forms", "8. Present Continuous, will і be going to", "DEEP_DIVE", "Загальна ідея майбутнього|Домовленість із Present Continuous|Намір із be going to|Спонтанне рішення з will|Прогноз-мнення з will|Прогноз за ознаками з going to|Час, місце і домовленість|Вибір за контекстом|Типові помилки|Змішана практика"),
       lesson("present-continuous-m4-09-integrated-skills", "9. Present Continuous у читанні, аудіюванні, письмі й мовленні", "PRACTICE", "Розпізнавання в тексті|Значення форми|Скорочення на слух|Негативні форми на слух|Відповіді за транскрипцією|Опис зображення|Телефонний діалог|Тимчасова ситуація|Плани й домовленості|Вільна усна і письмова практика"),
       lesson("present-continuous-m4-10-final", "10. Фінальний контроль Present Continuous", "FINAL", "Вибір am/is/are|Утворення V-ing|Ствердження|Заперечення|Загальні питання|Спеціальні питання|Короткі відповіді|Дія зараз і тимчасовість|Зміни, stative verbs і future arrangements|Персональне повторення слабких навичок"),
     ],
@@ -461,6 +461,7 @@ function assert(condition, message) {
 function validatePlan(plan) {
   assert(plan.modules.length === 4, "Present Continuous course must contain exactly four modules.");
   assert(plan.skills.length === 31, "Present Continuous course must define thirty-one measurable skills.");
+  const curriculumRoles = new Set(["OVERVIEW", "DEEP_DIVE", "PRACTICE", "REVIEW", "FINAL"]);
   const skillSlugs = new Set(plan.skills.map((skill) => skill.slug));
   let lessonCount = 0;
   let blockCount = 0;
@@ -471,6 +472,7 @@ function validatePlan(plan) {
     assert(modulePlan.lessons.at(-1).role === "FINAL", `${modulePlan.slug} must end with a final.`);
     for (const lessonPlan of modulePlan.lessons) {
       lessonCount += 1;
+      assert(curriculumRoles.has(lessonPlan.role), `${lessonPlan.slug} has an unsupported curriculum role.`);
       assert(lessonPlan.topics.length === 10, `${lessonPlan.slug} must have ten learning fragments.`);
       assert(lessonPlan.minimumCompletionScore >= 60, `${lessonPlan.slug} needs a 60% completion threshold.`);
       const fragments = lessonPlan.blocks.filter((block) => block.isLearningFragment);
