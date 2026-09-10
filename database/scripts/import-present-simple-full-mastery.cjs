@@ -17,7 +17,10 @@ try {
   if (error?.code !== "MODULE_NOT_FOUND") throw error;
 }
 
-const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime");
+// Vercel and the production bootstrap generate this schema-aware client. The
+// legacy runtime path can remain present locally, but does not expose newly
+// added models such as GrammarSkill.
+const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime-v2");
 
 const COURSE_SLUG = "present-simple-full-mastery";
 const LESSON_DURATION_MINUTES = 20;
