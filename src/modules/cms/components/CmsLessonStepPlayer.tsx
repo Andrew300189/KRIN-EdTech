@@ -953,9 +953,23 @@ function BlockEditorDialog({
     });
   }
 
+  function createGrammarDraftSet() {
+    if (!block) return;
+    startTransition(async () => {
+      try {
+        await api(`/api/admin/blocks/${block.id}/grammar-exercise-set`, "POST");
+        setError(null);
+        router.refresh();
+        onClose();
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "Unable to create grammar exercise drafts.");
+      }
+    });
+  }
+
   const footer = confirmRemoval
     ? <><button type="button" onClick={() => setConfirmRemoval(false)} disabled={isPending} className={styles.secondaryButton}>Keep block</button><button type="button" onClick={remove} disabled={isPending} className={styles.dangerButton}>{isPending ? "Removing…" : "Remove block"}</button></>
-    : <><button type="button" onClick={() => setConfirmRemoval(true)} disabled={isPending || autoSaveState === "saving"} className={styles.dangerButton}>Remove block</button><span className={styles.footerSpacer} /><span aria-live="polite" data-state={autoSaveState} className={styles.autoSaveStatus}>{autoSaveState === "saving" ? "Saving…" : autoSaveState === "saved" ? "Saved" : autoSaveState === "paused" ? "Auto-save paused" : "Autosaves after a short pause"}</span><button type="button" onClick={closeEditor} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending || autoSaveState === "saving"} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>;
+    : <><button type="button" onClick={() => setConfirmRemoval(true)} disabled={isPending || autoSaveState === "saving"} className={styles.dangerButton}>Remove block</button>{block?.type === "EXERCISE" && block.exercises.length === 0 ? <button type="button" onClick={createGrammarDraftSet} disabled={isPending || autoSaveState === "saving"} className={styles.secondaryButton}>Create 12 grammar drafts</button> : null}<span className={styles.footerSpacer} /><span aria-live="polite" data-state={autoSaveState} className={styles.autoSaveStatus}>{autoSaveState === "saving" ? "Saving…" : autoSaveState === "saved" ? "Saved" : autoSaveState === "paused" ? "Auto-save paused" : "Autosaves after a short pause"}</span><button type="button" onClick={closeEditor} disabled={isPending} className={styles.secondaryButton}>Cancel</button><button type="button" onClick={save} disabled={isPending || autoSaveState === "saving"} className={styles.primaryButton}>{isPending ? "Saving…" : "Save block"}</button></>;
 
   return <AppModal
     open={block !== null}
@@ -1300,7 +1314,10 @@ export function CmsLessonStepPlayer({ lessonId, blocks, onContentChanged }: { le
         openExistingTask(block.exercises[0], block.id);
         return;
       }
-      openTaskPicker(block.id);
+      // Empty practice blocks have no task panel yet. Open their settings so
+      // the author can either create the governed twelve-draft set or keep
+      // the block as a manually authored exercise container.
+      setSelectedBlock(block);
       return;
     }
     setSelectedBlock(block);

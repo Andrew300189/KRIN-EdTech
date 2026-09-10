@@ -6,6 +6,10 @@ import { validateGrammarCourseStructure } from "@/modules/cms/validation/grammar
 
 export type CmsWorkflowAction = "PUBLISH" | "SUBMIT_FOR_REVIEW" | "UNPUBLISH" | "SCHEDULE" | "ARCHIVE" | "RESTORE";
 
+function isAuthoringPlaceholder(value: unknown) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).authoringPlaceholder === true);
+}
+
 export type CmsIntegrityIssue = {
   code: string;
   message: string;
@@ -282,6 +286,9 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
             issues.push({ code: "NO_EXERCISE", path: `block:${block.id}`, message: "Every exercise block needs at least one exercise before the course can be published." });
           }
           for (const exercise of block.exercises) {
+            if (isAuthoringPlaceholder(exercise.content)) {
+              issues.push({ code: "AUTHORING_PLACEHOLDER", path: `exercise:${exercise.id}`, message: "Replace the authoring placeholder with a learner-facing task before publication." });
+            }
             for (const message of validateExerciseConfiguration(exercise)) {
               issues.push({ code: "INVALID_EXERCISE_CONFIGURATION", path: `exercise:${exercise.id}`, message });
             }
@@ -355,6 +362,9 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
     if (!isLiveOrScheduled(block.lesson.contentStatus)) issues.push({ code: "LESSON_NOT_READY", message: "Publish or schedule the parent lesson before this block." });
     if (block.type === "EXERCISE" && block.exercises.length === 0) issues.push({ code: "NO_EXERCISE", message: "An exercise block needs at least one exercise before it can be published." });
     for (const exercise of block.exercises) {
+      if (isAuthoringPlaceholder(exercise.content)) {
+        issues.push({ code: "AUTHORING_PLACEHOLDER", path: `exercise:${exercise.id}`, message: "Replace the authoring placeholder with a learner-facing task before publication." });
+      }
       for (const message of validateExerciseConfiguration(exercise)) {
         issues.push({ code: "INVALID_EXERCISE_CONFIGURATION", path: `exercise:${exercise.id}`, message });
       }
@@ -373,6 +383,7 @@ export async function validateCmsContentIntegrity(entityType: CmsContentEntityTy
     });
     if (!exercise) return [{ code: "NOT_FOUND", message: "Exercise not found." }];
     if (!isLiveOrScheduled(exercise.lessonBlock.contentStatus)) issues.push({ code: "BLOCK_NOT_READY", message: "Publish or schedule the parent block before this exercise." });
+    if (isAuthoringPlaceholder(exercise.content)) issues.push({ code: "AUTHORING_PLACEHOLDER", message: "Replace the authoring placeholder with a learner-facing task before publication." });
     for (const message of validateExerciseConfiguration(exercise)) {
       issues.push({ code: "INVALID_EXERCISE_CONFIGURATION", message });
     }
