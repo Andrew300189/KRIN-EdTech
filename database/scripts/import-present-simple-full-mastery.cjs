@@ -328,10 +328,16 @@ function validatePlan(plan) {
   return { modules: plan.modules.length, lessons: lessonCount, blocks: blockCount, exercises: exerciseCount, skills: plan.skills.length };
 }
 
-function lifecycle(publish) {
+function contentLifecycle(publish) {
   return publish
-    ? { isPublished: true, contentStatus: "PUBLISHED", publishedAt: new Date() }
-    : { isPublished: false, contentStatus: "DRAFT", publishedAt: null };
+    ? { contentStatus: "PUBLISHED", publishedAt: new Date() }
+    : { contentStatus: "DRAFT", publishedAt: null };
+}
+
+function publishableLifecycle(publish) {
+  return publish
+    ? { isPublished: true, ...contentLifecycle(true) }
+    : { isPublished: false, ...contentLifecycle(false) };
 }
 
 async function importCourse(plan, publish) {
@@ -354,7 +360,11 @@ async function importCourse(plan, publish) {
       throw new Error("Publish the A1 level and General English category before publishing this course.");
     }
 
-    const state = lifecycle(publish);
+    // Courses, modules and lessons expose an isPublished flag. Blocks and
+    // exercises deliberately use only CMS lifecycle fields, so keep the
+    // payloads schema-specific instead of sharing an invalid superset.
+    const publishableState = publishableLifecycle(publish);
+    const contentState = contentLifecycle(publish);
     const course = await prisma.$transaction(async (tx) => {
       const createdCourse = await tx.course.create({
         data: {
@@ -383,7 +393,7 @@ async function importCourse(plan, publish) {
           updatedById: author.id,
           learningOutcomes: plan.course.learningOutcomes,
           prerequisites: plan.course.prerequisites,
-          ...state,
+          ...publishableState,
         },
       });
       await tx.grammarSkill.createMany({ data: plan.skills.map((skill) => ({ ...skill, courseId: createdCourse.id })) });
@@ -403,7 +413,7 @@ async function importCourse(plan, publish) {
             unlockAfterModuleId: previousModuleId,
             requiredCompletionPercent: 100,
             minimumFinalLessonScore: 75,
-            ...state,
+            ...publishableState,
           },
         });
         let previousLessonId = null;
@@ -427,7 +437,7 @@ async function importCourse(plan, publish) {
               previewText: lessonPlan.previewText,
               isFree: true,
               grammarSkills: { create: lessonSkillIds.map((grammarSkillId) => ({ grammarSkillId })) },
-              ...state,
+              ...publishableState,
             },
           });
           for (const blockPlan of lessonPlan.blocks) {
@@ -445,7 +455,7 @@ async function importCourse(plan, publish) {
                 order: blockPlan.order,
                 isRequired: true,
                 grammarSkills: { create: blockSkillIds.map((grammarSkillId) => ({ grammarSkillId })) },
-                ...state,
+                ...contentState,
               },
             });
             for (const [exerciseIndex, exercisePlan] of (blockPlan.exercises ?? []).entries()) {
@@ -471,7 +481,7 @@ async function importCourse(plan, publish) {
                   allowExtraExercise: true,
                   order: exerciseIndex + 1,
                   grammarSkills: { create: { grammarSkillId } },
-                  ...state,
+                  ...contentState,
                 },
               });
             }
