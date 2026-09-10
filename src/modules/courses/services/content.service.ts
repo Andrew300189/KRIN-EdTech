@@ -28,6 +28,7 @@ import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { calculateUserLevel, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { consumeLearningBonusCredit } from "@/modules/motivation/services/learning-bonus.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
+import { recordGrammarSkillAttempt } from "@/modules/grammar/services/grammar-skill-progress.service";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
 import { validateExerciseConfiguration } from "@/modules/cms/exercise-engines/configuration";
 import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow.service";
@@ -1602,6 +1603,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
     const exercise = await tx.exercise.findUnique({
       where: { id: exerciseId },
       include: {
+        grammarSkills: { select: { grammarSkillId: true } },
         lessonBlock: {
           select: {
             lessonId: true,
@@ -1686,6 +1688,8 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       select: { id: true, attemptNumber: true, createdAt: true },
     });
 
+    const grammarSkillIds = exercise.grammarSkills.map((link) => link.grammarSkillId);
+    const primaryGrammarSkillId = grammarSkillIds[0] ?? null;
     if (!isCorrect) {
       const existingMistake = await tx.userMistake.findFirst({
         where: { userId, exerciseId, resolvedAt: null },
@@ -1700,6 +1704,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
             mistakeType: mistakeTypeForExercise(exercise.type),
+            grammarSkillId: primaryGrammarSkillId,
             occurrenceCount: { increment: 1 },
             lastOccurredAt: new Date(),
           },
@@ -1714,6 +1719,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
             expectedAnswer: toPrismaJson(exercise.correctAnswer as JsonValue),
             explanation: exercise.explanation,
             mistakeType: mistakeTypeForExercise(exercise.type),
+            grammarSkillId: primaryGrammarSkillId,
           },
         });
       }
@@ -1758,6 +1764,12 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       },
     });
 
+    const grammarSkillProgress = await recordGrammarSkillAttempt(tx, {
+      userId,
+      grammarSkillIds,
+      isCorrect,
+    });
+
     // XP belongs only to a correct first attempt. If an earlier deployment
     // failed to credit an otherwise eligible answer, the immutable XP ledger
     // will still let a later retry repair that missing credit exactly once.
@@ -1786,6 +1798,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       hint: localizedHint,
       feedback: exercise.allowInstantCheck ? localizedFeedback : null,
       solution: { available: !isCorrect, cost: EXERCISE_SOLUTION_XP_COST, opened: openedEarlierSolution },
+      grammarSkillProgress,
       motivationReward,
       openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
     };
@@ -2115,6 +2128,11 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
   const access = await canAccessLesson(userId, lessonId);
   if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
   const saved = await prisma.$transaction(async (tx) => {
+    const lessonSettings = await tx.lesson.findUnique({
+      where: { id: lessonId },
+      select: { id: true, minimumCompletionScore: true },
+    });
+    if (!lessonSettings) throw new Error("Lesson not found");
     const blocks = await tx.lessonBlock.findMany({
       // The learner only receives published blocks. Counting drafts here made
       // a fully completed visible lesson persist as 75% when three hidden
@@ -2122,10 +2140,6 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       where: { lessonId, contentStatus: "PUBLISHED" },
       select: { id: true, type: true, settings: true, isRequired: true, exercises: { select: { id: true } } },
     });
-    if (blocks.length === 0) {
-      const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { id: true } });
-      if (!lesson) throw new Error("Lesson not found");
-    }
     const allowed = new Set(blocks.map((block) => block.id));
     if (value.completedBlockIds.some((blockId) => !allowed.has(blockId))) {
       throw new Error("A completed block does not belong to this lesson");
@@ -2178,16 +2192,22 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     // optional final “Finish” click remains supported, but access no longer
     // depends on a fragile client-side timing window.
     const completionRequested = value.complete || (requiredBlocks.length > 0 && allRequiredBlocksComplete);
-    const completedNow = completionRequested && allRequiredBlocksComplete;
+    const meetsScoreRequirement = result.completionPercent >= lessonSettings.minimumCompletionScore;
+    const completedNow = completionRequested && allRequiredBlocksComplete && meetsScoreRequirement;
     // A learner may reopen a finished lesson for practice. That new attempt
     // must never turn the historical completion back into STARTED.
-    const status = resolveLessonProgressStatus(wasCompleted ? "COMPLETED" : previousProgress?.status, completionRequested, allRequiredBlocksComplete);
+    const status = resolveLessonProgressStatus(wasCompleted ? "COMPLETED" : previousProgress?.status, completionRequested, allRequiredBlocksComplete && meetsScoreRequirement);
     const persistedCompletedBlockIds = [...completedBlockIds];
+    const structuralCompletionPercent = blocks.length === 0
+      ? 0
+      : Math.round((completedBlockIds.size / blocks.length) * 100);
     const completionPercent = status === "COMPLETED"
       ? 100
-      : blocks.length === 0
-        ? 0
-        : Math.round((completedBlockIds.size / blocks.length) * 100);
+      // isLessonProgressComplete deliberately treats 100 as terminal for
+      // legacy records, so an unmet minimum score must remain below it.
+      : allRequiredBlocksComplete && !meetsScoreRequirement
+        ? Math.min(99, structuralCompletionPercent)
+        : structuralCompletionPercent;
     const progress = await tx.lessonProgress.upsert({
       where: { userId_lessonId: { userId, lessonId } },
       create: {
@@ -2230,7 +2250,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { module: { select: { courseId: true } } } });
       if (lesson) motivationReward = await recordLessonCompletion(tx, userId, lessonId, lesson.module.courseId, true);
     }
-    return { ...progress, motivationReward, firstCompletion: completedNow && !wasCompleted };
+    return { ...progress, minimumCompletionScore: lessonSettings.minimumCompletionScore, scoreRequirementMet: meetsScoreRequirement, motivationReward, firstCompletion: completedNow && !wasCompleted };
   });
   if (saved.firstCompletion) {
     try {

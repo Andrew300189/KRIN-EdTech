@@ -41,10 +41,11 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
           requiresSequentialCompletion: true,
           unlockAfterModuleId: true,
           requiredCompletionPercent: true,
+          minimumFinalLessonScore: true,
           lessons: {
             where: { isPublished: true },
             orderBy: { order: "asc" },
-            select: { id: true, isFree: true, prerequisiteLessonId: true, requiredPrerequisiteCompletion: true },
+            select: { id: true, isFree: true, prerequisiteLessonId: true, requiredPrerequisiteCompletion: true, curriculumRole: true },
           },
         },
       },
@@ -56,7 +57,7 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
   const [user, entitlements, progress] = await Promise.all([
     userId ? prisma.user.findUnique({ where: { id: userId }, select: { role: true, subscriptionPlan: true, subscriptionStatus: true, subscriptionCurrentPeriodEnd: true } }) : null,
     userId ? listActiveLessonEntitlements(userId, course.id) : [],
-    userId ? prisma.lessonProgress.findMany({ where: { userId, lessonId: { in: lessonIds } }, select: { lessonId: true, status: true, completionPercent: true } }) : [],
+    userId ? prisma.lessonProgress.findMany({ where: { userId, lessonId: { in: lessonIds } }, select: { lessonId: true, status: true, completionPercent: true, grade: true } }) : [],
   ]);
   const progressByLesson = new Map(progress.map((item) => [item.lessonId, item]));
   const orderedLessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
@@ -68,7 +69,8 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
     const prerequisiteModulesComplete = prerequisites.every((requiredModule) => {
       if (!requiredModule.lessons.length) return false;
       const completed = requiredModule.lessons.filter((lesson) => isLessonProgressComplete(progressByLesson.get(lesson.id))).length;
-      return Math.round((completed / requiredModule.lessons.length) * 100) >= courseModule.requiredCompletionPercent;
+      return Math.round((completed / requiredModule.lessons.length) * 100) >= courseModule.requiredCompletionPercent
+        && meetsModuleFinalScoreRequirement(requiredModule, progressByLesson);
     });
 
     for (const lesson of courseModule.lessons) {
@@ -97,7 +99,13 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
   return results;
 }
 
-type PublishedCourseModule = { id: string; order: number; lessons: Array<{ id: string }> };
+type ProgressForModuleGate = { status: string; completionPercent: number; grade: number | null };
+type PublishedCourseModule = {
+  id: string;
+  order: number;
+  minimumFinalLessonScore: number;
+  lessons: Array<{ id: string; curriculumRole: string }>;
+};
 
 function modulePrerequisites(module: { id: string; order: number; requiresSequentialCompletion: boolean; unlockAfterModuleId: string | null }, modules: PublishedCourseModule[]) {
   const prerequisites = new Map<string, PublishedCourseModule>();
@@ -112,18 +120,34 @@ function modulePrerequisites(module: { id: string; order: number; requiresSequen
   return [...prerequisites.values()];
 }
 
+function minimumGradeForScore(score: number) {
+  if (score >= 90) return 5;
+  if (score >= 75) return 4;
+  if (score >= 60) return 3;
+  return 2;
+}
+
+function meetsModuleFinalScoreRequirement(module: PublishedCourseModule, progressByLesson: ReadonlyMap<string, ProgressForModuleGate>) {
+  if (module.minimumFinalLessonScore <= 0) return true;
+  const finalLesson = module.lessons.find((lesson) => lesson.curriculumRole === "FINAL") ?? module.lessons.at(-1);
+  if (!finalLesson) return false;
+  const progress = progressByLesson.get(finalLesson.id);
+  return Boolean(progress && isLessonProgressComplete(progress) && (progress.grade ?? 0) >= minimumGradeForScore(module.minimumFinalLessonScore));
+}
+
 async function meetsModuleCompletionRequirement(userId: string, prerequisites: PublishedCourseModule[], requiredCompletionPercent: number) {
   const prerequisiteLessonIds = prerequisites.flatMap((module) => module.lessons.map((lesson) => lesson.id));
   if (prerequisiteLessonIds.length === 0) return false;
   const progress = await prisma.lessonProgress.findMany({
     where: { userId, lessonId: { in: prerequisiteLessonIds } },
-    select: { lessonId: true, status: true, completionPercent: true },
+    select: { lessonId: true, status: true, completionPercent: true, grade: true },
   });
+  const progressByLesson = new Map(progress.map((item) => [item.lessonId, item]));
   const completed = new Set(progress.filter(isLessonProgressComplete).map((item) => item.lessonId));
   return prerequisites.every((module) => {
     if (module.lessons.length === 0) return false;
     const percentage = Math.round((module.lessons.filter((lesson) => completed.has(lesson.id)).length / module.lessons.length) * 100);
-    return percentage >= requiredCompletionPercent;
+    return percentage >= requiredCompletionPercent && meetsModuleFinalScoreRequirement(module, progressByLesson);
   });
 }
 
@@ -144,6 +168,7 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
           requiresSequentialCompletion: true,
           unlockAfterModuleId: true,
           requiredCompletionPercent: true,
+          minimumFinalLessonScore: true,
           course: {
             select: {
               id: true,
@@ -154,7 +179,7 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
               accessPlan: true,
               firstFreeLessonCount: true,
               level: { select: { isPublished: true } },
-              modules: { where: { isPublished: true }, orderBy: { order: "asc" }, select: { id: true, order: true, lessons: { where: { isPublished: true }, orderBy: { order: "asc" }, select: { id: true } } } },
+              modules: { where: { isPublished: true }, orderBy: { order: "asc" }, select: { id: true, order: true, minimumFinalLessonScore: true, lessons: { where: { isPublished: true }, orderBy: { order: "asc" }, select: { id: true, curriculumRole: true } } } },
             },
           },
         },
