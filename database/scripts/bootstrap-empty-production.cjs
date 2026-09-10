@@ -31,6 +31,7 @@ const prisma = new PrismaClient({
 const COURSE_SLUG = "verb-to-be-masterclass";
 const PRESENT_SIMPLE_COURSE_SCRIPT = "database/scripts/import-present-simple-full-mastery.cjs";
 const PAST_SIMPLE_COURSE_SCRIPT = "database/scripts/import-past-simple-full-mastery.cjs";
+const PRESENT_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-present-continuous-full-mastery.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -73,6 +74,8 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(PRESENT_SIMPLE_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored Past Simple mastery course is available…");
   runSeedScript(PAST_SIMPLE_COURSE_SCRIPT, ["--publish"]);
+  console.log("Ensuring the authored Present Continuous mastery course is available…");
+  runSeedScript(PRESENT_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
@@ -99,32 +102,32 @@ async function createCourseFromSnapshot(authorId) {
     });
 
     const moduleIds = new Map();
-    for (const module of courseSnapshot.modules) {
+    for (const moduleSnapshot of courseSnapshot.modules) {
       const createdModule = await tx.courseModule.create({
         data: {
-          ...restoreDates(module.data),
+          ...restoreDates(moduleSnapshot.data),
           courseId: course.id,
           unlockAfterModuleId: null,
         },
       });
-      moduleIds.set(module.data.order, createdModule.id);
+      moduleIds.set(moduleSnapshot.data.order, createdModule.id);
     }
 
-    for (const module of courseSnapshot.modules) {
-      if (!module.unlockAfterModuleOrder) continue;
+    for (const moduleSnapshot of courseSnapshot.modules) {
+      if (!moduleSnapshot.unlockAfterModuleOrder) continue;
       await tx.courseModule.update({
-        where: { id: moduleIds.get(module.data.order) },
-        data: { unlockAfterModuleId: moduleIds.get(module.unlockAfterModuleOrder) ?? null },
+        where: { id: moduleIds.get(moduleSnapshot.data.order) },
+        data: { unlockAfterModuleId: moduleIds.get(moduleSnapshot.unlockAfterModuleOrder) ?? null },
       });
     }
 
     const lessonIds = new Map();
-    for (const module of courseSnapshot.modules) {
-      for (const lesson of module.lessons) {
+    for (const moduleSnapshot of courseSnapshot.modules) {
+      for (const lesson of moduleSnapshot.lessons) {
         const createdLesson = await tx.lesson.create({
           data: {
             ...restoreDates(lesson.data),
-            moduleId: moduleIds.get(module.data.order),
+            moduleId: moduleIds.get(moduleSnapshot.data.order),
             prerequisiteLessonId: null,
           },
         });
@@ -132,8 +135,8 @@ async function createCourseFromSnapshot(authorId) {
       }
     }
 
-    for (const module of courseSnapshot.modules) {
-      for (const lesson of module.lessons) {
+    for (const moduleSnapshot of courseSnapshot.modules) {
+      for (const lesson of moduleSnapshot.lessons) {
         const lessonId = lessonIds.get(lesson.data.slug);
         if (lesson.prerequisiteLessonSlug) {
           await tx.lesson.update({
