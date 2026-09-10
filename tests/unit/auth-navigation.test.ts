@@ -20,6 +20,7 @@ const activeUser = {
   passwordHash: "hash",
   isBlocked: false,
   deletedAt: null,
+  emailVerified: true,
 };
 
 describe("authentication navigation", () => {

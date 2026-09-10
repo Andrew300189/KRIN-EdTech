@@ -101,6 +101,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const rememberMe =
+    Boolean(body) &&
+    typeof body === "object" &&
+    (body as { rememberMe?: unknown }).rememberMe === true;
+
   const emailVerificationRequired = requiresEmailVerification();
 
   if (emailVerificationRequired && !isTransactionalEmailConfigured()) {
@@ -190,7 +195,10 @@ export async function POST(request: NextRequest) {
             emailVerificationExpiresAt: null,
           },
         });
-        await createSession(emailOwner.id, { headers: request.headers });
+        await createSession(emailOwner.id, {
+          headers: request.headers,
+          rememberMe,
+        });
 
         return NextResponse.json({
           success: true,
@@ -289,7 +297,7 @@ export async function POST(request: NextRequest) {
         verification.tokenHash,
       );
     } else {
-      await createSession(user.id, { headers: request.headers });
+      await createSession(user.id, { headers: request.headers, rememberMe });
     }
 
     void recordFunnelEvent({

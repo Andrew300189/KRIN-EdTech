@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     logAuthDiagnostic({ event: "auth_provider", provider: "credentials" });
     const body = await request.json();
+    const rememberMe = body?.rememberMe === true;
     const result = await authorizeCredentials(body ?? {}, {
       findByEmail: (email) =>
         prisma.user.findUnique({
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
             : {}),
         },
       }),
-      createSession(user.id, { headers: request.headers }),
+      createSession(user.id, { headers: request.headers, rememberMe }),
     ]);
 
     const destination = getPostLoginPath(

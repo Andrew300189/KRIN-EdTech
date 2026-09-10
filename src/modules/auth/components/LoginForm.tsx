@@ -49,6 +49,7 @@ export function LoginForm({
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorId, setErrorId] = useState("");
@@ -96,6 +97,7 @@ export function LoginForm({
           email: identifierValue,
           password,
           next: safeNextPath,
+          rememberMe,
         }),
       });
       const payload = await response.json().catch(() => null);
@@ -287,6 +289,20 @@ export function LoginForm({
           </button>
         </div>
       </div>
+      <label className={styles.rememberMe}>
+        <input
+          id="login-remember-me"
+          name="rememberMe"
+          type="checkbox"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+          disabled={loading}
+        />
+        <span>
+          <strong>Keep me signed in</strong>
+          <small>Use this only on a personal device.</small>
+        </span>
+      </label>
       <button
         type="submit"
         className="btn w-full rounded-full bg-primary py-3 font-semibold text-white hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"

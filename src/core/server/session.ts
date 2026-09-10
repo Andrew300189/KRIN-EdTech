@@ -6,6 +6,7 @@ import { normalizeEmail } from "@/core/server/platform-owner";
 import { touchUserPresence } from "@/core/server/presence";
 import { prisma } from "@/core/server/prisma";
 import { SESSION_CONFIG } from "@/core/constants/session";
+import { getSessionCookieMaxAge } from "@/core/utils/session-persistence";
 
 const SESSION_COOKIE = SESSION_CONFIG.COOKIE_NAME;
 const SESSION_TTL_SECONDS = SESSION_CONFIG.ABSOLUTE_TTL_SECONDS;
@@ -145,7 +146,7 @@ async function getNextAuthValidatedSession(
 
 export async function createSession(
   userId: string,
-  context?: { headers?: Headers },
+  context?: { headers?: Headers; rememberMe?: boolean },
 ) {
   // Password login must replace an earlier OAuth session for this browser.
   await clearNextAuthCookies();
@@ -217,13 +218,22 @@ export async function createSession(
   const token = `${payloadBase64}.${signature}`;
 
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, token, {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_SECONDS,
-  });
+  } as const;
+  const cookieMaxAge = getSessionCookieMaxAge(context?.rememberMe);
+
+  // A browser-session cookie is intentionally omitted from storage when the
+  // learner opts out of "Remember me". The signed token and the server-side
+  // Session record still retain their normal expiry safeguards.
+  if (cookieMaxAge === undefined) {
+    jar.set(SESSION_COOKIE, token, cookieOptions);
+  } else {
+    jar.set(SESSION_COOKIE, token, { ...cookieOptions, maxAge: cookieMaxAge });
+  }
 }
 
 export async function clearLegacySession() {

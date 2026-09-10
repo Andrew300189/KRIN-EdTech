@@ -10,6 +10,38 @@
 .registrationSubmit {
   margin-top: 0.15rem;
 }
+.rememberMe {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: -0.1rem 0 0.05rem;
+  color: #334155;
+  cursor: pointer;
+}
+.rememberMe input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.14rem 0 0;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+.rememberMe input:disabled {
+  cursor: not-allowed;
+}
+.rememberMe span {
+  display: grid;
+  gap: 0.08rem;
+  line-height: 1.25;
+}
+.rememberMe strong {
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.rememberMe small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
 .registrationForm .googleButton {
   margin-top: 0.05rem;
 }
@@ -201,6 +233,9 @@
   color: var(--text-primary);
   -webkit-text-fill-color: var(--text-primary);
   background: var(--surface-secondary);
+}
+:global(html[data-theme="dark"]) .rememberMe strong {
+  color: var(--text-primary);
 }
 :global(html[data-theme="dark"]) .registrationField :global(.form-control)::placeholder {
   color: var(--text-secondary);
