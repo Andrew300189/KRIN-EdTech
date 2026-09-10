@@ -30,6 +30,7 @@ const prisma = new PrismaClient({
 
 const COURSE_SLUG = "verb-to-be-masterclass";
 const PRESENT_SIMPLE_COURSE_SCRIPT = "database/scripts/import-present-simple-full-mastery.cjs";
+const PAST_SIMPLE_COURSE_SCRIPT = "database/scripts/import-past-simple-full-mastery.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -62,7 +63,7 @@ function runSeedScript(relativePath, args = []) {
   }
 }
 
-function ensurePresentSimpleMasteryCourse() {
+function ensureAuthoredMasteryCourses() {
   // Vercel injects the production database credentials during a production
   // build. The importer first checks the stable course slug, so it creates
   // the authored course once and is a no-op for all later deployments.
@@ -70,6 +71,8 @@ function ensurePresentSimpleMasteryCourse() {
 
   console.log("Ensuring the authored Present Simple mastery course is available…");
   runSeedScript(PRESENT_SIMPLE_COURSE_SCRIPT, ["--publish"]);
+  console.log("Ensuring the authored Past Simple mastery course is available…");
+  runSeedScript(PAST_SIMPLE_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
@@ -201,7 +204,7 @@ async function main() {
     console.log(JSON.stringify({ course: COURSE_SLUG, modules, lessons, blocks, exercises }));
   }
 
-  ensurePresentSimpleMasteryCourse();
+  ensureAuthoredMasteryCourses();
 }
 
 main()
