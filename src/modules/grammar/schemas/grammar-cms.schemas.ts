@@ -17,3 +17,13 @@ export const exerciseLearningLinksSchema = z.object({
   grammarTopicIds: z.array(z.string().cuid()).max(50).default([]),
   wordIds: z.array(z.string().cuid()).max(100).default([]),
 });
+
+const grammarSkillSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const grammarSkillSchema = z.object({
+  title: z.string().trim().min(2).max(180),
+  slug: z.string().trim().regex(grammarSkillSlugPattern).max(160).optional(),
+  description: z.string().trim().max(2000).optional(),
+});
+
+export const grammarSkillUpdateSchema = grammarSkillSchema.partial().refine((value) => Object.keys(value).length > 0, "At least one grammar skill field is required.");

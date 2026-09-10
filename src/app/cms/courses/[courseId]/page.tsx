@@ -12,17 +12,20 @@ import { getManagedCourse } from "@/modules/courses/services/content.service";
 import { getCmsCourseDeletionImpact, getCmsCourseRelations } from "@/modules/cms/services/course-operations.service";
 import { getCourseDurationEstimate } from "@/modules/cms/services/course-duration.service";
 import { listCourseTranslationSummaries } from "@/modules/cms/services/course-localization.service";
+import { CmsCourseGrammarSkillsManager } from "@/modules/grammar/components/CmsCourseGrammarSkillsManager";
+import { listCourseGrammarSkills } from "@/modules/grammar/services/grammar-cms.service";
 import styles from "./CourseEditor.module.css";
 
 export default async function CmsCoursePage({ params }: { params: Promise<{ courseId: string }> }) {
   const course = await getManagedCourse((await params).courseId);
   if (!course) notFound();
-  const [relations, deletionImpact, revisions, duration, translationSummary] = await Promise.all([
+  const [relations, deletionImpact, revisions, duration, translationSummary, grammarSkills] = await Promise.all([
     getCmsCourseRelations(course.id),
     getCmsCourseDeletionImpact(course.id),
     prisma.cmsContentVersion.findMany({ where: { entityType: "COURSE", entityId: course.id }, orderBy: { version: "desc" }, take: 30, include: { actor: { select: { name: true, email: true } } } }),
     getCourseDurationEstimate(course.id),
     listCourseTranslationSummaries(course.id),
+    listCourseGrammarSkills(course.id),
   ]);
   const statusDescription = course.contentStatus === "PUBLISHED" ? "Available to eligible learners" : course.contentStatus === "SCHEDULED" ? "Waiting for its scheduled publication time" : "Not currently available to learners";
   const levelClass = styles[`level${course.level.code}`] ?? styles.levelDefault;
@@ -43,5 +46,6 @@ export default async function CmsCoursePage({ params }: { params: Promise<{ cour
       </div>
     </section>
     <CmsCourseDetailsEditor course={{ id: course.id, title: course.title, shortDescription: course.shortDescription, fullDescription: course.fullDescription, coverImage: course.coverImage, duration, modules: course.modules.map((courseModule) => ({ id: courseModule.id, title: courseModule.title, order: courseModule.order, lessons: courseModule.lessons.map((lesson) => ({ id: lesson.id, title: lesson.title, order: lesson.order })) })) }} />
+    <CmsCourseGrammarSkillsManager courseId={course.id} initial={grammarSkills} />
   </CmsPageShell>;
 }
