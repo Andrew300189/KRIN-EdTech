@@ -2108,16 +2108,23 @@ export async function purchaseExerciseHint(
 export async function getExtraPracticeExercise(userId: string, exerciseId: string) {
   const source = await prisma.exercise.findUnique({
     where: { id: exerciseId },
-    select: { id: true, isGeneratedReview: true, allowExtraExercise: true, lessonBlockId: true, lessonBlock: { select: { lessonId: true } } },
+    select: { id: true, isGeneratedReview: true, allowExtraExercise: true, lessonBlockId: true, grammarSkills: { select: { grammarSkillId: true } }, lessonBlock: { select: { lessonId: true } } },
   });
   if (!source || source.isGeneratedReview || !source.allowExtraExercise) throw new Error("Extra practice is not available for this exercise.");
   const access = await canAccessLesson(userId, source.lessonBlock.lessonId);
   if (!access.allowed) throw new Error("You cannot access this lesson.");
   const hasAttempt = await prisma.exerciseAttempt.findFirst({ where: { userId, exerciseId }, select: { id: true } });
   if (!hasAttempt) throw new Error("Answer this exercise before requesting extra practice.");
+  const grammarSkillIds = source.grammarSkills.map((link) => link.grammarSkillId);
 
   return prisma.exercise.findFirst({
-    where: { id: { not: exerciseId }, lessonBlockId: source.lessonBlockId, contentStatus: "PUBLISHED", attempts: { none: { userId } } },
+    where: {
+      id: { not: exerciseId },
+      lessonBlock: { lessonId: source.lessonBlock.lessonId },
+      contentStatus: "PUBLISHED",
+      attempts: { none: { userId } },
+      ...(grammarSkillIds.length ? { grammarSkills: { some: { grammarSkillId: { in: grammarSkillIds } } } } : { lessonBlockId: source.lessonBlockId }),
+    },
     orderBy: [{ difficulty: "asc" }, { order: "asc" }],
     select: { id: true, type: true, engineKey: true, variantKey: true, instruction: true, question: true, content: true, explanation: true, hint: true, hintsEnabled: true, difficulty: true, basePoints: true, timeLimitSeconds: true, solutionCost: true, allowInstantCheck: true, allowExtraExercise: true },
   });
