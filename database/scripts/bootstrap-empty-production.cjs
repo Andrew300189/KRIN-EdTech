@@ -34,6 +34,7 @@ const PAST_SIMPLE_COURSE_SCRIPT = "database/scripts/import-past-simple-full-mast
 const PRESENT_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-present-continuous-full-mastery.cjs";
 const PAST_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-past-continuous-full-mastery.cjs";
 const FUTURE_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-future-continuous-full-mastery.cjs";
+const FUTURE_SIMPLE_COURSE_SCRIPT = "database/scripts/import-future-simple-full-mastery.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -82,6 +83,8 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(PAST_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored Future Continuous mastery course is available…");
   runSeedScript(FUTURE_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
+  console.log("Ensuring the authored Future Simple mastery course is available…");
+  runSeedScript(FUTURE_SIMPLE_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
