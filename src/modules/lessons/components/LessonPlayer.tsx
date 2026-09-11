@@ -237,7 +237,7 @@ const lessonFeedbackCopy = {
 const lessonChromeCopy = {
   en: {
     previousStep: "Previous step", nextStep: "Next step", finishLesson: "Finish lesson", finish: "Finish",
-    saveAndExit: "Save & exit", backToCourse: "Back to course", preview: "Preview", active: "Active",
+    saveAndExit: "Save & exit", save: "Save", backToCourse: "Back to course", courseContents: "Contents", preview: "Preview", active: "Active",
     minutes: "min", selfPaced: "Self-paced", score: "Score", theoryForStep: "Theory for this step",
     theoryDescription: "Use this explanation while you practise", showTheory: "Show theory", hideTheory: "Hide theory",
     requiredStep: "Required step", noStepsTitle: "No lesson steps yet", noStepsDescription: "Add content blocks in the lesson editor to build the learner flow.",
@@ -245,7 +245,7 @@ const lessonChromeCopy = {
   },
   ru: {
     previousStep: "Предыдущий шаг", nextStep: "Следующий шаг", finishLesson: "Завершить урок", finish: "Готово",
-    saveAndExit: "Сохранить и выйти", backToCourse: "К содержанию курса", preview: "Предпросмотр", active: "Время",
+    saveAndExit: "Сохранить и выйти", save: "Сохранить", backToCourse: "К содержанию курса", courseContents: "Содержание", preview: "Предпросмотр", active: "Время",
     minutes: "мин", selfPaced: "В своём темпе", score: "Баллы", theoryForStep: "Теория к этому шагу",
     theoryDescription: "Используйте это объяснение во время практики", showTheory: "Показать теорию", hideTheory: "Скрыть теорию",
     requiredStep: "Обязательный шаг", noStepsTitle: "В уроке пока нет шагов", noStepsDescription: "Добавьте блоки в редакторе урока, чтобы собрать учебный путь.",
@@ -253,7 +253,7 @@ const lessonChromeCopy = {
   },
   uk: {
     previousStep: "Попередній крок", nextStep: "Наступний крок", finishLesson: "Завершити урок", finish: "Готово",
-    saveAndExit: "Зберегти й вийти", backToCourse: "До змісту курсу", preview: "Попередній перегляд", active: "Час",
+    saveAndExit: "Зберегти й вийти", save: "Зберегти", backToCourse: "До змісту курсу", courseContents: "Зміст", preview: "Попередній перегляд", active: "Час",
     minutes: "хв", selfPaced: "У своєму темпі", score: "Бали", theoryForStep: "Теорія до цього кроку",
     theoryDescription: "Користуйтеся цим поясненням під час практики", showTheory: "Показати теорію", hideTheory: "Сховати теорію",
     requiredStep: "Обов’язковий крок", noStepsTitle: "В уроці ще немає кроків", noStepsDescription: "Додайте блоки в редакторі уроку, щоб побудувати навчальний шлях.",
@@ -862,8 +862,14 @@ export function LessonPlayer({
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
-            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label={chromeCopy.saveAndExit}>{chromeCopy.saveAndExit}</button>
-            {!previewMode ? <button type="button" className={styles.backToCourseLink} onClick={() => void openCourseContent()} aria-label={chromeCopy.backToCourse}>{chromeCopy.backToCourse}</button> : null}
+            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label={chromeCopy.saveAndExit} title={chromeCopy.saveAndExit}>
+              <span className={styles.headerActionIcon} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 5h6v14h-6M10 17l5-5-5-5M15 12H3" /></svg></span>
+              <span>{chromeCopy.save}</span>
+            </button>
+            {!previewMode ? <button type="button" className={styles.backToCourseLink} onClick={() => void openCourseContent()} aria-label={chromeCopy.backToCourse} title={chromeCopy.backToCourse}>
+              <span className={styles.headerActionIcon} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14" /></svg></span>
+              <span>{chromeCopy.courseContents}</span>
+            </button> : null}
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>

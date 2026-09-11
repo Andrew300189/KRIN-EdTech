@@ -1968,3 +1968,44 @@
     min-height: 0;
   }
 }
+
+/* Compact header controls keep the lesson chrome focused while preserving
+   clear text labels and full accessible action names. */
+.headerNavigation {
+  gap: .28rem;
+}
+
+.headerNavigation .closeLink,
+.headerNavigation .backToCourseLink {
+  min-height: 2rem;
+  gap: .32rem;
+  padding: .38rem .52rem;
+  font-size: .68rem;
+}
+
+.headerActionIcon {
+  display: inline-grid;
+  width: .8rem;
+  height: .8rem;
+  flex: 0 0 .8rem;
+  place-items: center;
+}
+
+.headerActionIcon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+@media (max-width: 650px) {
+  .headerNavigation .closeLink,
+  .headerNavigation .backToCourseLink {
+    min-height: 2rem;
+    padding-inline: .45rem;
+    font-size: .64rem;
+  }
+}
