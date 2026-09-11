@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CourseSalesPageContent } from "@/modules/courses/components/CourseSalesPageContent";
-import { defaultContentLocale, isTranslatableContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
+import { isTranslatableContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
 import { getPublishedCourseBySlug } from "@/modules/courses/services/content.service";
 
 type RouteParams = Promise<{ locale: string; slug: string }>;
@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: RouteParams }): Pro
   const locale = normalizeContentLocale(inputLocale);
   if (!isTranslatableContentLocale(locale)) return { title: "Course not found" };
   const course = await getPublishedCourseBySlug(slug, locale);
-  if (!course || course.contentLocale === defaultContentLocale) return { title: "Course not found" };
+  if (!course || course.contentLocale !== locale) return { title: "Course not found" };
   const description = (course.translations[0]?.seoDescription || course.shortDescription || course.fullDescription || "Published English course details.").slice(0, 160);
   const title = course.translations[0]?.seoTitle || course.title;
   const canonical = `/${locale}/courses/${course.localizedSlug}`;
@@ -25,6 +25,6 @@ export default async function LocalizedCoursePage({ params, searchParams }: { pa
   const locale = normalizeContentLocale(inputLocale);
   if (!isTranslatableContentLocale(locale)) notFound();
   const course = await getPublishedCourseBySlug(slug, locale);
-  if (!course || course.contentLocale === defaultContentLocale) notFound();
+  if (!course || course.contentLocale !== locale) notFound();
   return <CourseSalesPageContent params={Promise.resolve({ level: slug })} searchParams={searchParams} locale={locale} />;
 }

@@ -60,7 +60,7 @@ export default async function LocalizedLessonPage({ params }: { params: Promise<
   const locale = normalizeContentLocale(inputLocale);
   if (!isTranslatableContentLocale(locale)) notFound();
   const lesson = await getPublishedLessonBySlug(slug, lessonSlug, locale);
-  if (!lesson || lesson.contentLocale === defaultContentLocale || locale === defaultContentLocale) notFound();
+  if (!lesson || lesson.contentLocale !== locale || locale === defaultContentLocale) notFound();
   const authenticated = await requireAuth();
   const access = await canAccessLesson(authenticated?.user.id ?? null, lesson.id);
   const courseHref = `/${locale}/courses/${lesson.module.course.localizedSlug}`;

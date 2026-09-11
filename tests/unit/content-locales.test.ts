@@ -4,6 +4,7 @@ import {
   isContentLocale,
   isTranslatableContentLocale,
   normalizeContentLocale,
+  resolveCourseSourceContentLocale,
 } from "@/modules/courses/localization/content-locales";
 
 describe("course content locales", () => {
@@ -26,5 +27,11 @@ describe("course content locales", () => {
   it("does not create a duplicate translation row for English", () => {
     expect(isTranslatableContentLocale("en")).toBe(false);
     expect(isTranslatableContentLocale("uk-UA")).toBe(true);
+  });
+
+  it("exposes an authored source language even when no CMS translation exists", () => {
+    expect(resolveCourseSourceContentLocale("uk")).toBe("uk");
+    expect(resolveCourseSourceContentLocale(" RU ")).toBe("ru");
+    expect(resolveCourseSourceContentLocale("unknown")).toBe(defaultContentLocale);
   });
 });

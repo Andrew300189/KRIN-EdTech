@@ -32,6 +32,17 @@ export function isContentLocale(value: string | null | undefined): value is Cont
   return contentLocales.includes(value as ContentLocaleCode);
 }
 
+/**
+ * A course may be authored directly in a supported learner locale instead of
+ * being created in English and then duplicated into a translation row. Keep
+ * that source locale visible to public routes so Ukrainian-authored courses
+ * do not disappear merely because they have no redundant CMS translation.
+ */
+export function resolveCourseSourceContentLocale(language: string | null | undefined): ContentLocaleCode {
+  const normalized = language?.trim().toLowerCase();
+  return isContentLocale(normalized) ? normalized : defaultContentLocale;
+}
+
 export function isTranslatableContentLocale(value: string | null | undefined): value is Exclude<ContentLocaleCode, "en"> {
   return normalizeContentLocale(value) !== defaultContentLocale;
 }

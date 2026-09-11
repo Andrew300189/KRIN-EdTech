@@ -35,7 +35,7 @@ import { recordCmsContentVersion } from "@/modules/cms/services/content-workflow
 import { syncCourseDurationForLessonBlock, syncCourseEstimatedDuration, syncLessonEstimatedDuration } from "@/modules/cms/services/course-duration.service";
 import { collectCurriculumDescendantIds } from "@/modules/courses/utils/public-content-routes";
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
-import { defaultContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
+import { defaultContentLocale, normalizeContentLocale, resolveCourseSourceContentLocale } from "@/modules/courses/localization/content-locales";
 import { translateVerbToBeJsonToEnglish, translateVerbToBeTextToEnglish, verbToBeEnglishCourseSlug } from "@/modules/courses/localization/verb-to-be-english";
 import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian, verbToBeCourseSlug } from "@/modules/courses/localization/verb-to-be-ukrainian";
 import { learnerOwnsSpacedReviewExercise } from "@/modules/courses/services/spaced-review.service";
@@ -668,6 +668,7 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
   });
   if (!course) return null;
   const courseTranslation = course.translations[0];
+  const sourceContentLocale = resolveCourseSourceContentLocale(course.language);
   const usesVerbToBeEnglishCopy = locale === "en" && course.slug === verbToBeEnglishCourseSlug;
   const usesVerbToBeUkrainianCopy = locale === "uk" && course.slug === verbToBeCourseSlug;
   // The canonical legacy copy is Russian. Treat it as an explicit Russian
@@ -690,7 +691,7 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
     // The legacy To Be course has read-time copy for its public locales. It
     // predates individual CMS translation records, but must still expose the
     // selected locale consistently to every public course component.
-    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
+    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : sourceContentLocale,
     localizedSlug: courseTranslation?.slug ?? course.slug,
     title: localizeText(courseTranslation?.title ?? course.title) ?? course.title,
     shortDescription: localizeText(courseTranslation?.shortDescription ?? course.shortDescription) ?? course.shortDescription,
@@ -781,6 +782,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
               id: true,
               title: true,
               slug: true,
+              language: true,
               accessPlan: true,
               translations: { where: { locale, contentStatus: "PUBLISHED" }, take: 1 },
               modules: {
@@ -877,6 +879,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
   const lessonTranslation = lesson.translations[0];
   const moduleTranslation = lesson.module.translations[0];
   const courseTranslation = lesson.module.course.translations[0];
+  const sourceContentLocale = resolveCourseSourceContentLocale(lesson.module.course.language);
   const usesVerbToBeEnglishCopy = locale === "en" && lesson.module.course.slug === verbToBeEnglishCourseSlug;
   const usesVerbToBeUkrainianCopy = locale === "uk" && lesson.module.course.slug === verbToBeCourseSlug;
   const usesVerbToBeRussianCopy = locale === "ru" && lesson.module.course.slug === verbToBeCourseSlug;
@@ -895,7 +898,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
     // Course publication authorizes the locale route. The legacy course has
     // read-time English, Ukrainian and Russian copy until CMS child rows are
     // authored for every lesson, block and exercise.
-    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : defaultContentLocale,
+    contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : sourceContentLocale,
     localizedSlug: lessonTranslation?.slug ?? lesson.slug,
     title: localizeText(lessonTranslation?.title ?? lesson.title) ?? lesson.title,
     description: localizeText(lessonTranslation?.description ?? lesson.description),
