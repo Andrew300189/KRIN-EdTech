@@ -256,6 +256,25 @@ export function shouldAutoAdvancePlacementTest(
   return phase === "test" && feedback && isCorrect && !hasModal;
 }
 
+export type PlacementLevelBlockProgress = {
+  level: CefrLevel;
+  completed: number;
+  total: number;
+  percentage: number;
+};
+
+/** Maps answered questions to the visible CEFR blocks without relying on a
+ * generic progress bar. Each placement block represents exactly one level. */
+export function getPlacementLevelBlockProgress(answeredQuestions: number): PlacementLevelBlockProgress[] {
+  const answered = Math.min(QUESTIONS.length, Math.max(0, Math.floor(answeredQuestions)));
+  return LEVELS.map((level) => {
+    const [start, end] = LEVEL_RANGES[level];
+    const total = end - start + 1;
+    const completed = Math.min(total, Math.max(0, answered - start));
+    return { level, completed, total, percentage: Math.round((completed / total) * 100) };
+  });
+}
+
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 function init(): State {
@@ -393,7 +412,6 @@ export function PlacementTest() {
   const { phase, current, selected, builderOrder, feedback, results, modal } = state;
 
   const q = QUESTIONS[current];
-  const progress = phase === "result" ? 100 : Math.round((current / QUESTIONS.length) * 100);
 
   const activeLevel = useMemo(
     () => (Object.keys(LEVEL_RANGES) as CefrLevel[]).find(
@@ -409,6 +427,8 @@ export function PlacementTest() {
   const answerIsCorrect = q.type === "sentence_builder"
     ? isBuilderCorrect(q, builderOrder)
     : selected === correctIndex;
+  const answeredQuestions = results.length + (phase === "test" && feedback ? 1 : 0);
+  const levelBlocks = getPlacementLevelBlockProgress(answeredQuestions);
 
   const handleSelect  = useCallback((i: number) => dispatch({ type: "SELECT", index: i }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
@@ -494,7 +514,6 @@ export function PlacementTest() {
     return (
       <div className={s.ptWrap}>
         <div className={s.ptCard}>
-          <div className={s.ptProgressTrack}><div className={s.ptProgressFill} style={{ width: "100%" }} /></div>
           {hasAnswers ? <div className={`${s.ptResult} ${s.ptResultGate}`}>
             <span className={s.ptResultGateIcon}>🔐</span>
             <h2 className={s.ptResultTitle}>{ui.ready}</h2>
@@ -527,19 +546,22 @@ export function PlacementTest() {
   return (
     <div className={s.ptWrap}>
       <div className={s.ptCard}>
-        {/* Progress */}
-        <div className={s.ptProgressTrack}><div className={s.ptProgressFill} style={{ width: `${progress}%` }} /></div>
-
-        {/* Level strip */}
-        <div className={s.ptLevelStrip}>
-          {LEVELS.map((l) => (
-            <div key={l} className={`${s.ptLevelPip} ${
-              l === activeLevel ? s.ptLevelPipActive
-              : LEVELS.indexOf(l) < LEVELS.indexOf(activeLevel) ? s.ptLevelPipDone
-              : ""
-            }`} />
-          ))}
-        </div>
+        {/* Each coloured block maps directly to one 20-question CEFR level. */}
+        <ol className={s.ptLevelProgress} aria-label="CEFR level progress">
+          {levelBlocks.map((block) => {
+            const isDone = block.percentage === 100;
+            const isActive = block.level === activeLevel && !isDone;
+            return <li
+              key={block.level}
+              data-level={block.level}
+              className={`${s.ptLevelBlock} ${isDone ? s.ptLevelBlockDone : ""} ${isActive ? s.ptLevelBlockActive : ""}`}
+              aria-label={`${block.level}: ${block.completed} of ${block.total} questions completed`}
+            >
+              <span className={s.ptLevelBlockFill} style={{ width: `${block.percentage}%` }} aria-hidden="true" />
+              <strong>{block.level}</strong>
+            </li>;
+          })}
+        </ol>
 
         {/* Header */}
         <div className={s.ptHeader}>

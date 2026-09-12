@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { describe, expect, it } from "@jest/globals";
-import { getPlacementState, shouldAutoAdvancePlacementTest } from "@/modules/courses/components/PlacementTest";
+import { getPlacementLevelBlockProgress, getPlacementState, shouldAutoAdvancePlacementTest } from "@/modules/courses/components/PlacementTest";
 
 describe("placement test result state", () => {
   it("returns a below-A1 state when the user ends the test before reaching A1", () => {
@@ -26,5 +26,15 @@ describe("placement test result state", () => {
   it("keeps an incorrect answer visible until the learner explicitly continues", () => {
     expect(shouldAutoAdvancePlacementTest("test", true, false, false)).toBe(false);
     expect(shouldAutoAdvancePlacementTest("test", true, true, false)).toBe(true);
+  });
+
+  it("fills each visible CEFR block only with the questions from its own level", () => {
+    expect(getPlacementLevelBlockProgress(27)).toEqual([
+      { level: "A1", completed: 20, total: 20, percentage: 100 },
+      { level: "A2", completed: 7, total: 20, percentage: 35 },
+      { level: "B1", completed: 0, total: 20, percentage: 0 },
+      { level: "B2", completed: 0, total: 20, percentage: 0 },
+      { level: "C1", completed: 0, total: 20, percentage: 0 },
+    ]);
   });
 });

@@ -65,41 +65,59 @@
   font-weight: 900;
 }
 
-/* ── Progress bar ────────────────────────────────────────────────────── */
-.ptProgressTrack {
-  height: 5px;
-  background: #eef2ff;
+/* ── CEFR level blocks ───────────────────────────────────────────────── */
+.ptLevelProgress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.42rem;
+  margin: 0;
+  padding: 1rem 1.35rem 0.15rem;
+  list-style: none;
 }
 
-.ptProgressFill {
-  height: 100%;
-  background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
-  border-radius: 0 999px 999px 0;
-  transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
+.ptLevelBlock {
+  --level-muted: #eef2f7;
+  --level-border: #cbd5e1;
+  --level-fill: #64748b;
+  --level-ink: #334155;
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 2.35rem;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--level-border);
+  border-radius: 0.68rem;
+  background: var(--level-muted);
+  color: var(--level-ink);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  transition: border-color 220ms ease, box-shadow 220ms ease, color 220ms ease, transform 220ms ease;
 }
 
-/* ── Level strip ─────────────────────────────────────────────────────── */
-.ptLevelStrip {
-  display: flex;
-  gap: 4px;
-  padding: 10px 18px 4px;
+.ptLevelBlockFill {
+  position: absolute;
+  z-index: -1;
+  inset: 0 auto 0 0;
+  display: block;
+  background: var(--level-fill);
+  opacity: 0.24;
+  transition: width 380ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms ease;
 }
 
-.ptLevelPip {
-  flex: 1;
-  height: 3px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  transition: background 300ms ease;
-}
+.ptLevelBlock strong { position: relative; z-index: 1; }
+.ptLevelBlockActive { box-shadow: 0 0 0 3px color-mix(in srgb, var(--level-fill) 18%, transparent); transform: translateY(-1px); }
+.ptLevelBlockDone { border-color: var(--level-fill); color: #fff; text-shadow: 0 1px 2px rgb(15 23 42 / 22%); }
+.ptLevelBlockDone .ptLevelBlockFill { opacity: 1; }
 
-.ptLevelPipActive {
-  background: linear-gradient(90deg, #312e81 0%, #4f46e5 100%);
-}
-
-.ptLevelPipDone {
-  background: #a5b4fc;
-}
+.ptLevelBlock[data-level="A1"] { --level-muted: #eaf8ef; --level-border: #9edbb3; --level-fill: #22a35a; --level-ink: #167b45; }
+.ptLevelBlock[data-level="A2"] { --level-muted: #fff8d7; --level-border: #f1d372; --level-fill: #d99700; --level-ink: #a66a00; }
+.ptLevelBlock[data-level="B1"] { --level-muted: #fff0df; --level-border: #f5bc78; --level-fill: #e36d0d; --level-ink: #c7610a; }
+.ptLevelBlock[data-level="B2"] { --level-muted: #fcebf4; --level-border: #efabc9; --level-fill: #d94e91; --level-ink: #c5437f; }
+.ptLevelBlock[data-level="C1"] { --level-muted: #fff0f0; --level-border: #f3b2b4; --level-fill: #de6568; --level-ink: #b94649; }
 
 /* ── Body ────────────────────────────────────────────────────────────── */
 .ptBody {
@@ -540,7 +558,8 @@
   .ptBody { padding: 14px 16px 18px; }
   .ptFooter { padding: 8px 16px 14px; }
   .ptHeader { padding: 14px 16px 12px; }
-  .ptLevelStrip { padding: 8px 14px 2px; }
+  .ptLevelProgress { gap: 0.3rem; padding: 0.8rem 0.95rem 0.1rem; }
+  .ptLevelBlock { min-height: 2.1rem; border-radius: 0.58rem; font-size: 0.68rem; }
   .ptIntro { padding: 22px 18px 20px; }
   .ptResult { padding: 22px 16px 20px; }
   .ptScoreRow { grid-template-columns: 30px minmax(0, 1fr) 32px; }
@@ -548,7 +567,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ptQuestion, .ptResult { animation: none; }
-  .ptProgressFill, .ptScoreBar { transition: none; }
+  .ptLevelBlockFill, .ptScoreBar { transition: none; }
   .ptBadgeDot { animation: none; }
 }
 
@@ -841,9 +860,9 @@
 :global(html[data-theme="dark"]) .ptModalMsg,
 :global(html[data-theme="dark"]) .ptScoreNum,
 :global(html[data-theme="dark"]) .ptScoreLabel { color: var(--text-secondary); }
-:global(html[data-theme="dark"]) .ptProgressTrack,
-:global(html[data-theme="dark"]) .ptLevelPip,
 :global(html[data-theme="dark"]) .ptScoreTrack { background: var(--surface-interactive); }
+:global(html[data-theme="dark"]) .ptLevelBlock { background: color-mix(in srgb, var(--level-fill) 13%, var(--surface)); }
+:global(html[data-theme="dark"]) .ptLevelBlockDone { color: #fff; }
 :global(html[data-theme="dark"]) .ptBadge { background: rgb(117 103 248 / 18%); color: #c9c5ff; }
 :global(html[data-theme="dark"]) .ptOption,
 :global(html[data-theme="dark"]) .ptChipBank,
