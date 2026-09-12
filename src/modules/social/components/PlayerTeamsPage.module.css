@@ -1,0 +1,70 @@
+.page { display: grid; gap: 1.35rem; width: min(100%, 1120px); margin: 0 auto; padding: clamp(.2rem, 1.8vw, 1.35rem); color: #1e293b; }
+.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid #d8dcff; border-radius: 24px; background: radial-gradient(circle at 90% 0%, #dce9ff 0, transparent 33%), linear-gradient(135deg, #f7f7ff, #ffffff); box-shadow: 0 16px 36px rgb(79 70 229 / 8%); }
+.hero h1, .sectionHeading h2, .createPanel h2, .empty h2 { margin: 0; color: #1e2465; letter-spacing: -.03em; }
+.hero h1 { max-width: 600px; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.05; }
+.hero p:not(.eyebrow) { max-width: 630px; margin: .55rem 0 0; color: #52627d; line-height: 1.55; }
+.eyebrow { display: inline-flex; align-items: center; gap: .4rem; margin: 0 0 .35rem; color: #5b4ee7; font-size: .72rem; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+.createButton, .primaryButton, .quietButton, .declineButton, .leaveButton, .removeButton, .inviteForm button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; font: inherit; font-weight: 800; cursor: pointer; transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease, border-color 150ms ease; }
+.createButton, .primaryButton { min-height: 42px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #5a46eb, #3568ec); box-shadow: 0 9px 17px rgb(79 70 229 / 20%); color: #fff; padding: .65rem 1rem; }
+.createButton:hover, .primaryButton:hover { transform: translateY(-1px); box-shadow: 0 12px 21px rgb(79 70 229 / 27%); }
+.createButton:focus-visible, .primaryButton:focus-visible, .quietButton:focus-visible, .declineButton:focus-visible, .leaveButton:focus-visible, .removeButton:focus-visible, .inviteForm button:focus-visible { outline: 3px solid #b9b6ff; outline-offset: 3px; }
+.createPanel { display: grid; gap: 1.1rem; padding: clamp(1rem, 2.4vw, 1.5rem); border: 1px solid #c9c7ff; border-radius: 20px; background: #fff; box-shadow: 0 12px 30px rgb(79 70 229 / 7%); }
+.formTitle { display: flex; align-items: center; gap: .8rem; }
+.iconBadge, .emptyIcon { display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; color: #5146d8; background: #eeedff; }
+.iconBadge { width: 40px; height: 40px; }
+.formTitle p { margin: .2rem 0 0; color: #64748b; font-size: .88rem; }
+.formGrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(145px, 1fr); gap: .85rem; }
+.formGrid label, .inviteForm label { display: grid; gap: .4rem; color: #475569; font-size: .78rem; font-weight: 800; }
+.formGrid label span { color: #94a3b8; font-weight: 600; }
+.formGrid input, .formGrid select, .inviteForm input { min-width: 0; min-height: 40px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #172554; font: inherit; font-weight: 600; padding: .55rem .7rem; }
+.formGrid input:focus, .formGrid select:focus, .inviteForm input:focus { border-color: #706cf1; box-shadow: 0 0 0 3px rgb(99 102 241 / 14%); outline: none; }
+.wideField { grid-column: 1 / -1; }
+.formActions { display: flex; justify-content: flex-end; gap: .7rem; }
+.quietButton, .declineButton { min-height: 40px; border: 1px solid #d7ddea; border-radius: 10px; background: #fff; color: #52627d; padding: .55rem .8rem; }
+.quietButton:hover, .declineButton:hover { border-color: #abb7ca; background: #f8fafc; }
+.sectionHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin: .2rem 0 .75rem; }
+.sectionHeading h2 { font-size: 1.18rem; }
+.sectionHeading > span { display: inline-flex; min-width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 99px; background: #e9e8ff; color: #4f46d8; font-size: .8rem; font-weight: 850; }
+.invitationGrid, .teamGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1rem; }
+.invitationCard, .teamCard { border: 1px solid #dce3f2; border-radius: 18px; background: #fff; box-shadow: 0 9px 25px rgb(30 41 59 / 5%); }
+.invitationCard { display: grid; gap: .85rem; padding: 1rem; border-color: #d7d1ff; background: linear-gradient(145deg, #fff, #f8f7ff); }
+.invitationIdentity { display: flex; align-items: center; gap: .7rem; }
+.invitationIdentity strong, .memberIdentity strong { display: block; color: #202768; }
+.invitationIdentity span, .memberIdentity span { display: block; margin-top: .1rem; color: #71809a; font-size: .78rem; }
+.invitationCard > p { min-height: 2.6em; margin: 0; color: #52627d; font-size: .9rem; line-height: 1.45; }
+.invitationActions { display: flex; justify-content: flex-end; gap: .6rem; }
+.teamCard { display: grid; overflow: hidden; }
+.teamHeader { display: flex; justify-content: space-between; gap: .8rem; padding: 1rem 1rem .85rem; border-bottom: 1px solid #edf0f7; background: linear-gradient(140deg, #fafaff, #fff); }
+.teamTitleLine { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
+.teamHeader h3 { margin: 0; color: #202768; font-size: 1.08rem; }
+.teamHeader p { margin: .3rem 0 0; color: #64748b; font-size: .86rem; line-height: 1.4; }
+.ownerPill, .memberCount { display: inline-flex; align-items: center; gap: .3rem; border-radius: 99px; font-size: .7rem; font-weight: 850; white-space: nowrap; }
+.ownerPill { background: #fff3ca; color: #9a5b00; padding: .27rem .45rem; }
+.memberCount { align-self: flex-start; background: #eef2ff; color: #4f46d8; padding: .35rem .5rem; }
+.memberList { display: grid; padding: .45rem 1rem; }
+.memberRow { display: flex; align-items: center; gap: .62rem; min-width: 0; padding: .52rem 0; }
+.memberRow + .memberRow { border-top: 1px solid #f0f3f8; }
+.memberIdentity { min-width: 0; flex: 1; }
+.memberIdentity strong, .memberIdentity span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { display: inline-flex; flex: 0 0 auto; width: 31px; height: 31px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #d7def8; border-radius: 50%; background: #eef1ff; color: #4e46cf; font-size: .72rem; font-weight: 900; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.removeButton { width: 31px; height: 31px; border: 1px solid #ffd2d7; border-radius: 9px; background: #fff7f7; color: #e05b68; }
+.removeButton:hover { background: #fff0f1; border-color: #f6a3ad; }
+.pendingLine { margin: 0 1rem .7rem; color: #8a6c1c; font-size: .78rem; font-weight: 700; }
+.inviteForm { display: grid; gap: .35rem; margin: .2rem 1rem 1rem; }
+.inviteForm > div { display: flex; gap: .45rem; }
+.inviteForm input { flex: 1; }
+.inviteForm button { min-height: 40px; border: 0; border-radius: 10px; background: #eef0ff; color: #4f46d8; padding: .45rem .7rem; }
+.inviteForm button:hover { background: #e4e6ff; }
+.leaveButton { justify-self: start; margin: .25rem 1rem 1rem; min-height: 35px; border: 0; border-radius: 9px; background: transparent; color: #b45361; font-size: .8rem; padding: .35rem .1rem; }
+.leaveButton:hover { color: #9f1d2b; }
+.empty { display: grid; justify-items: center; gap: .6rem; padding: clamp(1.5rem, 5vw, 3rem) 1rem; border: 1px dashed #c9cdef; border-radius: 20px; background: linear-gradient(145deg, #fbfbff, #fff); text-align: center; }
+.emptyIcon { width: 60px; height: 60px; }
+.empty h2 { font-size: 1.16rem; }
+.empty p { max-width: 450px; margin: 0; color: #64748b; line-height: 1.5; }
+.loading { display: flex; align-items: center; justify-content: center; gap: .6rem; min-height: 240px; color: #59667c; font-weight: 750; }
+.spinner { animation: spin .8s linear infinite; }
+button:disabled { cursor: not-allowed; opacity: .6; transform: none !important; box-shadow: none !important; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) { .page { padding: .3rem; } .hero { align-items: stretch; flex-direction: column; border-radius: 18px; } .hero .createButton { width: 100%; } .formGrid { grid-template-columns: 1fr; } .wideField { grid-column: auto; } .formActions { justify-content: stretch; } .formActions > * { flex: 1; } .teamGrid, .invitationGrid { grid-template-columns: 1fr; } }
+@media (max-width: 380px) { .inviteForm button span { display: none; } .inviteForm button { width: 42px; padding: 0; } }

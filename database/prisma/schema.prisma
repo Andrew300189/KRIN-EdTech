@@ -72,6 +72,8 @@ model User {
   ownedLearningGroups           LearningGroup[]              @relation("LearningGroupOwner")
   groupTeachingMemberships      GroupTeacher[]               @relation("GroupTeacherUser")
   groupStudentMemberships       GroupStudent[]               @relation("GroupStudentUser")
+  playerTeamsOwned              PlayerTeam[]                 @relation("PlayerTeamOwner")
+  playerTeamMemberships         PlayerTeamMember[]           @relation("PlayerTeamMemberUser")
   sentGroupInvitations          GroupInvitation[]            @relation("GroupInvitationInviter")
   invitationStudentRecords      GroupInvitation[]            @relation("GroupInvitationStudent")
   studentCourses                StudentCourse[]
@@ -2716,6 +2718,43 @@ model GroupStudent {
   @@index([studentId, status])
 }
 
+/// A social, learner-owned team. This is intentionally separate from the
+/// teacher's LearningGroup: players can form a team without gaining teaching,
+/// course-assignment, or progress-management permissions over one another.
+model PlayerTeam {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User               @relation("PlayerTeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  maxMembers  Int                @default(8)
+  members     PlayerTeamMember[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([ownerId, createdAt])
+}
+
+/// A pending row represents an in-app invitation. It is not an active team
+/// membership until the invited player explicitly accepts it.
+model PlayerTeamMember {
+  id          String                 @id @default(cuid())
+  teamId      String
+  team        PlayerTeam             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                   @relation("PlayerTeamMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+  role        PlayerTeamRole         @default(MEMBER)
+  status      PlayerTeamMemberStatus @default(PENDING)
+  joinedAt    DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId, status])
+  @@index([userId, status])
+}
+
 model GroupInvitation {
   id          String                @id @default(cuid())
   groupId     String
@@ -2934,6 +2973,18 @@ enum GroupStudentStatus {
   ACTIVE
   PAUSED
   COMPLETED
+  REMOVED
+}
+
+enum PlayerTeamRole {
+  OWNER
+  MEMBER
+}
+
+enum PlayerTeamMemberStatus {
+  PENDING
+  ACTIVE
+  DECLINED
   REMOVED
 }
 

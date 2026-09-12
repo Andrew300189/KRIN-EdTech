@@ -15,6 +15,7 @@ const navigation = [
   { href: "/student/homework", label: "Homework", labelKey: "student.nav.homework" },
   { href: "/student/progress", label: "Progress", labelKey: "student.nav.progress" },
   { href: "/student/mistakes", label: "My mistakes", labelKey: "student.nav.mistakes" },
+  { href: "/student/teams", label: "Teams" },
   { href: "/student/achievements", label: "Achievements", labelKey: "student.nav.achievements", notificationSection: "achievements" as const },
   { href: "/student/shop", label: "Shop", labelKey: "student.nav.shop" },
   { href: "/student/support", label: "Support", labelKey: "student.nav.support", notificationSection: "support" as const },

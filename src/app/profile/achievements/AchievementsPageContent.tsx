@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Award, Flame, Medal, ShieldCheck, Sparkles, Star, Trophy } from "lucide-react";
 import { requireAuth } from "@/core/server/session";
 import { listUserAchievements } from "@/modules/motivation/services/motivation.service";
 import styles from "./Achievements.module.css";
@@ -21,6 +22,27 @@ const rarityClass = {
   EPIC: styles.epic,
   LEGENDARY: styles.legendary,
 } as const;
+
+/** Older achievement records may contain an icon token (for example
+ * `spark` or `shield-check`) instead of an emoji. Never render that token as
+ * visible copy: it wraps inside the icon badge and looks like broken data. */
+function AchievementGlyph({ icon }: { icon: string }) {
+  const normalized = icon.trim().toLowerCase();
+  const Icon = normalized === "spark" || normalized === "sparkles"
+    ? Sparkles
+    : normalized === "shield-check" || normalized === "shield"
+      ? ShieldCheck
+      : normalized === "trophy"
+        ? Trophy
+        : normalized === "flame" || normalized === "fire"
+          ? Flame
+          : normalized === "star"
+            ? Star
+            : normalized === "award"
+              ? Award
+              : /^[a-z0-9-]+$/u.test(normalized) ? Medal : null;
+  return Icon ? <Icon size={25} strokeWidth={2.25} /> : <>{icon}</>;
+}
 
 export async function AchievementsPageContent({
   searchParams,
@@ -63,7 +85,7 @@ export async function AchievementsPageContent({
         const rarity = rarityClass[achievement.rarity as keyof typeof rarityClass] ?? styles.common;
         return <article key={achievement.id} className={`${styles.card} ${achievement.completed ? styles.cardComplete : ""} ${locked ? styles.cardLocked : ""}`}>
           <div className={styles.cardTop}>
-            <div className={`${styles.icon} ${rarity}`} aria-hidden="true">{locked ? "🔒" : achievement.icon}</div>
+            <div className={`${styles.icon} ${rarity}`} aria-hidden="true">{locked ? "🔒" : <AchievementGlyph icon={achievement.icon} />}</div>
             <div className={styles.cardMeta}><span className={`${styles.rarity} ${rarity}`}>{achievement.rarity.toLowerCase()}</span>{achievement.isTrophy ? <span className={styles.trophy}>Trophy</span> : null}</div>
           </div>
           <h2>{achievement.title}</h2>
