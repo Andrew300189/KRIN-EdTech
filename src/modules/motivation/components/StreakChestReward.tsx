@@ -69,10 +69,16 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
 
   return <AppModal
     open
-    onOpenChange={(open) => { if (!open) onDismiss(); }}
+    // An earned chest is a pending reward, not a dismissible announcement.
+    // Keep it visible until its server-verified reward has been opened.
+    onOpenChange={(open) => { if (!open && reward) onDismiss(); }}
     title={text.title}
     closeLabel={text.close}
     size="small"
+    closeOnOverlayClick={Boolean(reward)}
+    closeOnEscape={Boolean(reward)}
+    preventClose={!reward}
+    showCloseButton={Boolean(reward)}
     bodyClassName={styles.body}
   >
     <section className={styles.card} aria-live="polite">

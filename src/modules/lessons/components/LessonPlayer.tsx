@@ -819,6 +819,9 @@ export function LessonPlayer({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      // A pending streak chest is deliberately non-dismissible. Do not let the
+      // player-level keyboard shortcuts bypass that reward dialog.
+      if (streakChestMilestone !== null) return;
       const target = event.target;
       const isEditingText = target instanceof HTMLElement && Boolean(
         target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'),
@@ -846,7 +849,7 @@ export function LessonPlayer({
     return () => window.removeEventListener("keydown", onKeyDown);
   // The callback deliberately uses the latest player state for navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, isReviewSession, previewMode]);
+  }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, isReviewSession, previewMode, streakChestMilestone]);
 
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
