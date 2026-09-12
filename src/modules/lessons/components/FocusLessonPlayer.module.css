@@ -136,9 +136,11 @@
 }
 
 .stepArea {
-  display: grid;
-  justify-items: end;
-  gap: .32rem;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .42rem;
 }
 
 .lessonReward {
@@ -668,8 +670,10 @@
 
 @media (max-width: 650px) {
   .frame { padding: .75rem; }
-  .header { grid-template-columns: auto minmax(0, 1fr); gap: .55rem; border-radius: var(--radius-lg); padding: .55rem; }
-  .progress { grid-column: 1 / -1; grid-row: 2; }
+  .header { grid-template-columns: minmax(0, 1fr); gap: .55rem; border-radius: var(--radius-lg); padding: .55rem; }
+  .headerNavigation { justify-content: space-between; }
+  .stepArea { grid-column: 1; grid-row: 2; justify-content: center; }
+  .progress { grid-column: 1; grid-row: 3; }
   .stepCounter { font-size: .65rem; }
   .stepArea { gap: .2rem; }
   .headerNavigation { gap: .3rem; }

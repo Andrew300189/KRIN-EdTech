@@ -8,6 +8,7 @@ import { LessonWordHoverDictionary } from "@/modules/vocabulary/components/Lesso
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
+import { LessonAnswerStreakStatus } from "@/modules/motivation/components/LessonAnswerStreakStatus";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
@@ -305,6 +306,9 @@ export function LessonPlayer({
   const [stepVerified, setStepVerified] = useState(false);
   const [finished, setFinished] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
+  // This is deliberately session-local. It represents the sequence of answers
+  // the learner is making right now, not a historic course statistic.
+  const [correctAnswersInRow, setCorrectAnswersInRow] = useState(0);
   const [visitExerciseIds, setVisitExerciseIds] = useState<string[]>([]);
   const [autoAdvanceRequested, setAutoAdvanceRequested] = useState(false);
   const [reviewReturnPending, setReviewReturnPending] = useState(false);
@@ -921,6 +925,7 @@ export function LessonPlayer({
           </div>
           <div className={styles.stepArea}>
             <ExperienceStatus />
+            <LessonAnswerStreakStatus correctAnswersInRow={correctAnswersInRow} />
           </div>
         </header>
 
@@ -1054,8 +1059,12 @@ export function LessonPlayer({
                   reviewRunId={reviewSession?.runId}
                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone }) => {
                     progressMutationRef.current = true;
-                    if (!isCorrect) setPersistentStreakTone(null);
+                    if (!isCorrect) {
+                      setPersistentStreakTone(null);
+                      setCorrectAnswersInRow(0);
+                    }
                     else {
+                      setCorrectAnswersInRow((current) => current + 1);
                       if (streakTone) setPersistentStreakTone(streakTone);
                       if (streakMilestone) setStreakChestMilestone(streakMilestone);
                       triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect, difficulty }));
@@ -1110,8 +1119,10 @@ export function LessonPlayer({
                     setAutoAdvanceRequested(true);
                   }}
                   onSpacedReviewCorrect={(difficulty) => {
+                    setCorrectAnswersInRow((current) => current + 1);
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
+                  onSpacedReviewIncorrect={() => setCorrectAnswersInRow(0)}
                   onStreakChestAvailable={setStreakChestMilestone}
                   onSpacedReviewComplete={() => {
                     setStepVerified(true);

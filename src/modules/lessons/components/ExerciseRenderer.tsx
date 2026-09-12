@@ -346,10 +346,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
       const scoreAwarded = isCorrect ? exercise.basePoints : -exercise.basePoints;
       setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
-      if (!isCorrect) {
-        clearTranslation();
-        void revealHint();
-      }
+      if (!isCorrect) clearTranslation();
       onAttemptResolved?.({ exerciseId: exercise.id, isCorrect });
       setSending(false);
       submissionInFlightRef.current = false;
@@ -361,10 +358,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
-      if (!payload.data.isCorrect) {
-        clearTranslation();
-        void revealHint();
-      }
+      if (!payload.data.isCorrect) clearTranslation();
       onAttemptResolved?.({
         exerciseId: exercise.id,
         isCorrect: payload.data.isCorrect,
@@ -499,7 +493,9 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const response = await fetch(`/api/learning/exercises/${exercise.id}/hint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ automatic: true }),
+        // Hints are always learner-initiated. An incorrect answer must never
+        // silently spend XP or a yellow credit on the learner's behalf.
+        body: JSON.stringify({ automatic: false }),
       });
       const payload = await response.json().catch(() => null) as { data?: HintPurchaseResult; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to show the hint.");
@@ -507,12 +503,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       setHintUsed(!payload.data.freeFallback);
       if (payload.data.cost > 0 || payload.data.bonusUsed) notifyMotivationUpdated();
       if (payload.data.bonusUsed && !payload.data.alreadyPurchased) toast.success(locale === "uk" ? "Використано жовтий бонус підказки" : locale === "ru" ? "Использован жёлтый бонус подсказки" : "Hint credit used");
-    } catch {
-      // The hint text is already part of the loaded exercise. If billing is
-      // temporarily unavailable, show the child-friendly help rather than a
-      // technical server error after the learner has made a mistake.
-      setHintOpen(true);
-      setHintUsed(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to show the hint. Please try again.");
     }
   }
 
@@ -598,7 +590,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
     {!compactToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{visibleQuestion}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
-    {result && !result.isCorrect && hintOpen && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
+    {hintOpen && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className={`${styles.answerList} lesson-exercise-answer-list mt-4 space-y-2`}>
       {choice && choiceOptions.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className={`${styles.choice} lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500`}><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} onKeyDown={(event) => submitChoiceOnEnter(event, option)} aria-keyshortcuts="Enter" /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
@@ -618,7 +610,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })} onKeyDown={(event) => submitAssignedSelectOnEnter(event, item, false)} aria-keyshortcuts="Enter"><option value="">Choose a category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
       {!choice && !matching && !ordered && !classification ? <label className={`${styles.textAnswer} lesson-exercise-text-answer block`}>{correctedWordOnly ? <span className={`${styles.answerLabel} lesson-exercise-answer-label`}>{textAnswerLabel}</span> : null}{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitLongTextAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" rows={5} className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={renderer === "recording" ? "Write a transcript or response for review" : textAnswerPlaceholder} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={textAnswerPlaceholder} />}</label> : null}
     </div>
-    {!result ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource) ? styles.actionRowWithTranslation : ""}`}>
+    {!result ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource || (exercise.hintsEnabled && visibleHint)) ? styles.actionRowWithTranslation : ""}`}>
+      {exercise.hintsEnabled && visibleHint ? <button type="button" onClick={() => void revealHint()} disabled={hintOpen} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintInlineLabel.replace(/:$/, "")}</button> : null}
       {(authoredTranslation || translationSource) ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className={`${styles.translationButton} lesson-exercise-translation-trigger`}>{translationSending ? translationOpeningLabel : translationLabel}</button> : null}
       <button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>
     </div> : null}
