@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { describe, expect, it } from "@jest/globals";
-import { getPlacementState } from "@/modules/courses/components/PlacementTest";
+import { getPlacementState, shouldAutoAdvancePlacementTest } from "@/modules/courses/components/PlacementTest";
 
 describe("placement test result state", () => {
   it("returns a below-A1 state when the user ends the test before reaching A1", () => {
@@ -21,5 +21,10 @@ describe("placement test result state", () => {
       level: "A1",
       belowA1: false,
     });
+  });
+
+  it("keeps an incorrect answer visible until the learner explicitly continues", () => {
+    expect(shouldAutoAdvancePlacementTest("test", true, false, false)).toBe(false);
+    expect(shouldAutoAdvancePlacementTest("test", true, true, false)).toBe(true);
   });
 });

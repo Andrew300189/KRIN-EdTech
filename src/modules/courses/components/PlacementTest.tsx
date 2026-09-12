@@ -245,6 +245,17 @@ function isBuilderCorrect(q: Question, order: number[]) {
   return order.map((i) => q.words![i]).join(" ") === q.answer;
 }
 
+/** Correct placement-test responses stay fast; wrong responses remain visible
+ * until the learner explicitly decides to continue. */
+export function shouldAutoAdvancePlacementTest(
+  phase: Phase,
+  feedback: boolean,
+  isCorrect: boolean,
+  hasModal: boolean,
+) {
+  return phase === "test" && feedback && isCorrect && !hasModal;
+}
+
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 function init(): State {
@@ -395,6 +406,9 @@ export function PlacementTest() {
     () => (q?.options ? q.options.findIndex((o) => o === q.answer) : -1),
     [q],
   );
+  const answerIsCorrect = q.type === "sentence_builder"
+    ? isBuilderCorrect(q, builderOrder)
+    : selected === correctIndex;
 
   const handleSelect  = useCallback((i: number) => dispatch({ type: "SELECT", index: i }), []);
   const handleToggle  = useCallback((idx: number) => dispatch({ type: "BUILDER_TOGGLE", slotIdx: idx }), []);
@@ -419,13 +433,13 @@ export function PlacementTest() {
     return () => { active = false; };
   }, [phase]);
 
-  // The homepage test advances on its own after showing the answer feedback.
-  // Lesson exercises intentionally keep their separate manual “Next” control.
+  // Correct responses keep the existing fast flow. A wrong response must stay
+  // on screen so the learner can read the correction before choosing Next.
   useEffect(() => {
-    if (phase !== "test" || !feedback || modal) return;
+    if (!shouldAutoAdvancePlacementTest(phase, feedback, answerIsCorrect, Boolean(modal))) return;
     const timer = window.setTimeout(() => dispatch({ type: "NEXT", wellDone: answerFeedback.wellDone }), 750);
     return () => window.clearTimeout(timer);
-  }, [phase, feedback, modal, current, answerFeedback.wellDone]);
+  }, [phase, feedback, answerIsCorrect, modal, current, answerFeedback.wellDone]);
 
   const continueWithAccount = (view: "login" | "register") => {
     setHandoffError("");
@@ -610,6 +624,11 @@ export function PlacementTest() {
           {q.type === "sentence_builder" && !feedback ? (
             <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={handleCheck} disabled={!canCheck}>
               {ui.check}
+            </button>
+          ) : null}
+          {feedback && !answerIsCorrect ? (
+            <button type="button" className={`${s.ptBtn} ${s.ptBtnPrimary}`} onClick={() => dispatch({ type: "NEXT", wellDone: answerFeedback.wellDone })}>
+              {ui.next}
             </button>
           ) : null}
         </div>
