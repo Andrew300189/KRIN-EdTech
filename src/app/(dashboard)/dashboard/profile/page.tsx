@@ -5,6 +5,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { shopAvatarDetails } from "@/modules/motivation/utils/shop-avatar";
 import styles from "./ProfileSettings.module.css";
 
 type UserProfile = {
@@ -40,8 +41,8 @@ const COMMON_TIME_ZONES = [
 ];
 
 function shopAvatarLabel(avatar: string | null) {
-  if (avatar === "avatar-fox") return "🦊 Shop avatar";
-  if (avatar === "avatar-owl") return "🦉 Shop avatar";
+  const details = shopAvatarDetails(avatar);
+  if (details) return `${details.glyph} ${details.label}`;
   return "Shop avatar";
 }
 
@@ -84,9 +85,12 @@ export default function ProfilePage() {
   }, []);
 
   const avatarLabel = useMemo(
-    () => (profile ? `Profile photo for ${profile.firstName}` : "Profile photo"),
+    () => (profile ? `Profile avatar for ${profile.firstName}` : "Profile avatar"),
     [profile],
   );
+  const selectedShopAvatar = profile?.avatarDisplayMode === "SHOP"
+    ? shopAvatarDetails(profile.equippedShopAvatar)
+    : null;
 
   const updateProfile = <Key extends keyof UserProfile>(
     key: Key,
@@ -212,7 +216,15 @@ export default function ProfilePage() {
         onSubmit={handleSubmit}
       >
         <section className={`${styles.avatarSection} flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center`}>
-          {profile.avatar ? (
+          {selectedShopAvatar ? (
+            <div
+              aria-label={`${selectedShopAvatar.label} selected for ${profile.firstName}`}
+              className="flex h-24 w-24 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-5xl shadow-sm"
+              role="img"
+            >
+              {selectedShopAvatar.glyph}
+            </div>
+          ) : profile.avatar ? (
             <img
               alt={avatarLabel}
               className="h-24 w-24 rounded-full border border-slate-200 object-cover"

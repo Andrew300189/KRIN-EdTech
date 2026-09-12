@@ -17,6 +17,7 @@ import {
 import { LoginModal } from "@/modules/auth/components/LoginModal";
 import { courseSkillCatalog, courseSkillLevels, type CourseSkillSlug } from "@/modules/courses/data/skill-course-catalog";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
+import { shopAvatarDetails } from "@/modules/motivation/utils/shop-avatar";
 import styles from "./PublicSiteHeader.module.css";
 
 const levelOrder = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
@@ -69,7 +70,7 @@ function userInitials(user: HeaderUser | null) {
 }
 
 function shopAvatar(user: HeaderUser) {
-  return user.equippedShopAvatar === "avatar-fox" ? "🦊" : user.equippedShopAvatar === "avatar-owl" ? "🦉" : null;
+  return user.avatarDisplayMode === "SHOP" ? shopAvatarDetails(user.equippedShopAvatar)?.glyph ?? null : null;
 }
 
 function getSkillHref(skillSlug: CourseSkillSlug, level?: CefrLevel) {

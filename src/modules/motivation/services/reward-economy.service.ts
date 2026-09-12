@@ -459,10 +459,18 @@ export async function equipShopItem(userId: string, itemId: string) {
   if (!purchase) throw new Error("Buy this item before equipping it.");
   const user = await prisma.user.update({
     where: { id: userId },
-    data: item.kind === "theme" ? { equippedShopTheme: item.id } : { equippedShopAvatar: item.id },
-    select: { equippedShopTheme: true, equippedShopAvatar: true },
+    // Equipping an avatar is an explicit display choice. Keep a saved photo
+    // intact so the learner can switch back to it later in profile settings.
+    data: item.kind === "theme"
+      ? { equippedShopTheme: item.id }
+      : { equippedShopAvatar: item.id, avatarDisplayMode: "SHOP" },
+    select: { equippedShopTheme: true, equippedShopAvatar: true, avatarDisplayMode: true },
   });
-  return { equippedTheme: user.equippedShopTheme, equippedAvatar: user.equippedShopAvatar };
+  return {
+    equippedTheme: user.equippedShopTheme,
+    equippedAvatar: user.equippedShopAvatar,
+    avatarDisplayMode: user.avatarDisplayMode === "SHOP" ? "SHOP" : "PHOTO",
+  };
 }
 
 export async function spinLessonRewardWheel(userId: string, lessonId: string) {

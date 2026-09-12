@@ -10,6 +10,7 @@ import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailySt
 import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
 import { LeaderboardHeaderStatus, type LeaderboardHeaderSummary } from "@/modules/motivation/components/LeaderboardHeaderStatus";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
+import { shopAvatarDetails } from "@/modules/motivation/utils/shop-avatar";
 import { useLocale } from "@/core/i18n/locale";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { SearchContext } from "@/modules/search/types";
@@ -29,7 +30,7 @@ type WorkspaceShellProps = {
   searchContext?: SearchContext;
   showCmsLink?: boolean;
   showExperience?: boolean;
-  /** A learner's own profile photo takes precedence over a cosmetic avatar. */
+  /** The server-selected profile visual: an uploaded photo or shop avatar. */
   userAvatar?: string | null;
   avatarDisplayMode?: "PHOTO" | "SHOP";
   userInitials?: string;
@@ -197,7 +198,8 @@ export function WorkspaceShell({
     setProfilePhotoFailed(false);
   }, [userAvatar]);
 
-  const shouldShowProfilePhoto = avatarDisplayMode !== "SHOP" && Boolean(userAvatar) && !profilePhotoFailed;
+  const selectedShopAvatar = avatarDisplayMode === "SHOP" ? shopAvatarDetails(shopAvatar) : null;
+  const shouldShowProfilePhoto = avatarDisplayMode === "PHOTO" && Boolean(userAvatar) && !profilePhotoFailed;
 
   const sidebar = (isMobileDrawer = false) => (
     <aside
@@ -308,7 +310,7 @@ export function WorkspaceShell({
                 alt={userInitials ? `${userInitials} profile photo` : "Profile photo"}
                 className={styles.profileAvatar}
                 onError={() => setProfilePhotoFailed(true)}
-              /> : shopAvatar === "avatar-fox" || shopAvatar === "avatar-owl" ? <span className={styles.shopAvatar} role="img" aria-label={shopAvatar === "avatar-fox" ? "Fox avatar" : "Owl avatar"}>{shopAvatar === "avatar-fox" ? "🦊" : "🦉"}</span> : null}
+              /> : selectedShopAvatar ? <span className={styles.shopAvatar} role="img" aria-label={selectedShopAvatar.label}>{selectedShopAvatar.glyph}</span> : null}
               {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (
                 <Link href="/cms" className={styles.cmsLink}>
