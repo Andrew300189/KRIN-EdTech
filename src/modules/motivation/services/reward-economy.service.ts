@@ -28,24 +28,23 @@ const DAILY_CHEST_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 type EconomyBonusReward = {
   id: string;
   experience: number;
-  coins: number;
   hintCredits: number;
   translationCredits: number;
 };
 
 const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
-  { id: "xp-20", experience: 20, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-40", experience: 40, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-60", experience: 60, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-80", experience: 80, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-100", experience: 100, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-20", experience: 20, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-40", experience: 40, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-80", experience: 80, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-100", experience: 100, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
 /** A streak chest always awards one of the three learning-reward types. */
 const STREAK_CHEST_REWARDS = [
-  { id: "violet-xp", experience: 15, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "yellow-hint-xp", experience: 8, coins: 0, hintCredits: 1, translationCredits: 0 },
-  { id: "blue-translation-xp", experience: 8, coins: 0, hintCredits: 0, translationCredits: 1 },
+  { id: "violet-xp", experience: 15, hintCredits: 0, translationCredits: 0 },
+  { id: "yellow-hint-xp", experience: 8, hintCredits: 1, translationCredits: 0 },
+  { id: "blue-translation-xp", experience: 8, hintCredits: 0, translationCredits: 1 },
 ] as const satisfies readonly EconomyBonusReward[];
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
@@ -67,24 +66,24 @@ export type MilestoneChestState = {
 
 const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, readonly EconomyBonusReward[]> = {
   LESSON_3: [
-    { id: "xp-150", experience: 150, coins: 0, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-180", experience: 180, coins: 0, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-220", experience: 220, coins: 0, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-150", experience: 150, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-180", experience: 180, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-220", experience: 220, hintCredits: 1, translationCredits: 0 },
   ],
   EVERY_7_LESSONS: [
-    { id: "xp-300", experience: 300, coins: 1, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-360", experience: 360, coins: 1, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-420", experience: 420, coins: 1, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-300", experience: 300, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-360", experience: 360, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-420", experience: 420, hintCredits: 0, translationCredits: 1 },
   ],
   MODULE: [
-    { id: "xp-600", experience: 600, coins: 2, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-750", experience: 750, coins: 2, hintCredits: 0, translationCredits: 1 },
-    { id: "xp-900", experience: 900, coins: 2, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-600", experience: 600, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-750", experience: 750, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-900", experience: 900, hintCredits: 1, translationCredits: 1 },
   ],
   COURSE: [
-    { id: "xp-1200", experience: 1200, coins: 3, hintCredits: 1, translationCredits: 1 },
-    { id: "xp-1500", experience: 1500, coins: 3, hintCredits: 2, translationCredits: 1 },
-    { id: "xp-1800", experience: 1800, coins: 3, hintCredits: 1, translationCredits: 2 },
+    { id: "xp-1200", experience: 1200, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-1500", experience: 1500, hintCredits: 2, translationCredits: 1 },
+    { id: "xp-1800", experience: 1800, hintCredits: 1, translationCredits: 2 },
   ],
 };
 
@@ -95,12 +94,12 @@ const MILESTONE_CHEST_SOURCE_TYPE: Record<MilestoneChestKind, string> = {
   COURSE: "MILESTONE_CHEST_COURSE",
 };
 const WHEEL_REWARDS = [
-  { id: "xp-15", experience: 15, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-25", experience: 25, coins: 0, hintCredits: 0, translationCredits: 0 },
-  { id: "coin-1", experience: 10, coins: 1, hintCredits: 0, translationCredits: 0 },
-  { id: "hint-credit", experience: 10, coins: 0, hintCredits: 1, translationCredits: 0 },
-  { id: "translation-credit", experience: 10, coins: 0, hintCredits: 0, translationCredits: 1 },
-  { id: "xp-60", experience: 60, coins: 0, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-15", experience: 15, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-25", experience: 25, hintCredits: 0, translationCredits: 0 },
+  { id: "xp-40", experience: 40, hintCredits: 0, translationCredits: 0 },
+  { id: "hint-credit", experience: 10, hintCredits: 1, translationCredits: 0 },
+  { id: "translation-credit", experience: 10, hintCredits: 0, translationCredits: 1 },
+  { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
 function activeItem(itemId: string) {
@@ -151,7 +150,6 @@ export async function openDailyChest(userId: string) {
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: rewardChoice.experience,
-      coins: rewardChoice.coins,
       hintCredits: rewardChoice.hintCredits,
       translationCredits: rewardChoice.translationCredits,
       sourceType: "DAILY_CHEST",
@@ -209,7 +207,6 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
-      coins: choice.coins,
       hintCredits: choice.hintCredits,
       translationCredits: choice.translationCredits,
       sourceType: "STREAK_CHEST",
@@ -354,7 +351,6 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
       const reward = await grantEconomyReward(tx, {
         userId,
         experience: rewardChoice.experience,
-        coins: rewardChoice.coins,
         hintCredits: rewardChoice.hintCredits,
         translationCredits: rewardChoice.translationCredits,
         sourceType: MILESTONE_CHEST_SOURCE_TYPE[kind],
@@ -499,7 +495,6 @@ export async function spinLessonRewardWheel(userId: string, lessonId: string) {
     const awarded = await grantEconomyReward(tx, {
       userId,
       experience: reward.experience,
-      coins: reward.coins,
       hintCredits: reward.hintCredits,
       translationCredits: reward.translationCredits,
       sourceType: "LESSON_WHEEL",

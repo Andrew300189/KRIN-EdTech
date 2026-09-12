@@ -18,7 +18,9 @@ export const motivationSettingsSchema = z.object({
 
 export const rewardRuleSchema = z.object({
   experienceAmount: z.number().int().min(0).max(10_000),
-  coinAmount: z.number().int().min(0).max(10_000),
+  // Automatic learning rewards are XP-only. Coins remain available through
+  // the learner's explicit XP exchange, not through a configurable bonus.
+  coinAmount: z.literal(0).default(0),
   dailyLimit: z.number().int().min(1).max(10_000).nullable().optional(),
   weeklyLimit: z.number().int().min(1).max(100_000).nullable().optional(),
   isActive: z.boolean(),
@@ -42,7 +44,7 @@ export const achievementSchema = z.object({
   conditionType: z.enum(["LESSONS_COMPLETED", "COURSES_COMPLETED", "EXERCISES_CORRECT", "VOCABULARY_REVIEWS", "STREAK_DAYS", "ACTIVE_MINUTES", "EXPERIENCE_EARNED", "PERFECT_LESSONS"]),
   target: z.number().int().min(1).max(1_000_000),
   experienceReward: z.number().int().min(0).max(100_000).default(0),
-  coinReward: z.number().int().min(0).max(100_000).default(0),
+  coinReward: z.literal(0).default(0),
   isTrophy: z.boolean().default(false),
   isHidden: z.boolean().default(false),
   isActive: z.boolean().default(true),

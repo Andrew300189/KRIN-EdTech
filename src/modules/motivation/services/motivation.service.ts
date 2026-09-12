@@ -107,13 +107,15 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
  */
 export async function grantEconomyReward(
   tx: Tx,
-  input: { userId: string; experience: number; coins: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+  input: { userId: string; experience: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
 ) {
   const context = await userContext(tx, input.userId);
   const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.experience,
-    coinAmount: input.coins,
+    // Learning bonuses are always XP and learning-credit rewards. KRIN Coins
+    // can only be obtained through the explicit XP exchange flow.
+    coinAmount: 0,
     experienceType: "ACHIEVEMENT_REWARD",
     coinType: "ACHIEVEMENT_REWARD",
     sourceType: input.sourceType,
@@ -149,7 +151,7 @@ async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: R
     const claims = await tx.experienceTransaction.count({ where: { userId, type: eventExperienceType[eventType], localDate: { gte: subtractLocalDays(date, 6), lte: date } } });
     if (claims >= rule.weeklyLimit) return { awarded: false, experience: 0, coins: 0, levelUp: false };
   }
-  return creditExperienceAndCoins(tx, { userId, experienceAmount: rule.experienceAmount, coinAmount: rule.coinAmount, experienceType: eventExperienceType[eventType], coinType: eventCoinType[eventType], sourceType: eventType, sourceId, idempotencyKey, description, date });
+  return creditExperienceAndCoins(tx, { userId, experienceAmount: rule.experienceAmount, coinAmount: 0, experienceType: eventExperienceType[eventType], coinType: eventCoinType[eventType], sourceType: eventType, sourceId, idempotencyKey, description, date });
 }
 
 /**
@@ -276,7 +278,7 @@ async function evaluateAchievements(tx: Tx, userId: string, date: string) {
     const completed = progress >= target;
     const userAchievement = await tx.userAchievement.upsert({ where: { userId_achievementId: { userId, achievementId: achievement.id } }, create: { userId, achievementId: achievement.id, progress, target, completed, completedAt: completed ? new Date() : null }, update: { progress, target, ...(completed && !existing?.completed ? { completed: true, completedAt: new Date() } : {}) } });
     if (completed && !existing?.completed && userAchievement.completed) {
-      const reward = await creditExperienceAndCoins(tx, { userId, experienceAmount: achievement.experienceReward, coinAmount: achievement.coinReward, experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD", sourceType: "ACHIEVEMENT", sourceId: achievement.id, idempotencyKey: `achievement:${userId}:${achievement.id}`, description: `Achievement unlocked: ${achievement.title}`, date });
+      const reward = await creditExperienceAndCoins(tx, { userId, experienceAmount: achievement.experienceReward, coinAmount: 0, experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD", sourceType: "ACHIEVEMENT", sourceId: achievement.id, idempotencyKey: `achievement:${userId}:${achievement.id}`, description: `Achievement unlocked: ${achievement.title}`, date });
       unlocked.push({ title: achievement.title, experience: reward.experience, coins: reward.coins });
     }
   }
@@ -425,7 +427,7 @@ export async function recordMistakeReviewRunCompletion(tx: Tx, input: { userId: 
   const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.firstFocusedRun ? 35 : 15,
-    coinAmount: input.firstFocusedRun ? 3 : 1,
+    coinAmount: 0,
     experienceType: "ACHIEVEMENT_REWARD",
     coinType: "ACHIEVEMENT_REWARD",
     sourceType: "MISTAKE_REVIEW_RUN",
@@ -712,14 +714,14 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
 export async function getLearningRewardPreview() {
   const rules = await prisma.rewardRule.findMany({
     where: { eventType: { in: ["EXERCISE_CORRECT", "LESSON_COMPLETED"] } },
-    select: { eventType: true, experienceAmount: true, coinAmount: true, isActive: true },
+    select: { eventType: true, experienceAmount: true, isActive: true },
   });
   const byEvent = new Map(rules.map((rule) => [rule.eventType, rule]));
   const exercise = byEvent.get("EXERCISE_CORRECT");
   const lesson = byEvent.get("LESSON_COMPLETED");
   return {
-    exercise: exercise?.isActive ? { experience: exercise.experienceAmount, coins: exercise.coinAmount } : { experience: 0, coins: 0 },
-    lesson: lesson?.isActive ? { experience: lesson.experienceAmount, coins: lesson.coinAmount } : { experience: 0, coins: 0 },
+    exercise: exercise?.isActive ? { experience: exercise.experienceAmount, coins: 0 } : { experience: 0, coins: 0 },
+    lesson: lesson?.isActive ? { experience: lesson.experienceAmount, coins: 0 } : { experience: 0, coins: 0 },
   };
 }
 
@@ -906,7 +908,8 @@ export async function updateRewardRule(actorId: string, eventType: RewardEvent, 
   const value = rewardRuleSchema.parse(input);
   // Exercise XP is protected per exercise by an idempotency key. A global cap
   // would make longer lessons stop rewarding learners before they finish.
-  const normalized = eventType === "EXERCISE_CORRECT" ? { ...value, dailyLimit: null, weeklyLimit: null } : value;
+  const withoutCoinRewards = { ...value, coinAmount: 0 };
+  const normalized = eventType === "EXERCISE_CORRECT" ? { ...withoutCoinRewards, dailyLimit: null, weeklyLimit: null } : withoutCoinRewards;
   const rule = await prisma.rewardRule.upsert({ where: { eventType }, create: { eventType, ...normalized, conditions: normalized.conditions ? json(normalized.conditions) : undefined }, update: { ...normalized, conditions: normalized.conditions ? json(normalized.conditions) : undefined } });
   await prisma.contentAuditLog.create({ data: { actorId, action: "UPDATE", entityType: "RewardRule", entityId: rule.id, metadata: json({ eventType }) } });
   return rule;
