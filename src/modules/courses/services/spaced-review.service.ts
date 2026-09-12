@@ -149,8 +149,11 @@ function toBeDrafts(moduleOrder: number): ReviewExerciseDraft[] {
         },
         {
           type: "ERROR_CORRECTION", engineKey: "find-and-correct", variantKey: "SPACED_REVIEW_TO_BE",
-          instruction: "Исправьте форму to be в новом предложении.", question: `Исправьте: ${wrongSentence}`,
-          content: { ignorePunctuation: true }, correctAnswer: item.sentence, alternativeAnswers: null,
+          // Store the sentence separately as well as in the question. It
+          // makes the learner card resilient to older/localized prompt
+          // formats and ensures the task always shows what must be repaired.
+          instruction: "Исправьте форму to be в новом предложении.", question: wrongSentence,
+          content: { ignorePunctuation: true, sourceSentence: wrongSentence, answerMode: "FULL_SENTENCE" }, correctAnswer: item.sentence, alternativeAnswers: null,
           explanation: `Правильно: ${item.sentence}`, hint: "Сверьте форму to be с подлежащим и типом фразы.", hintsEnabled: true,
           difficulty: 2, timeLimitSeconds: 28, solutionCost: 2, allowInstantCheck: true, sourceExerciseId: null, signature: `${baseSignature}:correction`,
         },

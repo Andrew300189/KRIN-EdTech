@@ -298,6 +298,7 @@ export function LessonPlayer({
   const [storedProgress, setStoredProgress] = useState<StoredProgress | null>(null);
   const [progressHydrated, setProgressHydrated] = useState(previewMode || !canSaveProgress || Boolean(reviewSession));
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [leavingLesson, setLeavingLesson] = useState(false);
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const [lessonReward, setLessonReward] = useState<NonNullable<StoredProgress["motivationReward"]> | null>(null);
   const [warmUpDone, setWarmUpDone] = useState(!warmUpSessionId);
@@ -650,27 +651,32 @@ export function LessonPlayer({
     const savedCompleted = savedSnapshot.completed;
     const savedCurrent = savedSnapshot.current;
     setSaveError(null);
-    const response = await fetch(`/api/learning/lessons/${lessonId}/progress`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completedBlockIds: savedCompleted, currentBlockId: savedCurrent, activeSeconds: savedSnapshot.activeSeconds, complete }),
-    });
-    const payload = await response.json() as { data?: StoredProgress; error?: string };
-    if (!response.ok || !payload.data) {
-      setSaveError(payload.error ?? "Unable to save your progress.");
+    try {
+      const response = await fetch(`/api/learning/lessons/${lessonId}/progress`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completedBlockIds: savedCompleted, currentBlockId: savedCurrent, activeSeconds: savedSnapshot.activeSeconds, complete }),
+      });
+      const payload = await response.json().catch(() => null) as { data?: StoredProgress; error?: string } | null;
+      if (!response.ok || !payload?.data) {
+        setSaveError(payload?.error ?? "Unable to save your progress.");
+        return null;
+      }
+      persistedProgressSignatureRef.current = progressSnapshotSignature(savedSnapshot);
+      setStoredProgress(payload.data);
+      if (complete) setLessonReward(payload.data.motivationReward ?? null);
+      if (payload.data.motivationReward?.awarded) {
+        const reward = payload.data.motivationReward;
+        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
+        notifyMotivationUpdated();
+      }
+      if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
+      if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_COMPLETE");
+      return payload.data;
+    } catch {
+      setSaveError("Unable to save your progress.");
       return null;
     }
-    persistedProgressSignatureRef.current = progressSnapshotSignature(savedSnapshot);
-    setStoredProgress(payload.data);
-    if (complete) setLessonReward(payload.data.motivationReward ?? null);
-    if (payload.data.motivationReward?.awarded) {
-      const reward = payload.data.motivationReward;
-      setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
-      notifyMotivationUpdated();
-    }
-    if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
-    if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_COMPLETE");
-    return payload.data;
   }
 
   useEffect(() => {
@@ -759,9 +765,22 @@ export function LessonPlayer({
   advanceStepRef.current = () => { void advanceStep(); };
 
   async function leaveLesson() {
-    const saved = await persistProgress(false);
-    if (canSaveProgress && !previewMode && !saved) return;
-    router.push(destination);
+    if (leavingLesson) return;
+    setLeavingLesson(true);
+    try {
+      if (canSaveProgress && !previewMode && !isReviewSession) {
+        // Never make the exit control a dead end. A temporary network/API
+        // failure must not trap a learner in an unfinished task. The existing
+        // pagehide fallback still sends the same small progress snapshot while
+        // navigation begins.
+        await Promise.race([
+          persistProgress(false),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 4_000)),
+        ]);
+      }
+    } finally {
+      router.push(destination);
+    }
   }
 
   async function openNextLesson() {
@@ -869,7 +888,7 @@ export function LessonPlayer({
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
-            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} aria-label={chromeCopy.saveAndExit} title={chromeCopy.saveAndExit}>
+            <button type="button" className={styles.closeLink} onClick={() => void leaveLesson()} disabled={leavingLesson} aria-label={chromeCopy.saveAndExit} title={chromeCopy.saveAndExit}>
               <span className={styles.headerActionIcon} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 5h6v14h-6M10 17l5-5-5-5M15 12H3" /></svg></span>
               <span>{chromeCopy.save}</span>
             </button>

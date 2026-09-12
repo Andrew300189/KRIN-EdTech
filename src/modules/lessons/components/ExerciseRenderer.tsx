@@ -35,7 +35,6 @@ type AttemptResult = {
     streak?: { current: number; modeStart: number | null; bonusExperience: number; tone: string | null; activated: boolean } | null;
   };
 };
-type SolutionResult = { alreadyOpened: boolean; cost: number; balance: number; correctAnswer: unknown; explanation: string | null; feedback: Feedback };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
 type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number; freeFallback?: boolean };
 
@@ -186,6 +185,30 @@ function explanationAlreadyStatesAnswer(explanation: string | null | undefined, 
   return visibleAnswer.length > 0 && explanation.toLocaleLowerCase().includes(visibleAnswer);
 }
 
+/**
+ * Error-correction cards have appeared in several authoring formats. Prefer
+ * their actual incorrect sentence to a generic label such as “Correct:”. The
+ * last fallback keeps older cards usable when only structured error details
+ * were stored.
+ */
+function correctionPrompt(question: string, content: JsonObject) {
+  const sourceSentence = content.sourceSentence;
+  if (typeof sourceSentence === "string" && sourceSentence.trim()) return sourceSentence.trim();
+
+  const questionText = question.trim();
+  const genericQuestion = /^(?:виправте|исправьте|correct|fix)(?:\s+(?:речення|sentence|форму|the\s+sentence))?\s*:?$/iu.test(questionText);
+  if (!genericQuestion) return questionText;
+
+  const errorDetails = content.errorDetails;
+  if (Array.isArray(errorDetails)) {
+    const incorrect = errorDetails
+      .map((detail) => asObject(detail).incorrect)
+      .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (incorrect) return incorrect.trim();
+  }
+  return questionText;
+}
+
 function AnswerReveal({ answer }: { answer: unknown }) {
   if (answer && typeof answer === "object" && !Array.isArray(answer)) {
     const pairs = Object.entries(answer as JsonObject)
@@ -230,12 +253,9 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const initialAnswer = useMemo<ExerciseAnswer>(() => multiple || ordered ? [] : matching || classification ? {} : "", [classification, matching, multiple, ordered]);
   const [answer, setAnswer] = useState<ExerciseAnswer>(initialAnswer);
   const [result, setResult] = useState<AttemptResult | null>(null);
-  const [solution, setSolution] = useState<SolutionResult | null>(null);
-  const [confirmSolution, setConfirmSolution] = useState(false);
   const [extraExercise, setExtraExercise] = useState<LessonExercise | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [solutionSending, setSolutionSending] = useState(false);
   const [extraSending, setExtraSending] = useState(false);
   const [translation, setTranslation] = useState<string | null>(null);
   const [translationError, setTranslationError] = useState<string | null>(null);
@@ -302,7 +322,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   })();
 
   function changeAnswer(next: ExerciseAnswer) {
-    setAnswer(next); setResult(null); setSolution(null); setConfirmSolution(false);
+    setAnswer(next); setResult(null);
   }
 
   function compactMatchingSubmission(candidate: JsonObject) {
@@ -324,8 +344,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     translationRequestRef.current += 1;
     setAnswer(initialAnswer);
     setResult(null);
-    setSolution(null);
-    setConfirmSolution(false);
     setError(null);
     setHintOpen(false);
     setHintUsed(false);
@@ -508,20 +526,6 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     }
   }
 
-  async function openSolution() {
-    setSolutionSending(true); setError(null);
-    try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/solution`, {
-        method: "POST",
-        headers: contentLocale ? { "x-krin-content-locale": contentLocale } : undefined,
-      });
-      const payload = await response.json() as { data?: SolutionResult; error?: string };
-      if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to open the solution."); return; }
-      setSolution(payload.data); setConfirmSolution(false); notifyMotivationUpdated();
-    } catch { setError("Unable to open the solution. Please try again."); }
-    finally { setSolutionSending(false); }
-  }
-
   async function loadExtraPractice() {
     setExtraSending(true); setError(null);
     try {
@@ -537,7 +541,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const audio = mediaUrl(content.audioUrl) ?? mediaUrl(content.mediaUrl);
   const video = mediaUrl(content.videoUrl);
   const passage = typeof content.passage === "string" ? content.passage : null;
-  const visibleFeedback = solution ? { explanation: solution.explanation, correctAnswer: solution.correctAnswer, feedback: solution.feedback } : result?.isCorrect ? result : null;
+  // A wrong answer must immediately teach the learner something. Keeping the
+  // correction behind an XP purchase made the error state both frustrating
+  // and impossible to understand for learners with a zero balance.
+  const visibleFeedback = result;
   const visibleInstruction = compactToBeMatching
     ? locale === "uk"
       ? "Впишіть правильну форму: am, is або are."
@@ -545,7 +552,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
         ? "Впишите правильную форму: am, is или are."
         : "Type the correct form: am, is, or are."
     : exercise.instruction;
-  const visibleQuestion = exercise.question.replace(/^(?:[\p{L}]+\s+)?(?:пример|приклад):\s*/iu, "");
+  const visibleQuestion = (exercise.engineKey === "find-and-correct"
+    ? correctionPrompt(exercise.question, content)
+    : exercise.question
+  ).replace(/^(?:[\p{L}]+\s+)?(?:пример|приклад):\s*/iu, "");
   const answerFeedback = learnerAnswerFeedback(locale);
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const translationOpeningLabel = locale === "uk" ? "Готуємо…" : locale === "ru" ? "Готовим…" : "Preparing…";
@@ -563,10 +573,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       ? { show: "Показать решение", saved: "Показать сохранённое решение?", confirm: "Показать решение за {cost} XP?", opening: "Открываем…", cancel: "Отмена", later: "Отложить", example: "Пример:", reviewRule: "Повторить правило", allErrors: "Показать все ошибки" }
       : { show: "Show solution", saved: "Show the saved solution?", confirm: "Show solution for {cost} XP?", opening: "Opening…", cancel: "Cancel", later: "Review later", example: "Example:", reviewRule: "Review the rule", allErrors: "Show all errors" };
   const incorrectCopy = locale === "uk"
-    ? { title: "Ще трохи практики", description: solution ? "Розв’язання вже нижче. Розберіть його та спробуйте ще раз." : "Підказка вже відкрита. Спробуйте ще раз або відкладіть завдання до повторення.", solution: "Розв’язання" }
+    ? { title: "Ще трохи практики", description: "Перегляньте правильний варіант нижче й спробуйте ще раз або відкладіть завдання до повторення.", solution: "Розв’язання" }
     : locale === "ru"
-      ? { title: "Нужно ещё немного практики", description: solution ? "Решение уже ниже. Разберите его и попробуйте ещё раз." : "Подсказка уже открыта. Попробуйте ещё раз или отложите задание на повторение.", solution: "Решение" }
-      : { title: "A little more practice", description: solution ? "The solution is below. Review it, then try again." : "The hint is open. Try again or save this task for review.", solution: "Solution" };
+      ? { title: "Нужно ещё немного практики", description: "Посмотрите правильный вариант ниже и попробуйте ещё раз или отложите задание на повторение.", solution: "Решение" }
+      : { title: "A little more practice", description: "Review the correct answer below, then try again or save this task for review.", solution: "Solution" };
   const explanationLabel = locale === "uk" ? "Чому так" : locale === "ru" ? "Почему так" : "Why it works";
   const feedbackHint = visibleHint ?? result?.hint ?? exercise.hint;
   const streak = result?.motivationReward?.streak ?? null;
@@ -618,8 +628,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
-    {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-copy"><strong className="lesson-exercise-result-title">{incorrectCopy.title}</strong><p className="lesson-exercise-result-meta">{incorrectCopy.description}</p></div><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{grammarReviewDue && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="lesson-exercise-action lesson-exercise-action-primary">{extraSending ? "Preparing focused practice…" : "Practise this rule again"}</button> : null}{result.solution?.available && !solution ? (confirmSolution ? <div className="lesson-exercise-solution-confirm"><span>{result.solution.opened ? solutionCopy.saved : solutionCopy.confirm.replace("{cost}", String(result.solution.cost))}</span><button type="button" onClick={openSolution} disabled={solutionSending} className="lesson-exercise-action lesson-exercise-action-primary">{solutionSending ? solutionCopy.opening : solutionCopy.show}</button><button type="button" onClick={() => setConfirmSolution(false)} className="lesson-exercise-action lesson-exercise-action-quiet">{solutionCopy.cancel}</button></div> : <button type="button" onClick={() => setConfirmSolution(true)} className="lesson-exercise-action lesson-exercise-action-solution">{result.solution.opened ? solutionCopy.show : `${solutionCopy.show} · ${result.solution.cost} XP`}</button>) : null}</div></section> : null}
-    {visibleFeedback ? <section className={`lesson-exercise-feedback ${solution ? "lesson-exercise-feedback-solution" : ""}`}>{solution ? <p className="lesson-exercise-feedback-label">{incorrectCopy.solution}</p> : null}{visibleFeedback.correctAnswer !== null && !result?.isCorrect && !explanationAlreadyStatesAnswer(visibleFeedback.explanation, visibleFeedback.correctAnswer) ? <div className="lesson-exercise-answer-reveal"><span>{answerFeedback.correctAnswer}</span><AnswerReveal answer={visibleFeedback.correctAnswer} /></div> : null}{visibleFeedback.explanation ? <div className="lesson-exercise-explanation"><strong>{explanationLabel}</strong><p>{visibleFeedback.explanation}</p></div> : null}{visibleFeedback.feedback?.example ? <p className="lesson-exercise-feedback-example">{solutionCopy.example} {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="lesson-exercise-feedback-rule">{solutionCopy.reviewRule}</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="lesson-exercise-feedback-details"><summary>{solutionCopy.allErrors}</summary><ul>{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</section> : null}
+    {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-copy"><strong className="lesson-exercise-result-title">{incorrectCopy.title}</strong><p className="lesson-exercise-result-meta">{incorrectCopy.description}</p></div><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{grammarReviewDue && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="lesson-exercise-action lesson-exercise-action-primary">{extraSending ? "Preparing focused practice…" : "Practise this rule again"}</button> : null}</div></section> : null}
+    {visibleFeedback ? <section className="lesson-exercise-feedback">{visibleFeedback.correctAnswer !== null && !result?.isCorrect && !explanationAlreadyStatesAnswer(visibleFeedback.explanation, visibleFeedback.correctAnswer) ? <div className="lesson-exercise-answer-reveal"><span>{answerFeedback.correctAnswer}</span><AnswerReveal answer={visibleFeedback.correctAnswer} /></div> : null}{visibleFeedback.explanation ? <div className="lesson-exercise-explanation"><strong>{explanationLabel}</strong><p>{visibleFeedback.explanation}</p></div> : null}{visibleFeedback.feedback?.example ? <p className="lesson-exercise-feedback-example">{solutionCopy.example} {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="lesson-exercise-feedback-rule">{solutionCopy.reviewRule}</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="lesson-exercise-feedback-details"><summary>{solutionCopy.allErrors}</summary><ul>{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</section> : null}
     {result && !result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-retry-button">{retryLabel}</button> : null}
     {extraExercise ? <div className="mt-5 border-t border-slate-200 pt-5"><h3 className="mb-3 text-base font-bold text-slate-900">Extra practice</h3><ExerciseRenderer exercise={extraExercise} /></div> : null}
   </section>;
