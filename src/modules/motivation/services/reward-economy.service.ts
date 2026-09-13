@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
-import { correctAnswerStreak, streakChestTier, type StreakChestTier } from "@/modules/motivation/utils/correct-answer-streak";
+import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -28,8 +28,6 @@ const DAILY_CHEST_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 type EconomyBonusReward = {
   id: string;
   experience: number;
-  /** Hundredths of an earned XP Coin; never a regular KRIN Coin. */
-  xpCoinMinor?: number;
   hintCredits: number;
   translationCredits: number;
 };
@@ -43,47 +41,18 @@ const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
 ] as const;
 
 /**
- * Every streak tier has a distinct chest loot table. From the sapphire tier
- * (×100) onward a chest can award earned XP Coins. It never mints spendable
- * KRIN Coins automatically.
+ * Every actual streak checkpoint gets its own reward curve. The base reward
+ * grows with the checkpoint and its sequential chest level, while the final
+ * amount is still adjusted by verified task difficulty and daily streak.
  */
-const STREAK_CHEST_REWARDS: Record<StreakChestTier, readonly EconomyBonusReward[]> = {
-  sprout: [
-    { id: "sprout-violet-xp", experience: 15, hintCredits: 0, translationCredits: 0 },
-    { id: "sprout-hint-xp", experience: 8, hintCredits: 1, translationCredits: 0 },
-    { id: "sprout-translation-xp", experience: 8, hintCredits: 0, translationCredits: 1 },
-  ],
-  amber: [
-    { id: "amber-xp", experience: 28, hintCredits: 0, translationCredits: 0 },
-    { id: "amber-hint", experience: 18, hintCredits: 1, translationCredits: 0 },
-    { id: "amber-translation", experience: 18, hintCredits: 0, translationCredits: 1 },
-  ],
-  sapphire: [
-    { id: "sapphire-xp-coin", experience: 40, xpCoinMinor: 1, hintCredits: 0, translationCredits: 0 },
-    { id: "sapphire-hint-coin", experience: 30, xpCoinMinor: 1, hintCredits: 1, translationCredits: 0 },
-    { id: "sapphire-translation-coin", experience: 30, xpCoinMinor: 1, hintCredits: 0, translationCredits: 1 },
-  ],
-  ruby: [
-    { id: "ruby-xp-coin", experience: 65, xpCoinMinor: 3, hintCredits: 0, translationCredits: 0 },
-    { id: "ruby-hint-coin", experience: 50, xpCoinMinor: 2, hintCredits: 1, translationCredits: 0 },
-    { id: "ruby-translation-coin", experience: 50, xpCoinMinor: 2, hintCredits: 0, translationCredits: 1 },
-  ],
-  aurora: [
-    { id: "aurora-xp-coin", experience: 100, xpCoinMinor: 6, hintCredits: 0, translationCredits: 0 },
-    { id: "aurora-hint-coin", experience: 80, xpCoinMinor: 5, hintCredits: 1, translationCredits: 0 },
-    { id: "aurora-translation-coin", experience: 80, xpCoinMinor: 5, hintCredits: 0, translationCredits: 1 },
-  ],
-  cosmic: [
-    { id: "cosmic-xp-coin", experience: 160, xpCoinMinor: 15, hintCredits: 0, translationCredits: 0 },
-    { id: "cosmic-hint-coin", experience: 130, xpCoinMinor: 12, hintCredits: 1, translationCredits: 0 },
-    { id: "cosmic-translation-coin", experience: 130, xpCoinMinor: 12, hintCredits: 0, translationCredits: 1 },
-  ],
-  mythic: [
-    { id: "mythic-xp-coin", experience: 300, xpCoinMinor: 50, hintCredits: 1, translationCredits: 1 },
-    { id: "mythic-hint-coin", experience: 260, xpCoinMinor: 45, hintCredits: 2, translationCredits: 0 },
-    { id: "mythic-translation-coin", experience: 260, xpCoinMinor: 45, hintCredits: 0, translationCredits: 2 },
-  ],
-};
+function streakChestRewards(milestone: number, chestLevel: number): readonly EconomyBonusReward[] {
+  const baseExperience = Math.round(12 + Math.sqrt(milestone) * 3 + chestLevel * 0.1);
+  return [
+    { id: `level-${chestLevel}-xp`, experience: baseExperience, hintCredits: 0, translationCredits: 0 },
+    { id: `level-${chestLevel}-hint`, experience: Math.max(1, baseExperience - 7), hintCredits: 1, translationCredits: 0 },
+    { id: `level-${chestLevel}-translation`, experience: Math.max(1, baseExperience - 7), hintCredits: 0, translationCredits: 1 },
+  ];
+}
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
 
@@ -140,7 +109,7 @@ const WHEEL_REWARDS = [
   { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
-type ChestRewardContext = { difficulty: number; currentStreak: number; chestTier: number };
+type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number };
 
 /**
  * Chest XP is calculated server-side from the latest completed task's
@@ -148,7 +117,7 @@ type ChestRewardContext = { difficulty: number; currentStreak: number; chestTier
  * a visible, bounded reward curve rather than allowing unexplained hundreds
  * of XP to appear from a client-side animation.
  */
-async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, chestTier: number): Promise<ChestRewardContext> {
+async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, chestLevel: number): Promise<ChestRewardContext> {
   const [streak, attempts] = await Promise.all([
     tx.userStreak.findUnique({ where: { userId }, select: { currentStreak: true } }),
     tx.exerciseAttempt.findMany({
@@ -164,19 +133,22 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
   return {
     difficulty: Math.max(1, Math.min(5, Math.round(meanDifficulty))),
     currentStreak: Math.max(0, streak?.currentStreak ?? 0),
-    chestTier: Math.max(1, Math.min(7, chestTier)),
+    chestLevel: Math.max(1, Math.min(403, chestLevel)),
   };
 }
 
 function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardContext) {
   const difficultyBonus = (context.difficulty - 1) * 0.08;
-  const chestBonus = (context.chestTier - 1) * 0.2;
+  const chestBonus = Math.log2(context.chestLevel) * 0.1;
   const streakBonus = Math.min(context.currentStreak, 30) * 0.01;
   return { ...reward, experience: Math.max(1, Math.round(reward.experience * (1 + difficultyBonus + chestBonus + streakBonus))) };
 }
 
 async function existingChestReward(tx: Prisma.TransactionClient, userId: string, idempotencyKey: string, sourceType: string, sourceId: string) {
-  const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } });
+  const [existing, coin] = await Promise.all([
+    tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } }),
+    tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } }),
+  ]);
   if (!existing) return null;
   const bonuses = await tx.learningBonusTransaction.findMany({
     where: { userId, sourceType, sourceId, amount: { gt: 0 } },
@@ -185,11 +157,11 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
   return {
     opened: false,
     alreadyOpened: true,
-    // Keep the original reward identifier intact even when the description
-    // also contains the durable XP Coin audit marker.
+    // Keep the original reward identifier intact even when a legacy reward
+    // description contains an XP Coin audit marker.
     rewardId: existing.description?.split("|")[0]?.split(":").slice(1).join(":").trim() || null,
     experience: existing.amount,
-    coins: 0,
+    coins: coin?.amount ?? 0,
     xpCoins: Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
     hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
     translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
@@ -288,20 +260,21 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       };
     }
 
-    const tier = streakChestTier(milestone);
-    const tierNumber: Record<StreakChestTier, number> = { sprout: 1, amber: 2, sapphire: 3, ruby: 4, aurora: 5, cosmic: 6, mythic: 7 };
-    const choices = STREAK_CHEST_REWARDS[tier];
-    const choice = scaledChestReward(choices[randomInt(choices.length)], await chestRewardContext(tx, userId, tierNumber[tier]));
+    const chestLevel = streakChestLevel(milestone);
+    if (!chestLevel) throw new Error("This streak chest is unavailable.");
+    const choices = streakChestRewards(milestone, chestLevel);
+    const choice = scaledChestReward(choices[randomInt(choices.length)], await chestRewardContext(tx, userId, chestLevel));
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
-      xpCoinMinor: choice.xpCoinMinor,
+      // A real, non-ranked KRIN Coin is awarded at each century checkpoint.
+      krinCoins: streakChestKrinCoinReward(milestone),
       hintCredits: choice.hintCredits,
       translationCredits: choice.translationCredits,
       sourceType: "STREAK_CHEST",
       sourceId: String(milestone),
       idempotencyKey,
-      description: `Streak chest:${choice.id}`,
+      description: `Streak chest L${chestLevel}:${choice.id}`,
     });
     return {
       opened: reward.awarded,

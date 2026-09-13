@@ -26,7 +26,7 @@ describe("StreakChestReward", () => {
     render(createElement(
       LocaleProvider,
       null,
-      createElement(StreakChestReward, { milestone: 5, onDismiss }),
+      createElement(StreakChestReward, { milestone: 7, onDismiss }),
     ));
 
     expect(screen.getByRole("dialog", { name: "Streak chest" })).toBeInTheDocument();

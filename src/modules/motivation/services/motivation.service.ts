@@ -107,19 +107,20 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
  */
 export async function grantEconomyReward(
   tx: Tx,
-  input: { userId: string; experience: number; xpCoinMinor?: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+  input: { userId: string; experience: number; xpCoinMinor?: number; krinCoins?: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
 ) {
   const context = await userContext(tx, input.userId);
   const xpCoinMinor = Math.max(0, Math.trunc(input.xpCoinMinor ?? 0));
+  const krinCoins = Math.max(0, Math.trunc(input.krinCoins ?? 0));
   const description = xpCoinMinor ? `${input.description} | xp-coins:${xpCoinMinor}` : input.description;
   const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.experience,
-    // Learning bonuses are always XP and learning-credit rewards. KRIN Coins
-    // can only be obtained through the explicit XP exchange flow.
-    coinAmount: 0,
+    // The only automatic KRIN Coin is the server-verified 100-answer streak
+    // chest. It is spendable currency and is intentionally not ranked.
+    coinAmount: krinCoins,
     experienceType: "ACHIEVEMENT_REWARD",
-    coinType: "ACHIEVEMENT_REWARD",
+    coinType: input.sourceType === "STREAK_CHEST" ? "STREAK_REWARD" : "ACHIEVEMENT_REWARD",
     sourceType: input.sourceType,
     sourceId: input.sourceId,
     idempotencyKey: input.idempotencyKey,
