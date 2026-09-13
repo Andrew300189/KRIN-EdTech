@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
+import { userLocalDate } from "@/modules/motivation/utils/local-date";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -40,18 +41,88 @@ const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
   { id: "xp-100", experience: 100, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
-/**
- * Every actual streak checkpoint gets its own reward curve. The base reward
- * grows with the checkpoint and its sequential chest level, while the final
- * amount is still adjusted by verified task difficulty and daily streak.
- */
-function streakChestRewards(milestone: number, chestLevel: number): readonly EconomyBonusReward[] {
-  const baseExperience = Math.round(12 + Math.sqrt(milestone) * 3 + chestLevel * 0.1);
-  return [
-    { id: `level-${chestLevel}-xp`, experience: baseExperience, hintCredits: 0, translationCredits: 0 },
-    { id: `level-${chestLevel}-hint`, experience: Math.max(1, baseExperience - 7), hintCredits: 1, translationCredits: 0 },
-    { id: `level-${chestLevel}-translation`, experience: Math.max(1, baseExperience - 7), hintCredits: 0, translationCredits: 1 },
-  ];
+type StreakChestRewardBand = "LOW" | "MID" | "UPPER" | "JACKPOT";
+type StreakChestDailyCounts = Record<StreakChestRewardBand, number>;
+const STREAK_CHEST_XP_MINIMUM = 10;
+const STREAK_CHEST_XP_MAXIMUM = 500;
+export const STREAK_CHEST_DAILY_LIMITS: Record<Exclude<StreakChestRewardBand, "LOW">, number> = {
+  JACKPOT: 3,
+  UPPER: 7,
+  MID: 20,
+};
+
+export function streakChestRewardBand(experience: number): StreakChestRewardBand {
+  if (experience >= 300) return "JACKPOT";
+  if (experience > 200) return "UPPER";
+  if (experience > 100) return "MID";
+  return "LOW";
+}
+
+export function streakChestDailyCounts(experiences: readonly number[]): StreakChestDailyCounts {
+  return experiences.reduce<StreakChestDailyCounts>((counts, experience) => {
+    counts[streakChestRewardBand(experience)] += 1;
+    return counts;
+  }, { LOW: 0, MID: 0, UPPER: 0, JACKPOT: 0 });
+}
+
+export function canAwardStreakChestExperience(experience: number, counts: StreakChestDailyCounts) {
+  const band = streakChestRewardBand(experience);
+  return band === "LOW" || counts[band] < STREAK_CHEST_DAILY_LIMITS[band];
+}
+
+/** The level, streak and verified task difficulty set a moving ceiling within
+ * the requested 10–500 XP range. Higher values are still chance-based. */
+export function streakChestExperienceCeiling(input: { milestone: number; chestLevel: number; difficulty: number; dailyStreak: number }) {
+  const raw = 10
+    + Math.sqrt(Math.max(0, input.milestone)) * 4.15
+    + Math.max(1, input.chestLevel) * 0.18
+    + Math.max(0, input.difficulty - 1) * 8
+    + Math.min(100, Math.max(0, input.dailyStreak)) * 0.4;
+  return Math.max(STREAK_CHEST_XP_MINIMUM, Math.min(STREAK_CHEST_XP_MAXIMUM, Math.round(raw)));
+}
+
+function randomAmount(minimum: number, maximum: number, previous: number | null) {
+  const value = randomInt(minimum, maximum + 1);
+  // A random gift may repeat on another day, but it never repeats the
+  // immediately preceding streak-chest amount when there is an alternative.
+  if (value !== previous || minimum === maximum) return value;
+  return value === maximum ? value - 1 : value + 1;
+}
+
+function weightedBand(bands: Array<{ band: StreakChestRewardBand; weight: number }>) {
+  const total = bands.reduce((sum, candidate) => sum + candidate.weight, 0);
+  let roll = randomInt(total);
+  for (const candidate of bands) {
+    if (roll < candidate.weight) return candidate.band;
+    roll -= candidate.weight;
+  }
+  return "LOW" as const;
+}
+
+/** Samples an XP amount from the permitted daily buckets. Jackpot values are
+ * intentionally only 300, 400 or 500 and have the strictest daily limit. */
+export function selectStreakChestExperience(input: { ceiling: number; previous: number | null; dailyCounts: StreakChestDailyCounts }) {
+  const ceiling = Math.max(STREAK_CHEST_XP_MINIMUM, Math.min(STREAK_CHEST_XP_MAXIMUM, input.ceiling));
+  const jackpotValues = [300, 400, 500].filter((value) => value <= ceiling && value !== input.previous);
+  const candidates: Array<{ band: StreakChestRewardBand; weight: number }> = [{ band: "LOW", weight: 30 }];
+  if (ceiling >= 101 && input.dailyCounts.MID < STREAK_CHEST_DAILY_LIMITS.MID) candidates.push({ band: "MID", weight: 8 });
+  if (ceiling >= 201 && input.dailyCounts.UPPER < STREAK_CHEST_DAILY_LIMITS.UPPER) candidates.push({ band: "UPPER", weight: 3 });
+  if (jackpotValues.length && input.dailyCounts.JACKPOT < STREAK_CHEST_DAILY_LIMITS.JACKPOT) candidates.push({ band: "JACKPOT", weight: 1 });
+
+  const band = weightedBand(candidates);
+  if (band === "JACKPOT") return jackpotValues[randomInt(jackpotValues.length)];
+  if (band === "UPPER") return randomAmount(201, Math.min(299, ceiling), input.previous);
+  if (band === "MID") return randomAmount(101, Math.min(200, ceiling), input.previous);
+  return randomAmount(STREAK_CHEST_XP_MINIMUM, Math.min(100, ceiling), input.previous);
+}
+
+function streakChestReward(experience: number, chestLevel: number): EconomyBonusReward {
+  const kind = randomInt(3);
+  return kind === 1
+    ? { id: `level-${chestLevel}-hint-xp-${experience}`, experience, hintCredits: 1, translationCredits: 0 }
+    : kind === 2
+      ? { id: `level-${chestLevel}-translation-xp-${experience}`, experience, hintCredits: 0, translationCredits: 1 }
+      : { id: `level-${chestLevel}-xp-${experience}`, experience, hintCredits: 0, translationCredits: 0 };
 }
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
@@ -109,7 +180,7 @@ const WHEEL_REWARDS = [
   { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
-type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number };
+type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number; localDate: string };
 
 /**
  * Chest XP is calculated server-side from the latest completed task's
@@ -118,7 +189,7 @@ type ChestRewardContext = { difficulty: number; currentStreak: number; chestLeve
  * of XP to appear from a client-side animation.
  */
 async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, chestLevel: number): Promise<ChestRewardContext> {
-  const [streak, attempts] = await Promise.all([
+  const [streak, attempts, user] = await Promise.all([
     tx.userStreak.findUnique({ where: { userId }, select: { currentStreak: true } }),
     tx.exerciseAttempt.findMany({
       where: { userId, isCorrect: true },
@@ -126,6 +197,7 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
       take: 8,
       select: { exercise: { select: { difficulty: true } } },
     }),
+    tx.user.findUnique({ where: { id: userId }, select: { timeZone: true } }),
   ]);
   const meanDifficulty = attempts.length
     ? attempts.reduce((sum, attempt) => sum + attempt.exercise.difficulty, 0) / attempts.length
@@ -134,6 +206,7 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
     difficulty: Math.max(1, Math.min(5, Math.round(meanDifficulty))),
     currentStreak: Math.max(0, streak?.currentStreak ?? 0),
     chestLevel: Math.max(1, Math.min(403, chestLevel)),
+    localDate: userLocalDate(user?.timeZone),
   };
 }
 
@@ -142,6 +215,26 @@ function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardConte
   const chestBonus = Math.log2(context.chestLevel) * 0.1;
   const streakBonus = Math.min(context.currentStreak, 30) * 0.01;
   return { ...reward, experience: Math.max(1, Math.round(reward.experience * (1 + difficultyBonus + chestBonus + streakBonus))) };
+}
+
+async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: string, milestone: number, context: ChestRewardContext) {
+  const recentRewards = await tx.experienceTransaction.findMany({
+    where: { userId, sourceType: "STREAK_CHEST", localDate: context.localDate },
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    select: { amount: true },
+  });
+  const experience = selectStreakChestExperience({
+    ceiling: streakChestExperienceCeiling({
+      milestone,
+      chestLevel: context.chestLevel,
+      difficulty: context.difficulty,
+      dailyStreak: context.currentStreak,
+    }),
+    previous: recentRewards[0]?.amount ?? null,
+    dailyCounts: streakChestDailyCounts(recentRewards.map((reward) => reward.amount)),
+  });
+  return streakChestReward(experience, context.chestLevel);
 }
 
 async function existingChestReward(tx: Prisma.TransactionClient, userId: string, idempotencyKey: string, sourceType: string, sourceId: string) {
@@ -262,8 +355,8 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
 
     const chestLevel = streakChestLevel(milestone);
     if (!chestLevel) throw new Error("This streak chest is unavailable.");
-    const choices = streakChestRewards(milestone, chestLevel);
-    const choice = scaledChestReward(choices[randomInt(choices.length)], await chestRewardContext(tx, userId, chestLevel));
+    const context = await chestRewardContext(tx, userId, chestLevel);
+    const choice = await randomStreakChestReward(tx, userId, milestone, context);
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
