@@ -22,7 +22,10 @@ const tones: readonly CorrectStreakTone[] = ["violet", "blue", "cyan", "emerald"
 export function streakChestLevel(streak: number) {
   const current = Math.max(0, Math.trunc(Number.isFinite(streak) ? streak : 0));
   if (!correctAnswerStreak(current).activated) return 0;
-  if (current < 100) return CORRECT_STREAK_MILESTONES.slice(0, 6).indexOf(current) + 1;
+  if (current < 100) {
+    const earlyChestMilestones: readonly number[] = CORRECT_STREAK_MILESTONES.slice(0, 6);
+    return earlyChestMilestones.indexOf(current) + 1;
+  }
 
   const capped = Math.min(current, 10_000);
   const hundredStart = Math.floor(capped / 100) * 100;
