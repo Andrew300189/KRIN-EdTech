@@ -107,9 +107,11 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
  */
 export async function grantEconomyReward(
   tx: Tx,
-  input: { userId: string; experience: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+  input: { userId: string; experience: number; xpCoinMinor?: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
 ) {
   const context = await userContext(tx, input.userId);
+  const xpCoinMinor = Math.max(0, Math.trunc(input.xpCoinMinor ?? 0));
+  const description = xpCoinMinor ? `${input.description} | xp-coins:${xpCoinMinor}` : input.description;
   const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.experience,
@@ -121,10 +123,17 @@ export async function grantEconomyReward(
     sourceType: input.sourceType,
     sourceId: input.sourceId,
     idempotencyKey: input.idempotencyKey,
-    description: input.description,
+    description,
     date: context.date,
   });
-  if (!reward.awarded) return { ...reward, hintCredits: 0, translationCredits: 0, bonusBalance: null };
+  if (!reward.awarded) return { ...reward, xpCoins: 0, hintCredits: 0, translationCredits: 0, bonusBalance: null };
+  if (xpCoinMinor) {
+    const wallet = await tx.userWallet.upsert({ where: { userId: input.userId }, create: { userId: input.userId }, update: {} });
+    await tx.userWallet.update({
+      where: { id: wallet.id },
+      data: { xpCoinBalanceMinor: { increment: xpCoinMinor }, lifetimeXpCoinsEarnedMinor: { increment: xpCoinMinor } },
+    });
+  }
   const bonus = await grantLearningBonusCredits(tx, {
     userId: input.userId,
     hintCredits: input.hintCredits ?? 0,
@@ -132,9 +141,13 @@ export async function grantEconomyReward(
     sourceType: input.sourceType,
     sourceId: input.sourceId,
     idempotencyKey: input.idempotencyKey,
-    description: input.description,
+    description,
   });
-  return { ...reward, hintCredits: bonus.hintCredits, translationCredits: bonus.translationCredits, bonusBalance: bonus.balance };
+  // Economy rewards can be the event that completes an active quest (for
+  // example, spinning a lesson wheel). Evaluate after its immutable ledger
+  // entries have been recorded, so a retry can never grant a second reward.
+  const achievements = await evaluateAchievements(tx, input.userId, context.date);
+  return { ...reward, xpCoins: xpCoinMinor / 100, hintCredits: bonus.hintCredits, translationCredits: bonus.translationCredits, bonusBalance: bonus.balance, achievements };
 }
 
 async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: RewardEvent, sourceId: string, description: string) {
@@ -249,11 +262,61 @@ async function updateStreakForDate(tx: Tx, userId: string, date: string) {
   return updated;
 }
 
-async function achievementMetric(tx: Tx, userId: string, conditionType: string, streakValue: number, lifetimeExperience: number) {
+const coreQuestDefinitions = [
+  {
+    code: "ANSWER_STREAK_10",
+    title: "Стрик ×10",
+    description: "Дайте 10 правильних відповідей поспіль з першої спроби.",
+    icon: "🔥",
+    category: "STREAK" as const,
+    rarity: "RARE" as const,
+    conditionType: "CORRECT_ANSWER_STREAK" as const,
+    conditionConfig: json({ target: 10, absolute: true }),
+    experienceReward: 40,
+    coinReward: 0,
+    unlockShopItemId: null,
+    isTrophy: false,
+    isHidden: false,
+    isActive: true,
+    order: 110,
+  },
+  {
+    code: "WHEEL_AURORA_UNLOCK",
+    title: "Відкрийте Aurora",
+    description: "Завершіть урок і прокрутіть бонусне колесо, щоб відкрити тему Aurora.",
+    icon: "🎡",
+    category: "LEARNING" as const,
+    rarity: "EPIC" as const,
+    conditionType: "WHEELS_SPUN" as const,
+    conditionConfig: json({ target: 1 }),
+    experienceReward: 30,
+    coinReward: 0,
+    unlockShopItemId: "theme-aurora",
+    isTrophy: false,
+    isHidden: false,
+    isActive: true,
+    order: 120,
+  },
+] as const;
+
+/** Keep the starter quests available in both existing and new installations. */
+async function ensureCoreQuestDefinitions(tx: Tx) {
+  await Promise.all(coreQuestDefinitions.map((quest) => tx.achievement.upsert({
+    where: { code: quest.code },
+    create: quest,
+    // Keep platform-owner changes intact after the initial definition has
+    // been created. This guard only fills an absent core quest.
+    update: {},
+  })));
+}
+
+async function achievementMetric(tx: Tx, userId: string, conditionType: string, streakValue: number, lifetimeExperience: number, correctAnswerStreakValue: number) {
   if (conditionType === "LESSONS_COMPLETED") return tx.lessonProgress.count({ where: { userId, status: "COMPLETED" } });
   if (conditionType === "EXERCISES_CORRECT") return tx.exerciseAttempt.count({ where: { userId, isCorrect: true } });
   if (conditionType === "VOCABULARY_REVIEWS") return tx.wordReviewAttempt.count({ where: { userId } });
   if (conditionType === "STREAK_DAYS") return streakValue;
+  if (conditionType === "CORRECT_ANSWER_STREAK") return correctAnswerStreakValue;
+  if (conditionType === "WHEELS_SPUN") return tx.experienceTransaction.count({ where: { userId, sourceType: "LESSON_WHEEL" } });
   if (conditionType === "ACTIVE_MINUTES") { const total = await tx.userDailyActivity.aggregate({ where: { userId }, _sum: { activeSeconds: true } }); return Math.floor((total._sum.activeSeconds ?? 0) / 60); }
   if (conditionType === "EXPERIENCE_EARNED") return lifetimeExperience;
   if (conditionType === "PERFECT_LESSONS") return tx.lessonProgress.count({ where: { userId, status: "COMPLETED", grade: 5, incorrectAnswers: 0 } });
@@ -264,6 +327,7 @@ async function achievementMetric(tx: Tx, userId: string, conditionType: string, 
 }
 
 async function evaluateAchievements(tx: Tx, userId: string, date: string) {
+  await ensureCoreQuestDefinitions(tx);
   const [achievements, level, streak, activatedQuests] = await Promise.all([
     tx.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
     tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
@@ -271,7 +335,7 @@ async function evaluateAchievements(tx: Tx, userId: string, date: string) {
     tx.userAchievement.findMany({ where: { userId, activatedAt: { not: null } } }),
   ]);
   const activatedByAchievementId = new Map(activatedQuests.map((quest) => [quest.achievementId, quest]));
-  const unlocked: Array<{ title: string; experience: number; coins: number }> = [];
+  const unlocked: Array<{ title: string; experience: number; coins: number; unlockShopItemId: string | null }> = [];
   for (const achievement of achievements) {
     // These hidden, event-specific badges are verified at their precise
     // source event below. A generic aggregate would make them unlock under
@@ -281,18 +345,50 @@ async function evaluateAchievements(tx: Tx, userId: string, date: string) {
     // Learners choose which quests to pursue. Do not silently create a quest
     // record or award it before they have activated it themselves.
     if (!existing) continue;
-    const config = (achievement.conditionConfig ?? {}) as { target?: unknown };
+    const config = (achievement.conditionConfig ?? {}) as { target?: unknown; absolute?: unknown };
     const target = Math.max(1, Number(config.target ?? 1));
-    const metric = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
-    const progress = Math.max(0, metric - existing.baseline);
+    const metric = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience, level.currentCorrectStreak);
+    // A correct-answer streak is a live, consecutive sequence. It must not be
+    // reduced to "answers since activation", which would let errors pass.
+    const progress = config.absolute === true ? metric : Math.max(0, metric - existing.baseline);
     const completed = progress >= target;
     const userAchievement = await tx.userAchievement.update({ where: { id: existing.id }, data: { progress, target, ...(completed && !existing.completed ? { completed: true, completedAt: new Date() } : {}) } });
     if (completed && !existing.completed && userAchievement.completed) {
       const reward = await creditExperienceAndCoins(tx, { userId, experienceAmount: achievement.experienceReward, coinAmount: 0, experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD", sourceType: "ACHIEVEMENT", sourceId: achievement.id, idempotencyKey: `achievement:${userId}:${achievement.id}`, description: `Quest completed: ${achievement.title}`, date });
-      unlocked.push({ title: achievement.title, experience: reward.experience, coins: reward.coins });
+      if (achievement.unlockShopItemId) {
+        await unlockAchievementShopItem(tx, userId, achievement.unlockShopItemId, achievement.id, date, achievement.title);
+      }
+      unlocked.push({ title: achievement.title, experience: reward.experience, coins: reward.coins, unlockShopItemId: achievement.unlockShopItemId });
     }
   }
   return unlocked;
+}
+
+/** A quest unlock is durable ownership, never a balance-changing coin award. */
+async function unlockAchievementShopItem(tx: Tx, userId: string, itemId: string, achievementId: string, date: string, title: string) {
+  const idempotencyKey = `achievement-unlock:${userId}:${achievementId}:${itemId}`;
+  const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (existing) return false;
+  const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+  await tx.coinTransaction.create({
+    data: {
+      userId,
+      walletId: wallet.id,
+      amount: 0,
+      amountMinor: 0,
+      balanceBefore: wallet.balance,
+      balanceAfter: wallet.balance,
+      balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
+      balanceAfterMinor: wallet.balance * 100 + wallet.fractionalBalance,
+      type: "ACHIEVEMENT_REWARD",
+      sourceType: "ACHIEVEMENT_UNLOCK",
+      sourceId: itemId,
+      idempotencyKey,
+      localDate: date,
+      description: `Quest unlock: ${title}`,
+    },
+  });
+  return true;
 }
 
 async function awardSpecialBadge(tx: Tx, userId: string, code: keyof typeof specialBadgeDefinition) {
@@ -832,7 +928,10 @@ export async function listRewardHistory(userId: string, type?: string) {
 }
 
 export async function listUserAchievements(userId: string, filter = "ALL") {
-  const achievements = await prisma.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" }, include: { userAchievements: { where: { userId }, take: 1 } } });
+  const achievements = await prisma.$transaction(async (tx) => {
+    await ensureCoreQuestDefinitions(tx);
+    return tx.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" }, include: { userAchievements: { where: { userId }, take: 1 } } });
+  });
   return achievements.filter((achievement) => {
     const userAchievement = achievement.userAchievements[0];
     // Event-only secret badges stay in reward history, but cannot appear as
@@ -866,9 +965,11 @@ export async function activateUserQuest(userId: string, achievementId: string) {
       tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
     ]);
-    const config = (achievement.conditionConfig ?? {}) as { target?: unknown };
+    const config = (achievement.conditionConfig ?? {}) as { target?: unknown; absolute?: unknown };
     const target = Math.max(1, Number(config.target ?? 1));
-    const baseline = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
+    const baseline = config.absolute === true
+      ? 0
+      : await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience, level.currentCorrectStreak);
     return tx.userAchievement.upsert({
       where: { userId_achievementId: { userId, achievementId } },
       create: { userId, achievementId, target, baseline, activatedAt: new Date() },

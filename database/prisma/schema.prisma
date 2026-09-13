@@ -1650,6 +1650,9 @@ model Achievement {
   conditionConfig  Json
   experienceReward Int                      @default(0)
   coinReward       Int                      @default(0)
+  /// Optional shop item granted by completing this quest. This is an unlock,
+  /// not a regular KRIN Coin reward.
+  unlockShopItemId String?
   isTrophy         Boolean                  @default(false)
   isHidden         Boolean                  @default(false)
   isActive         Boolean                  @default(true)
@@ -3771,6 +3774,8 @@ enum AchievementConditionType {
   EXERCISES_CORRECT
   VOCABULARY_REVIEWS
   STREAK_DAYS
+  CORRECT_ANSWER_STREAK
+  WHEELS_SPUN
   ACTIVE_MINUTES
   EXPERIENCE_EARNED
   PERFECT_LESSONS

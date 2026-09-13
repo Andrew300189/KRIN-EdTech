@@ -1,4 +1,4 @@
-import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
+import { correctAnswerStreak, streakChestTier } from "@/modules/motivation/utils/correct-answer-streak";
 
 describe("correct answer streak modes", () => {
   it("keeps the standard reward before the first three-answer mode", () => {
@@ -23,5 +23,13 @@ describe("correct answer streak modes", () => {
   it("repeats the 100-answer checkpoint pattern without capping the streak", () => {
     expect(correctAnswerStreak(548)).toMatchObject({ current: 548, modeStart: 548, bonusExperience: 5, activated: true });
     expect(correctAnswerStreak(777)).toMatchObject({ current: 777, modeStart: 770, bonusExperience: 5, activated: false });
+  });
+
+  it("raises chest tiers through the 10,000-answer mythic threshold", () => {
+    expect(streakChestTier(3)).toBe("sprout");
+    expect(streakChestTier(100)).toBe("sapphire");
+    expect(streakChestTier(1_000)).toBe("aurora");
+    expect(streakChestTier(5_000)).toBe("cosmic");
+    expect(streakChestTier(10_000)).toBe("mythic");
   });
 });

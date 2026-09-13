@@ -2,6 +2,7 @@ export const CORRECT_STREAK_MILESTONES = [3, 7, 12, 24, 48, 70, 100, 124, 148, 1
 const REPEATING_HUNDRED_OFFSETS = [0, 24, 48, 70] as const;
 
 export type CorrectStreakTone = "violet" | "blue" | "cyan" | "emerald" | "lime" | "amber" | "orange" | "rose" | "fuchsia" | "indigo" | "gold";
+export type StreakChestTier = "sprout" | "amber" | "sapphire" | "ruby" | "aurora" | "cosmic" | "mythic";
 
 export type CorrectAnswerStreak = {
   current: number;
@@ -12,6 +13,22 @@ export type CorrectAnswerStreak = {
 };
 
 const tones: readonly CorrectStreakTone[] = ["violet", "blue", "cyan", "emerald", "lime", "amber", "orange", "rose", "fuchsia", "indigo", "gold"];
+
+/**
+ * A chest can keep appearing after the early milestones, but its level grows
+ * only at meaningful streak thresholds. The final visible tier is reached at
+ * ×10,000 and remains mythic for any exceptional streak beyond that point.
+ */
+export function streakChestTier(streak: number): StreakChestTier {
+  const current = Math.max(0, Math.trunc(Number.isFinite(streak) ? streak : 0));
+  if (current < 24) return "sprout";
+  if (current < 100) return "amber";
+  if (current < 500) return "sapphire";
+  if (current < 1_000) return "ruby";
+  if (current < 2_500) return "aurora";
+  if (current < 10_000) return "cosmic";
+  return "mythic";
+}
 
 /**
  * From 100 onwards, each hundred repeats the same four checkpoints:

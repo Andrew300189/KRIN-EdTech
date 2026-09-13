@@ -41,7 +41,7 @@ export const achievementSchema = z.object({
   icon: z.string().trim().min(1).max(32),
   category: z.enum(["LEARNING", "LESSONS", "COURSES", "VOCABULARY", "STREAK", "ACCURACY", "TIME", "EXPERIENCE", "SPECIAL"]),
   rarity: z.enum(["COMMON", "RARE", "EPIC", "LEGENDARY"]),
-  conditionType: z.enum(["LESSONS_COMPLETED", "COURSES_COMPLETED", "EXERCISES_CORRECT", "VOCABULARY_REVIEWS", "STREAK_DAYS", "ACTIVE_MINUTES", "EXPERIENCE_EARNED", "PERFECT_LESSONS"]),
+  conditionType: z.enum(["LESSONS_COMPLETED", "COURSES_COMPLETED", "EXERCISES_CORRECT", "VOCABULARY_REVIEWS", "STREAK_DAYS", "CORRECT_ANSWER_STREAK", "WHEELS_SPUN", "ACTIVE_MINUTES", "EXPERIENCE_EARNED", "PERFECT_LESSONS", "MISTAKES_RESOLVED", "MISTAKE_REVIEW_RUNS_COMPLETED"]),
   target: z.number().int().min(1).max(1_000_000),
   experienceReward: z.number().int().min(0).max(100_000).default(0),
   coinReward: z.literal(0).default(0),

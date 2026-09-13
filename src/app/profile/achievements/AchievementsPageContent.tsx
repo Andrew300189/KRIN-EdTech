@@ -83,6 +83,9 @@ export async function AchievementsPageContent({
         const progress = Math.min(100, Math.round((achievement.progress / Math.max(achievement.target, 1)) * 100));
         const rarity = rarityClass[achievement.rarity as keyof typeof rarityClass] ?? styles.common;
         const isAvailable = !achievement.activatedAt;
+        const unlockLabel = achievement.unlockShopItemId === "theme-aurora"
+          ? "Unlocks Aurora theme"
+          : achievement.unlockShopItemId ? "Unlocks a site item" : null;
         return <article key={achievement.id} className={`${styles.card} ${achievement.completed ? styles.cardComplete : ""}`}>
           <div className={styles.cardTop}>
             <div className={`${styles.icon} ${rarity}`} aria-hidden="true"><AchievementGlyph icon={achievement.icon} /></div>
@@ -93,7 +96,7 @@ export async function AchievementsPageContent({
           <div className={styles.progressHeader}><span>{achievement.completed ? "Completed" : isAvailable ? "Activate to start" : `${Math.min(achievement.progress, achievement.target)} / ${achievement.target}`}</span><strong>{isAvailable ? "—" : `${progress}%`}</strong></div>
           <div className={styles.progressTrack} role="progressbar" aria-label={`${achievement.title} progress`} aria-valuemin={0} aria-valuemax={achievement.target} aria-valuenow={Math.min(achievement.progress, achievement.target)}><div className={`${styles.progressFill} ${rarity}`} style={{ width: `${progress}%` }} /></div>
           <footer className={styles.cardFooter}>
-            <span className={styles.reward}>+{achievement.experienceReward} XP</span>
+            <span className={styles.reward}>+{achievement.experienceReward} XP{unlockLabel ? <><br /><span className={styles.unlock}>✦ {unlockLabel}</span></> : null}</span>
             {achievement.completed ? <span className={styles.unlocked}>Completed {achievement.completedAt?.toLocaleDateString() ?? ""}</span> : isAvailable ? <QuestActivationButton questId={achievement.id} /> : <span className={styles.progressState}>Quest active</span>}
           </footer>
         </article>;

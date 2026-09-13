@@ -1,9 +1,17 @@
 .body { padding: 1rem 1rem 1.2rem; }
 .card { display: grid; justify-items: center; gap: .72rem; text-align: center; }
 .streak { margin: 0; color: #5b4cf0; font-size: .72rem; font-weight: 950; letter-spacing: .12em; text-transform: uppercase; }
-.chest { display: grid; width: 7.6rem; height: 7.6rem; place-items: center; border: 0; border-radius: 2rem; background: radial-gradient(circle at 35% 24%, #fff8cf, #f9c744 49%, #dd7b00); box-shadow: 0 18px 30px rgb(217 119 6 / 26%), inset 0 2px 0 rgb(255 255 255 / 65%); color: #78350f; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease; }
+.chest { display: grid; width: 7.6rem; height: 7.6rem; place-items: center; border: 0; border-radius: 2rem; background: radial-gradient(circle at 35% 24%, var(--chest-light), var(--chest-mid) 49%, var(--chest-dark)); box-shadow: 0 18px 30px var(--chest-shadow), inset 0 2px 0 rgb(255 255 255 / 65%); color: var(--chest-ink); cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease; }
 .chest span { font-size: 4.45rem; filter: drop-shadow(0 6px 3px rgb(120 53 15 / 24%)); }
-.chest:hover:not(:disabled) { transform: translateY(-4px) rotate(-3deg) scale(1.03); box-shadow: 0 23px 34px rgb(217 119 6 / 32%), inset 0 2px 0 rgb(255 255 255 / 65%); }
+.chest:hover:not(:disabled) { transform: translateY(-4px) rotate(-3deg) scale(1.03); box-shadow: 0 23px 34px var(--chest-shadow), inset 0 2px 0 rgb(255 255 255 / 65%); }
+.tier_sprout { --chest-light: #f6ffcf; --chest-mid: #a3d848; --chest-dark: #3a8b44; --chest-shadow: rgb(58 139 68 / 30%); --chest-ink: #185a36; }
+.tier_amber { --chest-light: #fff8cf; --chest-mid: #f9c744; --chest-dark: #dd7b00; --chest-shadow: rgb(217 119 6 / 30%); --chest-ink: #78350f; }
+.tier_sapphire { --chest-light: #dff7ff; --chest-mid: #38bdf8; --chest-dark: #2563eb; --chest-shadow: rgb(37 99 235 / 30%); --chest-ink: #164e9a; }
+.tier_ruby { --chest-light: #ffe1ea; --chest-mid: #fb7185; --chest-dark: #be123c; --chest-shadow: rgb(190 18 60 / 30%); --chest-ink: #881337; }
+.tier_aurora { --chest-light: #e9dcff; --chest-mid: #a78bfa; --chest-dark: #0d9488; --chest-shadow: rgb(13 148 136 / 30%); --chest-ink: #3b2674; }
+.tier_cosmic { --chest-light: #dde9ff; --chest-mid: #4f46e5; --chest-dark: #172554; --chest-shadow: rgb(30 64 175 / 35%); --chest-ink: #e0e7ff; }
+.tier_mythic { --chest-light: #fff7c2; --chest-mid: #d4a62a; --chest-dark: #623c95; --chest-shadow: rgb(98 60 149 / 36%); --chest-ink: #4c1d95; }
+.tierName { margin-top: -.38rem; color: var(--chest-ink); font-size: .72rem; font-weight: 950; letter-spacing: .06em; text-transform: uppercase; }
 .chest:focus-visible, .openButton:focus-visible, .continueButton:focus-visible { outline: 3px solid rgb(91 76 240 / 36%); outline-offset: 3px; }
 .chest.opening { animation: chest-shake .5s ease-in-out infinite; }
 .chest.opened { opacity: .82; cursor: default; transform: scale(.92); }
@@ -14,6 +22,7 @@
 .regular { background: #eeeaff; color: #5544d9; }
 .hint { background: #fff4c4; color: #a16207; }
 .translation { background: #e0f5ff; color: #0284c7; }
+.xpCoinKind { background: #e8e7ff; color: #4338ca; }
 .openButton, .continueButton { width: min(100%, 16rem); min-height: 2.8rem; border: 0; border-radius: .9rem; background: linear-gradient(135deg, #5b4cf0, #2563eb); box-shadow: 0 10px 18px rgb(79 70 229 / 22%); color: #fff; cursor: pointer; font: inherit; font-size: .9rem; font-weight: 900; }
 .openButton:disabled { cursor: wait; opacity: .7; }
 .reward { display: flex; width: 100%; align-items: center; gap: .7rem; padding: .85rem; border: 1px solid; border-radius: 1rem; text-align: left; }
@@ -27,6 +36,8 @@
 .reward.hint > span { background: #fff0b6; color: #a16207; }
 .reward.translation { border-color: #93d8fb; background: #edf9ff; }
 .reward.translation > span { background: #d8f2ff; color: #0284c7; }
+.reward.xpCoin { border-color: #a5b4fc; background: linear-gradient(135deg, #eef2ff, #f5f3ff); }
+.reward.xpCoin > span { background: #dbeafe; color: #4338ca; }
 .rewardNote { font-size: .78rem !important; }
 .error { color: #be123c !important; font-weight: 750; }
 

@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
-import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
+import { correctAnswerStreak, streakChestTier, type StreakChestTier } from "@/modules/motivation/utils/correct-answer-streak";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -28,6 +28,8 @@ const DAILY_CHEST_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 type EconomyBonusReward = {
   id: string;
   experience: number;
+  /** Hundredths of an earned XP Coin; never a regular KRIN Coin. */
+  xpCoinMinor?: number;
   hintCredits: number;
   translationCredits: number;
 };
@@ -40,12 +42,48 @@ const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
   { id: "xp-100", experience: 100, hintCredits: 0, translationCredits: 0 },
 ] as const;
 
-/** A streak chest always awards one of the three learning-reward types. */
-const STREAK_CHEST_REWARDS = [
-  { id: "violet-xp", experience: 15, hintCredits: 0, translationCredits: 0 },
-  { id: "yellow-hint-xp", experience: 8, hintCredits: 1, translationCredits: 0 },
-  { id: "blue-translation-xp", experience: 8, hintCredits: 0, translationCredits: 1 },
-] as const satisfies readonly EconomyBonusReward[];
+/**
+ * Every streak tier has a distinct chest loot table. From the sapphire tier
+ * (×100) onward a chest can award earned XP Coins. It never mints spendable
+ * KRIN Coins automatically.
+ */
+const STREAK_CHEST_REWARDS: Record<StreakChestTier, readonly EconomyBonusReward[]> = {
+  sprout: [
+    { id: "sprout-violet-xp", experience: 15, hintCredits: 0, translationCredits: 0 },
+    { id: "sprout-hint-xp", experience: 8, hintCredits: 1, translationCredits: 0 },
+    { id: "sprout-translation-xp", experience: 8, hintCredits: 0, translationCredits: 1 },
+  ],
+  amber: [
+    { id: "amber-xp", experience: 28, hintCredits: 0, translationCredits: 0 },
+    { id: "amber-hint", experience: 18, hintCredits: 1, translationCredits: 0 },
+    { id: "amber-translation", experience: 18, hintCredits: 0, translationCredits: 1 },
+  ],
+  sapphire: [
+    { id: "sapphire-xp-coin", experience: 40, xpCoinMinor: 1, hintCredits: 0, translationCredits: 0 },
+    { id: "sapphire-hint-coin", experience: 30, xpCoinMinor: 1, hintCredits: 1, translationCredits: 0 },
+    { id: "sapphire-translation-coin", experience: 30, xpCoinMinor: 1, hintCredits: 0, translationCredits: 1 },
+  ],
+  ruby: [
+    { id: "ruby-xp-coin", experience: 65, xpCoinMinor: 3, hintCredits: 0, translationCredits: 0 },
+    { id: "ruby-hint-coin", experience: 50, xpCoinMinor: 2, hintCredits: 1, translationCredits: 0 },
+    { id: "ruby-translation-coin", experience: 50, xpCoinMinor: 2, hintCredits: 0, translationCredits: 1 },
+  ],
+  aurora: [
+    { id: "aurora-xp-coin", experience: 100, xpCoinMinor: 6, hintCredits: 0, translationCredits: 0 },
+    { id: "aurora-hint-coin", experience: 80, xpCoinMinor: 5, hintCredits: 1, translationCredits: 0 },
+    { id: "aurora-translation-coin", experience: 80, xpCoinMinor: 5, hintCredits: 0, translationCredits: 1 },
+  ],
+  cosmic: [
+    { id: "cosmic-xp-coin", experience: 160, xpCoinMinor: 15, hintCredits: 0, translationCredits: 0 },
+    { id: "cosmic-hint-coin", experience: 130, xpCoinMinor: 12, hintCredits: 1, translationCredits: 0 },
+    { id: "cosmic-translation-coin", experience: 130, xpCoinMinor: 12, hintCredits: 0, translationCredits: 1 },
+  ],
+  mythic: [
+    { id: "mythic-xp-coin", experience: 300, xpCoinMinor: 50, hintCredits: 1, translationCredits: 1 },
+    { id: "mythic-hint-coin", experience: 260, xpCoinMinor: 45, hintCredits: 2, translationCredits: 0 },
+    { id: "mythic-translation-coin", experience: 260, xpCoinMinor: 45, hintCredits: 0, translationCredits: 2 },
+  ],
+};
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
 
@@ -126,7 +164,7 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
   return {
     difficulty: Math.max(1, Math.min(5, Math.round(meanDifficulty))),
     currentStreak: Math.max(0, streak?.currentStreak ?? 0),
-    chestTier: Math.max(1, Math.min(4, chestTier)),
+    chestTier: Math.max(1, Math.min(7, chestTier)),
   };
 }
 
@@ -147,9 +185,12 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
   return {
     opened: false,
     alreadyOpened: true,
-    rewardId: existing.description?.split(":").at(-1) ?? null,
+    // Keep the original reward identifier intact even when the description
+    // also contains the durable XP Coin audit marker.
+    rewardId: existing.description?.split("|")[0]?.split(":").slice(1).join(":").trim() || null,
     experience: existing.amount,
     coins: 0,
+    xpCoins: Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
     hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
     translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
   };
@@ -247,13 +288,14 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       };
     }
 
-    const choice = scaledChestReward(
-      STREAK_CHEST_REWARDS[randomInt(STREAK_CHEST_REWARDS.length)],
-      await chestRewardContext(tx, userId, 1),
-    );
+    const tier = streakChestTier(milestone);
+    const tierNumber: Record<StreakChestTier, number> = { sprout: 1, amber: 2, sapphire: 3, ruby: 4, aurora: 5, cosmic: 6, mythic: 7 };
+    const choices = STREAK_CHEST_REWARDS[tier];
+    const choice = scaledChestReward(choices[randomInt(choices.length)], await chestRewardContext(tx, userId, tierNumber[tier]));
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
+      xpCoinMinor: choice.xpCoinMinor,
       hintCredits: choice.hintCredits,
       translationCredits: choice.translationCredits,
       sourceType: "STREAK_CHEST",
@@ -267,6 +309,7 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       rewardId: choice.id,
       experience: reward.experience,
       coins: reward.coins,
+      xpCoins: reward.xpCoins,
       hintCredits: reward.hintCredits,
       translationCredits: reward.translationCredits,
     };
@@ -409,7 +452,7 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
         idempotencyKey,
         description: `Milestone chest:${kind}:${rewardChoice.id}`,
       });
-      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
+      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, xpCoins: reward.xpCoins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -426,7 +469,19 @@ export async function getShopState(userId: string) {
   const [user, wallet, purchases] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { equippedShopTheme: true, equippedShopAvatar: true } }),
     prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
-    prisma.coinTransaction.findMany({ where: { userId, sourceType: "SHOP_ITEM", amount: { lt: 0 } }, select: { sourceId: true, description: true } }),
+    // Store purchases and achievement unlocks use the same ownership surface.
+    // An unlock has a zero ledger amount and therefore cannot be mistaken for
+    // spendable KRIN Coins or a transaction that should affect ranking.
+    prisma.coinTransaction.findMany({
+      where: {
+        userId,
+        OR: [
+          { sourceType: "SHOP_ITEM", amount: { lt: 0 } },
+          { sourceType: "ACHIEVEMENT_UNLOCK", amount: 0 },
+        ],
+      },
+      select: { sourceId: true, description: true },
+    }),
   ]);
   const owned = ownedItemIds(purchases);
   const coupons = purchases
@@ -450,6 +505,11 @@ export async function purchaseShopItem(userId: string, itemId: string) {
     const idempotencyKey = `shop-item:${userId}:${item.id}`;
     const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { description: true } });
     if (existing) return { purchased: false, alreadyOwned: true, coupon: couponFromDescription(existing.description), item: item.id };
+    const unlocked = await tx.coinTransaction.findFirst({
+      where: { userId, sourceType: "ACHIEVEMENT_UNLOCK", sourceId: item.id, amount: 0 },
+      select: { id: true },
+    });
+    if (unlocked) return { purchased: false, alreadyOwned: true, coupon: null, item: item.id };
 
     const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
     const debited = await tx.userWallet.updateMany({
@@ -505,7 +565,17 @@ export async function purchaseShopItem(userId: string, itemId: string) {
 export async function equipShopItem(userId: string, itemId: string) {
   const item = activeItem(itemId);
   if (!item || (item.kind !== "theme" && item.kind !== "avatar")) throw new Error("This item cannot be equipped.");
-  const purchase = await prisma.coinTransaction.findUnique({ where: { idempotencyKey: `shop-item:${userId}:${item.id}` }, select: { id: true } });
+  const purchase = await prisma.coinTransaction.findFirst({
+    where: {
+      userId,
+      sourceId: item.id,
+      OR: [
+        { sourceType: "SHOP_ITEM", amount: { lt: 0 } },
+        { sourceType: "ACHIEVEMENT_UNLOCK", amount: 0 },
+      ],
+    },
+    select: { id: true },
+  });
   if (!purchase) throw new Error("Buy this item before equipping it.");
   const user = await prisma.user.update({
     where: { id: userId },
