@@ -10,7 +10,7 @@ type Entry = {
   userId: string;
   displayName: string;
   experienceMinor: number;
-  coinsMinor: number;
+  xpCoinsMinor: number;
   totalMinor: number;
   isCurrentUser: boolean;
 };
@@ -27,40 +27,40 @@ const copy = {
   en: {
     eyebrow: "Community ranking",
     title: "Top learners",
-    formula: "1 KRIN Coin = 1,000 XP",
+    formula: "XP + XP Coins · regular KRIN Coins do not affect rank",
     you: "You",
     yourPlace: "Your place",
     among: "among {count} learners",
     empty: "The ranking will appear after the first rewards.",
     total: "XP equivalent",
     xp: "XP",
-    coins: "coins",
+    coins: "XP Coins",
     refresh: "Refresh ranking",
   },
   uk: {
     eyebrow: "Рейтинг спільноти",
     title: "Найкращі учні",
-    formula: "1 KRIN Coin = 1 000 XP",
+    formula: "XP + XP Coins · звичайні KRIN Coins не впливають на рейтинг",
     you: "Ви",
     yourPlace: "Ваше місце",
     among: "серед {count} учнів",
     empty: "Рейтинг з’явиться після перших нагород.",
     total: "XP-еквівалент",
     xp: "XP",
-    coins: "монет",
+    coins: "XP Coins",
     refresh: "Оновити рейтинг",
   },
   ru: {
     eyebrow: "Рейтинг сообщества",
     title: "Лучшие ученики",
-    formula: "1 KRIN Coin = 1 000 XP",
+    formula: "XP + XP Coins · обычные KRIN Coins не влияют на рейтинг",
     you: "Вы",
     yourPlace: "Ваше место",
     among: "среди {count} учеников",
     empty: "Рейтинг появится после первых наград.",
     total: "XP-эквивалент",
     xp: "XP",
-    coins: "монет",
+    coins: "XP Coins",
     refresh: "Обновить рейтинг",
   },
 } as const;
@@ -122,7 +122,7 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
               <span className={`${styles.leaderboardPlace} ${placeClass(entry.rank)}`}>{entry.rank}</span>
               <div className={styles.leaderboardLearner}>
                 <strong>{entry.isCurrentUser ? text.you : entry.displayName}</strong>
-                <span>{`${displayMinor(entry.experienceMinor, locale)} ${text.xp} · ${displayMinor(entry.coinsMinor, locale)} ${text.coins}`}</span>
+                <span>{`${displayMinor(entry.experienceMinor, locale)} ${text.xp} · ${displayMinor(entry.xpCoinsMinor, locale)} ${text.coins}`}</span>
               </div>
               <span className={styles.leaderboardScore}>{displayMinor(entry.totalMinor, locale)}<small>{text.total}</small></span>
             </li>
@@ -130,7 +130,7 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
         </ol>
       ) : <p className={styles.helperText}>{text.empty}</p>}
 
-      {current ? <p className={styles.ownRank}>{text.yourPlace}: <strong>{current.rank}</strong> · {participantText}<br />{displayMinor(current.experienceMinor, locale)} {text.xp} + {displayMinor(current.coinsMinor, locale)} {text.coins} = {displayMinor(current.totalMinor, locale)} {text.total}</p> : null}
+      {current ? <p className={styles.ownRank}>{text.yourPlace}: <strong>{current.rank}</strong> · {participantText}<br />{displayMinor(current.experienceMinor, locale)} {text.xp} + {displayMinor(current.xpCoinsMinor, locale)} {text.coins} = {displayMinor(current.totalMinor, locale)} {text.total}</p> : null}
     </article>
   );
 }

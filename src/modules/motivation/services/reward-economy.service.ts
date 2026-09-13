@@ -66,24 +66,24 @@ export type MilestoneChestState = {
 
 const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, readonly EconomyBonusReward[]> = {
   LESSON_3: [
-    { id: "xp-150", experience: 150, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-180", experience: 180, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-220", experience: 220, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-25", experience: 25, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-35", experience: 35, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-45", experience: 45, hintCredits: 1, translationCredits: 0 },
   ],
   EVERY_7_LESSONS: [
-    { id: "xp-300", experience: 300, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-360", experience: 360, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-420", experience: 420, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-50", experience: 50, hintCredits: 0, translationCredits: 0 },
+    { id: "xp-65", experience: 65, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-80", experience: 80, hintCredits: 0, translationCredits: 1 },
   ],
   MODULE: [
-    { id: "xp-600", experience: 600, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-750", experience: 750, hintCredits: 0, translationCredits: 1 },
-    { id: "xp-900", experience: 900, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-90", experience: 90, hintCredits: 1, translationCredits: 0 },
+    { id: "xp-120", experience: 120, hintCredits: 0, translationCredits: 1 },
+    { id: "xp-150", experience: 150, hintCredits: 1, translationCredits: 1 },
   ],
   COURSE: [
-    { id: "xp-1200", experience: 1200, hintCredits: 1, translationCredits: 1 },
-    { id: "xp-1500", experience: 1500, hintCredits: 2, translationCredits: 1 },
-    { id: "xp-1800", experience: 1800, hintCredits: 1, translationCredits: 2 },
+    { id: "xp-180", experience: 180, hintCredits: 1, translationCredits: 1 },
+    { id: "xp-220", experience: 220, hintCredits: 2, translationCredits: 1 },
+    { id: "xp-270", experience: 270, hintCredits: 1, translationCredits: 2 },
   ],
 };
 
@@ -101,6 +101,59 @@ const WHEEL_REWARDS = [
   { id: "translation-credit", experience: 10, hintCredits: 0, translationCredits: 1 },
   { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
 ] as const;
+
+type ChestRewardContext = { difficulty: number; currentStreak: number; chestTier: number };
+
+/**
+ * Chest XP is calculated server-side from the latest completed task's
+ * difficulty, the chest's level and the current daily streak. This preserves
+ * a visible, bounded reward curve rather than allowing unexplained hundreds
+ * of XP to appear from a client-side animation.
+ */
+async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, chestTier: number): Promise<ChestRewardContext> {
+  const [streak, attempts] = await Promise.all([
+    tx.userStreak.findUnique({ where: { userId }, select: { currentStreak: true } }),
+    tx.exerciseAttempt.findMany({
+      where: { userId, isCorrect: true },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { exercise: { select: { difficulty: true } } },
+    }),
+  ]);
+  const meanDifficulty = attempts.length
+    ? attempts.reduce((sum, attempt) => sum + attempt.exercise.difficulty, 0) / attempts.length
+    : 1;
+  return {
+    difficulty: Math.max(1, Math.min(5, Math.round(meanDifficulty))),
+    currentStreak: Math.max(0, streak?.currentStreak ?? 0),
+    chestTier: Math.max(1, Math.min(4, chestTier)),
+  };
+}
+
+function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardContext) {
+  const difficultyBonus = (context.difficulty - 1) * 0.08;
+  const chestBonus = (context.chestTier - 1) * 0.2;
+  const streakBonus = Math.min(context.currentStreak, 30) * 0.01;
+  return { ...reward, experience: Math.max(1, Math.round(reward.experience * (1 + difficultyBonus + chestBonus + streakBonus))) };
+}
+
+async function existingChestReward(tx: Prisma.TransactionClient, userId: string, idempotencyKey: string, sourceType: string, sourceId: string) {
+  const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } });
+  if (!existing) return null;
+  const bonuses = await tx.learningBonusTransaction.findMany({
+    where: { userId, sourceType, sourceId, amount: { gt: 0 } },
+    select: { kind: true, amount: true },
+  });
+  return {
+    opened: false,
+    alreadyOpened: true,
+    rewardId: existing.description?.split(":").at(-1) ?? null,
+    experience: existing.amount,
+    coins: 0,
+    hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
+    translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
+  };
+}
 
 function activeItem(itemId: string) {
   return SHOP_ITEMS.find((item) => item.id === itemId) ?? null;
@@ -136,7 +189,6 @@ export async function getDailyChestState(userId: string) {
 export async function openDailyChest(userId: string) {
   const now = new Date();
   const eligibleBefore = new Date(now.getTime() - DAILY_CHEST_COOLDOWN_MS);
-  const rewardChoice = DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)];
 
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.user.updateMany({
@@ -147,6 +199,10 @@ export async function openDailyChest(userId: string) {
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true } });
       return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt: nextChestAt(user.dailyChestClaimedAt) };
     }
+    const rewardChoice = scaledChestReward(
+      DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)],
+      await chestRewardContext(tx, userId, 1),
+    );
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: rewardChoice.experience,
@@ -183,27 +239,18 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     }
 
     const idempotencyKey = `streak-chest:${userId}:${milestone}`;
-    const existing = await tx.experienceTransaction.findUnique({
-      where: { idempotencyKey },
-      select: { amount: true, description: true },
-    });
+    const existing = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
     if (existing) {
-      const bonuses = await tx.learningBonusTransaction.findMany({
-        where: { userId, sourceType: "STREAK_CHEST", sourceId: String(milestone), amount: { gt: 0 } },
-        select: { kind: true, amount: true },
-      });
       return {
-        opened: false,
-        alreadyOpened: true,
-        rewardId: existing.description?.match(/streak chest:([^\s]+)/)?.[1] ?? null,
-        experience: existing.amount,
-        coins: 0,
-        hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
-        translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
+        ...existing,
+        rewardId: existing.rewardId?.match(/streak chest:([^\s]+)/)?.[1] ?? existing.rewardId,
       };
     }
 
-    const choice = STREAK_CHEST_REWARDS[randomInt(STREAK_CHEST_REWARDS.length)];
+    const choice = scaledChestReward(
+      STREAK_CHEST_REWARDS[randomInt(STREAK_CHEST_REWARDS.length)],
+      await chestRewardContext(tx, userId, 1),
+    );
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
@@ -344,10 +391,14 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
   const idempotencyKey = `milestone-chest:${userId}:${kind}:${sourceId}`;
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
-      if (existing) return { opened: false, alreadyOpened: true, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0 };
+      const existing = await existingChestReward(tx, userId, idempotencyKey, MILESTONE_CHEST_SOURCE_TYPE[kind], sourceId);
+      if (existing) return existing;
       if (!await milestoneIsEligible(tx, userId, kind, sourceId)) throw new Error("This chest has not been unlocked yet.");
-      const rewardChoice = MILESTONE_CHEST_REWARDS[kind][randomInt(MILESTONE_CHEST_REWARDS[kind].length)];
+      const tier: Record<MilestoneChestKind, number> = { LESSON_3: 1, EVERY_7_LESSONS: 2, MODULE: 3, COURSE: 4 };
+      const rewardChoice = scaledChestReward(
+        MILESTONE_CHEST_REWARDS[kind][randomInt(MILESTONE_CHEST_REWARDS[kind].length)],
+        await chestRewardContext(tx, userId, tier[kind]),
+      );
       const reward = await grantEconomyReward(tx, {
         userId,
         experience: rewardChoice.experience,
@@ -362,7 +413,10 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { opened: false, alreadyOpened: true, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0 };
+      return prisma.$transaction(async (tx) => {
+        const existing = await existingChestReward(tx, userId, idempotencyKey, MILESTONE_CHEST_SOURCE_TYPE[kind], sourceId);
+        return existing ?? { opened: false, alreadyOpened: true, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, rewardId: null };
+      });
     }
     throw error;
   }

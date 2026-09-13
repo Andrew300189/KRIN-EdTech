@@ -539,7 +539,9 @@ export async function getMotivationOverview(userId: string) {
   });
 }
 
+/** One XP Coin represents the learning value of 1,000 XP. */
 export const XP_PER_KRIN_COIN = 1_000;
+const XP_COIN_MINOR_PER_COIN = 100;
 /** A freeze protects one missed calendar day in a qualified daily streak. */
 export const STREAK_FREEZE_PRICE_COINS = 1;
 export const WEEKLY_EASTER_EGG_XP = 500;
@@ -627,16 +629,21 @@ export async function claimWeeklyEasterEgg(userId: string) {
   });
 }
 
-export async function exchangeExperienceForKrinCoin(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
+/**
+ * Converts earned XP into XP Coins. This is deliberately separate from KRIN
+ * Coins: XP Coins keep their XP-equivalent value in the leaderboard, whereas
+ * KRIN Coins are a spendable currency and must never affect a learner's rank.
+ */
+export async function exchangeExperienceForXpCoins(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
   if (!Number.isFinite(exchangedExperience) || exchangedExperience < 10) {
-    throw new Error("Enter at least 10 XP to receive 0.01 KRIN Coin.");
+    throw new Error("Enter at least 10 XP to receive 0.01 XP Coin.");
   }
-  const addedHundredths = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * 100);
-  const experienceIdempotencyKey = `xp-exchange:${userId}:${requestId}`;
-  const coinIdempotencyKey = `xp-exchange-coin:${userId}:${requestId}`;
+  const addedHundredths = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN);
+  const experienceIdempotencyKey = `xp-to-xp-coin:${userId}:${requestId}`;
 
-  return prisma.$transaction(async (tx) => {
+  try {
+    return await prisma.$transaction(async (tx) => {
     const context = await userContext(tx, userId);
     // A network retry must return the result of the original exchange rather
     // than deducting the same XP again. The immutable ledger is the source of
@@ -646,14 +653,13 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
       select: { amount: true },
     });
     if (existing) {
-      const [level, wallet, coin] = await Promise.all([
+      const [level, wallet] = await Promise.all([
         tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
         tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
-        tx.coinTransaction.findUnique({ where: { idempotencyKey: coinIdempotencyKey }, select: { amount: true, amountMinor: true } }),
       ]);
       return {
         exchangedExperience: Math.abs(existing.amount),
-        coinsAdded: (coin?.amountMinor ?? ((coin?.amount ?? 0) * 100)) / 100,
+        xpCoinsAdded: Math.round((Math.abs(existing.amount) / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN) / XP_COIN_MINOR_PER_COIN,
         level,
         wallet,
       };
@@ -677,43 +683,105 @@ export async function exchangeExperienceForKrinCoin(userId: string, requestedExp
         sourceId: requestId,
         idempotencyKey: experienceIdempotencyKey,
         localDate: context.date,
-        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
+        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins`,
       },
     });
 
     const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-    const totalHundredths = wallet.fractionalBalance + addedHundredths;
-    const wholeCoinsAdded = Math.floor(totalHundredths / 100);
-    const fractionalBalance = totalHundredths % 100;
     const updatedWallet = await tx.userWallet.update({
       where: { id: wallet.id },
       data: {
-        balance: { increment: wholeCoinsAdded },
-        fractionalBalance,
-        exchangeBalanceMinor: { increment: addedHundredths },
-        lifetimeEarned: { increment: wholeCoinsAdded },
+        xpCoinBalanceMinor: { increment: addedHundredths },
+        lifetimeXpCoinsEarnedMinor: { increment: addedHundredths },
       },
     });
-    await tx.coinTransaction.create({
-      data: {
-        userId,
-        walletId: wallet.id,
-        amount: wholeCoinsAdded,
-        amountMinor: addedHundredths,
-        balanceBefore: wallet.balance,
-        balanceAfter: updatedWallet.balance,
-        balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
-        balanceAfterMinor: updatedWallet.balance * 100 + updatedWallet.fractionalBalance,
-        type: "XP_EXCHANGE",
-        sourceType: "XP_EXCHANGE",
-        sourceId: requestId,
-        idempotencyKey: coinIdempotencyKey,
-        localDate: context.date,
-        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / 100).toFixed(2)} KRIN Coins`,
-      },
+    return { exchangedExperience, xpCoinsAdded: addedHundredths / XP_COIN_MINOR_PER_COIN, level, wallet: updatedWallet };
     });
-    return { exchangedExperience, coinsAdded: addedHundredths / 100, level, wallet: updatedWallet };
-  });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const [existing, level, wallet] = await Promise.all([
+        prisma.experienceTransaction.findUnique({ where: { idempotencyKey: experienceIdempotencyKey }, select: { amount: true } }),
+        prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+        prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+      ]);
+      if (existing) {
+        const amount = Math.abs(existing.amount);
+        return { exchangedExperience: amount, xpCoinsAdded: Math.round((amount / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN) / XP_COIN_MINOR_PER_COIN, level, wallet };
+      }
+    }
+    throw error;
+  }
+}
+
+/** Converts earned XP Coins into spendable KRIN Coins without changing rank. */
+export async function exchangeXpCoinsForKrinCoins(userId: string, requestedXpCoins: number, requestId: string = randomUUID()) {
+  const requestedMinor = Math.round(requestedXpCoins * XP_COIN_MINOR_PER_COIN);
+  if (!Number.isFinite(requestedXpCoins) || requestedMinor < 1) {
+    throw new Error("Enter at least 0.01 XP Coin to receive KRIN Coins.");
+  }
+  const idempotencyKey = `xp-coin-to-krin:${userId}:${requestId}`;
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const context = await userContext(tx, userId);
+      const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amountMinor: true } });
+      if (existing) {
+        const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+        const amount = (existing.amountMinor ?? 0) / XP_COIN_MINOR_PER_COIN;
+        return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet };
+      }
+
+      const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+      const debited = await tx.userWallet.updateMany({
+        where: { id: wallet.id, xpCoinBalanceMinor: { gte: requestedMinor } },
+        data: { xpCoinBalanceMinor: { decrement: requestedMinor }, lifetimeXpCoinsSpentMinor: { increment: requestedMinor } },
+      });
+      if (!debited.count) throw new Error("You do not have enough XP Coins for this exchange.");
+
+      const regularBalanceBeforeMinor = wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance;
+      const regularBalanceAfterMinor = regularBalanceBeforeMinor + requestedMinor;
+      const updatedWallet = await tx.userWallet.update({
+        where: { id: wallet.id },
+        data: {
+          balance: Math.floor(regularBalanceAfterMinor / XP_COIN_MINOR_PER_COIN),
+          fractionalBalance: regularBalanceAfterMinor % XP_COIN_MINOR_PER_COIN,
+          lifetimeEarned: { increment: Math.floor(requestedMinor / XP_COIN_MINOR_PER_COIN) },
+        },
+      });
+      await tx.coinTransaction.create({
+        data: {
+          userId,
+          walletId: wallet.id,
+          amount: Math.floor(requestedMinor / XP_COIN_MINOR_PER_COIN),
+          amountMinor: requestedMinor,
+          balanceBefore: wallet.balance,
+          balanceAfter: updatedWallet.balance,
+          balanceBeforeMinor: regularBalanceBeforeMinor,
+          balanceAfterMinor: regularBalanceAfterMinor,
+          type: "XP_EXCHANGE",
+          sourceType: "XP_COIN_EXCHANGE",
+          sourceId: requestId,
+          idempotencyKey,
+          localDate: context.date,
+          description: `${(requestedMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins exchanged for KRIN Coins`,
+        },
+      });
+      const amount = requestedMinor / XP_COIN_MINOR_PER_COIN;
+      return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet: updatedWallet };
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const [transaction, wallet] = await Promise.all([
+        prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amountMinor: true } }),
+        prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+      ]);
+      if (transaction) {
+        const amount = (transaction.amountMinor ?? 0) / XP_COIN_MINOR_PER_COIN;
+        return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet };
+      }
+    }
+    throw error;
+  }
 }
 
 /**
@@ -827,8 +895,7 @@ type LeaderboardSource = {
     fractionalExperience: number;
   } | null;
   wallet: {
-    balance: number;
-    fractionalBalance: number;
+    xpCoinBalanceMinor: number;
   } | null;
 };
 
@@ -837,9 +904,9 @@ export type LearnerLeaderboardEntry = {
   userId: string;
   displayName: string;
   level: number;
-  /** XP and coins are kept in hundredths for stable sorting and display. */
+  /** XP and XP Coins are kept in hundredths for stable sorting and display. */
   experienceMinor: number;
-  coinsMinor: number;
+  xpCoinsMinor: number;
   totalMinor: number;
   isCurrentUser: boolean;
   isProfileVisible: boolean;
@@ -849,34 +916,30 @@ function motivationMinor(whole: number, fraction: number | null | undefined) {
   return Math.max(0, whole) * 100 + Math.max(0, Math.min(99, fraction ?? 0));
 }
 
-/** Rank in XP-equivalent hundredths: a KRIN Coin has the same value as the
- * 1,000 XP that are required to exchange for it. */
-export function leaderboardScoreMinor(experienceMinor: number, coinsMinor: number) {
-  return Math.max(0, experienceMinor) + Math.max(0, coinsMinor) * XP_PER_KRIN_COIN;
+/** Rank in XP-equivalent hundredths; spendable KRIN Coins are excluded. */
+export function leaderboardScoreMinor(experienceMinor: number, xpCoinsMinor: number) {
+  return Math.max(0, experienceMinor) + Math.max(0, xpCoinsMinor) * XP_PER_KRIN_COIN;
 }
 
 function rankLearners(rows: LeaderboardSource[], currentUserId?: string): LearnerLeaderboardEntry[] {
   return rows
     .map((row) => {
       const experienceMinor = motivationMinor(row.level?.lifetimeExperience ?? 0, row.level?.fractionalExperience);
-      // Coins use the spendable wallet balance. exchangeBalanceMinor is an
-      // exchange-history counter, so it would omit coins earned in lessons.
-      const coinsMinor = motivationMinor(row.wallet?.balance ?? 0, row.wallet?.fractionalBalance);
+      // Only earned XP Coins retain learning value in the leaderboard.
+      // Spendable KRIN Coins are excluded so purchases cannot affect rank.
+      const xpCoinsMinor = Math.max(0, row.wallet?.xpCoinBalanceMinor ?? 0);
       return {
         userId: row.id,
         displayName: row.firstName?.trim() || row.name.trim().split(/\s+/)[0] || "Learner",
         level: row.level?.level ?? 1,
         experienceMinor,
-        coinsMinor,
-        // A KRIN Coin is obtained by exchanging 1,000 XP. Ranking it as one
-        // point would make an exchange destroy a learner's position, so the
-        // score always uses the XP-equivalent value instead.
-        totalMinor: leaderboardScoreMinor(experienceMinor, coinsMinor),
+        xpCoinsMinor,
+        totalMinor: leaderboardScoreMinor(experienceMinor, xpCoinsMinor),
         isProfileVisible: row.showInLeaderboard,
         createdAt: row.createdAt,
       };
     })
-    // The score is only XP + coins. The remaining fields merely make equal
+    // The score is only XP + XP Coins. The remaining fields merely make equal
     // scores stable instead of moving places between dashboard refreshes.
     .sort((left, right) => right.totalMinor - left.totalMinor || left.createdAt.getTime() - right.createdAt.getTime() || left.userId.localeCompare(right.userId))
     .map(({ createdAt: _createdAt, ...entry }, index) => ({
@@ -896,7 +959,7 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
       showInLeaderboard: true,
       createdAt: true,
       userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true } },
-      wallet: { select: { balance: true, fractionalBalance: true } },
+      wallet: { select: { xpCoinBalanceMinor: true } },
     },
   });
   return rows.map(({ userLevelProgress, ...row }) => ({ ...row, level: userLevelProgress }));
@@ -929,8 +992,8 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;
-  // `totalMinor` is the XP-equivalent score used only for placement: 1 KRIN
-  // Coin = 1,000 XP. Profile data stays hidden for learners who opted out.
+  // `totalMinor` is the XP-equivalent score used only for placement: XP Coins
+  // equal 1,000 XP, while ordinary KRIN Coins are never included.
   const entries = ranked.slice(0, Math.max(limit, 1)).map((entry) => {
     const canShowProfile = entry.isProfileVisible || entry.isCurrentUser;
     return {
@@ -938,7 +1001,7 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
       userId: entry.userId,
       displayName: canShowProfile ? entry.displayName : null,
       experienceMinor: canShowProfile ? entry.experienceMinor : null,
-      coinsMinor: canShowProfile ? entry.coinsMinor : null,
+      xpCoinsMinor: canShowProfile ? entry.xpCoinsMinor : null,
       totalMinor: canShowProfile ? entry.totalMinor : null,
       isCurrentUser: entry.isCurrentUser,
       isProfileVisible: entry.isProfileVisible,

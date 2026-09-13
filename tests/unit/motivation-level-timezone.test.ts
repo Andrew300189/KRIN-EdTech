@@ -18,8 +18,8 @@ describe("motivation levels and local dates", () => {
     expect(localWeekStart("2026-09-06")).toBe("2026-08-31");
     expect(localWeekStart("2026-09-07")).toBe("2026-09-07");
   });
-  it("ranks KRIN Coins at their 1,000 XP exchange value", () => {
-    // 11,000 XP must lead 10 KRIN Coins instead of being treated as 11 vs 10.
+  it("ranks XP Coins at their 1,000 XP exchange value", () => {
+    // 11,000 XP must lead 10 XP Coins instead of being treated as 11 vs 10.
     expect(leaderboardScoreMinor(11_000 * 100, 0)).toBeGreaterThan(leaderboardScoreMinor(0, 10 * 100));
     expect(leaderboardScoreMinor(10_000 * 100, 0)).toBe(leaderboardScoreMinor(0, 10 * 100));
   });

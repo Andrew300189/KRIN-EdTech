@@ -2,16 +2,20 @@
 .status { display: inline-flex; min-height: 2.4rem; align-items: stretch; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)); white-space: nowrap; }
 .xpButton { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; color: var(--primary); padding: .48rem .7rem; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
 .xpButton strong { color: var(--text-primary); font-size: .77rem; }
-.coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .68rem; color: #8b5a00; font-size: .75rem; font-weight: 900; }
+.xpCoins, .coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .58rem; font-size: .75rem; font-weight: 900; }
+.xpCoins { color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.coins { color: #8b5a00; }
 .status:has(.xpButton:hover) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, var(--surface-elevated)); }
 .xpButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; border-radius: 999px 0 0 999px; }
-.popover { position: absolute; top: calc(100% + .6rem); right: 0; width: min(20rem, calc(100vw - 2rem)); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: var(--surface-elevated); box-shadow: 0 22px 55px rgba(28, 35, 70, .18); padding: 1rem; color: var(--text-primary); }
+.popover { position: absolute; top: calc(100% + .6rem); right: 0; width: min(22rem, calc(100vw - 2rem)); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: var(--surface-elevated); box-shadow: 0 22px 55px rgba(28, 35, 70, .18); padding: 1rem; color: var(--text-primary); }
 .popoverHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .popoverHeading > div { display: grid; gap: .2rem; }
 .popoverHeading strong { font-size: 1rem; }
 .popoverHeading span { color: var(--text-secondary); font-size: .75rem; }
 .popoverHeading button { width: 1.9rem; height: 1.9rem; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-primary); font-size: 1.15rem; cursor: pointer; }
 .available { margin: .8rem 0; color: var(--text-secondary); font-size: .78rem; }
+.exchangeSection { display: grid; gap: .55rem; border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent); padding-top: .8rem; margin-top: .8rem; }
+.exchangeSection > strong { color: var(--text-primary); font-size: .82rem; }
 .popover form { display: grid; gap: .55rem; }
 .popover label { font-size: .75rem; font-weight: 800; }
 .amountRow { display: grid; grid-template-columns: 1fr auto; gap: .45rem; }
