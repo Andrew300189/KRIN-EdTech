@@ -34,12 +34,15 @@ function AccessUpsell({ reason, returnTo, courseHref }: { reason: "AUTH_REQUIRED
   const signedOut = reason === "AUTH_REQUIRED";
   const moduleLocked = reason === "SEQUENCE_LOCKED";
   const lessonLocked = reason === "PREREQUISITE_LOCKED";
+  const wheelRequired = reason === "WHEEL_REQUIRED";
   const title = signedOut
     ? "Sign in to continue"
     : moduleLocked
       ? "Complete the previous module first"
       : lessonLocked
         ? "Complete the prerequisite lesson first"
+        : wheelRequired
+          ? "Spin the bonus wheel first"
         : "Premium access required";
   const message = signedOut
     ? "Sign in to open this lesson and save your progress."
@@ -47,8 +50,10 @@ function AccessUpsell({ reason, returnTo, courseHref }: { reason: "AUTH_REQUIRED
       ? "This module is locked until its prerequisite module reaches the required completion percentage."
       : lessonLocked
         ? "This lesson opens automatically after its prerequisite lesson reaches the required completion percentage."
+        : wheelRequired
+          ? "The previous lesson is complete. Return to it and spin its bonus wheel to unlock this lesson."
         : "This lesson is locked until Premium or Corporate access is active.";
-  const backToCourse = moduleLocked || lessonLocked;
+  const backToCourse = moduleLocked || lessonLocked || wheelRequired;
   const label = signedOut ? "Sign in" : backToCourse ? "Back to course" : "View plans";
   const href = signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing";
 

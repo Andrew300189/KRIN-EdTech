@@ -18,6 +18,15 @@ const themeBootstrap = `(() => {
   } catch {}
 })();`;
 
+const colorThemeBootstrap = `(() => {
+  try {
+    const stored = window.localStorage.getItem("krin-color-theme");
+    document.documentElement.dataset.colorTheme = stored === "ocean" || stored === "sunset" ? stored : "violet";
+  } catch {
+    document.documentElement.dataset.colorTheme = "violet";
+  }
+})();`;
+
 // Match the first painted document language to the visitor's device. React
 // repeats the same decision in LocaleProvider once it hydrates; this tiny
 // bootstrap avoids a visible English flash for Ukrainian and Russian visitors.
@@ -92,6 +101,7 @@ export default function RootLayout({
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: colorThemeBootstrap }} />
         <script dangerouslySetInnerHTML={{ __html: localeBootstrap }} />
       </head>
       <body>

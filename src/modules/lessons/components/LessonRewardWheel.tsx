@@ -23,7 +23,7 @@ function rewardText(reward: WheelReward, locale: "en" | "ru" | "uk") {
   return parts.join(" · ") || "✦";
 }
 
-export function LessonRewardWheel({ lessonId }: { lessonId: string }) {
+export function LessonRewardWheel({ lessonId, onCollected }: { lessonId: string; onCollected?: () => void }) {
   const { locale } = useLocale();
   const text = copy[locale];
   const [spinning, setSpinning] = useState(false);
@@ -40,6 +40,10 @@ export function LessonRewardWheel({ lessonId }: { lessonId: string }) {
       await new Promise((resolve) => window.setTimeout(resolve, 900));
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.error);
       setReward(payload.data);
+      // The parent keeps onward navigation locked until the server confirms
+      // this exact lesson's wheel has been collected. An already-spun wheel
+      // is also a valid confirmation after a reload.
+      if (payload.data.spun || payload.data.alreadySpun) onCollected?.();
       if (payload.data.spun) {
         notifyMotivationUpdated();
         toast.success(rewardText(payload.data, locale));

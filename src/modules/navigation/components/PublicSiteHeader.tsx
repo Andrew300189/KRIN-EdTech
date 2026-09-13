@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 
 import { toast } from "sonner";
 import { AppModal } from "@/core/components/AppModal";
 import { ThemeToggle } from "@/core/components/ThemeToggle";
+import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import {
   localeNames,
   supportedLocales,
@@ -271,6 +272,7 @@ export function PublicSiteHeader() {
       </nav>
       <div className={styles.desktopActions}>
         <button type="button" className={styles.teacherLink} onClick={() => openLogin("teacher")}>{t("header.iTeach")}</button>
+        <ColorThemePicker />
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.cmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>
@@ -279,6 +281,7 @@ export function PublicSiteHeader() {
         <LanguagePicker />
       </div>
       <div className={styles.mobileActions}>
+        <ColorThemePicker />
         <ThemeToggle />
         {canAccessCms ? <Link href="/cms" className={styles.mobileCmsLink}>{t("header.cms")}</Link> : null}
         {headerUser ? <Link href={profileHref(headerUser)} className={styles.profileLink} aria-label={t("header.profile")} title={t("header.profile")}>

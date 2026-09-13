@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
+import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChestHeaderButton";
 import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailyStreakHeaderStatus";
 import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
@@ -301,6 +302,7 @@ export function WorkspaceShell({
             </div>
 
             <div className={styles.headerActions}>
+              <ColorThemePicker />
               {leaderboardSummary ? <LeaderboardHeaderStatus summary={leaderboardSummary} /> : null}
               <DailyStreakHeaderStatus />
               <LearningBonusHeaderStatus />

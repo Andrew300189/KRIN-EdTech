@@ -36,6 +36,9 @@
 .reward { color: var(--text-secondary); }
 .unlocked { color: var(--primary); }
 .progressState { color: var(--text-muted); }
+.activateButton { min-height: 2rem; border: 1px solid var(--primary); border-radius: var(--radius-pill); padding: .34rem .62rem; background: var(--primary); color: var(--primary-contrast); font-size: .71rem; font-weight: 800; white-space: nowrap; }
+.activateButton:hover:not(:disabled) { background: var(--primary-hover); }
+.activateButton:disabled { cursor: wait; opacity: .7; }
 .emptyState { max-width: 34rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-elevated); padding: 1.5rem; }
 .emptyState > div { font-size: 1.8rem; }
 .emptyState h2 { margin: 0.7rem 0 0; color: var(--text-primary); font-size: 1.15rem; }

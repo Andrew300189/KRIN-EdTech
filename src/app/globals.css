@@ -110,6 +110,57 @@ html {
   --primary-hover: #ffc57a;
 }
 
+/* Learners can choose a site palette independently of light/dark mode. The
+   selectors are intentionally after the shop overlay: a personal colour
+   choice is immediately visible without changing an owned shop item. */
+:root[data-color-theme="violet"] {
+  --primary: #5c51de;
+  --primary-hover: #4f46c5;
+  --focus-ring: #7369ef;
+  --background: #f7f9ff;
+  --surface-subtle: #f7f8fb;
+}
+
+:root[data-theme="dark"][data-color-theme="violet"] {
+  --primary: #7567f8;
+  --primary-hover: #887bff;
+  --focus-ring: #a49aff;
+  --background: #0b1020;
+  --surface-subtle: #0f1729;
+}
+
+:root[data-color-theme="ocean"] {
+  --primary: #087f8c;
+  --primary-hover: #056975;
+  --focus-ring: #6bcbd4;
+  --background: #f2fbfc;
+  --surface-subtle: #f2fbfc;
+}
+
+:root[data-theme="dark"][data-color-theme="ocean"] {
+  --primary: #5bd0d9;
+  --primary-hover: #8ce4e9;
+  --focus-ring: #77dfe6;
+  --background: #0d2024;
+  --surface-subtle: #0d2024;
+}
+
+:root[data-color-theme="sunset"] {
+  --primary: #d15b13;
+  --primary-hover: #aa4509;
+  --focus-ring: #f8a55b;
+  --background: #fff9f1;
+  --surface-subtle: #fff9f1;
+}
+
+:root[data-theme="dark"][data-color-theme="sunset"] {
+  --primary: #ffad61;
+  --primary-hover: #ffd0a0;
+  --focus-ring: #ffbd7b;
+  --background: #24150d;
+  --surface-subtle: #24150d;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",

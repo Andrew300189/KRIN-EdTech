@@ -13,25 +13,26 @@ function AccessUpsell({ reason, returnTo, courseHref, locale }: { reason: string
   const signedOut = reason === "AUTH_REQUIRED";
   const moduleLocked = reason === "SEQUENCE_LOCKED";
   const lessonLocked = reason === "PREREQUISITE_LOCKED";
+  const wheelRequired = reason === "WHEEL_REQUIRED";
   const ukrainian = locale === "uk";
   const copy = ukrainian
     ? {
-      title: signedOut ? "Увійдіть, щоб продовжити" : moduleLocked ? "Спершу завершіть попередній модуль" : lessonLocked ? "Спершу завершіть попередній урок" : "Потрібен доступ Premium",
-      message: signedOut ? "Увійдіть, щоб відкрити цей урок і зберігати свій прогрес." : moduleLocked ? "Цей модуль відкриється після завершення попереднього модуля." : lessonLocked ? "Цей урок відкриється автоматично, щойно ви завершите попередній урок." : "Цей урок доступний з активним планом Premium або Corporate.",
+      title: signedOut ? "Увійдіть, щоб продовжити" : moduleLocked ? "Спершу завершіть попередній модуль" : lessonLocked ? "Спершу завершіть попередній урок" : wheelRequired ? "Спершу прокрутіть бонусне колесо" : "Потрібен доступ Premium",
+      message: signedOut ? "Увійдіть, щоб відкрити цей урок і зберігати свій прогрес." : moduleLocked ? "Цей модуль відкриється після завершення попереднього модуля." : lessonLocked ? "Цей урок відкриється автоматично, щойно ви завершите попередній урок." : wheelRequired ? "Поверніться до попереднього завершеного уроку та прокрутіть його бонусне колесо, щоб відкрити цей урок." : "Цей урок доступний з активним планом Premium або Corporate.",
       eyebrow: signedOut ? "ВАШЕ НАВЧАННЯ ЧЕКАЄ" : "УРОК ЩЕ НЕ ВІДКРИТО",
       tip: "Завершіть попередній урок і поверніться сюди — доступ оновиться автоматично.",
-      action: signedOut ? "Увійти" : moduleLocked || lessonLocked ? "До курсу" : "Переглянути плани",
+      action: signedOut ? "Увійти" : moduleLocked || lessonLocked || wheelRequired ? "До курсу" : "Переглянути плани",
       dashboard: "Відкрити кабінет",
     }
     : {
-      title: signedOut ? "Войдите, чтобы продолжить" : moduleLocked ? "Сначала завершите предыдущий модуль" : lessonLocked ? "Сначала завершите предыдущий урок" : "Нужен доступ Premium",
-      message: signedOut ? "Войдите, чтобы открыть этот урок и сохранять свой прогресс." : moduleLocked ? "Этот модуль откроется после завершения предыдущего модуля." : lessonLocked ? "Этот урок откроется автоматически, как только вы завершите предыдущий урок." : "Этот урок доступен при активном плане Premium или Corporate.",
+      title: signedOut ? "Войдите, чтобы продолжить" : moduleLocked ? "Сначала завершите предыдущий модуль" : lessonLocked ? "Сначала завершите предыдущий урок" : wheelRequired ? "Сначала прокрутите бонусное колесо" : "Нужен доступ Premium",
+      message: signedOut ? "Войдите, чтобы открыть этот урок и сохранять свой прогресс." : moduleLocked ? "Этот модуль откроется после завершения предыдущего модуля." : lessonLocked ? "Этот урок откроется автоматически, как только вы завершите предыдущий урок." : wheelRequired ? "Вернитесь к предыдущему завершённому уроку и прокрутите его бонусное колесо, чтобы открыть этот урок." : "Этот урок доступен при активном плане Premium или Corporate.",
       eyebrow: signedOut ? "ВАШЕ ОБУЧЕНИЕ ЖДЁТ" : "УРОК ЕЩЁ НЕ ОТКРЫТ",
       tip: "Завершите предыдущий урок и вернитесь сюда — доступ обновится автоматически.",
-      action: signedOut ? "Войти" : moduleLocked || lessonLocked ? "К курсу" : "Посмотреть планы",
+      action: signedOut ? "Войти" : moduleLocked || lessonLocked || wheelRequired ? "К курсу" : "Посмотреть планы",
       dashboard: "Открыть кабинет",
     };
-  const backToCourse = moduleLocked || lessonLocked;
+  const backToCourse = moduleLocked || lessonLocked || wheelRequired;
   const href = signedOut ? `/login?next=${encodeURIComponent(returnTo)}` : backToCourse ? courseHref : "/dashboard/billing";
 
   return (

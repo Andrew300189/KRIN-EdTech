@@ -264,21 +264,31 @@ async function achievementMetric(tx: Tx, userId: string, conditionType: string, 
 }
 
 async function evaluateAchievements(tx: Tx, userId: string, date: string) {
-  const [achievements, level, streak] = await Promise.all([tx.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }), tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }), tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} })]);
+  const [achievements, level, streak, activatedQuests] = await Promise.all([
+    tx.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
+    tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+    tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
+    tx.userAchievement.findMany({ where: { userId, activatedAt: { not: null } } }),
+  ]);
+  const activatedByAchievementId = new Map(activatedQuests.map((quest) => [quest.achievementId, quest]));
   const unlocked: Array<{ title: string; experience: number; coins: number }> = [];
   for (const achievement of achievements) {
     // These hidden, event-specific badges are verified at their precise
     // source event below. A generic aggregate would make them unlock under
     // the wrong conditions.
     if (specialBadgeCodes.has(achievement.code)) continue;
+    const existing = activatedByAchievementId.get(achievement.id);
+    // Learners choose which quests to pursue. Do not silently create a quest
+    // record or award it before they have activated it themselves.
+    if (!existing) continue;
     const config = (achievement.conditionConfig ?? {}) as { target?: unknown };
     const target = Math.max(1, Number(config.target ?? 1));
-    const progress = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
-    const existing = await tx.userAchievement.findUnique({ where: { userId_achievementId: { userId, achievementId: achievement.id } } });
+    const metric = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
+    const progress = Math.max(0, metric - existing.baseline);
     const completed = progress >= target;
-    const userAchievement = await tx.userAchievement.upsert({ where: { userId_achievementId: { userId, achievementId: achievement.id } }, create: { userId, achievementId: achievement.id, progress, target, completed, completedAt: completed ? new Date() : null }, update: { progress, target, ...(completed && !existing?.completed ? { completed: true, completedAt: new Date() } : {}) } });
-    if (completed && !existing?.completed && userAchievement.completed) {
-      const reward = await creditExperienceAndCoins(tx, { userId, experienceAmount: achievement.experienceReward, coinAmount: 0, experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD", sourceType: "ACHIEVEMENT", sourceId: achievement.id, idempotencyKey: `achievement:${userId}:${achievement.id}`, description: `Achievement unlocked: ${achievement.title}`, date });
+    const userAchievement = await tx.userAchievement.update({ where: { id: existing.id }, data: { progress, target, ...(completed && !existing.completed ? { completed: true, completedAt: new Date() } : {}) } });
+    if (completed && !existing.completed && userAchievement.completed) {
+      const reward = await creditExperienceAndCoins(tx, { userId, experienceAmount: achievement.experienceReward, coinAmount: 0, experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD", sourceType: "ACHIEVEMENT", sourceId: achievement.id, idempotencyKey: `achievement:${userId}:${achievement.id}`, description: `Quest completed: ${achievement.title}`, date });
       unlocked.push({ title: achievement.title, experience: reward.experience, coins: reward.coins });
     }
   }
@@ -310,8 +320,8 @@ async function awardSpecialBadge(tx: Tx, userId: string, code: keyof typeof spec
   if (existing?.completed) return null;
   await tx.userAchievement.upsert({
     where: { userId_achievementId: { userId, achievementId: achievement.id } },
-    create: { userId, achievementId: achievement.id, progress: 1, target: 1, completed: true, completedAt: new Date() },
-    update: { progress: 1, target: 1, completed: true, completedAt: new Date() },
+    create: { userId, achievementId: achievement.id, progress: 1, target: 1, activatedAt: new Date(), completed: true, completedAt: new Date() },
+    update: { progress: 1, target: 1, activatedAt: new Date(), completed: true, completedAt: new Date() },
   });
   return { title: achievement.title, icon: achievement.icon };
 }
@@ -757,12 +767,46 @@ export async function listUserAchievements(userId: string, filter = "ALL") {
   const achievements = await prisma.achievement.findMany({ where: { isActive: true }, orderBy: { order: "asc" }, include: { userAchievements: { where: { userId }, take: 1 } } });
   return achievements.filter((achievement) => {
     const userAchievement = achievement.userAchievements[0];
-    if (filter === "EARNED") return userAchievement?.completed;
-    if (filter === "IN_PROGRESS") return userAchievement && !userAchievement.completed;
-    if (filter === "TROPHIES") return achievement.isTrophy;
-    if (filter === "HIDDEN") return achievement.isHidden && !userAchievement?.completed;
+    // Event-only secret badges stay in reward history, but cannot appear as
+    // impossible-to-activate quests in a learner's quest board.
+    if (achievement.isHidden && !userAchievement?.completed) return false;
+    if (filter === "AVAILABLE") return !userAchievement?.activatedAt;
+    if (filter === "ACTIVE") return Boolean(userAchievement?.activatedAt) && !userAchievement.completed;
+    if (filter === "COMPLETED") return userAchievement?.completed;
     return true;
-  }).map((achievement) => ({ ...achievement, title: achievement.isHidden && !achievement.userAchievements[0]?.completed ? "Secret achievement" : achievement.title, description: achievement.isHidden && !achievement.userAchievements[0]?.completed ? "Keep learning to reveal it." : achievement.description, progress: achievement.userAchievements[0]?.progress ?? 0, target: achievement.userAchievements[0]?.target ?? Number((achievement.conditionConfig as { target?: number }).target ?? 1), completed: achievement.userAchievements[0]?.completed ?? false, completedAt: achievement.userAchievements[0]?.completedAt ?? null }));
+  }).map((achievement) => ({
+    ...achievement,
+    progress: achievement.userAchievements[0]?.progress ?? 0,
+    target: achievement.userAchievements[0]?.target ?? Number((achievement.conditionConfig as { target?: number }).target ?? 1),
+    activatedAt: achievement.userAchievements[0]?.activatedAt ?? null,
+    completed: achievement.userAchievements[0]?.completed ?? false,
+    completedAt: achievement.userAchievements[0]?.completedAt ?? null,
+  }));
+}
+
+/** Activates a visible quest and records the metric value at that moment, so
+ * only learning completed after activation can advance it. */
+export async function activateUserQuest(userId: string, achievementId: string) {
+  return prisma.$transaction(async (tx) => {
+    const achievement = await tx.achievement.findFirst({ where: { id: achievementId, isActive: true, isHidden: false } });
+    if (!achievement) throw new Error("This quest is not available.");
+
+    const existing = await tx.userAchievement.findUnique({ where: { userId_achievementId: { userId, achievementId } } });
+    if (existing?.activatedAt) return existing;
+
+    const [level, streak] = await Promise.all([
+      tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
+    ]);
+    const config = (achievement.conditionConfig ?? {}) as { target?: unknown };
+    const target = Math.max(1, Number(config.target ?? 1));
+    const baseline = await achievementMetric(tx, userId, achievement.conditionType, streak.currentStreak, level.lifetimeExperience);
+    return tx.userAchievement.upsert({
+      where: { userId_achievementId: { userId, achievementId } },
+      create: { userId, achievementId, target, baseline, activatedAt: new Date() },
+      update: { target, baseline, progress: 0, activatedAt: new Date() },
+    });
+  });
 }
 
 export async function updateMotivationSettings(userId: string, input: unknown) {

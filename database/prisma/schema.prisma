@@ -1663,6 +1663,10 @@ model UserAchievement {
   achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
   progress      Int         @default(0)
   target        Int         @default(1)
+  /// A quest begins only after the learner explicitly accepts it.
+  activatedAt   DateTime?
+  /// Metric value at activation; only later progress counts toward the quest.
+  baseline      Int         @default(0)
   completed     Boolean     @default(false)
   completedAt   DateTime?
   createdAt     DateTime    @default(now())
@@ -1670,6 +1674,7 @@ model UserAchievement {
 
   @@unique([userId, achievementId])
   @@index([userId, completed])
+  @@index([userId, activatedAt])
   @@index([userId, achievementId])
 }
 

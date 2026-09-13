@@ -208,6 +208,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Back to course",
     nextLesson: "Continue to next lesson",
     openNextLesson: "Open next lesson",
+    wheelRequired: "Spin the bonus wheel to unlock the next lesson.",
   },
   ru: {
     complete: "Урок завершён",
@@ -220,6 +221,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Вернуться к курсу",
     nextLesson: "К следующему уроку",
     openNextLesson: "Открыть следующий урок",
+    wheelRequired: "Прокрутите бонусное колесо, чтобы открыть следующий урок.",
   },
   uk: {
     complete: "Урок завершено",
@@ -232,6 +234,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Повернутися до курсу",
     nextLesson: "До наступного уроку",
     openNextLesson: "Відкрити наступний урок",
+    wheelRequired: "Прокрутіть бонусне колесо, щоб відкрити продовження уроків.",
   },
 } as const;
 
@@ -306,6 +309,7 @@ export function LessonPlayer({
   const [theoryCollapsed, setTheoryCollapsed] = useState(false);
   const [stepVerified, setStepVerified] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [wheelCollected, setWheelCollected] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
   // This is deliberately session-local. It represents the sequence of answers
   // the learner is making right now, not a historic course statistic.
@@ -994,15 +998,16 @@ export function LessonPlayer({
             {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward}>+{completionXp} XP <span>{feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
-            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks ? <LessonRewardWheel lessonId={lessonId} /> : null}
+            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks ? <LessonRewardWheel lessonId={lessonId} onCollected={() => setWheelCollected(true)} /> : null}
+            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
-            {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
-            <div className={styles.completionActions}>
-              <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
-              {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => void openNextLesson()}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
-              {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
-            </div>
+            {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || wheelCollected) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
+            {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || wheelCollected) ? <div className={styles.completionActions}>
+                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
+                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => void openNextLesson()}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
+                {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
+              </div> : null}
           </section>
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>{chromeCopy.noStepsTitle}</h2><p>{chromeCopy.noStepsDescription}</p></section>

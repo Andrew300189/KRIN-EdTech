@@ -3,17 +3,17 @@ import { redirect } from "next/navigation";
 import { Award, Flame, Medal, ShieldCheck, Sparkles, Star, Trophy } from "lucide-react";
 import { requireAuth } from "@/core/server/session";
 import { listUserAchievements } from "@/modules/motivation/services/motivation.service";
+import { QuestActivationButton } from "./QuestActivationButton";
 import styles from "./Achievements.module.css";
 
-type AchievementFilter = "ALL" | "EARNED" | "IN_PROGRESS" | "HIDDEN" | "TROPHIES";
+type AchievementFilter = "ALL" | "AVAILABLE" | "ACTIVE" | "COMPLETED";
 export type AchievementSearchParams = Promise<{ filter?: string }>;
 
 const filters: Array<{ value: AchievementFilter; label: string }> = [
   { value: "ALL", label: "All" },
-  { value: "EARNED", label: "Earned" },
-  { value: "IN_PROGRESS", label: "In progress" },
-  { value: "HIDDEN", label: "Hidden" },
-  { value: "TROPHIES", label: "Trophies" },
+  { value: "AVAILABLE", label: "Available" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "COMPLETED", label: "Completed" },
 ];
 
 const rarityClass = {
@@ -57,47 +57,47 @@ export async function AchievementsPageContent({
   const filter = filters.some((item) => item.value === requestedFilter) ? requestedFilter as AchievementFilter : "ALL";
   const achievements = await listUserAchievements(authenticated.user.id, filter);
   const completedCount = achievements.filter((achievement) => achievement.completed).length;
-  const inProgressCount = achievements.filter((achievement) => !achievement.completed && !achievement.isHidden).length;
-  const trophyCount = achievements.filter((achievement) => achievement.completed && achievement.isTrophy).length;
+  const activeCount = achievements.filter((achievement) => achievement.activatedAt && !achievement.completed).length;
+  const availableCount = achievements.filter((achievement) => !achievement.activatedAt).length;
 
   return <main className={styles.page}>
     <header className={styles.header}>
       <div>
-        <p className={styles.eyebrow}>Learning milestones</p>
-        <h1>Achievements</h1>
-        <p>Track the learning habits and milestones you have earned along the way.</p>
+        <p className={styles.eyebrow}>Choose your next goal</p>
+        <h1>Quests</h1>
+        <p>Activate a quest before you start it. Only progress made after activation counts.</p>
       </div>
-      <dl className={styles.summary} aria-label="Achievement overview">
-        <div><dt>Unlocked</dt><dd>{completedCount}</dd></div>
-        <div><dt>In progress</dt><dd>{inProgressCount}</dd></div>
-        <div><dt>Trophies</dt><dd>{trophyCount}</dd></div>
+      <dl className={styles.summary} aria-label="Quest overview">
+        <div><dt>Available</dt><dd>{availableCount}</dd></div>
+        <div><dt>Active</dt><dd>{activeCount}</dd></div>
+        <div><dt>Completed</dt><dd>{completedCount}</dd></div>
       </dl>
     </header>
 
-    <nav className={styles.filters} aria-label="Filter achievements">
+    <nav className={styles.filters} aria-label="Filter quests">
       {filters.map((item) => <Link key={item.value} href={`${basePath}?filter=${item.value}`} aria-current={filter === item.value ? "page" : undefined} className={filter === item.value ? styles.filterActive : styles.filter}>{item.label}</Link>)}
     </nav>
 
-    {achievements.length ? <section className={styles.grid} aria-label="Achievement collection">
+    {achievements.length ? <section className={styles.grid} aria-label="Quest collection">
       {achievements.map((achievement) => {
         const progress = Math.min(100, Math.round((achievement.progress / Math.max(achievement.target, 1)) * 100));
-        const locked = achievement.isHidden && !achievement.completed;
         const rarity = rarityClass[achievement.rarity as keyof typeof rarityClass] ?? styles.common;
-        return <article key={achievement.id} className={`${styles.card} ${achievement.completed ? styles.cardComplete : ""} ${locked ? styles.cardLocked : ""}`}>
+        const isAvailable = !achievement.activatedAt;
+        return <article key={achievement.id} className={`${styles.card} ${achievement.completed ? styles.cardComplete : ""}`}>
           <div className={styles.cardTop}>
-            <div className={`${styles.icon} ${rarity}`} aria-hidden="true">{locked ? "🔒" : <AchievementGlyph icon={achievement.icon} />}</div>
-            <div className={styles.cardMeta}><span className={`${styles.rarity} ${rarity}`}>{achievement.rarity.toLowerCase()}</span>{achievement.isTrophy ? <span className={styles.trophy}>Trophy</span> : null}</div>
+            <div className={`${styles.icon} ${rarity}`} aria-hidden="true"><AchievementGlyph icon={achievement.icon} /></div>
+            <div className={styles.cardMeta}><span className={`${styles.rarity} ${rarity}`}>{achievement.rarity.toLowerCase()}</span></div>
           </div>
           <h2>{achievement.title}</h2>
           <p className={styles.description}>{achievement.description}</p>
-          <div className={styles.progressHeader}><span>{achievement.completed ? "Completed" : `${Math.min(achievement.progress, achievement.target)} / ${achievement.target}`}</span><strong>{progress}%</strong></div>
+          <div className={styles.progressHeader}><span>{achievement.completed ? "Completed" : isAvailable ? "Activate to start" : `${Math.min(achievement.progress, achievement.target)} / ${achievement.target}`}</span><strong>{isAvailable ? "—" : `${progress}%`}</strong></div>
           <div className={styles.progressTrack} role="progressbar" aria-label={`${achievement.title} progress`} aria-valuemin={0} aria-valuemax={achievement.target} aria-valuenow={Math.min(achievement.progress, achievement.target)}><div className={`${styles.progressFill} ${rarity}`} style={{ width: `${progress}%` }} /></div>
           <footer className={styles.cardFooter}>
-            <span className={styles.reward}>+{achievement.experienceReward} XP · +{achievement.coinReward} coins</span>
-            <span className={achievement.completed ? styles.unlocked : styles.progressState}>{achievement.completed ? `Unlocked ${achievement.completedAt?.toLocaleDateString() ?? ""}` : locked ? "Keep learning to reveal it" : "In progress"}</span>
+            <span className={styles.reward}>+{achievement.experienceReward} XP</span>
+            {achievement.completed ? <span className={styles.unlocked}>Completed {achievement.completedAt?.toLocaleDateString() ?? ""}</span> : isAvailable ? <QuestActivationButton questId={achievement.id} /> : <span className={styles.progressState}>Quest active</span>}
           </footer>
         </article>;
       })}
-    </section> : <section className={styles.emptyState}><div aria-hidden="true">🏅</div><h2>No achievements in this view yet</h2><p>Complete lessons and vocabulary practice to start building your collection.</p><Link href="/student/courses">Open my courses</Link></section>}
+    </section> : <section className={styles.emptyState}><div aria-hidden="true">✦</div><h2>No quests in this view yet</h2><p>Choose a different filter or return after new quests are added.</p><Link href="/student/courses">Open my courses</Link></section>}
   </main>;
 }
