@@ -6,6 +6,7 @@
  * Usage:
  *   node database/scripts/import-dental-english-vocabulary-mastery.cjs --validate
  *   node database/scripts/import-dental-english-vocabulary-mastery.cjs
+ *   node database/scripts/import-dental-english-vocabulary-mastery.cjs --publish
  */
 try {
   require("dotenv").config({ path: ".env", quiet: true });
@@ -16,6 +17,7 @@ try {
 const { PrismaClient } = require("../../src/generated/prisma-client-payments-runtime-v2");
 
 const COURSE_SLUG = "english-for-dentists-vocabulary";
+const publishRequested = process.argv.includes("--publish");
 const words = [
   ["dentist", "стоматолог"],
   ["dental clinic", "стоматологическая клиника"],
@@ -151,8 +153,47 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function draftState() {
+function courseState() {
+  if (publishRequested) {
+    return { isPublished: true, contentStatus: "PUBLISHED", publishedAt: new Date(), scheduledAt: null, archivedAt: null };
+  }
   return { isPublished: false, contentStatus: "DRAFT", publishedAt: null, scheduledAt: null, archivedAt: null };
+}
+
+function blockState() {
+  if (publishRequested) {
+    return { contentStatus: "PUBLISHED", publishedAt: new Date(), scheduledAt: null, archivedAt: null };
+  }
+  return { contentStatus: "DRAFT", publishedAt: null, scheduledAt: null, archivedAt: null };
+}
+
+async function publishExistingCourse(prisma, courseId, actorId, counts) {
+  const publishedAt = new Date();
+  const lifecycle = { contentStatus: "PUBLISHED", publishedAt, scheduledAt: null, archivedAt: null };
+  await prisma.$transaction(async (tx) => {
+    await tx.course.update({
+      where: { id: courseId },
+      data: { ...lifecycle, isPublished: true, isVisibleOnHomepage: true, isVisibleInCatalog: true, isVisibleInSearch: true, updatedById: actorId },
+    });
+    await tx.courseModule.updateMany({ where: { courseId }, data: { ...lifecycle, isPublished: true } });
+    await tx.lesson.updateMany({ where: { module: { courseId } }, data: { ...lifecycle, isPublished: true } });
+    await tx.lessonBlock.updateMany({ where: { lesson: { module: { courseId } } }, data: lifecycle });
+    await tx.exercise.updateMany({ where: { lessonBlock: { lesson: { module: { courseId } } } }, data: lifecycle });
+    const latestVersion = await tx.cmsContentVersion.aggregate({ where: { entityType: "COURSE", entityId: courseId }, _max: { version: true } });
+    await tx.cmsContentVersion.create({
+      data: {
+        entityType: "COURSE",
+        entityId: courseId,
+        version: (latestVersion._max.version ?? 0) + 1,
+        action: "PUBLISHED",
+        snapshot: { importer: "dental-vocabulary-mastery", course: COURSE_SLUG, ...counts, status: "PUBLISHED" },
+        actorId,
+      },
+    });
+    await tx.contentAuditLog.create({
+      data: { actorId, action: "CMS_DENTAL_VOCABULARY_COURSE_PUBLISHED", entityType: "Course", entityId: courseId, metadata: { ...counts, status: "PUBLISHED" } },
+    });
+  }, { maxWait: 60_000, timeout: 600_000 });
 }
 
 async function main() {
@@ -171,9 +212,14 @@ async function main() {
   if (!databaseUrl) throw new Error("DIRECT_DATABASE_URL or DATABASE_URL is required to import the dental course.");
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true } });
+    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true, updatedById: true } });
     if (existing) {
-      console.log(JSON.stringify({ status: "already-exists", courseId: existing.id, ...counts }));
+      if (publishRequested) {
+        await publishExistingCourse(prisma, existing.id, existing.updatedById, counts);
+        console.log(JSON.stringify({ status: "published-existing", courseId: existing.id, ...counts }));
+      } else {
+        console.log(JSON.stringify({ status: "already-exists", courseId: existing.id, ...counts }));
+      }
       return;
     }
     const [level, category, author] = await Promise.all([
@@ -184,7 +230,7 @@ async function main() {
     if (!level || !category || !author) throw new Error("B1, General English and a platform author are required before import.");
 
     const course = await prisma.$transaction(async (tx) => {
-      const state = draftState();
+      const state = courseState();
       const storedWords = [];
       for (const [lemma, translation] of words) {
         const word = await tx.word.upsert({
@@ -221,6 +267,7 @@ async function main() {
           firstFreeLessonCount: lessonTitles.length,
           isVisibleInCatalog: true,
           isVisibleInSearch: true,
+          isVisibleOnHomepage: publishRequested,
           isVisibleInLevelBlock: true,
           isVisibleInAcademy: true,
           isVisibleInStudentDashboard: true,
@@ -273,7 +320,7 @@ async function main() {
           },
           select: { id: true },
         });
-        const blockState = { contentStatus: "DRAFT", publishedAt: null, scheduledAt: null, archivedAt: null };
+        const currentBlockState = blockState();
         const block = await tx.lessonBlock.create({
           data: {
             lessonId: lesson.id,
@@ -288,7 +335,7 @@ async function main() {
             settings: { engine: "vocabulary-mastery", version: 1, source: "course-lesson-vocabulary" },
             order: 1,
             isRequired: true,
-            ...blockState,
+            ...currentBlockState,
           },
           select: { id: true },
         });
@@ -316,7 +363,7 @@ async function main() {
               allowInstantCheck: true,
               allowExtraExercise: false,
               order: stage + 1,
-              ...blockState,
+              ...currentBlockState,
             },
           });
         }
@@ -328,12 +375,12 @@ async function main() {
           entityId: createdCourse.id,
           version: 1,
           action: "IMPORTED",
-          snapshot: { importer: "dental-vocabulary-mastery", course: COURSE_SLUG, ...counts, status: "DRAFT" },
+          snapshot: { importer: "dental-vocabulary-mastery", course: COURSE_SLUG, ...counts, status: publishRequested ? "PUBLISHED" : "DRAFT" },
           actorId: author.id,
         },
       });
       await tx.contentAuditLog.create({
-        data: { actorId: author.id, action: "CMS_DENTAL_VOCABULARY_COURSE_IMPORTED", entityType: "Course", entityId: createdCourse.id, metadata: { ...counts, status: "DRAFT" } },
+        data: { actorId: author.id, action: "CMS_DENTAL_VOCABULARY_COURSE_IMPORTED", entityType: "Course", entityId: createdCourse.id, metadata: { ...counts, status: publishRequested ? "PUBLISHED" : "DRAFT" } },
       });
       return createdCourse;
     }, { maxWait: 60_000, timeout: 600_000 });
@@ -348,7 +395,7 @@ async function main() {
     assert(storedBlockCount === counts.blocks, "Stored block count is incorrect.");
     assert(storedExerciseCount === counts.exercises, "Stored mastery-stage count is incorrect.");
     assert(storedVocabularyCount === counts.words, "Stored vocabulary count is incorrect.");
-    console.log(JSON.stringify({ status: "draft-imported", courseId: course.id, ...counts }));
+    console.log(JSON.stringify({ status: publishRequested ? "published-imported" : "draft-imported", courseId: course.id, ...counts }));
   } finally {
     await prisma.$disconnect();
   }

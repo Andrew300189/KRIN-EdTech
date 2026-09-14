@@ -86,10 +86,10 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(FUTURE_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored Future Simple mastery course is available…");
   runSeedScript(FUTURE_SIMPLE_COURSE_SCRIPT, ["--publish"]);
-  // This professional course intentionally has no --publish flag. It should
-  // arrive in the CMS as an authored draft, ready for editorial review.
-  console.log("Ensuring the authored English for Dentists vocabulary draft is available…");
-  runSeedScript(DENTAL_VOCABULARY_COURSE_SCRIPT);
+  // One authorised release publishes the complete course tree so learners can
+  // access every vocabulary stage and see its card on the homepage.
+  console.log("Publishing the authored English for Dentists vocabulary course…");
+  runSeedScript(DENTAL_VOCABULARY_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
