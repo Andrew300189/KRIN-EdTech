@@ -27,8 +27,9 @@ describe("StreakChestReward", () => {
       createElement(StreakChestReward, { milestone: 7, onDismiss }),
     ));
 
-    expect(screen.getByRole("dialog", { name: "Streak chest" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Flower streak chest" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close streak chest" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Quest book/)).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole("dialog").parentElement as HTMLElement);
     fireEvent.keyDown(window, { key: "Escape" });
