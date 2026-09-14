@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ConfirmDialog } from "@/core/components/ConfirmDialog";
+import { PronunciationCoach } from "./PronunciationCoach";
 
 type Meaning = { definition: string; translation: string | null; article: string | null; usageLabel: string | null; context: string | null };
 type WordCardItem = {
@@ -71,10 +72,6 @@ export function WordCard({ item }: { item: WordCardItem }) {
     }
   }
 
-  function play(url: string | null) {
-    if (url) void new Audio(url).play();
-  }
-
   return <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -85,12 +82,8 @@ export function WordCard({ item }: { item: WordCardItem }) {
     </div>
     <p className="mt-4 text-lg text-slate-900">{main.article ? `${main.article} ` : ""}{main.translation ?? main.definition}</p>
     {main.context ? <p className="mt-2 text-sm italic text-slate-600">{main.context}</p> : null}
-    {word?.britishTranscription || word?.americanTranscription ? <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-      <span>Br: {word.britishTranscription ?? "—"}</span>
-      <button type="button" onClick={() => play(word.britishAudioUrl)} disabled={!word.britishAudioUrl} className="rounded border px-2 py-1 disabled:opacity-40" aria-label={`Play British pronunciation of ${title}`}>▶</button>
-      <span>Am: {word.americanTranscription ?? "—"}</span>
-      <button type="button" onClick={() => play(word.americanAudioUrl)} disabled={!word.americanAudioUrl} className="rounded border px-2 py-1 disabled:opacity-40" aria-label={`Play American pronunciation of ${title}`}>▶</button>
-    </div> : null}
+    {word?.britishTranscription || word?.americanTranscription ? <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>Br: {word.britishTranscription ?? "—"}</span><span>Am: {word.americanTranscription ?? "—"}</span></div> : null}
+    <div className="mt-4"><PronunciationCoach word={title} britishAudioUrl={word?.britishAudioUrl} americanAudioUrl={word?.americanAudioUrl} compact /></div>
     <dl className="mt-4 grid grid-cols-2 gap-2 text-sm text-slate-600">
       <div><dt>Mastery</dt><dd className="font-semibold text-slate-900">{item.masteryLevel}%</dd></div>
       <div><dt>Next review</dt><dd className="font-semibold text-slate-900">{dateLabel(item.nextReviewAt)}</dd></div>

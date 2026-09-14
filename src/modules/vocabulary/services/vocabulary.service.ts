@@ -392,7 +392,7 @@ function shuffledTiles(answer: string) {
 }
 
 function buildVocabularyDrillExercise(
-  entry: { lemma: string; meanings: Array<{ translation: string | null; definition: string }> },
+  entry: { lemma: string; meanings: Array<{ translation: string | null; definition: string }>; britishAudioUrl?: string | null; americanAudioUrl?: string | null },
   ordinal: number,
 ) {
   const translation = primaryMeaning(entry);
@@ -400,7 +400,7 @@ function buildVocabularyDrillExercise(
   if (mode === 0) {
     return {
       exerciseType: "WORD_TO_TRANSLATION",
-      payload: { prompt: `Переведите на русский: ${entry.lemma}`, mode: "text", direction: "EN_RU" },
+      payload: { prompt: `Переведите на русский: ${entry.lemma}`, mode: "text", direction: "EN_RU", pronunciationTarget: entry.lemma, britishAudioUrl: entry.britishAudioUrl ?? null, americanAudioUrl: entry.americanAudioUrl ?? null },
       answerKey: { acceptedAnswers: [translation], display: translation },
     };
   }
