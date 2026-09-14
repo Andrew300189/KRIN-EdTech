@@ -86,10 +86,11 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(FUTURE_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored Future Simple mastery course is available…");
   runSeedScript(FUTURE_SIMPLE_COURSE_SCRIPT, ["--publish"]);
-  // One authorised release publishes the complete course tree so learners can
-  // access every vocabulary stage and see its card on the homepage.
-  console.log("Publishing the authored English for Dentists vocabulary course…");
-  runSeedScript(DENTAL_VOCABULARY_COURSE_SCRIPT, ["--publish"]);
+  // Import the authored course once as a draft. Its lifecycle is controlled
+  // through the CMS afterwards, so future deployments never overwrite an
+  // editor's explicit publish or unpublish decision.
+  console.log("Ensuring the authored English for Dentists vocabulary draft is available…");
+  runSeedScript(DENTAL_VOCABULARY_COURSE_SCRIPT);
 }
 
 async function hasRealPlatformData() {
