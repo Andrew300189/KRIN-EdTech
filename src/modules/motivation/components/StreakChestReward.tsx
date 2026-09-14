@@ -120,7 +120,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         <p className={styles.rewardNote}>{reward.alreadyOpened ? text.already : text.description}</p>
         {reward.questBook ? <section className={styles.questBook}>
           <span aria-hidden="true">📖</span>
-          <div><strong>{text.bookFound} · Lv. {reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p><Link href="/student/achievements#quest-books" onClick={onDismiss}>{text.openBook}</Link></div>
+          <div><strong>{text.bookFound} · {text.streak} ×{reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p><Link href="/student/achievements#quest-books" onClick={onDismiss}>{text.openBook}</Link></div>
         </section> : null}
         <button type="button" className={styles.continueButton} onClick={onDismiss}>{text.continue}</button>
       </>}

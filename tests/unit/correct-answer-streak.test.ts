@@ -12,9 +12,12 @@ describe("correct answer streak modes", () => {
     [24, 24, 2],
     [70, 70, 2],
     [100, 100, 3],
+    [103, 103, 3],
+    [107, 107, 3],
+    [112, 112, 3],
     [148, 148, 3],
     [200, 200, 5],
-    [224, 224, 5],
+    [203, 203, 5],
     [548, 548, 5],
   ])("activates the %i-answer mode with a +%i XP bonus", (current, modeStart, bonusExperience) => {
     expect(correctAnswerStreak(current)).toMatchObject({ current, modeStart, bonusExperience, activated: true });
@@ -31,10 +34,11 @@ describe("correct answer streak modes", () => {
     expect(streakChestLevel(12)).toBe(3);
     expect(streakChestLevel(24)).toBe(4);
     expect(streakChestLevel(100)).toBe(7);
-    expect(streakChestLevel(124)).toBe(8);
-    expect(streakChestLevel(5_470)).toBe(222);
-    expect(streakChestLevel(10_000)).toBe(403);
-    expect(streakChestLevel(10_024)).toBe(403);
+    expect(streakChestLevel(103)).toBe(8);
+    expect(streakChestLevel(124)).toBe(11);
+    expect(streakChestLevel(5_470)).toBe(384);
+    expect(streakChestLevel(10_000)).toBe(700);
+    expect(streakChestLevel(10_024)).toBe(700);
     expect(streakChestLevel(5_478)).toBe(0);
   });
 

@@ -3,56 +3,47 @@ import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
+import { streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 
 type Tx = Prisma.TransactionClient;
 
-/** Book levels correspond to verified streak milestones. A learner at a later
- * checkpoint can still receive a book, but never one below the earned tier. */
-export const STREAK_QUEST_BOOK_LEVEL_MILESTONES = [3, 7, 12, 24, 48, 70, 100, 200, 500, 1_000, 2_500, 10_000] as const;
-
-/** All rewards are rolled only on the server and persisted with the dropped
- * book. Every higher tier has minima above the preceding tier's maxima. */
-export const STREAK_QUEST_BOOK_LEVELS = [
-  { level: 1, unlockCost: 2, targetCorrectWords: 10, experience: [100, 150], coins: [2, 3], hintCredits: [1, 1], translationCredits: [1, 1] },
-  { level: 2, unlockCost: 3, targetCorrectWords: 12, experience: [180, 230], coins: [4, 5], hintCredits: [1, 2], translationCredits: [1, 2] },
-  { level: 3, unlockCost: 5, targetCorrectWords: 15, experience: [260, 320], coins: [6, 7], hintCredits: [2, 2], translationCredits: [2, 2] },
-  { level: 4, unlockCost: 7, targetCorrectWords: 18, experience: [360, 430], coins: [8, 10], hintCredits: [2, 3], translationCredits: [2, 3] },
-  { level: 5, unlockCost: 9, targetCorrectWords: 20, experience: [480, 570], coins: [11, 13], hintCredits: [3, 3], translationCredits: [3, 3] },
-  { level: 6, unlockCost: 12, targetCorrectWords: 25, experience: [640, 750], coins: [14, 16], hintCredits: [3, 4], translationCredits: [3, 4] },
-  { level: 7, unlockCost: 15, targetCorrectWords: 30, experience: [840, 980], coins: [18, 21], hintCredits: [4, 4], translationCredits: [4, 4] },
-  { level: 8, unlockCost: 20, targetCorrectWords: 35, experience: [1_100, 1_280], coins: [23, 26], hintCredits: [4, 5], translationCredits: [4, 5] },
-  { level: 9, unlockCost: 25, targetCorrectWords: 40, experience: [1_450, 1_680], coins: [29, 33], hintCredits: [5, 5], translationCredits: [5, 5] },
-  { level: 10, unlockCost: 35, targetCorrectWords: 50, experience: [1_900, 2_200], coins: [37, 42], hintCredits: [5, 6], translationCredits: [5, 6] },
-  { level: 11, unlockCost: 50, targetCorrectWords: 60, experience: [2_500, 2_900], coins: [47, 53], hintCredits: [6, 7], translationCredits: [6, 7] },
-  { level: 12, unlockCost: 75, targetCorrectWords: 75, experience: [3_300, 3_800], coins: [60, 68], hintCredits: [8, 9], translationCredits: [8, 9] },
-] as const;
-
 export const STREAK_QUEST_BOOK = {
   dropDenominator: 8,
+  maximumLevel: 10_000,
 } as const;
 
-type RewardRange = readonly [number, number];
-type QuestBookLevelDefinition = typeof STREAK_QUEST_BOOK_LEVELS[number];
-
 export function streakQuestBookLevelForMilestone(milestone: number) {
-  const normalized = Math.max(0, Math.trunc(milestone));
-  return STREAK_QUEST_BOOK_LEVEL_MILESTONES.reduce<number>((level, threshold, index) => normalized >= threshold ? index + 1 : level, 1);
+  return Math.min(STREAK_QUEST_BOOK.maximumLevel, Math.max(3, Math.trunc(milestone)));
 }
 
-function randomInRange([minimum, maximum]: RewardRange) {
-  return minimum + randomInt(maximum - minimum + 1);
-}
-
-function questBookRewardForLevel(level: number) {
-  const definition = STREAK_QUEST_BOOK_LEVELS[Math.min(STREAK_QUEST_BOOK_LEVELS.length, Math.max(1, Math.trunc(level))) - 1] as QuestBookLevelDefinition;
+/** Gives each verified streak checkpoint a unique reward floor. Randomness is
+ * deliberately smaller than a tier step, so every higher book level always
+ * has more XP than every lower one. */
+export function streakQuestBookRewardFloor(milestone: number) {
+  const level = streakQuestBookLevelForMilestone(milestone);
+  const chestTier = Math.max(1, streakChestLevel(level));
   return {
-    level: definition.level,
-    unlockCost: definition.unlockCost,
-    target: definition.targetCorrectWords,
-    experienceReward: randomInRange(definition.experience),
-    coinReward: randomInRange(definition.coins),
-    hintCredits: randomInRange(definition.hintCredits),
-    translationCredits: randomInRange(definition.translationCredits),
+    level,
+    chestTier,
+    unlockCost: 2 + Math.floor((chestTier - 1) / 14),
+    target: 10 + Math.floor((chestTier - 1) / 10),
+    experience: 100 + (chestTier - 1) * 5,
+    coins: 2 + Math.floor((chestTier - 1) / 18),
+    hintCredits: 1 + Math.floor((chestTier - 1) / 100),
+    translationCredits: 1 + Math.floor((chestTier - 1) / 100),
+  };
+}
+
+function questBookRewardForMilestone(milestone: number) {
+  const floor = streakQuestBookRewardFloor(milestone);
+  return {
+    level: floor.level,
+    unlockCost: floor.unlockCost,
+    target: floor.target,
+    experienceReward: floor.experience + randomInt(5),
+    coinReward: floor.coins + randomInt(2),
+    hintCredits: floor.hintCredits,
+    translationCredits: floor.translationCredits,
   };
 }
 
@@ -121,7 +112,7 @@ export async function maybeDropStreakQuestBook(tx: Tx, userId: string, sourceMil
   });
   if (pendingCount || randomInt(STREAK_QUEST_BOOK.dropDenominator) !== 0) return null;
 
-  const reward = questBookRewardForLevel(streakQuestBookLevelForMilestone(sourceMilestone));
+  const reward = questBookRewardForMilestone(sourceMilestone);
   const book = await tx.streakQuestBook.create({
     data: {
       userId,

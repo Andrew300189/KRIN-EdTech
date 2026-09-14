@@ -1,5 +1,9 @@
-export const CORRECT_STREAK_MILESTONES = [3, 7, 12, 24, 48, 70, 100, 124, 148, 170, 200] as const;
-const REPEATING_HUNDRED_OFFSETS = [0, 24, 48, 70] as const;
+export const CORRECT_STREAK_MILESTONES = [3, 7, 12, 24, 48, 70] as const;
+/** After ×100, each hundred begins a compact run of real checkpoints. This
+ * gives learners milestones at ×100, ×103, ×107, ×112, ×124, ×148 and ×170,
+ * then repeats from ×200 through the ×10,000 cap. */
+export const REPEATING_HUNDRED_OFFSETS = [0, 3, 7, 12, 24, 48, 70] as const;
+const MAX_STREAK_CHEST_MILESTONE = 10_000;
 
 export type CorrectStreakTone = "violet" | "blue" | "cyan" | "emerald" | "lime" | "amber" | "orange" | "rose" | "fuchsia" | "indigo" | "gold";
 
@@ -15,7 +19,7 @@ const tones: readonly CorrectStreakTone[] = ["violet", "blue", "cyan", "emerald"
 
 /**
  * Each real chest checkpoint has its own level: ×3 is level 1, ×7 is level
- * 2, and so on through the ×10,000 level-403 chest.  Chests beyond ×10,000
+ * 2, and so on through the ×10,000 level-700 chest. Chests beyond ×10,000
  * remain at the maximum level while the learner's correct-answer streak can
  * continue without a hidden cap.
  */
@@ -23,15 +27,14 @@ export function streakChestLevel(streak: number) {
   const current = Math.max(0, Math.trunc(Number.isFinite(streak) ? streak : 0));
   if (!correctAnswerStreak(current).activated) return 0;
   if (current < 100) {
-    const earlyChestMilestones: readonly number[] = CORRECT_STREAK_MILESTONES.slice(0, 6);
-    return earlyChestMilestones.indexOf(current) + 1;
+    return CORRECT_STREAK_MILESTONES.indexOf(current as typeof CORRECT_STREAK_MILESTONES[number]) + 1;
   }
 
-  const capped = Math.min(current, 10_000);
+  const capped = Math.min(current, MAX_STREAK_CHEST_MILESTONE);
   const hundredStart = Math.floor(capped / 100) * 100;
   const offset = capped - hundredStart;
   const offsetIndex = REPEATING_HUNDRED_OFFSETS.indexOf(offset as typeof REPEATING_HUNDRED_OFFSETS[number]);
-  return offsetIndex < 0 ? 403 : 6 + ((hundredStart - 100) / 100) * REPEATING_HUNDRED_OFFSETS.length + offsetIndex + 1;
+  return offsetIndex < 0 ? 700 : CORRECT_STREAK_MILESTONES.length + ((hundredStart - 100) / 100) * REPEATING_HUNDRED_OFFSETS.length + offsetIndex + 1;
 }
 
 /** Exactly one spendable KRIN Coin is awarded on the 100, 200, 300 … streak
@@ -51,7 +54,7 @@ export function correctAnswerStreak(streak: number): CorrectAnswerStreak {
   const current = Math.max(0, Math.trunc(Number.isFinite(streak) ? streak : 0));
   if (current < 3) return { current, modeStart: null, bonusExperience: 0, tone: null, activated: false };
 
-  const earlyModeIndex = CORRECT_STREAK_MILESTONES.slice(0, 6).reduce<number>((latest, milestone, index) => current >= milestone ? index : latest, -1);
+  const earlyModeIndex = CORRECT_STREAK_MILESTONES.reduce<number>((latest, milestone, index) => current >= milestone ? index : latest, -1);
   if (current < 100) {
     const modeStart = CORRECT_STREAK_MILESTONES[earlyModeIndex];
     return {

@@ -11,7 +11,7 @@ import {
 describe("streak chest XP policy", () => {
   it("keeps a level- and streak-based chest reward within 10 to 500 XP", () => {
     const early = streakChestExperienceCeiling({ milestone: 3, chestLevel: 1, difficulty: 1, dailyStreak: 0 });
-    const late = streakChestExperienceCeiling({ milestone: 10_000, chestLevel: 403, difficulty: 5, dailyStreak: 100 });
+    const late = streakChestExperienceCeiling({ milestone: 10_000, chestLevel: 700, difficulty: 5, dailyStreak: 100 });
 
     expect(early).toBeGreaterThanOrEqual(10);
     expect(early).toBeLessThan(100);
