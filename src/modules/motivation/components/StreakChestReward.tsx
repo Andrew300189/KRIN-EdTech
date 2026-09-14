@@ -59,7 +59,11 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
       const payload = await response.json().catch(() => null) as { data?: Reward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.error);
       setReward(payload.data);
-      if (payload.data.opened) notifyMotivationUpdated();
+      // A retry can return an already-opened reward when the original browser
+      // request committed on the server but its response was interrupted.
+      // Refresh the balance in both cases: the ledger, not this response flag,
+      // is the source of truth for whether the XP was credited.
+      if (payload.data.opened || payload.data.alreadyOpened) notifyMotivationUpdated();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : text.error);
     } finally {

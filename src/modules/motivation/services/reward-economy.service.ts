@@ -45,8 +45,8 @@ type StreakChestRewardBand = "LOW" | "MID" | "UPPER" | "JACKPOT";
 type StreakChestDailyCounts = Record<StreakChestRewardBand, number>;
 const STREAK_CHEST_XP_MINIMUM = 10;
 const STREAK_CHEST_XP_MAXIMUM = 500;
-export const STREAK_CHEST_DAILY_LIMITS: Record<Exclude<StreakChestRewardBand, "LOW">, number> = {
-  JACKPOT: 3,
+const STREAK_CHEST_JACKPOT_VALUES = [300, 400, 500] as const;
+export const STREAK_CHEST_DAILY_LIMITS: Record<"UPPER" | "MID", number> = {
   UPPER: 7,
   MID: 20,
 };
@@ -67,7 +67,17 @@ export function streakChestDailyCounts(experiences: readonly number[]): StreakCh
 
 export function canAwardStreakChestExperience(experience: number, counts: StreakChestDailyCounts) {
   const band = streakChestRewardBand(experience);
-  return band === "LOW" || counts[band] < STREAK_CHEST_DAILY_LIMITS[band];
+  // 300 / 400 / 500 XP are not a daily-random bucket: they are awarded only
+  // by the exact 100, 200, 300 … checkpoint below.
+  if (band === "LOW") return true;
+  if (band === "JACKPOT") return false;
+  return counts[band] < STREAK_CHEST_DAILY_LIMITS[band];
+}
+
+/** One large 300 / 400 / 500 XP gift belongs to every completed 100-answer
+ * streak interval. It cannot be requested for the in-between checkpoints. */
+export function isCenturyStreakChest(milestone: number) {
+  return Number.isSafeInteger(milestone) && milestone >= 100 && milestone % 100 === 0;
 }
 
 /** The level, streak and verified task difficulty set a moving ceiling within
@@ -99,18 +109,20 @@ function weightedBand(bands: Array<{ band: StreakChestRewardBand; weight: number
   return "LOW" as const;
 }
 
-/** Samples an XP amount from the permitted daily buckets. Jackpot values are
- * intentionally only 300, 400 or 500 and have the strictest daily limit. */
-export function selectStreakChestExperience(input: { ceiling: number; previous: number | null; dailyCounts: StreakChestDailyCounts }) {
+/** Samples an XP amount from the permitted daily buckets. A 300 / 400 / 500
+ * jackpot is exclusively the reward for a 100-answer interval, once per
+ * interval, rather than a probability that can occur on any other chest. */
+export function selectStreakChestExperience(input: { ceiling: number; previous: number | null; previousJackpot: number | null; dailyCounts: StreakChestDailyCounts; isCenturyMilestone: boolean }) {
+  if (input.isCenturyMilestone) {
+    const choices = STREAK_CHEST_JACKPOT_VALUES.filter((value) => value !== input.previousJackpot);
+    return choices[randomInt(choices.length)];
+  }
   const ceiling = Math.max(STREAK_CHEST_XP_MINIMUM, Math.min(STREAK_CHEST_XP_MAXIMUM, input.ceiling));
-  const jackpotValues = [300, 400, 500].filter((value) => value <= ceiling && value !== input.previous);
   const candidates: Array<{ band: StreakChestRewardBand; weight: number }> = [{ band: "LOW", weight: 30 }];
   if (ceiling >= 101 && input.dailyCounts.MID < STREAK_CHEST_DAILY_LIMITS.MID) candidates.push({ band: "MID", weight: 8 });
   if (ceiling >= 201 && input.dailyCounts.UPPER < STREAK_CHEST_DAILY_LIMITS.UPPER) candidates.push({ band: "UPPER", weight: 3 });
-  if (jackpotValues.length && input.dailyCounts.JACKPOT < STREAK_CHEST_DAILY_LIMITS.JACKPOT) candidates.push({ band: "JACKPOT", weight: 1 });
 
   const band = weightedBand(candidates);
-  if (band === "JACKPOT") return jackpotValues[randomInt(jackpotValues.length)];
   if (band === "UPPER") return randomAmount(201, Math.min(299, ceiling), input.previous);
   if (band === "MID") return randomAmount(101, Math.min(200, ceiling), input.previous);
   return randomAmount(STREAK_CHEST_XP_MINIMUM, Math.min(100, ceiling), input.previous);
@@ -218,12 +230,19 @@ function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardConte
 }
 
 async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: string, milestone: number, context: ChestRewardContext) {
-  const recentRewards = await tx.experienceTransaction.findMany({
-    where: { userId, sourceType: "STREAK_CHEST", localDate: context.localDate },
-    orderBy: { createdAt: "desc" },
-    take: 500,
-    select: { amount: true },
-  });
+  const [recentRewards, previousJackpot] = await Promise.all([
+    tx.experienceTransaction.findMany({
+      where: { userId, sourceType: "STREAK_CHEST", localDate: context.localDate },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: { amount: true },
+    }),
+    tx.experienceTransaction.findFirst({
+      where: { userId, sourceType: "STREAK_CHEST", amount: { in: [...STREAK_CHEST_JACKPOT_VALUES] } },
+      orderBy: { createdAt: "desc" },
+      select: { amount: true },
+    }),
+  ]);
   const experience = selectStreakChestExperience({
     ceiling: streakChestExperienceCeiling({
       milestone,
@@ -232,9 +251,29 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
       dailyStreak: context.currentStreak,
     }),
     previous: recentRewards[0]?.amount ?? null,
+    previousJackpot: previousJackpot?.amount ?? null,
     dailyCounts: streakChestDailyCounts(recentRewards.map((reward) => reward.amount)),
+    isCenturyMilestone: isCenturyStreakChest(milestone),
   });
   return streakChestReward(experience, context.chestLevel);
+}
+
+/**
+ * The unique idempotency key prevents a duplicate claim for one chest. This
+ * transaction-scoped PostgreSQL lock additionally serializes different chest
+ * claims for the same learner and calendar day, so racing browser tabs cannot
+ * both see unused medium-tier daily XP capacity before either reward is
+ * recorded.
+ */
+async function lockStreakChestDay(tx: Prisma.TransactionClient, userId: string, localDate: string) {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`streak-chest:${userId}:${localDate}`}))`);
+}
+
+function streakChestResultFromExisting(existing: NonNullable<Awaited<ReturnType<typeof existingChestReward>>>) {
+  return {
+    ...existing,
+    rewardId: existing.rewardId?.match(/streak chest:([^\s]+)/)?.[1] ?? existing.rewardId,
+  };
 }
 
 async function existingChestReward(tx: Prisma.TransactionClient, userId: string, idempotencyKey: string, sourceType: string, sourceId: string) {
@@ -346,17 +385,26 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
 
     const idempotencyKey = `streak-chest:${userId}:${milestone}`;
     const existing = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
-    if (existing) {
-      return {
-        ...existing,
-        rewardId: existing.rewardId?.match(/streak chest:([^\s]+)/)?.[1] ?? existing.rewardId,
-      };
-    }
+    if (existing) return streakChestResultFromExisting(existing);
 
     const chestLevel = streakChestLevel(milestone);
     if (!chestLevel) throw new Error("This streak chest is unavailable.");
     const context = await chestRewardContext(tx, userId, chestLevel);
+    await lockStreakChestDay(tx, userId, context.localDate);
+
+    // The first read happened before waiting for the per-day lock. Check once
+    // more after acquiring it so a request that finished in another tab is
+    // returned as the original verified reward instead of looking like 0 XP.
+    const claimedWhileWaiting = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
+    if (claimedWhileWaiting) return streakChestResultFromExisting(claimedWhileWaiting);
+
     const choice = await randomStreakChestReward(tx, userId, milestone, context);
+    if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || choice.experience > STREAK_CHEST_XP_MAXIMUM) {
+      throw new Error("Invalid streak chest reward.");
+    }
+    if (isCenturyStreakChest(milestone) !== STREAK_CHEST_JACKPOT_VALUES.includes(choice.experience as typeof STREAK_CHEST_JACKPOT_VALUES[number])) {
+      throw new Error("Invalid streak chest reward tier.");
+    }
     const reward = await grantEconomyReward(tx, {
       userId,
       experience: choice.experience,
@@ -369,6 +417,13 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       idempotencyKey,
       description: `Streak chest L${chestLevel}:${choice.id}`,
     });
+    if (!reward.awarded) {
+      // This is defensive against a legacy/retry race: never show a newly
+      // opened chest with zero XP when its immutable ledger entry exists.
+      const verifiedReward = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
+      if (verifiedReward) return streakChestResultFromExisting(verifiedReward);
+      throw new Error("The streak chest reward could not be verified.");
+    }
     return {
       opened: reward.awarded,
       alreadyOpened: false,

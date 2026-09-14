@@ -63,13 +63,18 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef<Record<string, string | null>>({ XP_TO_XP_COIN: null, XP_COIN_TO_KRIN: null });
+  const overviewRequestVersionRef = useRef(0);
   const popoverId = useId();
 
   const load = useCallback(async () => {
+    const requestVersion = ++overviewRequestVersionRef.current;
     try {
       const response = await fetch("/api/profile/motivation", { cache: "no-store" });
       const payload = await response.json().catch(() => null) as { data?: MotivationOverview } | null;
-      if (response.ok && payload?.data) setOverview(payload.data);
+      // If a chest/reward event started a newer reload, an older response can
+      // describe the balance from before the immutable reward was credited.
+      // Never let that stale response overwrite the latest server balance.
+      if (response.ok && payload?.data && requestVersion === overviewRequestVersionRef.current) setOverview(payload.data);
     } catch {
       // Motivation data must never block the learning interface.
     }
