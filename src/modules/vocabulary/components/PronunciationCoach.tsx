@@ -45,11 +45,14 @@ export function PronunciationCoach({
   britishAudioUrl = null,
   americanAudioUrl = null,
   compact = false,
+  onAssessment,
 }: {
   word: string;
   britishAudioUrl?: string | null;
   americanAudioUrl?: string | null;
   compact?: boolean;
+  /** Lets a structured lesson record a server-validated spoken attempt. */
+  onAssessment?: (assessment: { value: PronunciationAssessment; transcript: string }) => void;
 }) {
   const [variant, setVariant] = useState<PronunciationVariant>("BRITISH");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -144,7 +147,9 @@ export function PronunciationCoach({
       setLiveTranscript(transcript.trim());
       if (finalTranscript.trim()) {
         const spoken = finalTranscript.trim();
-        setAssessment({ value: assessPronunciation(word, spoken), transcript: spoken });
+        const nextAssessment = { value: assessPronunciation(word, spoken), transcript: spoken };
+        setAssessment(nextAssessment);
+        onAssessment?.(nextAssessment);
       }
     };
     recognition.onerror = (event) => {

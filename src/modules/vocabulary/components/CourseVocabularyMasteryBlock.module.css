@@ -1,0 +1,39 @@
+.mastery { display: grid; gap: 1rem; margin-top: .35rem; color: var(--text-primary); }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.eyebrow { margin: 0 0 .18rem; color: var(--primary); font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.header h3 { margin: 0; font-size: clamp(1.1rem, 2vw, 1.35rem); line-height: 1.2; }
+.overall { display: grid; min-width: 4.7rem; padding: .5rem .65rem; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); border-radius: .85rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); text-align: center; }
+.overall strong { color: var(--primary); font-size: .88rem; }
+.overall span { color: var(--text-secondary); font-size: .66rem; font-weight: 750; }
+.overallTrack, .seriesTrack { height: .46rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--primary) 11%, var(--surface-secondary)); }
+.overallTrack span, .seriesTrack span { display: block; height: 100%; border-radius: inherit; transition: width 220ms ease; }
+.overallTrack span { background: linear-gradient(90deg, var(--primary), #7c6cff); }
+.instruction { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+.speakingCard { display: grid; gap: .8rem; padding: clamp(1rem, 3vw, 1.35rem); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--surface)), var(--surface)); }
+.word { margin: 0; color: var(--text-primary); font-size: clamp(1.75rem, 6vw, 2.8rem); font-weight: 900; letter-spacing: -.02em; text-align: center; }
+.translationForm { display: grid; gap: .85rem; }
+.promptList { display: grid; gap: .7rem; }
+.promptRow { display: grid; grid-template-columns: minmax(10rem, .8fr) minmax(13rem, 1.2fr); align-items: center; gap: .5rem 1rem; padding: .8rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface); }
+.prompt { color: var(--text-primary); font-size: 1rem; font-weight: 850; overflow-wrap: anywhere; }
+.answerLabel { display: none; }
+.promptRow input { width: 100%; min-height: 2.8rem; border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); border-radius: .7rem; padding: .55rem .7rem; outline: none; background: var(--surface-elevated); color: var(--text-primary); font: inherit; font-weight: 700; }
+.promptRow input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
+.keyboardHint { margin: -.2rem 0 0; color: var(--text-secondary); font-size: .77rem; }
+.submit { justify-self: start; min-height: 2.8rem; border: 0; border-radius: 999px; padding: .6rem 1.1rem; background: var(--primary); color: var(--primary-contrast); font: inherit; font-weight: 850; cursor: pointer; transition: transform 150ms ease, background-color 150ms ease; }
+.submit:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+.submit:disabled { cursor: wait; opacity: .62; }
+.series { display: grid; gap: .5rem; padding: .8rem .9rem; border-radius: .9rem; background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.series > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; }
+.series strong { color: var(--primary); font-size: 1.05rem; }
+.series span { color: var(--text-secondary); font-size: .78rem; font-weight: 700; }
+.seriesTrack span { background: var(--success); }
+.feedback, .error, .errorCard { margin: 0; border-radius: .8rem; padding: .78rem .9rem; line-height: 1.45; }
+.feedbackSuccess { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: color-mix(in srgb, var(--success) 86%, var(--text-primary)); }
+.feedbackError, .error, .errorCard { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: color-mix(in srgb, var(--danger) 84%, var(--text-primary)); }
+.loading { margin: 1rem 0; color: var(--text-secondary); font-weight: 700; }
+.completed { display: grid; justify-items: center; gap: .55rem; padding: 1.5rem 1rem; border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border)); border-radius: 1.25rem; background: color-mix(in srgb, var(--success) 8%, var(--surface)); text-align: center; }
+.completed span { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; border-radius: 50%; background: var(--success); color: white; font-size: 1.25rem; font-weight: 900; }
+.completed h3, .completed p { margin: 0; }
+.completed p { color: var(--text-secondary); }
+@media (max-width: 640px) { .promptRow { grid-template-columns: 1fr; gap: .45rem; } .answerLabel { display: block; color: var(--text-secondary); font-size: .72rem; font-weight: 750; } .submit { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .overallTrack span, .seriesTrack span, .submit { transition: none; } }

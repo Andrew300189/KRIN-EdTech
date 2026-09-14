@@ -19,6 +19,7 @@ import { LessonRewardWheel } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
+import { asVocabularyMasterySettings } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import { shouldBurstLessonConfetti } from "@/modules/lessons/utils/lesson-celebration";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { useLocale } from "@/core/i18n/locale";
@@ -361,7 +362,7 @@ export function LessonPlayer({
     .filter((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id))
     .map((exercise) => exercise.id) ?? [];
   const activeBlockAttemptsComplete = Boolean(
-    activeBlock?.type === "EXERCISE"
+    (activeBlock?.type === "EXERCISE" || (activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings)))
     && activeBlock.exercises.length > 0
     && activeBlock.exercises.every((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id)),
   );
@@ -371,6 +372,7 @@ export function LessonPlayer({
   const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
   const isInteractiveStep = Boolean(
     (activeBlock?.type === "EXERCISE" && activeBlock.exercises.length)
+    || (activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings))
     || (!previewMode && isSpacedReviewBlock(activeBlock)),
   );
   const lessonIsCompleted = storedProgress?.status === "COMPLETED";
@@ -1149,6 +1151,19 @@ export function LessonPlayer({
                   onSpacedReviewIncorrect={() => setCorrectAnswersInRow(0)}
                   onStreakChestAvailable={setStreakChestMilestone}
                   onSpacedReviewComplete={() => {
+                    setStepVerified(true);
+                    setAutoAdvanceRequested(true);
+                  }}
+                  onVocabularyMasteryStageComplete={({ exerciseId, streakTone, streakMilestone }) => {
+                    progressMutationRef.current = true;
+                    setCorrectAnswersInRow((current) => current + 1);
+                    if (streakTone) setPersistentStreakTone(streakTone);
+                    if (streakMilestone) setStreakChestMilestone(streakMilestone);
+                    setExerciseResults((current) => ({ ...current, [exerciseId]: true }));
+                    setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);
+                    triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty: 2 }));
+                  }}
+                  onVocabularyMasteryComplete={() => {
                     setStepVerified(true);
                     setAutoAdvanceRequested(true);
                   }}
