@@ -35,6 +35,7 @@ const PRESENT_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-present-contin
 const PAST_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-past-continuous-full-mastery.cjs";
 const FUTURE_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-future-continuous-full-mastery.cjs";
 const FUTURE_SIMPLE_COURSE_SCRIPT = "database/scripts/import-future-simple-full-mastery.cjs";
+const DENTAL_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-dental-english-vocabulary-mastery.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -85,6 +86,10 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(FUTURE_CONTINUOUS_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored Future Simple mastery course is available…");
   runSeedScript(FUTURE_SIMPLE_COURSE_SCRIPT, ["--publish"]);
+  // This professional course intentionally has no --publish flag. It should
+  // arrive in the CMS as an authored draft, ready for editorial review.
+  console.log("Ensuring the authored English for Dentists vocabulary draft is available…");
+  runSeedScript(DENTAL_VOCABULARY_COURSE_SCRIPT);
 }
 
 async function hasRealPlatformData() {
