@@ -138,13 +138,15 @@ export function CourseVocabularyMasteryBlock({
   }
 
   if (!canSaveProgress) return <section className={styles.errorCard}>Войдите в аккаунт, чтобы начать персональную практику слов и сохранить серии ответов.</section>;
-  if (!state && !error) return <div className={styles.loading} aria-live="polite">Загружаем практику слов…</div>;
+  if (!state) return error
+    ? <section className={styles.errorCard} role="alert">{error}</section>
+    : <div className={styles.loading} aria-live="polite">Загружаем практику слов…</div>;
   if (state?.completed) return <section className={styles.completed} aria-live="polite"><RewardNotification events={rewardEvents} /><span aria-hidden="true">✓</span><h3>Блок слов завершён</h3><p>Вы прошли все обязательные серии. Награда за урок уже готова.</p></section>;
   if (!task) return <section className={styles.errorCard} role="alert">{error ?? "Практика слов недоступна."}</section>;
 
   const copy = copyForDirection[task.direction];
   const seriesProgress = Math.min(100, Math.round((task.correctInRow / task.requiredConsecutive) * 100));
-  const overallProgress = task ? Math.round((state!.progress.completedStages / state!.progress.totalStages) * 100) : 0;
+  const overallProgress = task ? Math.round((state.progress.completedStages / state.progress.totalStages) * 100) : 0;
 
   return <section className={styles.mastery} aria-label="Vocabulary mastery practice">
     <RewardNotification events={rewardEvents} />
