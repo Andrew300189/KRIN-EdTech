@@ -122,6 +122,7 @@ model User {
   streak                        UserStreak?
   streakEvents                  StreakEvent[]
   achievements                  UserAchievement[]
+  streakQuestBooks              StreakQuestBook[]
   suspiciousActivities          SuspiciousActivity[]
   homeworkSubmissions           HomeworkSubmission[]
   contentAuditLogs              ContentAuditLog[]            @relation("ContentAuditActor")
@@ -1685,6 +1686,31 @@ model UserAchievement {
   @@index([userId, completed])
   @@index([userId, activatedAt])
   @@index([userId, achievementId])
+}
+
+/// A book is a server-dropped, coin-locked vocabulary quest. It intentionally
+/// has its own immutable source milestone instead of accepting reward amounts
+/// or progress from the browser.
+model StreakQuestBook {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceMilestone      Int
+  status               String   @default("LOCKED")
+  unlockCost           Int
+  target               Int
+  progress             Int      @default(0)
+  baselineCorrectWords Int      @default(0)
+  experienceReward     Int
+  coinReward           Int
+  hintCredits          Int      @default(0)
+  translationCredits   Int      @default(0)
+  droppedAt            DateTime @default(now())
+  unlockedAt           DateTime?
+  completedAt          DateTime?
+
+  @@unique([userId, sourceMilestone])
+  @@index([userId, status, droppedAt])
 }
 
 model SuspiciousActivity {

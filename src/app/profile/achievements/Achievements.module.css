@@ -40,6 +40,30 @@
 .activateButton { min-height: 2rem; border: 1px solid var(--primary); border-radius: var(--radius-pill); padding: .34rem .62rem; background: var(--primary); color: var(--primary-contrast); font-size: .71rem; font-weight: 800; white-space: nowrap; }
 .activateButton:hover:not(:disabled) { background: var(--primary-hover); }
 .activateButton:disabled { cursor: wait; opacity: .7; }
+.bookShelf { display: grid; gap: .75rem; border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border)); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--surface-elevated) 80%, #efeaff), var(--surface-elevated)); box-shadow: var(--shadow-sm); padding: 1rem; }
+.bookShelfHeader h2 { margin: .18rem 0 0; color: var(--text-primary); font-size: 1.08rem; font-weight: 850; letter-spacing: -.025em; }
+.bookShelfHeader p:not(.eyebrow) { max-width: 45rem; margin: .32rem 0 0; color: var(--text-secondary); font-size: .78rem; line-height: 1.45; }
+.bookGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .65rem; }
+.bookCard { display: flex; min-width: 0; min-height: 13.5rem; flex-direction: column; border: 1px solid #d9d3ff; border-radius: 1rem; background: rgb(255 255 255 / 82%); padding: .85rem; }
+.bookLocked { border-color: #efc774; background: linear-gradient(145deg, #fffdf5, #fff7df); }
+.bookComplete { border-color: #82d7ab; background: linear-gradient(145deg, #f4fff8, #edfff4); }
+.bookTop, .bookProgressHeader { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.bookIcon { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; border-radius: .75rem; background: #eeeaff; font-size: 1.35rem; }
+.bookStatus { border-radius: var(--radius-pill); background: #efecff; color: #5b4cf0; padding: .22rem .42rem; font-size: .62rem; font-weight: 850; letter-spacing: .03em; text-transform: uppercase; }
+.bookLocked .bookStatus { background: #fff0ca; color: #9a5a00; }
+.bookComplete .bookStatus { background: #dcf8e7; color: #147443; }
+.bookCard h3 { margin: .68rem 0 0; color: var(--text-primary); font-size: .95rem; font-weight: 850; }
+.bookDescription { flex: 1; margin: .25rem 0 0; color: var(--text-secondary); font-size: .75rem; line-height: 1.42; }
+.bookProgressHeader { margin-top: .72rem; color: var(--text-muted); font-size: .67rem; font-weight: 750; }
+.bookProgressHeader strong { color: var(--text-primary); }
+.bookProgress { height: .42rem; margin-top: .3rem; overflow: hidden; border-radius: var(--radius-pill); background: #e9e8ef; }
+.bookProgress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5b4cf0, #4c8dff); transition: width 220ms ease; }
+.bookRewards { margin: .7rem 0 0; color: #4b5568; font-size: .66rem; font-weight: 750; line-height: 1.45; }
+.bookUnlockButton, .bookTrainingLink { display: inline-flex; min-height: 2.2rem; align-items: center; justify-content: center; margin-top: .72rem; border: 1px solid #5b4cf0; border-radius: var(--radius-pill); padding: .35rem .62rem; background: #5b4cf0; color: #fff; font-size: .71rem; font-weight: 850; text-decoration: none; }
+.bookUnlockButton:hover:not(:disabled), .bookTrainingLink:hover { background: #4638ca; }
+.bookUnlockButton:disabled { cursor: wait; opacity: .7; }
+.bookCompleted { margin-top: .72rem; color: #147443; font-size: .72rem; font-weight: 850; }
+.bookError { margin: 0; color: #b42345; font-size: .76rem; font-weight: 750; }
 .emptyState { max-width: 34rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-elevated); padding: 1.5rem; }
 .emptyState > div { font-size: 1.8rem; }
 .emptyState h2 { margin: 0.7rem 0 0; color: var(--text-primary); font-size: 1.15rem; }
@@ -47,7 +71,7 @@
 .emptyState a { display: inline-flex; min-height: 2.3rem; align-items: center; margin-top: 1rem; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; background: var(--primary); color: var(--primary-contrast); font-size: 0.8rem; font-weight: 800; text-decoration: none; }
 @media (max-width: 560px) { .header { align-items: stretch; } .summary { width: 100%; } .summary div { padding: 0.68rem; } .summary dt { overflow: hidden; text-overflow: ellipsis; } .grid { gap: 0.7rem; } .card { min-height: 16rem; } }
 @media (min-width: 1024px) {
-  .page { height: 100%; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr); gap: 0.65rem; overflow: hidden; }
+  .page { height: 100%; min-height: 0; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 0.65rem; overflow: hidden; }
   .header { align-items: center; gap: 0.75rem; }
   .eyebrow { font-size: 0.62rem; }
   .header h1 { margin-top: 0.12rem; font-size: 1.42rem; }
@@ -70,6 +94,20 @@
   .progressTrack { height: 0.38rem; margin-top: 0.28rem; }
   .cardFooter { gap: 0.22rem 0.4rem; margin-top: 0.45rem; padding-top: 0.42rem; }
   .reward, .unlocked, .progressState { font-size: 0.56rem; }
+  .bookShelf { gap: .48rem; border-radius: 1rem; padding: .66rem; }
+  .bookShelfHeader h2 { font-size: .84rem; }
+  .bookShelfHeader p:not(.eyebrow) { margin-top: .16rem; font-size: .6rem; }
+  .bookGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+  .bookCard { min-height: 0; padding: .56rem; }
+  .bookIcon { width: 1.8rem; height: 1.8rem; border-radius: .55rem; font-size: 1rem; }
+  .bookStatus { padding: .14rem .25rem; font-size: .46rem; }
+  .bookCard h3 { margin-top: .4rem; font-size: .68rem; }
+  .bookDescription { margin-top: .16rem; font-size: .54rem; }
+  .bookProgressHeader { margin-top: .35rem; font-size: .5rem; }
+  .bookProgress { height: .3rem; margin-top: .16rem; }
+  .bookRewards { margin-top: .36rem; font-size: .5rem; }
+  .bookUnlockButton, .bookTrainingLink { min-height: 1.65rem; margin-top: .4rem; padding: .22rem .38rem; font-size: .52rem; }
+  .bookCompleted { margin-top: .4rem; font-size: .52rem; }
 }
 @media (min-width: 1024px) and (max-width: 1179px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; } .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); } }

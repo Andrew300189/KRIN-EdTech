@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
+import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 import { useLocale } from "@/core/i18n/locale";
 import styles from "./VocabularyTrainingPlayer.module.css";
@@ -53,11 +54,20 @@ export function VocabularyTrainingPlayer({ sessionId, compact = false, onComplet
     setSending(true); setFeedback(null); setErrorMessage(null);
     try {
       const response = await fetch(`/api/profile/vocabulary/session-items/${item.id}/answer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ submittedAnswer: submitted, responseTimeSeconds: Math.round((Date.now() - startedAt.current) / 1000), confidence: 2 }) });
-      const payload = await response.json() as { data?: { isCorrect: boolean; correctAnswer?: string; sessionCompleted: boolean; motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean } }; error?: string };
+      const payload = await response.json() as { data?: { isCorrect: boolean; correctAnswer?: string; sessionCompleted: boolean; motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean }; questBookRewards?: Array<{ experience: number; coins: number; hintCredits: number; translationCredits: number }> }; error?: string };
       if (!response.ok || !payload.data) throw new Error(payload.error ?? "Unable to check answer");
       const reward = payload.data.motivationReward;
       setFeedback({ correct: payload.data.isCorrect, text: payload.data.isCorrect ? reward?.awarded ? answerFeedback.xpAwarded(reward.experience) : answerFeedback.wellDone : `${answerFeedback.correctAnswer} ${payload.data.correctAnswer ?? "—"}` });
-      if (reward?.awarded) { setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : answerFeedback.xpAwarded(reward.experience), detail: reward.coins ? `+${reward.coins} coins` : undefined }]); }
+      const questBookEvents = payload.data.questBookRewards?.map((questReward) => ({
+        type: "ACHIEVEMENT_UNLOCKED" as const,
+        title: "Книга-квест пройдена!",
+        detail: `+${questReward.experience} XP · +${questReward.coins} KRIN Coins · +${questReward.hintCredits} подсказка · +${questReward.translationCredits} переклад`,
+      })) ?? [];
+      const rewardEvents: RewardNotificationEvent[] = reward?.awarded
+        ? [{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : answerFeedback.xpAwarded(reward.experience), detail: reward.coins ? `+${reward.coins} coins` : undefined }, ...questBookEvents]
+        : questBookEvents;
+      if (rewardEvents.length) setRewardEvents(rewardEvents);
+      if (questBookEvents.length) notifyMotivationUpdated();
       window.setTimeout(() => { void refresh().then(() => { setSending(false); if (payload.data?.sessionCompleted) onCompleted?.(); }); }, 850);
     } catch (error) { setErrorMessage(error instanceof Error ? error.message : "Unable to submit answer"); setSending(false); }
   }

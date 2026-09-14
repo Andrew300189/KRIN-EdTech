@@ -34,6 +34,13 @@
 .reward.coin { border-color: #f0c15f; background: linear-gradient(135deg, #fff9e8, #fff1c7); }
 .reward.coin > span { background: #ffebad; color: #9a5a00; }
 .rewardNote { font-size: .78rem !important; }
+.questBook { display: flex; width: 100%; align-items: flex-start; gap: .6rem; border: 1px solid #d9d3ff; border-radius: 1rem; background: linear-gradient(135deg, #f6f3ff, #fff); padding: .72rem; text-align: left; }
+.questBook > span { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 auto; place-items: center; border-radius: .72rem; background: #e9e4ff; font-size: 1.2rem; }
+.questBook div { display: grid; gap: .16rem; }
+.questBook strong { color: var(--text-primary); font-size: .8rem; }
+.questBook p { margin: 0; color: var(--text-secondary); font-size: .72rem; line-height: 1.35; }
+.questBook a { color: #5143d8; font-size: .72rem; font-weight: 850; text-decoration: none; }
+.questBook a:hover { text-decoration: underline; }
 .error { color: #be123c !important; font-weight: 750; }
 
 @keyframes chest-shake { 0%, 100% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(-5deg) scale(1.04); } 75% { transform: rotate(5deg) scale(1.04); } }
@@ -46,6 +53,7 @@
   .openButton, .continueButton { width: 100%; min-height: 2.9rem; }
   .reward { gap: .58rem; padding: .72rem; }
   .reward > span { width: 2.2rem; height: 2.2rem; }
+  .questBook { gap: .5rem; padding: .64rem; }
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {

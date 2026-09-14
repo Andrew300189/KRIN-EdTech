@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
+import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-quest-book.service";
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 
@@ -385,7 +386,10 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
 
     const idempotencyKey = `streak-chest:${userId}:${milestone}`;
     const existing = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
-    if (existing) return streakChestResultFromExisting(existing);
+    if (existing) return {
+      ...streakChestResultFromExisting(existing),
+      questBook: await getStreakQuestBookForSource(tx, userId, milestone),
+    };
 
     const chestLevel = streakChestLevel(milestone);
     if (!chestLevel) throw new Error("This streak chest is unavailable.");
@@ -396,7 +400,10 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     // more after acquiring it so a request that finished in another tab is
     // returned as the original verified reward instead of looking like 0 XP.
     const claimedWhileWaiting = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
-    if (claimedWhileWaiting) return streakChestResultFromExisting(claimedWhileWaiting);
+    if (claimedWhileWaiting) return {
+      ...streakChestResultFromExisting(claimedWhileWaiting),
+      questBook: await getStreakQuestBookForSource(tx, userId, milestone),
+    };
 
     const choice = await randomStreakChestReward(tx, userId, milestone, context);
     if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || choice.experience > STREAK_CHEST_XP_MAXIMUM) {
@@ -421,9 +428,13 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       // This is defensive against a legacy/retry race: never show a newly
       // opened chest with zero XP when its immutable ledger entry exists.
       const verifiedReward = await existingChestReward(tx, userId, idempotencyKey, "STREAK_CHEST", String(milestone));
-      if (verifiedReward) return streakChestResultFromExisting(verifiedReward);
+      if (verifiedReward) return {
+        ...streakChestResultFromExisting(verifiedReward),
+        questBook: await getStreakQuestBookForSource(tx, userId, milestone),
+      };
       throw new Error("The streak chest reward could not be verified.");
     }
+    const questBook = await maybeDropStreakQuestBook(tx, userId, milestone);
     return {
       opened: reward.awarded,
       alreadyOpened: false,
@@ -433,6 +444,7 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       xpCoins: reward.xpCoins,
       hintCredits: reward.hintCredits,
       translationCredits: reward.translationCredits,
+      questBook,
     };
   });
 }

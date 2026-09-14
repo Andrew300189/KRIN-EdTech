@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Award, Flame, Medal, ShieldCheck, Sparkles, Star, Trophy } from "lucide-react";
 import { requireAuth } from "@/core/server/session";
 import { listUserAchievements } from "@/modules/motivation/services/motivation.service";
+import { listStreakQuestBooks } from "@/modules/motivation/services/streak-quest-book.service";
+import { StreakQuestBooksPanel } from "@/modules/motivation/components/StreakQuestBooksPanel";
 import { QuestActivationButton } from "./QuestActivationButton";
 import styles from "./Achievements.module.css";
 
@@ -55,7 +57,10 @@ export async function AchievementsPageContent({
   if (!authenticated) redirect(`/login?next=${encodeURIComponent(basePath)}`);
   const requestedFilter = (await searchParams).filter;
   const filter = filters.some((item) => item.value === requestedFilter) ? requestedFilter as AchievementFilter : "ALL";
-  const achievements = await listUserAchievements(authenticated.user.id, filter);
+  const [achievements, questBooks] = await Promise.all([
+    listUserAchievements(authenticated.user.id, filter),
+    listStreakQuestBooks(authenticated.user.id),
+  ]);
   const completedCount = achievements.filter((achievement) => achievement.completed).length;
   const activeCount = achievements.filter((achievement) => achievement.activatedAt && !achievement.completed).length;
   const availableCount = achievements.filter((achievement) => !achievement.activatedAt).length;
@@ -77,6 +82,8 @@ export async function AchievementsPageContent({
     <nav className={styles.filters} aria-label="Filter quests">
       {filters.map((item) => <Link key={item.value} href={`${basePath}?filter=${item.value}`} aria-current={filter === item.value ? "page" : undefined} className={filter === item.value ? styles.filterActive : styles.filter}>{item.label}</Link>)}
     </nav>
+
+    <StreakQuestBooksPanel initialBooks={questBooks} />
 
     {achievements.length ? <section className={styles.grid} aria-label="Quest collection">
       {achievements.map((achievement) => {

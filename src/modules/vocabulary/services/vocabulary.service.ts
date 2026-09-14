@@ -4,6 +4,7 @@ import { canAccessLesson } from "@/modules/courses/services/lesson-access.servic
 import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { recordVocabularyReview, recordWordAdded } from "@/modules/motivation/services/motivation.service";
+import { recordStreakQuestBookVocabularyReview } from "@/modules/motivation/services/streak-quest-book.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { invalidatePublicLearningStatistics } from "@/modules/analytics/services/platform-statistics.service";
 import { determineReviewQuality, isEligibleForMastery, scheduleNextReview } from "@/modules/vocabulary/services/review-scheduler";
@@ -553,7 +554,8 @@ export async function submitVocabularyAnswer(userId: string, sessionItemId: stri
     const sessionUpdate = { completedItems, correctItems: item.session.correctItems + (isCorrect ? 1 : 0), incorrectItems: item.session.incorrectItems + (isCorrect ? 0 : 1), ...(completedItems >= item.session.totalItems ? { status: "COMPLETED" as const, completedAt: new Date() } : {}) };
     await tx.vocabularyTrainingSession.update({ where: { id: item.sessionId }, data: sessionUpdate });
     const motivationReward = await recordVocabularyReview(tx, { userId, vocabularySessionId: item.sessionId, reviewId: reviewAttempt.id, isCorrect, sessionCompleted: completedItems >= item.session.totalItems, warmUp: item.session.source === "LESSON_WARM_UP" });
-    return { alreadySubmitted: false, isCorrect, quality, correctAnswer: answerKey.display ?? null, nextReviewAt: scheduled.nextReviewAt, masteryLevel: scheduled.masteryLevel, mastered: becomesMastered, sessionCompleted: completedItems >= item.session.totalItems, sessionId: item.sessionId, motivationReward };
+    const questBookRewards = await recordStreakQuestBookVocabularyReview(tx, userId);
+    return { alreadySubmitted: false, isCorrect, quality, correctAnswer: answerKey.display ?? null, nextReviewAt: scheduled.nextReviewAt, masteryLevel: scheduled.masteryLevel, mastered: becomesMastered, sessionCompleted: completedItems >= item.session.totalItems, sessionId: item.sessionId, motivationReward, questBookRewards };
   });
   if (!result.alreadySubmitted && result.mastered) invalidatePublicLearningStatistics();
   if (!result.alreadySubmitted && result.sessionCompleted) {
