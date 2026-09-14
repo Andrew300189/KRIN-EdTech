@@ -1696,6 +1696,7 @@ model StreakQuestBook {
   userId               String
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sourceMilestone      Int
+  level                Int      @default(1)
   status               String   @default("LOCKED")
   unlockCost           Int
   target               Int

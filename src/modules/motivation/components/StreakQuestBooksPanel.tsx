@@ -50,8 +50,8 @@ export function StreakQuestBooksPanel({ initialBooks }: { initialBooks: StreakQu
         const isLocked = book.status === "LOCKED";
         const isActive = book.status === "ACTIVE";
         return <article key={book.id} className={`${styles.bookCard} ${isLocked ? styles.bookLocked : ""} ${book.status === "COMPLETED" ? styles.bookComplete : ""}`}>
-          <div className={styles.bookTop}><span className={styles.bookIcon} aria-hidden="true">📖</span><span className={styles.bookStatus}>{statusCopy(book.status)}</span></div>
-          <h3>Word explorer</h3>
+          <div className={styles.bookTop}><span className={styles.bookIcon} aria-hidden="true">📖</span><span className={styles.bookStatus}>Level {book.level} · {statusCopy(book.status)}</span></div>
+          <h3>Word explorer · Level {book.level}</h3>
           <p className={styles.bookDescription}>Answer {book.target} vocabulary tasks correctly.</p>
           <div className={styles.bookProgressHeader}><span>{isLocked ? "Unlock to begin" : `${book.progress} / ${book.target} correct`}</span><strong>{isLocked ? "—" : `${percentage}%`}</strong></div>
           <div className={styles.bookProgress} role="progressbar" aria-label="Word explorer progress" aria-valuemin={0} aria-valuemax={book.target} aria-valuenow={book.progress}><span style={{ width: `${isLocked ? 0 : percentage}%` }} /></div>
