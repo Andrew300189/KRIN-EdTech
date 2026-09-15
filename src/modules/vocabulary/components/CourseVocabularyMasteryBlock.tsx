@@ -15,7 +15,7 @@ type MasteryTask = { stageIndex: number; stageKey: string; direction: Direction;
 type MasteryState = { completed: boolean; progress: { completedStages: number; totalStages: number; correctStages: number; incorrectAttempts: number }; task: MasteryTask | null };
 type Submission = { isCorrect: boolean; stageCompleted: boolean; sessionCompleted: boolean; state: MasteryState; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; coins: number; levelUp: boolean; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null } | null };
 type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number };
-type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null };
+type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl: string | null | undefined; americanAudioUrl: string | null | undefined };
 
 const copy = {
   ru: {
