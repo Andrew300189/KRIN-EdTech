@@ -29,6 +29,7 @@ type MasteryState = {
   correctInRow: number;
   stageKey: string | null;
   selectedWordIds: string[];
+  missedWordIds: string[];
 };
 
 const masteryAttemptSchema = z.object({
@@ -57,6 +58,7 @@ function stateFromPayload(value: unknown): MasteryState {
     correctInRow: typeof raw.correctInRow === "number" && Number.isInteger(raw.correctInRow) ? Math.max(0, raw.correctInRow) : 0,
     stageKey: typeof raw.stageKey === "string" ? raw.stageKey : null,
     selectedWordIds: stringList(raw.selectedWordIds),
+    missedWordIds: stringList(raw.missedWordIds),
   };
 }
 
@@ -78,12 +80,13 @@ function stateForStage(stageIndex: number, stages: VocabularyMasteryStage[]): Ma
     correctInRow: 0,
     stageKey: stage?.key ?? null,
     selectedWordIds: stage ? selectWordsForStage(stage, 0) : [],
+    missedWordIds: [],
   };
 }
 
 /** The first four translation prompts are predictable; after that, continue
  * with a shuffled word from the same group without repeating the last card. */
-function selectWordsForStage(stage: VocabularyMasteryStage, correctInRow: number, previousWordIds: string[] = []) {
+function selectWordsForStage(stage: VocabularyMasteryStage, correctInRow: number, previousWordIds: string[] = [], missedWordIds: string[] = []) {
   if (!stage.rotatePrompt || stage.promptCount !== 1 || stage.wordIds.length < 2) return sampleWordIds(stage.wordIds, stage.promptCount);
   const previous = previousWordIds[0];
   if (correctInRow < stage.wordIds.length) {
@@ -91,6 +94,8 @@ function selectWordsForStage(stage: VocabularyMasteryStage, correctInRow: number
     return [stage.wordIds[previousIndex >= 0 ? (previousIndex + 1) % stage.wordIds.length : correctInRow]!];
   }
   const candidates = stage.wordIds.filter((wordId) => wordId !== previous);
+  const missedCandidates = candidates.filter((wordId) => missedWordIds.includes(wordId));
+  if (missedCandidates.length) return [missedCandidates[Math.floor(Math.random() * missedCandidates.length)]!];
   const pool = candidates.length ? candidates : stage.wordIds;
   return [pool[Math.floor(Math.random() * pool.length)]!];
 }
@@ -328,7 +333,14 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
     const isCorrect = taskWords.length === stage.promptCount && validatesStageAttempt(stage.direction, taskWords, value);
 
     if (!isCorrect) {
-      const reset = { ...current, correctInRow: 0 };
+      const missedWordIds = [...new Set([...current.missedWordIds, ...current.selectedWordIds])];
+      const reset = {
+        ...current,
+        missedWordIds,
+        selectedWordIds: stage.rotatePrompt
+          ? selectWordsForStage(stage, current.correctInRow, current.selectedWordIds, missedWordIds)
+          : current.selectedWordIds,
+      };
       const updatedSession = await tx.vocabularyTrainingSession.update({ where: { id: session.id }, data: { incorrectItems: { increment: 1 } } });
       await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state: reset }) } });
       return { isCorrect: false, stageCompleted: false, sessionCompleted: false, state: publicState(updatedSession, reset, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
@@ -336,7 +348,8 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
 
     const afterCorrect = current.correctInRow + 1;
     if (afterCorrect < stage.requiredConsecutive) {
-      const next = { ...current, correctInRow: afterCorrect, selectedWordIds: selectWordsForStage(stage, afterCorrect, current.selectedWordIds) };
+      const missedWordIds = current.missedWordIds.filter((wordId) => !current.selectedWordIds.includes(wordId));
+      const next = { ...current, correctInRow: afterCorrect, missedWordIds, selectedWordIds: selectWordsForStage(stage, afterCorrect, current.selectedWordIds, missedWordIds) };
       await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state: next }) } });
       return { isCorrect: true, stageCompleted: false, sessionCompleted: false, state: publicState(session, next, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
     }

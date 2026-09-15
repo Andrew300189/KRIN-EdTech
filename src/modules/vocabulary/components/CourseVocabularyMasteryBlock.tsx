@@ -13,27 +13,27 @@ type IntroWord = { wordId: string; word: { lemma: string; britishAudioUrl?: stri
 type MasteryTask = { stageIndex: number; stageKey: string; direction: Direction; title: string; kind: "WORD" | "BLOCK_REVIEW" | "CUMULATIVE_REVIEW"; requiredConsecutive: number; correctInRow: number; inputLanguage: "ru" | "uk" | "en"; metaWords: Array<{ lemma: string; lessonNumber: number }>; words: Array<{ id: string; lemma: string; lessonNumber: number; prompt: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null }> };
 type MasteryState = { completed: boolean; progress: { completedStages: number; totalStages: number; correctStages: number; incorrectAttempts: number }; task: MasteryTask | null };
 type Submission = { isCorrect: boolean; stageCompleted: boolean; sessionCompleted: boolean; state: MasteryState; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; coins: number; levelUp: boolean; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null } | null };
-type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number; selectedWordIds: string[] };
+type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number; selectedWordIds: string[]; missedWordIds: string[] };
 type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl: string | null | undefined; americanAudioUrl: string | null | undefined };
 
 const copy = {
   ru: {
     firstBlock: "Слова первого блока", start: "Начать", blockWords: "{count} слова", guest: "Гостевая практика", stages: "этапов", master: "Освоить слова", review: "Повторить", lesson: "Урок",
     speakEyebrow: "Слушай · повторяй", speakInstruction: "Прослушайте слово и повторите его вслух. Три точных распознавания подряд откроют следующую карточку.",
-    enRuEyebrow: "Английский → русский", enRuInstruction: "Введите каждый перевод правильно пять раз подряд.", enRuLabel: "Перевод на русский",
-    ruEnEyebrow: "Русский → английский", ruEnInstruction: "Введите каждый английский термин правильно пять раз подряд.", ruEnLabel: "Английский термин",
+    enRuEyebrow: "Английский → русский", enRuInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", enRuLabel: "Перевод на русский",
+    ruEnEyebrow: "Русский → английский", ruEnInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", ruEnLabel: "Английский термин",
     russianPlaceholder: "Введите перевод", englishPlaceholder: "Введите английский термин", keyboard: "Язык клавиатуры:", russian: "русский", english: "английский",
-    check: "Проверить", checking: "Проверяем…", consecutive: "правильно подряд", correct: "Правильно.", reset: "Серия обнулилась. Проверьте термин и попробуйте ещё раз — засчитываются только правильные попытки.",
+    check: "Проверить", checking: "Проверяем…", consecutive: "правильных ответов", correct: "Правильно.", reset: "Пока не засчитано. Это слово вернётся в следующих карточках.",
     stageDone: "Этап завершён — следующая карточка уже готова.", lessonDone: "Все слова этого урока освоены.", completedTitle: "Блок слов завершён", completedText: "Вы прошли все обязательные серии.", guestCompleted: "Гостевая практика завершена. Войдите в аккаунт, чтобы сохранять прогресс и получать XP.",
     loading: "Загружаем практику слов…", unavailable: "Практика слов недоступна.", word: "Слово", wordsTogether: "слов вместе", thisLesson: "Этот урок", mixed: "Смешанное повторение",
   },
   uk: {
     firstBlock: "Слова першого блоку", start: "Почати", blockWords: "{count} слова", guest: "Гостьова практика", stages: "етапів", master: "Освоїти слова", review: "Повторити", lesson: "Урок",
     speakEyebrow: "Слухай · повторюй", speakInstruction: "Прослухайте слово й повторіть його вголос. Три точні розпізнавання поспіль відкриють наступну картку.",
-    enRuEyebrow: "Англійська → українська", enRuInstruction: "Введіть кожен переклад правильно п’ять разів поспіль.", enRuLabel: "Переклад українською",
-    ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Введіть кожен англійський термін правильно п’ять разів поспіль.", ruEnLabel: "Англійський термін",
+    enRuEyebrow: "Англійська → українська", enRuInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", enRuLabel: "Переклад українською",
+    ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", ruEnLabel: "Англійський термін",
     russianPlaceholder: "Введіть переклад", englishPlaceholder: "Введіть англійський термін", keyboard: "Мова клавіатури:", russian: "українська", english: "англійська",
-    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильно поспіль", correct: "Правильно.", reset: "Серію скинуто. Перевірте термін і спробуйте ще раз — зараховуються лише правильні спроби.",
+    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильних відповідей", correct: "Правильно.", reset: "Поки не зараховано. Це слово повернеться в наступних картках.",
     stageDone: "Етап завершено — наступна картка вже готова.", lessonDone: "Усі слова цього уроку опановано.", completedTitle: "Блок слів завершено", completedText: "Ви пройшли всі обов’язкові серії.", guestCompleted: "Гостьову практику завершено. Увійдіть в акаунт, щоб зберігати прогрес і отримувати XP.",
     loading: "Завантажуємо практику слів…", unavailable: "Практика слів недоступна.", word: "Слово", wordsTogether: "слів разом", thisLesson: "Цей урок", mixed: "Змішане повторення",
   },
@@ -84,7 +84,7 @@ async function requestState(lessonId: string, locale: VocabularyMasteryLocale, g
   return payload.data;
 }
 
-function nextGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStages>[number], correctInRow: number, previousWordIds: string[] = []) {
+function nextGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStages>[number], correctInRow: number, previousWordIds: string[] = [], missedWordIds: string[] = []) {
   if (!stage.rotatePrompt || stage.promptCount !== 1 || stage.wordIds.length < 2) return stage.wordIds.slice(0, stage.promptCount);
   const previous = previousWordIds[0];
   if (correctInRow < stage.wordIds.length) {
@@ -92,6 +92,8 @@ function nextGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStages>
     return [stage.wordIds[previousIndex >= 0 ? (previousIndex + 1) % stage.wordIds.length : correctInRow]!];
   }
   const candidates = stage.wordIds.filter((wordId) => wordId !== previous);
+  const missedCandidates = candidates.filter((wordId) => missedWordIds.includes(wordId));
+  if (missedCandidates.length) return [missedCandidates[Math.floor(Math.random() * missedCandidates.length)]!];
   const pool = candidates.length ? candidates : stage.wordIds;
   return [pool[Math.floor(Math.random() * pool.length)]!];
 }
@@ -110,7 +112,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const text = copy[locale];
   const [started, setStarted] = useState(false);
   const [state, setState] = useState<MasteryState | null>(null);
-  const [guestProgress, setGuestProgress] = useState<GuestProgress>({ stageIndex: 0, correctInRow: 0, incorrectAttempts: 0, selectedWordIds: [] });
+  const [guestProgress, setGuestProgress] = useState<GuestProgress>({ stageIndex: 0, correctInRow: 0, incorrectAttempts: 0, selectedWordIds: [], missedWordIds: [] });
   const [answers, setAnswers] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,9 +149,9 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const task = canSaveProgress ? state?.task ?? null : guestTask?.task ?? null;
   const completed = canSaveProgress ? Boolean(state?.completed) : guestProgress.stageIndex >= guestStages.length;
   const progress = canSaveProgress ? state?.progress ?? { completedStages: 0, totalStages: 0, correctStages: 0, incorrectAttempts: 0 } : { completedStages: Math.min(guestProgress.stageIndex, guestStages.length), totalStages: guestStages.length, correctStages: guestProgress.stageIndex, incorrectAttempts: guestProgress.incorrectAttempts };
-  const activeStageKey = task?.stageKey;
+  const activeTaskKey = task ? `${task.stageKey}:${task.words.map((word) => word.id).join(",")}` : null;
   const activeTaskWordCount = task?.words.length ?? 0;
-  useEffect(() => { setAnswers(activeStageKey ? Array.from({ length: activeTaskWordCount }, () => "") : []); setFeedback(null); }, [activeStageKey, activeTaskWordCount]);
+  useEffect(() => { setAnswers(activeTaskKey ? Array.from({ length: activeTaskWordCount }, () => "") : []); setFeedback(null); }, [activeTaskKey, activeTaskWordCount]);
   useEffect(() => { if (!completed || completedSignalled.current) return; completedSignalled.current = true; onComplete?.(); }, [completed, onComplete]);
 
   function start() { setStarted(true); if (canSaveProgress) void load(); }
@@ -158,10 +160,10 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     const isCorrect = task.direction === "SPEAK"
       ? assessPronunciation(guestTask.expectedAnswers[0] ?? "", payload.transcript ?? "").verdict === "MATCH"
       : Boolean(payload.answers && payload.answers.length === guestTask.expectedAnswers.length && payload.answers.every((answer, index) => cleanAnswer(answer) === cleanAnswer(guestTask.expectedAnswers[index] ?? "")));
-    if (!isCorrect) { setGuestProgress((current) => ({ ...current, correctInRow: 0, incorrectAttempts: current.incorrectAttempts + 1 })); setFeedback({ tone: "error", text: text.reset }); return; }
-    if (guestProgress.correctInRow + 1 < task.requiredConsecutive) { const nextCount = guestProgress.correctInRow + 1; setGuestProgress((current) => ({ ...current, correctInRow: nextCount, selectedWordIds: nextGuestWordIds(guestStages[current.stageIndex]!, nextCount, current.selectedWordIds) })); setFeedback({ tone: "success", text: `${text.correct} ${nextCount} / ${task.requiredConsecutive}.` }); return; }
+    if (!isCorrect) { setGuestProgress((current) => { const missedWordIds = [...new Set([...current.missedWordIds, ...current.selectedWordIds])]; return { ...current, incorrectAttempts: current.incorrectAttempts + 1, missedWordIds, selectedWordIds: nextGuestWordIds(guestStages[current.stageIndex]!, current.correctInRow, current.selectedWordIds, missedWordIds) }; }); setFeedback({ tone: "error", text: text.reset }); return; }
+    if (guestProgress.correctInRow + 1 < task.requiredConsecutive) { const nextCount = guestProgress.correctInRow + 1; setGuestProgress((current) => { const missedWordIds = current.missedWordIds.filter((wordId) => !current.selectedWordIds.includes(wordId)); return { ...current, correctInRow: nextCount, missedWordIds, selectedWordIds: nextGuestWordIds(guestStages[current.stageIndex]!, nextCount, current.selectedWordIds, missedWordIds) }; }); setFeedback({ tone: "success", text: `${text.correct} ${nextCount} / ${task.requiredConsecutive}.` }); return; }
     const nextStage = guestProgress.stageIndex + 1;
-    setGuestProgress((current) => ({ ...current, stageIndex: nextStage, correctInRow: 0, selectedWordIds: [] }));
+    setGuestProgress((current) => ({ ...current, stageIndex: nextStage, correctInRow: 0, selectedWordIds: [], missedWordIds: [] }));
     if (nextStage >= allowedGuestStageCount && nextStage < guestStages.length) {
       writeGuestResumeStage(lessonId, nextStage);
       onGuestLimitReached?.(nextStage);
