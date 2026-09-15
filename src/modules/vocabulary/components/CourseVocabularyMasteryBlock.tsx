@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { PronunciationCoach } from "@/modules/vocabulary/components/PronunciationCoach";
 import { useLocale } from "@/core/i18n/locale";
+import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import { buildVocabularyMasteryStages, vocabularyMasteryTranslation, type VocabularyMasteryLocale } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import styles from "./CourseVocabularyMasteryBlock.module.css";
@@ -13,6 +14,7 @@ type IntroWord = { wordId: string; word: { lemma: string; britishAudioUrl?: stri
 type MasteryTask = { stageIndex: number; stageKey: string; direction: Direction; title: string; kind: "WORD" | "BLOCK_REVIEW" | "CUMULATIVE_REVIEW"; requiredConsecutive: number; correctInRow: number; inputLanguage: "ru" | "uk" | "en"; metaWords: Array<{ lemma: string; lessonNumber: number }>; words: Array<{ id: string; lemma: string; translation?: string; lessonNumber: number; prompt: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null }> };
 type MasteryState = { completed: boolean; progress: { completedStages: number; totalStages: number; correctStages: number; incorrectAttempts: number }; task: MasteryTask | null };
 type Submission = { isCorrect: boolean; stageCompleted: boolean; sessionCompleted: boolean; state: MasteryState; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; coins: number; levelUp: boolean; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null } | null };
+type StageReward = { experience: number; levelUp: boolean; streak: { tone: string | null; activated: boolean; modeStart: number | null } | null };
 type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number; selectedWordIds: string[]; missedWordIds: string[] };
 type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl: string | null | undefined; americanAudioUrl: string | null | undefined };
 
@@ -23,7 +25,7 @@ const copy = {
     enRuEyebrow: "Английский → русский", enRuInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", enRuLabel: "Перевод на русский",
     ruEnEyebrow: "Русский → английский", ruEnInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", ruEnLabel: "Английский термин",
     russianPlaceholder: "Введите перевод", englishPlaceholder: "Введите английский термин", keyboard: "Язык клавиатуры:", russian: "русский", english: "английский",
-    check: "Проверить", checking: "Проверяем…", consecutive: "правильных ответов", correct: "Правильно.", reset: "Пока не засчитано. Это слово вернётся в следующих карточках.",
+    check: "Проверить", checking: "Проверяем…", consecutive: "правильных ответов", correct: "Правильно.", levelUp: "Новый уровень!", reset: "Пока не засчитано. Это слово вернётся в следующих карточках.",
     stageDone: "Этап завершён — следующая карточка уже готова.", lessonDone: "Все слова этого урока освоены.", completedTitle: "Блок слов завершён", completedText: "Вы прошли все обязательные серии.", guestCompleted: "Гостевая практика завершена. Войдите в аккаунт, чтобы сохранять прогресс и получать XP.",
     loading: "Загружаем практику слов…", unavailable: "Практика слов недоступна.", word: "Слово", wordsTogether: "слов вместе", thisLesson: "Этот урок", mixed: "Смешанное повторение",
   },
@@ -33,7 +35,7 @@ const copy = {
     enRuEyebrow: "Англійська → українська", enRuInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", enRuLabel: "Переклад українською",
     ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", ruEnLabel: "Англійський термін",
     russianPlaceholder: "Введіть переклад", englishPlaceholder: "Введіть англійський термін", keyboard: "Мова клавіатури:", russian: "українська", english: "англійська",
-    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильних відповідей", correct: "Правильно.", reset: "Поки не зараховано. Це слово повернеться в наступних картках.",
+    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильних відповідей", correct: "Правильно.", levelUp: "Новий рівень!", reset: "Поки не зараховано. Це слово повернеться в наступних картках.",
     stageDone: "Етап завершено — наступна картка вже готова.", lessonDone: "Усі слова цього уроку опановано.", completedTitle: "Блок слів завершено", completedText: "Ви пройшли всі обов’язкові серії.", guestCompleted: "Гостьову практику завершено. Увійдіть в акаунт, щоб зберігати прогрес і отримувати XP.",
     loading: "Завантажуємо практику слів…", unavailable: "Практика слів недоступна.", word: "Слово", wordsTogether: "слів разом", thisLesson: "Цей урок", mixed: "Змішане повторення",
   },
@@ -141,6 +143,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const { locale: selectedLocale } = useLocale();
   const locale: VocabularyMasteryLocale = contentLocale ?? (selectedLocale === "uk" ? "uk" : "ru");
   const text = copy[locale];
+  const answerFeedback = learnerAnswerFeedback(locale);
   const [started, setStarted] = useState(false);
   const [state, setState] = useState<MasteryState | null>(null);
   const [guestProgress, setGuestProgress] = useState<GuestProgress>({ stageIndex: 0, correctInRow: 0, incorrectAttempts: 0, selectedWordIds: [], missedWordIds: [] });
@@ -148,7 +151,9 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const [feedback, setFeedback] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [rewardCelebration, setRewardCelebration] = useState<StageReward | null>(null);
   const completedSignalled = useRef(false);
+  const rewardCelebrationTimer = useRef<number | null>(null);
   const load = useCallback(async () => {
     setError(null);
     const resumeStage = readGuestResumeStage(lessonId);
@@ -184,6 +189,16 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const activeTaskWordCount = task?.words.length ?? 0;
   useEffect(() => { setAnswers(activeTaskKey ? Array.from({ length: activeTaskWordCount }, () => "") : []); setFeedback(null); }, [activeTaskKey, activeTaskWordCount]);
   useEffect(() => { if (!completed || completedSignalled.current) return; completedSignalled.current = true; onComplete?.(); }, [completed, onComplete]);
+  useEffect(() => () => { if (rewardCelebrationTimer.current !== null) window.clearTimeout(rewardCelebrationTimer.current); }, []);
+
+  function showStageReward(reward: StageReward) {
+    setRewardCelebration(reward);
+    if (rewardCelebrationTimer.current !== null) window.clearTimeout(rewardCelebrationTimer.current);
+    rewardCelebrationTimer.current = window.setTimeout(() => {
+      setRewardCelebration(null);
+      rewardCelebrationTimer.current = null;
+    }, 1_450);
+  }
 
   function start() { setStarted(true); if (canSaveProgress) void load(); }
   function submitGuest(payload: { transcript?: string; answers?: string[] }) {
@@ -217,7 +232,10 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
         setFeedback({ tone: "success", text: result.sessionCompleted ? text.lessonDone : text.stageDone });
         if (result.exerciseId) { const streak = result.motivationReward?.streak; onStageComplete?.({ exerciseId: result.exerciseId, streakTone: streak?.tone ?? null, streakMilestone: streak?.activated ? streak.modeStart : null }); }
         const reward = result.motivationReward;
-        if (reward?.awarded) notifyMotivationUpdated();
+        if (reward?.awarded) {
+          showStageReward({ experience: reward.experience, levelUp: reward.levelUp, streak: reward.streak ?? null });
+          notifyMotivationUpdated();
+        }
       } else { const next = result.state.task; setFeedback({ tone: "success", text: `${text.correct} ${next?.correctInRow ?? 0} / ${next?.requiredConsecutive ?? task.requiredConsecutive}.` }); }
     } catch (submitError) { setError(submitError instanceof Error ? submitError.message : text.unavailable); } finally { setSubmitting(false); }
   }
@@ -252,7 +270,14 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const directionText = directionCopy(task.direction, locale);
   const seriesProgress = Math.min(100, Math.round((task.correctInRow / task.requiredConsecutive) * 100));
   const overallProgress = progress.totalStages ? Math.round((progress.completedStages / progress.totalStages) * 100) : 0;
+  const streakTone = rewardCelebration?.streak?.tone && /^[a-z-]+$/.test(rewardCelebration.streak.tone) ? rewardCelebration.streak.tone : null;
+  const streakActivated = Boolean(rewardCelebration?.streak?.activated && streakTone);
   return <section className={styles.mastery} aria-label="Vocabulary mastery practice">
+    {rewardCelebration ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
+      {streakActivated
+        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{rewardCelebration.streak?.modeStart}</strong></div>
+        : <><strong>{answerFeedback.xpAwarded(rewardCelebration.experience)}</strong>{rewardCelebration.levelUp ? <span>{text.levelUp}</span> : null}</>}
+    </div> : null}
     {lessonMeta}
     <header className={styles.header}><div><p className={styles.eyebrow}>{canSaveProgress ? directionText.eyebrow : `${text.guest} · ${directionText.eyebrow}`}</p><h3>{localizedTaskTitle(task, locale)}</h3></div><div className={styles.overall} aria-label={`${progress.completedStages} of ${progress.totalStages} stages complete`}><strong>{progress.completedStages}/{progress.totalStages}</strong><span>{text.stages}</span></div></header>
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${overallProgress}%` }} /></div><p className={styles.instruction}>{directionText.instruction}</p>
