@@ -1,4 +1,4 @@
-import { buildVocabularyMasteryStages, vocabularyMasteryStageCount } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
+import { buildVocabularyMasteryStages, vocabularyMasteryStageCount, vocabularyMasteryTranslation } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 
 const words = Array.from({ length: 12 }, (_, index) => `word-${index + 1}`);
 
@@ -32,5 +32,18 @@ describe("course vocabulary mastery plan", () => {
 
     expect(cumulativeStage).toEqual(expect.objectContaining({ promptCount: 4, requiredConsecutive: 5, wordIds: cumulative }));
     expect(vocabularyMasteryStageCount(4, 4)).toBe(20);
+  });
+
+  it("uses the authored target language instead of a personal dictionary translation", () => {
+    const settings = {
+      engine: "vocabulary-mastery",
+      localizedTranslations: {
+        ru: { "dental clinic": "стоматологическая клиника" },
+        uk: { "dental clinic": "стоматологічна клініка" },
+      },
+    };
+
+    expect(vocabularyMasteryTranslation(settings, "Dental   Clinic", "ru", "fallback")).toBe("стоматологическая клиника");
+    expect(vocabularyMasteryTranslation(settings, "dental clinic", "uk", "fallback")).toBe("стоматологічна клініка");
   });
 });

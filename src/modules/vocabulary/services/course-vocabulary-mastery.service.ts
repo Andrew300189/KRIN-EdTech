@@ -7,7 +7,9 @@ import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import {
   asVocabularyMasterySettings,
   buildVocabularyMasteryStages,
+  vocabularyMasteryTranslation,
   type VocabularyMasteryDirection,
+  type VocabularyMasteryLocale,
   type VocabularyMasteryStage,
 } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import { z } from "zod";
@@ -30,6 +32,7 @@ type MasteryState = {
 
 const masteryAttemptSchema = z.object({
   stageIndex: z.number().int().min(0).max(10_000),
+  locale: z.enum(["ru", "uk"]).optional(),
   transcript: z.string().trim().max(240).optional(),
   answers: z.array(z.string().trim().max(240)).max(24).optional(),
 });
@@ -87,7 +90,7 @@ function normaliseState(state: MasteryState, stages: VocabularyMasteryStage[]) {
   return correctSelection ? state : stateForStage(state.stageIndex, stages);
 }
 
-async function getLessonMasteryData(lessonId: string) {
+async function getLessonMasteryData(lessonId: string, locale: VocabularyMasteryLocale) {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
     select: {
@@ -135,7 +138,12 @@ async function getLessonMasteryData(lessonId: string) {
   const toWord = (row: typeof lessons[number]["vocabulary"][number]): MasteryWord => ({
     id: row.word.id,
     lemma: row.word.lemma,
-    translation: row.word.meanings[0]?.translation ?? row.word.meanings[0]?.definition ?? row.word.lemma,
+    translation: vocabularyMasteryTranslation(
+      block.settings,
+      row.word.lemma,
+      locale,
+      row.word.meanings[0]?.translation ?? row.word.meanings[0]?.definition ?? row.word.lemma,
+    ),
     britishAudioUrl: row.word.britishAudioUrl,
     americanAudioUrl: row.word.americanAudioUrl,
   });
@@ -149,7 +157,12 @@ async function getLessonMasteryData(lessonId: string) {
   return { lesson, block, stages, words: new Map(cumulativeWords.map((word) => [word.id, word])) };
 }
 
-function taskForState(state: MasteryState, stages: VocabularyMasteryStage[], words: Map<string, MasteryWord>) {
+function taskForState(
+  state: MasteryState,
+  stages: VocabularyMasteryStage[],
+  words: Map<string, MasteryWord>,
+  locale: VocabularyMasteryLocale,
+) {
   const stage = stages[state.stageIndex];
   if (!stage) return null;
   const selectedWords = state.selectedWordIds.map((wordId) => words.get(wordId)).filter((word): word is MasteryWord => Boolean(word));
@@ -162,14 +175,20 @@ function taskForState(state: MasteryState, stages: VocabularyMasteryStage[], wor
     title: stage.title,
     requiredConsecutive: stage.requiredConsecutive,
     correctInRow: state.correctInRow,
-    inputLanguage: stage.direction === "EN_RU" ? "ru" : "en",
+    inputLanguage: stage.direction === "EN_RU" ? locale : "en",
     words: selectedWords.map((word) => isSpeaking
       ? { id: word.id, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }
       : { id: word.id, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }),
   };
 }
 
-function publicState(session: { status: string; totalItems: number; correctItems: number; incorrectItems: number }, state: MasteryState, stages: VocabularyMasteryStage[], words: Map<string, MasteryWord>) {
+function publicState(
+  session: { status: string; totalItems: number; correctItems: number; incorrectItems: number },
+  state: MasteryState,
+  stages: VocabularyMasteryStage[],
+  words: Map<string, MasteryWord>,
+  locale: VocabularyMasteryLocale,
+) {
   const completed = session.status === "COMPLETED" || state.stageIndex >= stages.length;
   return {
     completed,
@@ -179,7 +198,7 @@ function publicState(session: { status: string; totalItems: number; correctItems
       correctStages: session.correctItems,
       incorrectAttempts: session.incorrectItems,
     },
-    task: completed ? null : taskForState(state, stages, words),
+    task: completed ? null : taskForState(state, stages, words, locale),
   };
 }
 
@@ -220,15 +239,15 @@ async function assertLessonAccess(userId: string, lessonId: string) {
   if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
 }
 
-export async function getCourseVocabularyMasteryState(userId: string, lessonId: string) {
+export async function getCourseVocabularyMasteryState(userId: string, lessonId: string, locale: VocabularyMasteryLocale = "ru") {
   await assertLessonAccess(userId, lessonId);
-  const data = await getLessonMasteryData(lessonId);
+  const data = await getLessonMasteryData(lessonId, locale);
   const { session, item } = await getOrCreateMasterySession(userId, lessonId, stateForStage(0, data.stages));
   const state = normaliseState(stateFromPayload(item.payload), data.stages);
   if (JSON.stringify(state) !== JSON.stringify(stateFromPayload(item.payload))) {
     await prisma.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state }) } });
   }
-  return publicState(session, state, data.stages, data.words);
+  return publicState(session, state, data.stages, data.words, locale);
 }
 
 function validatesStageAttempt(
@@ -251,8 +270,9 @@ function validatesStageAttempt(
 
 export async function submitCourseVocabularyMasteryAttempt(userId: string, lessonId: string, input: unknown) {
   const value = masteryAttemptSchema.parse(input);
+  const locale = value.locale ?? "ru";
   await assertLessonAccess(userId, lessonId);
-  const data = await getLessonMasteryData(lessonId);
+  const data = await getLessonMasteryData(lessonId, locale);
 
   return prisma.$transaction(async (tx) => {
     const session = await tx.vocabularyTrainingSession.findFirst({
@@ -266,7 +286,7 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
     }
     if (session.status === "COMPLETED") {
       const state = normaliseState(stateFromPayload(item.payload), data.stages);
-      return { isCorrect: true, stageCompleted: false, sessionCompleted: true, state: publicState(session, state, data.stages, data.words), motivationReward: null, exerciseId: null };
+      return { isCorrect: true, stageCompleted: false, sessionCompleted: true, state: publicState(session, state, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
     }
 
     const current = normaliseState(stateFromPayload(item.payload), data.stages);
@@ -280,14 +300,14 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
       const reset = { ...current, correctInRow: 0 };
       const updatedSession = await tx.vocabularyTrainingSession.update({ where: { id: session.id }, data: { incorrectItems: { increment: 1 } } });
       await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state: reset }) } });
-      return { isCorrect: false, stageCompleted: false, sessionCompleted: false, state: publicState(updatedSession, reset, data.stages, data.words), motivationReward: null, exerciseId: null };
+      return { isCorrect: false, stageCompleted: false, sessionCompleted: false, state: publicState(updatedSession, reset, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
     }
 
     const afterCorrect = current.correctInRow + 1;
     if (afterCorrect < stage.requiredConsecutive) {
       const next = { ...current, correctInRow: afterCorrect };
       await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state: next }) } });
-      return { isCorrect: true, stageCompleted: false, sessionCompleted: false, state: publicState(session, next, data.stages, data.words), motivationReward: null, exerciseId: null };
+      return { isCorrect: true, stageCompleted: false, sessionCompleted: false, state: publicState(session, next, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
     }
 
     const exercise = data.block.exercises[current.stageIndex];
@@ -338,6 +358,6 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
       where: { id: item.id },
       data: { status: sessionCompleted ? "COMPLETED" : "PENDING", submittedAt: sessionCompleted ? new Date() : null, payload: toJson({ engine: "course-vocabulary-mastery", state: nextState }) },
     });
-    return { isCorrect: true, stageCompleted: true, sessionCompleted, state: publicState(updatedSession, nextState, data.stages, data.words), motivationReward: reward, exerciseId: exercise.id };
+    return { isCorrect: true, stageCompleted: true, sessionCompleted, state: publicState(updatedSession, nextState, data.stages, data.words, locale), motivationReward: reward, exerciseId: exercise.id };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 20_000 });
 }

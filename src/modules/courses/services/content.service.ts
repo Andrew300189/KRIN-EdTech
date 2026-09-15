@@ -864,6 +864,8 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
             select: {
               lemma: true,
               partOfSpeech: true,
+              britishAudioUrl: true,
+              americanAudioUrl: true,
               meanings: {
                 orderBy: { order: "asc" },
                 take: 2,

@@ -52,6 +52,16 @@
 @media (prefers-reduced-motion: no-preference) { .primaryAction, .secondaryAction, .removeButton, .retryButton { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } .courseCard { transition: border-color 150ms ease, box-shadow 150ms ease; } .courseCard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); } .progressFill { transition: width 220ms ease; } }
 
 .vocabularySection { display: grid; gap: 1rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+.vocabularyCourses { display: grid; gap: .8rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.vocabularyCourses h1 { margin: .2rem 0 0; color: var(--text-primary); font-size: clamp(1.35rem, 2.5vw, 1.75rem); letter-spacing: -.035em; }
+.vocabularyCourses > div > p:not(.eyebrow) { max-width: 42rem; margin: .38rem 0 0; color: var(--text-secondary); font-size: .88rem; line-height: 1.5; }
+.vocabularyCourseGrid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+.vocabularyCourseCard { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border)); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface-elevated)), var(--surface-elevated)); box-shadow: var(--shadow-sm); }
+.vocabularyCourseCard > span { color: var(--primary); font-size: .7rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.vocabularyCourseCard h2 { margin: .5rem 0 0; color: var(--text-primary); font-size: 1.02rem; line-height: 1.32; }
+.vocabularyCourseCard p { flex: 1; margin: .45rem 0 0; color: var(--text-secondary); font-size: .82rem; line-height: 1.45; }
+.vocabularyCourseCard a { display: inline-flex; width: fit-content; align-items: center; gap: .35rem; margin-top: .9rem; color: var(--primary); font-size: .82rem; font-weight: 850; text-decoration: none; }
+.vocabularyCourseCard a:hover { text-decoration: underline; }
 .vocabularyHeader { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
 .vocabularyHeader h2 { margin: 0.22rem 0 0; color: var(--text-primary); font-size: clamp(1.35rem, 2.5vw, 1.75rem); letter-spacing: -0.035em; }
 .vocabularyHeader p:not(.eyebrow) { max-width: 38rem; margin: 0.38rem 0 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }

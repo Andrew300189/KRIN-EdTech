@@ -10,7 +10,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const guard = await requireLearningUser(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   try {
-    const state = await getCourseVocabularyMasteryState(guard.user.id, (await params).lessonId);
+    const locale = request.nextUrl.searchParams.get("locale") === "uk" ? "uk" : "ru";
+    const state = await getCourseVocabularyMasteryState(guard.user.id, (await params).lessonId, locale);
     return NextResponse.json({ data: state });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load vocabulary mastery";

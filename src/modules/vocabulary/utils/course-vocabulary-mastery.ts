@@ -1,4 +1,5 @@
 export type VocabularyMasteryDirection = "SPEAK" | "EN_RU" | "RU_EN";
+export type VocabularyMasteryLocale = "ru" | "uk";
 
 export type VocabularyMasteryStage = {
   key: string;
@@ -14,10 +15,32 @@ export type VocabularyMasteryStage = {
 
 type JsonRecord = Record<string, unknown>;
 
-export function asVocabularyMasterySettings(value: unknown) {
+export type VocabularyMasterySettings = JsonRecord & {
+  engine: "vocabulary-mastery";
+  localizedTranslations?: Partial<Record<VocabularyMasteryLocale, Record<string, string>>>;
+};
+
+export function asVocabularyMasterySettings(value: unknown): VocabularyMasterySettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const settings = value as JsonRecord;
-  return settings.engine === "vocabulary-mastery" ? settings : null;
+  return settings.engine === "vocabulary-mastery" ? settings as VocabularyMasterySettings : null;
+}
+
+function normalizedTranslationKey(value: string) {
+  return value.toLocaleLowerCase("en").trim().replace(/\s+/g, " ");
+}
+
+/** A course can author target-language prompts independently of a learner's
+ * personal dictionary language. */
+export function vocabularyMasteryTranslation(
+  settings: unknown,
+  lemma: string,
+  locale: VocabularyMasteryLocale,
+  fallback: string,
+) {
+  const configured = asVocabularyMasterySettings(settings)?.localizedTranslations?.[locale];
+  const value = configured?.[normalizedTranslationKey(lemma)];
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
 function recallStages(key: string, title: string, wordIds: string[], kind: VocabularyMasteryStage["kind"]): VocabularyMasteryStage[] {

@@ -121,6 +121,28 @@ const words = [
   ["aftercare instructions", "рекомендации по уходу после лечения"],
 ];
 
+// The course has one English prompt set and two learner-facing target
+// languages. Keep these translations with the authored course rather than a
+// user's personal dictionary preference.
+const ukrainianTranslations = {
+  "dentist": "стоматолог", "dental clinic": "стоматологічна клініка", "patient": "пацієнт", "appointment": "прийом",
+  "tooth": "зуб", "teeth": "зуби", "gum": "ясна", "jaw": "щелепа", "tongue": "язик", "palate": "піднебіння", "cheek": "щока", "saliva": "слина",
+  "enamel": "емаль", "dentin": "дентин", "pulp": "пульпа", "root": "корінь зуба", "crown": "коронка", "filling": "пломба", "cavity": "каріозна порожнина", "tooth decay": "карієс",
+  "plaque": "зубний наліт", "tartar": "зубний камінь", "dental floss": "зубна нитка", "toothbrush": "зубна щітка", "toothpaste": "зубна паста", "mouthwash": "ополіскувач для рота",
+  "rinse": "полоскати", "brush your teeth": "чистити зуби", "dental hygiene": "гігієна порожнини рота", "check-up": "профілактичний огляд", "examination": "обстеження", "X-ray": "рентгенівський знімок",
+  "diagnosis": "діагноз", "dental chart": "стоматологічна карта", "treatment plan": "план лікування", "symptom": "симптом", "toothache": "зубний біль", "sensitivity": "чутливість",
+  "swelling": "набряк", "bleeding gums": "кровоточивість ясен", "bad breath": "неприємний запах з рота", "numb": "онімілий", "anaesthetic": "анестетик", "local anaesthesia": "місцева анестезія",
+  "injection": "ін'єкція", "drill": "бормашина", "scaler": "скейлер", "dental probe": "стоматологічний зонд", "dental mirror": "стоматологічне дзеркало", "forceps": "щипці",
+  "suction": "слиновідсмоктувач", "sterilise": "стерилізувати", "protective gloves": "захисні рукавички", "dental bib": "стоматологічний нагрудник", "composite": "композит", "temporary filling": "тимчасова пломба",
+  "root canal": "кореневий канал", "root canal treatment": "лікування кореневих каналів", "extraction": "видалення зуба", "wisdom tooth": "зуб мудрості", "dental implant": "зубний імплантат", "implant post": "імплантаційний штифт",
+  "denture": "зубний протез", "bridge": "мостоподібний протез", "veneer": "вінір", "braces": "брекети", "aligner": "елайнер", "retainer": "ретейнер", "bite": "прикус", "overbite": "глибокий прикус",
+  "orthodontist": "ортодонт", "periodontist": "пародонтолог", "oral surgeon": "щелепно-лицевий хірург", "dental hygienist": "стоматологічний гігієніст", "cavity filling": "пломбування", "dental restoration": "реставрація зуба",
+  "polish": "полірувати", "teeth whitening": "відбілювання зубів", "whitening tray": "капа для відбілювання", "dental sealant": "герметик для фісур", "fluoride": "фтор", "fluoride treatment": "фторування",
+  "periodontal disease": "захворювання пародонту", "gingivitis": "гінгівіт", "periodontitis": "пародонтит", "abscess": "абсцес", "infection": "інфекція", "emergency appointment": "терміновий прийом",
+  "cracked tooth": "тріснутий зуб", "chipped tooth": "відколотий зуб", "loose tooth": "рухомий зуб", "replace a filling": "замінити пломбу", "open your mouth": "відкрийте рот", "bite down": "зімкніть зуби",
+  "rinse your mouth": "прополощіть рот", "spit out": "сплюньте", "does it hurt?": "вам боляче?", "take a deep breath": "зробіть глибокий вдих", "next appointment": "наступний прийом", "aftercare instructions": "рекомендації з догляду після лікування",
+};
+
 const lessonTitles = [
   "1. First visit: people and oral anatomy",
   "2. Tooth structure and daily care",
@@ -135,6 +157,40 @@ const lessonTitles = [
 
 function normalizeLemma(value) {
   return value.toLocaleLowerCase("en").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function normalizeLocalizedTranslationKey(value) {
+  return value.toLocaleLowerCase("en").trim().replace(/\s+/g, " ");
+}
+
+function localizedTranslations() {
+  return {
+    ru: Object.fromEntries(words.map(([lemma, translation]) => [normalizeLocalizedTranslationKey(lemma), translation])),
+    uk: Object.fromEntries(words.map(([lemma]) => [normalizeLocalizedTranslationKey(lemma), ukrainianTranslations[lemma]])),
+  };
+}
+
+const courseLocaleCopy = {
+  ru: {
+    title: "Английский для стоматологов: 100 ключевых слов и фраз",
+    shortDescription: "100 ключевых стоматологических терминов и фраз: произношение, строгие серии перевода и накопительное повторение.",
+    fullDescription: "Профессиональный словарный курс для стоматологов. Каждый урок знакомит максимум с двенадцатью терминами, а затем закрепляет их через произношение и переводы подряд.",
+  },
+  uk: {
+    title: "Англійська для стоматологів: 100 ключових слів і фраз",
+    shortDescription: "100 ключових стоматологічних термінів і фраз: вимова, строгі серії перекладу та накопичувальне повторення.",
+    fullDescription: "Професійний словниковий курс для стоматологів. Кожен урок знайомить максимум із дванадцятьма термінами, а потім закріплює їх через вимову та послідовні переклади.",
+  },
+};
+
+async function synchronizeCourseTranslations(prisma, courseId, isPublished) {
+  const status = isPublished ? "PUBLISHED" : "DRAFT";
+  const publishedAt = isPublished ? new Date() : null;
+  await Promise.all(Object.entries(courseLocaleCopy).map(([locale, value]) => prisma.courseTranslation.upsert({
+    where: { courseId_locale: { courseId, locale } },
+    update: isPublished ? { contentStatus: status, publishedAt } : {},
+    create: { courseId, locale, slug: COURSE_SLUG, ...value, contentStatus: status, publishedAt },
+  })));
 }
 
 function stageCount(wordCount) {
@@ -196,9 +252,28 @@ async function publishExistingCourse(prisma, courseId, actorId, counts) {
   }, { maxWait: 60_000, timeout: 600_000 });
 }
 
+async function synchronizeLocalizedMasteryBlocks(prisma, courseId) {
+  const blocks = await prisma.lessonBlock.findMany({
+    where: { lesson: { module: { courseId } }, type: "VOCABULARY" },
+    select: { id: true, settings: true },
+  });
+  const translations = localizedTranslations();
+  const updates = blocks
+    .filter((block) => block.settings && typeof block.settings === "object" && !Array.isArray(block.settings))
+    .map((block) => ({ id: block.id, settings: block.settings }))
+    .filter((block) => block.settings.engine === "vocabulary-mastery" && block.settings.localizationVersion !== 1)
+    .map((block) => prisma.lessonBlock.update({
+      where: { id: block.id },
+      data: { settings: { ...block.settings, localizedTranslations: translations, localizationVersion: 1 } },
+    }));
+  if (updates.length) await prisma.$transaction(updates);
+  return updates.length;
+}
+
 async function main() {
   assert(words.length === 100, `Expected 100 dental words, received ${words.length}.`);
   assert(new Set(words.map(([lemma]) => normalizeLemma(lemma))).size === words.length, "Every dental term must be unique.");
+  assert(words.every(([lemma]) => typeof ukrainianTranslations[lemma] === "string" && ukrainianTranslations[lemma].trim()), "Every dental term must have a Ukrainian translation.");
   const counts = { words: words.length, lessons: lessonTitles.length, blocks: lessonTitles.length, exercises: 0 };
   const lessonWords = Array.from({ length: 9 }, (_, lessonIndex) => words.slice(lessonIndex * 12, lessonIndex === 8 ? 100 : lessonIndex * 12 + 12));
   counts.exercises = lessonWords.reduce((sum, group) => sum + stageCount(group.length), 0);
@@ -212,13 +287,16 @@ async function main() {
   if (!databaseUrl) throw new Error("DIRECT_DATABASE_URL or DATABASE_URL is required to import the dental course.");
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true, updatedById: true } });
+    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true, updatedById: true, isPublished: true } });
     if (existing) {
+      const localizedBlocks = await synchronizeLocalizedMasteryBlocks(prisma, existing.id);
       if (publishRequested) {
         await publishExistingCourse(prisma, existing.id, existing.updatedById, counts);
-        console.log(JSON.stringify({ status: "published-existing", courseId: existing.id, ...counts }));
+        await synchronizeCourseTranslations(prisma, existing.id, true);
+        console.log(JSON.stringify({ status: "published-existing", courseId: existing.id, localizedBlocks, ...counts }));
       } else {
-        console.log(JSON.stringify({ status: "already-exists", courseId: existing.id, ...counts }));
+        await synchronizeCourseTranslations(prisma, existing.id, existing.isPublished);
+        console.log(JSON.stringify({ status: "already-exists", courseId: existing.id, localizedBlocks, ...counts }));
       }
       return;
     }
@@ -332,7 +410,7 @@ async function main() {
               newWordCount: terms.length,
               cumulativeWordCount: Math.min(words.length, (lessonIndex + 1) * 12),
             },
-            settings: { engine: "vocabulary-mastery", version: 1, source: "course-lesson-vocabulary" },
+            settings: { engine: "vocabulary-mastery", version: 1, source: "course-lesson-vocabulary", localizedTranslations: localizedTranslations(), localizationVersion: 1 },
             order: 1,
             isRequired: true,
             ...currentBlockState,
@@ -385,6 +463,7 @@ async function main() {
       return createdCourse;
     }, { maxWait: 60_000, timeout: 600_000 });
 
+    await synchronizeCourseTranslations(prisma, course.id, publishRequested);
     const [storedLessonCount, storedBlockCount, storedExerciseCount, storedVocabularyCount] = await Promise.all([
       prisma.lesson.count({ where: { module: { courseId: course.id } } }),
       prisma.lessonBlock.count({ where: { lesson: { module: { courseId: course.id } } } }),

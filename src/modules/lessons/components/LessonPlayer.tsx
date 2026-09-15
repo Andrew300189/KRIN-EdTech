@@ -64,7 +64,7 @@ type LessonWord = {
   wordId: string;
   role: string;
   isRequired: boolean;
-  word: { lemma: string; partOfSpeech: string | null; meanings: Array<{ translation: string | null; definition: string }> };
+  word: { lemma: string; partOfSpeech: string | null; britishAudioUrl?: string | null; americanAudioUrl?: string | null; meanings: Array<{ translation: string | null; definition: string }> };
 };
 
 type Props = {
@@ -355,6 +355,8 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
+  const activeVocabularyMastery = Boolean(activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings));
+  const hasVocabularyMastery = blocks.some((block) => block.type === "VOCABULARY" && asVocabularyMasterySettings(block.settings));
   const activeBlockRule = activeBlock ? learnerRuleForBlock(activeBlock, locale) : null;
   const headerCopy = blockHeaderCopy[locale] ?? blockHeaderCopy.en;
   const chromeCopy = lessonChromeCopy[locale] ?? lessonChromeCopy.en;
@@ -1016,7 +1018,7 @@ export function LessonPlayer({
         ) : (
           <LessonWordHoverDictionary sourceLessonId={lessonId} words={vocabulary}>
           <section className={`${styles.workspace} ${reviewDialogOpen ? styles.workspacePaused : ""}`} aria-label="Current lesson step" aria-hidden={reviewDialogOpen}>
-            {!previewMode && vocabulary.length > 0 ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
+            {!previewMode && vocabulary.length > 0 && !activeVocabularyMastery ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
             {activeTheory ? (
               <section className={styles.theory}>
                 <button type="button" className={styles.theoryToggle} onClick={() => setTheoryCollapsed((value) => !value)} aria-expanded={!theoryCollapsed}>
@@ -1069,8 +1071,9 @@ export function LessonPlayer({
                   persistentStreakTone={persistentStreakTone}
                   completed={completedBlocks.includes(activeBlock.id)}
                   onToggleComplete={() => undefined}
-                  canSaveProgress={false}
+                  canSaveProgress={canSaveProgress}
                   previewMode={previewMode}
+                  vocabularyWords={vocabulary}
                   hideHeader
                   playerStyle
                   hideExerciseTheoryText={Boolean(activeTheory)}
@@ -1181,7 +1184,7 @@ export function LessonPlayer({
 
         {saveError ? <p role="alert" className="mt-4 text-sm text-red-700">{saveError}</p> : null}
         {reviewError ? <p role="alert" className={styles.reviewError}>{reviewError}</p> : null}
-        {!previewMode && !canSaveProgress ? <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real lesson. Sign in after the preview to save this step and continue from the same place.</p> : null}
+        {!previewMode && !canSaveProgress && !hasVocabularyMastery ? <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">You are trying a real lesson. Sign in after the preview to save this step and continue from the same place.</p> : null}
       </div>
     </main>
   );
