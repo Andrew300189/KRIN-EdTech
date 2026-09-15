@@ -29,15 +29,23 @@ type ExerciseBlockProps = {
   sequentialOnly?: boolean;
   /** Lets a parent supply a compact, contextual progress counter instead. */
   hidePlayerHeader?: boolean;
+  /** Guests can answer only the first part of a lesson before creating an account. */
+  guestExerciseLimit?: number;
+  /** Restores the first protected task after registration; preview answers receive no XP. */
+  guestResumeExerciseIndex?: number;
+  guestCompletedExerciseCount?: number;
+  onGuestLimitReached?: (resumeExerciseIndex: number) => void;
   onActiveExerciseChange?: (questionNumber: number) => void;
   reviewRunId?: string;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, hidePlayerHeader = false, onActiveExerciseChange, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, hidePlayerHeader = false, guestExerciseLimit, guestResumeExerciseIndex, guestCompletedExerciseCount = 0, onGuestLimitReached, onActiveExerciseChange, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
-  const focusedExerciseIndex = Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0);
+  const allowedExerciseCount = Math.max(1, Math.min(exercises.length, guestExerciseLimit ?? exercises.length));
+  const guestLimitApplies = allowedExerciseCount < exercises.length;
+  const focusedExerciseIndex = Math.min(allowedExerciseCount - 1, Math.max(0, focusExerciseId ? exercises.findIndex((exercise) => exercise.id === focusExerciseId) : 0));
   const [activeIndex, setActiveIndex] = useState(focusedExerciseIndex);
   const [answeredIndexes, setAnsweredIndexes] = useState<number[]>([]);
   const [showAllExercises, setShowAllExercises] = useState(false);
@@ -45,32 +53,37 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
   const modalCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const restoredBlockRef = useRef<string | null>(null);
   const activeExercise = exercises[activeIndex] ?? null;
-  const isLastExercise = activeIndex === exercises.length - 1;
+  const isLastGuestExercise = activeIndex === allowedExerciseCount - 1;
   const activeExerciseAnswered = answeredIndexes.includes(activeIndex);
   const mistakeIndexes = mistakeExerciseIds
     .map((exerciseId) => exercises.findIndex((exercise) => exercise.id === exerciseId))
     .filter((index) => index >= 0);
-  const canShowAllExercises = exercises.length > 1 && !reviewRunId && !sequentialOnly;
+  const canShowAllExercises = exercises.length > 1 && !reviewRunId && !sequentialOnly && !guestLimitApplies;
   const canFixMistakes = mistakeIndexes.length > 0 && !reviewRunId && !sequentialOnly;
 
   useEffect(() => {
-    if (!progressHydrated || restoredBlockRef.current === block.id) return;
-    restoredBlockRef.current = block.id;
+    const restoreKey = `${block.id}:${guestResumeExerciseIndex ?? ""}:${guestCompletedExerciseCount}`;
+    if (!progressHydrated || restoredBlockRef.current === restoreKey) return;
+    restoredBlockRef.current = restoreKey;
 
     const attempted = new Set(attemptedExerciseIds);
     const attemptedIndexes = exercises
       .map((exercise, index) => attempted.has(exercise.id) ? index : -1)
       .filter((index) => index >= 0);
-    const firstUnattemptedIndex = exercises.findIndex((exercise) => !attempted.has(exercise.id));
+    const previewedIndexes = Array.from({ length: Math.max(0, Math.min(guestCompletedExerciseCount, exercises.length)) }, (_, index) => index);
+    const restoredIndexes = [...new Set([...attemptedIndexes, ...previewedIndexes])];
+    const firstUnattemptedIndex = exercises.slice(0, allowedExerciseCount).findIndex((exercise) => !attempted.has(exercise.id));
 
-    setAnsweredIndexes(attemptedIndexes);
+    setAnsweredIndexes(restoredIndexes);
     setShowAllExercises(false);
     setActiveIndex(focusExerciseId
       ? focusedExerciseIndex
+      : typeof guestResumeExerciseIndex === "number"
+        ? Math.max(0, Math.min(guestResumeExerciseIndex, exercises.length - 1))
       : firstUnattemptedIndex >= 0
         ? firstUnattemptedIndex
-        : Math.max(0, exercises.length - 1));
-  }, [attemptedExerciseIds, block.id, exercises, focusExerciseId, focusedExerciseIndex, progressHydrated]);
+        : Math.max(0, allowedExerciseCount - 1));
+  }, [allowedExerciseCount, attemptedExerciseIds, block.id, exercises, focusExerciseId, focusedExerciseIndex, guestCompletedExerciseCount, guestResumeExerciseIndex, progressHydrated]);
 
   useEffect(() => () => {
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
@@ -100,7 +113,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
       autoAdvanceTimerRef.current = null;
     }
     setActiveIndex((currentIndex) => currentIndex === index
-      ? Math.min(index + 1, exercises.length - 1)
+      ? Math.min(index + 1, allowedExerciseCount - 1)
       : currentIndex);
   }
 
@@ -146,6 +159,10 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
     // Keep an incorrect answer in view. It gets the red edge and shake, but
     // never schedules the automatic transition to the next task.
     if (!isCorrect || allExercisesAnswered) return;
+    if (guestLimitApplies && index + 1 >= allowedExerciseCount) {
+      onGuestLimitReached?.(allowedExerciseCount);
+      return;
+    }
 
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
     // Keep the confirmation visible long enough to be understood, then move
@@ -168,6 +185,10 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
     const nextAnswered = answeredIndexes.includes(index) ? answeredIndexes : [...answeredIndexes, index];
     const allExercisesAnswered = exercises.every((_, exerciseIndex) => nextAnswered.includes(exerciseIndex));
     setAnsweredIndexes(nextAnswered);
+    if (guestLimitApplies && index + 1 >= allowedExerciseCount) {
+      onGuestLimitReached?.(allowedExerciseCount);
+      return;
+    }
     if (index < exercises.length - 1) {
       openNextExercise(index);
       return;
@@ -175,7 +196,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
     onAttemptDeferred?.({ exerciseId, isFinalExercise: allExercisesAnswered });
   }
 
-  const exerciseCards = exercises.map((exercise, index) => (
+  const exerciseCards = exercises.slice(0, allowedExerciseCount).map((exercise, index) => (
     <div key={exercise.id} data-task-index={index + 1} hidden={!showAllExercises && index !== activeIndex}>
       <ExerciseRenderer
         exercise={exercise}
@@ -225,8 +246,8 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
               <div className={showAllExercises ? styles.modalTasks : undefined} aria-label={showAllExercises ? "All exercises" : undefined}>{exerciseCards}</div>
             </div>
           </div>
-          {activeExercise && activeExerciseAnswered && !showAllExercises && !isLastExercise ? <p className="mt-4 text-sm font-semibold text-emerald-700" role="status">Answer recorded. The next question opens automatically.</p> : null}
-          {activeExercise && activeExerciseAnswered && !showAllExercises && isLastExercise ? <p className="mt-4 text-sm font-semibold text-emerald-700" role="status">Answer recorded. The lesson continues automatically.</p> : null}
+          {activeExercise && activeExerciseAnswered && !showAllExercises && !isLastGuestExercise ? <p className="mt-4 text-sm font-semibold text-emerald-700" role="status">Answer recorded. The next question opens automatically.</p> : null}
+          {activeExercise && activeExerciseAnswered && !showAllExercises && isLastGuestExercise ? <p className="mt-4 text-sm font-semibold text-emerald-700" role="status">Answer recorded. The lesson continues automatically.</p> : null}
         </div>
       </div>
     </div>
@@ -261,8 +282,8 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
           <div className={showAllExercises ? styles.modalTasks : undefined} aria-label={showAllExercises ? "All exercises" : undefined}>{exerciseCards}</div>
         </div>
       </div>
-      {activeExercise && activeExerciseAnswered && !showAllExercises && !isLastExercise ? <p className="text-sm font-semibold text-emerald-700" role="status">Answer recorded — the next exercise opens automatically.</p> : null}
-      {activeExercise && activeExerciseAnswered && !showAllExercises && isLastExercise ? <p className="text-sm font-semibold text-emerald-700" role="status">Every exercise in this step has an answer. The lesson continues automatically.</p> : null}
+      {activeExercise && activeExerciseAnswered && !showAllExercises && !isLastGuestExercise ? <p className="text-sm font-semibold text-emerald-700" role="status">Answer recorded — the next exercise opens automatically.</p> : null}
+      {activeExercise && activeExerciseAnswered && !showAllExercises && isLastGuestExercise ? <p className="text-sm font-semibold text-emerald-700" role="status">Every exercise in this step has an answer. The lesson continues automatically.</p> : null}
     </div>
   );
 }

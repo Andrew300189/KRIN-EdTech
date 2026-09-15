@@ -20,6 +20,7 @@ import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 import { asVocabularyMasterySettings } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
+import { buildGuestLessonPreviewPlan } from "@/modules/lessons/utils/guest-lesson-preview";
 import { shouldBurstLessonConfetti } from "@/modules/lessons/utils/lesson-celebration";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { useLocale } from "@/core/i18n/locale";
@@ -55,6 +56,8 @@ type PendingLessonProgress = {
   current: string | null;
   activeSeconds: number;
 };
+
+type GuestExerciseResume = { blockId: string; nextExerciseIndex: number };
 
 function progressSnapshotSignature(snapshot: PendingLessonProgress) {
   return JSON.stringify(snapshot);
@@ -97,6 +100,12 @@ type Props = {
   /** A server-owned sequence of outstanding mistakes. */
   reviewSession?: { runId: string; exerciseIds: string[]; initialMistakeCount: number; initialExerciseId?: string };
 };
+
+function guestRegistrationCopy(locale: string) {
+  if (locale === "uk") return { eyebrow: "БЕЗКОШТОВНУ ЧАСТИНУ ЗАВЕРШЕНО", title: "Створіть акаунт, щоб завершити урок", description: "Ви пройшли першу половину уроку. Зареєструйтеся безкоштовно, продовжуйте з цього місця та побачте підсумок навчання.", register: "Створити акаунт", login: "Вже є акаунт? Увійти" };
+  if (locale === "ru") return { eyebrow: "БЕСПЛАТНАЯ ЧАСТЬ ПРОЙДЕНА", title: "Создайте аккаунт, чтобы закончить урок", description: "Вы прошли первую половину урока. Зарегистрируйтесь бесплатно, продолжите с этого места и увидите итог обучения.", register: "Создать аккаунт", login: "Уже есть аккаунт? Войти" };
+  return { eyebrow: "FREE HALF COMPLETE", title: "Create an account to finish the lesson", description: "You completed the first half of this lesson. Register for free to continue from here and see your learning results.", register: "Create account", login: "Already have an account? Sign in" };
+}
 
 function exerciseTheory(block: LessonBlock) {
   const firstExercise = block.exercises[0];
@@ -310,6 +319,8 @@ export function LessonPlayer({
   const [theoryCollapsed, setTheoryCollapsed] = useState(false);
   const [stepVerified, setStepVerified] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [guestRegistrationRequired, setGuestRegistrationRequired] = useState(false);
+  const [guestExerciseResume, setGuestExerciseResume] = useState<GuestExerciseResume | null>(null);
   const [wheelCollected, setWheelCollected] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
   // This is deliberately session-local. It represents the sequence of answers
@@ -357,6 +368,14 @@ export function LessonPlayer({
   const activeBlock = blocks[activeIndex] ?? null;
   const activeVocabularyMastery = Boolean(activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings));
   const hasVocabularyMastery = blocks.some((block) => block.type === "VOCABULARY" && asVocabularyMasterySettings(block.settings));
+  const isGuestPreview = !canSaveProgress && !previewMode && !reviewSession;
+  const fullGuestPreviewPlan = useMemo(() => buildGuestLessonPreviewPlan(blocks), [blocks]);
+  const guestPreviewPlan = isGuestPreview ? fullGuestPreviewPlan : null;
+  const activeGuestActionLimit = activeBlock && guestPreviewPlan ? guestPreviewPlan.allowedUnitsByBlockId[activeBlock.id] ?? 0 : undefined;
+  const registrationCopy = guestRegistrationCopy(locale);
+  const lessonPath = `${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${currentSlug}`;
+  const registerHref = `/register?next=${encodeURIComponent(lessonPath)}`;
+  const loginHref = `/login?next=${encodeURIComponent(lessonPath)}`;
   const activeBlockRule = activeBlock ? learnerRuleForBlock(activeBlock, locale) : null;
   const headerCopy = blockHeaderCopy[locale] ?? blockHeaderCopy.en;
   const chromeCopy = lessonChromeCopy[locale] ?? lessonChromeCopy.en;
@@ -454,10 +473,16 @@ export function LessonPlayer({
     try {
       const raw = window.localStorage.getItem(guestPreviewKey);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { completedBlocks?: unknown; currentBlockId?: unknown; activeSeconds?: unknown };
+      const saved = JSON.parse(raw) as { completedBlocks?: unknown; currentBlockId?: unknown; activeSeconds?: unknown; guestResumeBlockId?: unknown; guestResumeExerciseIndex?: unknown };
       const restoredBlocks = validCompletedBlockIds(saved.completedBlocks, blocks);
       const restoredCurrentBlock = validCurrentBlockId(saved.currentBlockId, blocks);
       const restoredSeconds = typeof saved.activeSeconds === "number" && Number.isFinite(saved.activeSeconds) ? Math.max(0, Math.floor(saved.activeSeconds)) : 0;
+      const resumeBlock = typeof saved.guestResumeBlockId === "string" ? blocks.find((block) => block.id === saved.guestResumeBlockId && block.type === "EXERCISE") : null;
+      const requestedResumeIndex = typeof saved.guestResumeExerciseIndex === "number" && Number.isInteger(saved.guestResumeExerciseIndex) ? saved.guestResumeExerciseIndex : 0;
+      const previewLimit = resumeBlock ? fullGuestPreviewPlan.allowedUnitsByBlockId[resumeBlock.id] ?? 0 : 0;
+      if (resumeBlock && requestedResumeIndex > 0 && requestedResumeIndex <= previewLimit) {
+        setGuestExerciseResume({ blockId: resumeBlock.id, nextExerciseIndex: requestedResumeIndex });
+      }
       hasGuestPreviewRef.current = true;
       setCompletedBlocks(restoredBlocks);
       setCurrentBlockId(restoredCurrentBlock);
@@ -470,16 +495,21 @@ export function LessonPlayer({
     } catch {
       window.localStorage.removeItem(guestPreviewKey);
     }
-  }, [blocks, canSaveProgress, guestPreviewKey, isReviewSession, lessonId, previewMode]);
+  }, [blocks, canSaveProgress, fullGuestPreviewPlan, guestPreviewKey, isReviewSession, lessonId, previewMode]);
 
   useEffect(() => {
     if (previewMode || canSaveProgress || isReviewSession) return;
     try {
-      window.localStorage.setItem(guestPreviewKey, JSON.stringify({ completedBlocks, currentBlockId, activeSeconds: elapsedSeconds }));
+      window.localStorage.setItem(guestPreviewKey, JSON.stringify({
+        completedBlocks,
+        currentBlockId,
+        activeSeconds: elapsedSeconds,
+        ...(guestExerciseResume ? { guestResumeBlockId: guestExerciseResume.blockId, guestResumeExerciseIndex: guestExerciseResume.nextExerciseIndex } : {}),
+      }));
     } catch {
       // Storage is optional; an unauthenticated learner can still use the lesson.
     }
-  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestPreviewKey, isReviewSession, previewMode]);
+  }, [canSaveProgress, completedBlocks, currentBlockId, elapsedSeconds, guestExerciseResume, guestPreviewKey, isReviewSession, previewMode]);
 
   useEffect(() => {
     if (previewMode || !canSaveProgress || isReviewSession) {
@@ -582,6 +612,11 @@ export function LessonPlayer({
       || activeBlockAttemptsComplete
     )));
   }, [activeBlock, activeBlockAttemptsComplete, completedBlocks, isInteractiveStep]);
+
+  useEffect(() => {
+    if (!isGuestPreview || !activeBlock || (activeGuestActionLimit ?? 1) > 0) return;
+    setGuestRegistrationRequired(true);
+  }, [activeBlock, activeGuestActionLimit, isGuestPreview]);
 
   useEffect(() => {
     if (!autoAdvanceRequested || !canAdvance) return;
@@ -718,7 +753,7 @@ export function LessonPlayer({
   }
 
   async function advanceStep() {
-    if (!activeBlock || !canAdvance) return;
+    if (guestRegistrationRequired || !activeBlock || !canAdvance) return;
     progressMutationRef.current = true;
     if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
     autoAdvanceTimerRef.current = null;
@@ -730,6 +765,13 @@ export function LessonPlayer({
     const nextBlock = blocks[activeIndex + 1] ?? null;
     setCompletedBlocks(nextCompleted);
     if (nextBlock) {
+      const nextGuestActionLimit = guestPreviewPlan?.allowedUnitsByBlockId[nextBlock.id] ?? 0;
+      if (isGuestPreview && nextGuestActionLimit <= 0) {
+        setCurrentBlockId(nextBlock.id);
+        pendingProgressRef.current = { completed: nextCompleted, current: nextBlock.id, activeSeconds: elapsedSeconds };
+        setGuestRegistrationRequired(true);
+        return;
+      }
       setCurrentBlockId(nextBlock.id);
       pendingProgressRef.current = { completed: nextCompleted, current: nextBlock.id, activeSeconds: elapsedSeconds };
       return;
@@ -850,6 +892,7 @@ export function LessonPlayer({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (guestRegistrationRequired) return;
       // A pending streak chest is deliberately non-dismissible. Do not let the
       // player-level keyboard shortcuts bypass that reward dialog.
       if (streakChestMilestone !== null) return;
@@ -880,7 +923,7 @@ export function LessonPlayer({
     return () => window.removeEventListener("keydown", onKeyDown);
   // The callback deliberately uses the latest player state for navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, isReviewSession, previewMode, streakChestMilestone]);
+  }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, guestRegistrationRequired, isReviewSession, previewMode, streakChestMilestone]);
 
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
@@ -994,6 +1037,17 @@ export function LessonPlayer({
             <div className="mt-5"><VocabularyTrainingPlayer sessionId={warmUpSessionId!} compact onCompleted={() => setWarmUpDone(true)} /></div>
             {!warmUpRequired ? <button type="button" disabled={skippingWarmUp} onClick={() => void skipWarmUp()} className={styles.showTheory}>{skippingWarmUp ? "Skipping…" : "Skip warm-up"}</button> : null}
           </section>
+        ) : guestRegistrationRequired ? (
+          <section className={`${styles.completion} ${styles.guestRegistrationGate}`} aria-live="polite" aria-labelledby="guest-registration-title">
+            <p className={styles.taskType}>{registrationCopy.eyebrow}</p>
+            <span className={styles.triumphIcon} aria-hidden="true">✦</span>
+            <h2 id="guest-registration-title">{registrationCopy.title}</h2>
+            <p>{registrationCopy.description}</p>
+            <div className={styles.completionActions}>
+              <a href={registerHref} className={`${styles.finishButton} ${styles.triumphPrimaryAction}`}>{registrationCopy.register}</a>
+              <a href={loginHref} className={styles.nextLessonButton}>{registrationCopy.login}</a>
+            </div>
+          </section>
         ) : finished ? (
           <section className={`${styles.completion} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphScreen}`} aria-live="polite">
             <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? feedbackCopy.saved : feedbackCopy.complete}</p>
@@ -1084,9 +1138,19 @@ export function LessonPlayer({
                   mistakeExerciseIds={activeBlock.exercises
                     .filter((exercise) => exerciseResults[exercise.id] === false)
                     .map((exercise) => exercise.id)}
-                  requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
-                  reviewRunId={reviewSession?.runId}
-                  onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone }) => {
+                   requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
+                   reviewRunId={reviewSession?.runId}
+                   guestActionLimit={isGuestPreview ? activeGuestActionLimit : undefined}
+                   guestResumeExerciseIndex={activeBlock.id === guestExerciseResume?.blockId ? guestExerciseResume.nextExerciseIndex : undefined}
+                   guestCompletedExerciseCount={activeBlock.id === guestExerciseResume?.blockId ? guestExerciseResume.nextExerciseIndex : undefined}
+                   onGuestLimitReached={(resumeExerciseIndex) => {
+                     if (typeof resumeExerciseIndex === "number" && activeBlock.type === "EXERCISE") {
+                       setGuestExerciseResume({ blockId: activeBlock.id, nextExerciseIndex: resumeExerciseIndex });
+                     }
+                     setAutoAdvanceRequested(false);
+                     setGuestRegistrationRequired(true);
+                   }}
+                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone }) => {
                     progressMutationRef.current = true;
                     if (!isCorrect) {
                       setPersistentStreakTone(null);

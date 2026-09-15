@@ -239,10 +239,23 @@ async function assertLessonAccess(userId: string, lessonId: string) {
   if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
 }
 
-export async function getCourseVocabularyMasteryState(userId: string, lessonId: string, locale: VocabularyMasteryLocale = "ru") {
+export async function getCourseVocabularyMasteryState(
+  userId: string,
+  lessonId: string,
+  locale: VocabularyMasteryLocale = "ru",
+  guestPreviewStageIndex?: number,
+) {
   await assertLessonAccess(userId, lessonId);
   const data = await getLessonMasteryData(lessonId, locale);
-  const { session, item } = await getOrCreateMasterySession(userId, lessonId, stateForStage(0, data.stages));
+  // A guest preview has no server attempts and awards no XP. Once a learner
+  // creates an account, permit a one-time resume at no more than halfway so a
+  // manipulated browser value can never skip the protected part of a lesson.
+  const maximumGuestPreviewStage = Math.max(1, Math.ceil(data.stages.length / 2));
+  const requestedGuestPreviewStage = typeof guestPreviewStageIndex === "number" && Number.isInteger(guestPreviewStageIndex)
+    ? Math.max(0, Math.min(guestPreviewStageIndex, maximumGuestPreviewStage))
+    : 0;
+  const initialState = stateForStage(requestedGuestPreviewStage, data.stages);
+  const { session, item } = await getOrCreateMasterySession(userId, lessonId, initialState);
   const state = normaliseState(stateFromPayload(item.payload), data.stages);
   if (JSON.stringify(state) !== JSON.stringify(stateFromPayload(item.payload))) {
     await prisma.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state }) } });

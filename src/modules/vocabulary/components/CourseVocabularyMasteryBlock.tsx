@@ -55,15 +55,39 @@ function localizedTaskTitle(task: MasteryTask, locale: VocabularyMasteryLocale) 
   if (task.title.includes("This lesson")) return value.thisLesson;
   return task.title.replace(/\d+ words together/, `${task.words.length} ${value.wordsTogether}`);
 }
-async function requestState(lessonId: string, locale: VocabularyMasteryLocale) {
-  const response = await fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/vocabulary-mastery?locale=${locale}`, { cache: "no-store" });
+function guestResumeKey(lessonId: string) {
+  return `krin:vocabulary-guest-preview:${lessonId}`;
+}
+
+function readGuestResumeStage(lessonId: string) {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(guestResumeKey(lessonId)) ?? "null") as { stageIndex?: unknown } | null;
+    return typeof parsed?.stageIndex === "number" && Number.isInteger(parsed.stageIndex) && parsed.stageIndex > 0 ? parsed.stageIndex : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeGuestResumeStage(lessonId: string, stageIndex: number) {
+  try { window.localStorage.setItem(guestResumeKey(lessonId), JSON.stringify({ stageIndex })); } catch { /* Storage is optional. */ }
+}
+
+function clearGuestResumeStage(lessonId: string) {
+  try { window.localStorage.removeItem(guestResumeKey(lessonId)); } catch { /* Storage is optional. */ }
+}
+
+async function requestState(lessonId: string, locale: VocabularyMasteryLocale, guestStageIndex?: number) {
+  const parameters = new URLSearchParams({ locale });
+  if (guestStageIndex) parameters.set("guestStage", String(guestStageIndex));
+  const response = await fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/vocabulary-mastery?${parameters}`, { cache: "no-store" });
   const payload = await response.json().catch(() => null) as { data?: MasteryState; error?: string } | null;
   if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to load vocabulary practice");
   return payload.data;
 }
 
-export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true, contentLocale, settings, introWords = [], onStageComplete, onComplete }: {
-  lessonId: string; canSaveProgress?: boolean; contentLocale?: "ru" | "uk"; settings?: unknown; introWords?: IntroWord[];
+export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true, contentLocale, settings, introWords = [], guestStageLimit, onGuestLimitReached, onStageComplete, onComplete }: {
+  lessonId: string; canSaveProgress?: boolean; contentLocale?: "ru" | "uk"; settings?: unknown; introWords?: IntroWord[]; guestStageLimit?: number;
+  onGuestLimitReached?: (resumeStageIndex: number) => void;
   onStageComplete?: (result: { exerciseId: string; streakTone?: string | null; streakMilestone?: number | null }) => void; onComplete?: () => void;
 }) {
   const { locale: selectedLocale } = useLocale();
@@ -78,7 +102,14 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const [submitting, setSubmitting] = useState(false);
   const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const completedSignalled = useRef(false);
-  const load = useCallback(async () => { setError(null); try { setState(await requestState(lessonId, locale)); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : text.unavailable); } }, [lessonId, locale, text.unavailable]);
+  const load = useCallback(async () => {
+    setError(null);
+    const resumeStage = readGuestResumeStage(lessonId);
+    try {
+      setState(await requestState(lessonId, locale, resumeStage));
+      if (resumeStage) clearGuestResumeStage(lessonId);
+    } catch (loadError) { setError(loadError instanceof Error ? loadError.message : text.unavailable); }
+  }, [lessonId, locale, text.unavailable]);
 
   const guestWords = useMemo(() => introWords.map((item) => ({
     id: item.wordId, lemma: item.word.lemma,
@@ -86,6 +117,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     britishAudioUrl: item.word.britishAudioUrl, americanAudioUrl: item.word.americanAudioUrl,
   })), [introWords, locale, settings]);
   const guestStages = useMemo(() => buildVocabularyMasteryStages(guestWords.map((word) => word.id), guestWords.map((word) => word.id)), [guestWords]);
+  const allowedGuestStageCount = Math.max(1, Math.min(guestStages.length, guestStageLimit ?? guestStages.length));
   const guestTask = useMemo(() => {
     const stage = guestStages[guestProgress.stageIndex];
     if (!stage) return null;
@@ -115,6 +147,12 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     if (guestProgress.correctInRow + 1 < task.requiredConsecutive) { const nextCount = guestProgress.correctInRow + 1; setGuestProgress((current) => ({ ...current, correctInRow: nextCount })); setFeedback({ tone: "success", text: `${text.correct} ${nextCount} / ${task.requiredConsecutive}.` }); return; }
     const nextStage = guestProgress.stageIndex + 1;
     setGuestProgress((current) => ({ ...current, stageIndex: nextStage, correctInRow: 0 }));
+    if (nextStage >= allowedGuestStageCount && nextStage < guestStages.length) {
+      writeGuestResumeStage(lessonId, nextStage);
+      onGuestLimitReached?.(nextStage);
+      setFeedback({ tone: "success", text: text.stageDone });
+      return;
+    }
     setFeedback({ tone: "success", text: nextStage >= guestStages.length ? text.lessonDone : text.stageDone });
   }
   async function submit(payload: { transcript?: string; answers?: string[] }) {

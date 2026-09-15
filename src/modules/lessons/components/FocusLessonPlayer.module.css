@@ -454,6 +454,8 @@
 
 .completion h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.04em; }
 .completion p { max-width: 32rem; margin: 0; color: var(--text-secondary); line-height: 1.55; }
+.guestRegistrationGate { border-color: color-mix(in srgb, var(--primary) 42%, var(--border)); background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--primary) 15%, var(--surface-elevated)), var(--surface-elevated) 62%); }
+.guestRegistrationGate .triumphIcon { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); color: var(--primary); }
 
 .triumphScreen {
   position: relative;
