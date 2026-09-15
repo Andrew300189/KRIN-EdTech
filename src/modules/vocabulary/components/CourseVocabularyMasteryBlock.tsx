@@ -259,25 +259,26 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
         : metaWords.slice(0, 4).map((word) => <span key={word.lemma} className={styles.metaWord}>{word.lemma}</span>)}
     </div>
   </aside>;
+  const streakTone = rewardCelebration?.streak?.tone && /^[a-z-]+$/.test(rewardCelebration.streak.tone) ? rewardCelebration.streak.tone : null;
+  const streakActivated = Boolean(rewardCelebration?.streak?.activated && streakTone);
+  const rewardCelebrationView = rewardCelebration ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
+    {streakActivated
+      ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{rewardCelebration.streak?.modeStart}</strong></div>
+      : <><strong>{answerFeedback.xpAwarded(rewardCelebration.experience)}</strong>{rewardCelebration.levelUp ? <span>{text.levelUp}</span> : null}</>}
+  </div> : null;
   if (!started) return <section className={styles.intro} aria-label={text.firstBlock}>
     {lessonMeta}
     <details className={styles.introDetails} open><summary className={styles.introPill}><span aria-hidden="true">✦</span>{text.firstBlock}<strong>{text.blockWords.replace("{count}", String(firstBlockWords.length))}</strong></summary><ul className={styles.introWords}>{firstBlockWords.map((word, index) => <li key={word.id}><span>{index + 1}</span><strong>{word.lemma}</strong><em>{word.translation}</em></li>)}</ul></details>
     <button type="button" className={styles.start} onClick={start}>{text.start}</button>
   </section>;
-  if (completed) return <section className={styles.completed} aria-live="polite"><span aria-hidden="true">✓</span><h3>{text.completedTitle}</h3><p>{canSaveProgress ? text.completedText : text.guestCompleted}</p></section>;
+  if (completed) return <section className={styles.completed} aria-live="polite">{rewardCelebrationView}<span aria-hidden="true">✓</span><h3>{text.completedTitle}</h3><p>{canSaveProgress ? text.completedText : text.guestCompleted}</p></section>;
   if (canSaveProgress && !state) return error ? <section className={styles.errorCard} role="alert">{error}</section> : <div className={styles.loading} aria-live="polite">{text.loading}</div>;
   if (!task) return <section className={styles.errorCard} role="alert">{error ?? text.unavailable}</section>;
   const directionText = directionCopy(task.direction, locale);
   const seriesProgress = Math.min(100, Math.round((task.correctInRow / task.requiredConsecutive) * 100));
   const overallProgress = progress.totalStages ? Math.round((progress.completedStages / progress.totalStages) * 100) : 0;
-  const streakTone = rewardCelebration?.streak?.tone && /^[a-z-]+$/.test(rewardCelebration.streak.tone) ? rewardCelebration.streak.tone : null;
-  const streakActivated = Boolean(rewardCelebration?.streak?.activated && streakTone);
   return <section className={styles.mastery} aria-label="Vocabulary mastery practice">
-    {rewardCelebration ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
-      {streakActivated
-        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{rewardCelebration.streak?.modeStart}</strong></div>
-        : <><strong>{answerFeedback.xpAwarded(rewardCelebration.experience)}</strong>{rewardCelebration.levelUp ? <span>{text.levelUp}</span> : null}</>}
-    </div> : null}
+    {rewardCelebrationView}
     {lessonMeta}
     <header className={styles.header}><div><p className={styles.eyebrow}>{canSaveProgress ? directionText.eyebrow : `${text.guest} · ${directionText.eyebrow}`}</p><h3>{localizedTaskTitle(task, locale)}</h3></div><div className={styles.overall} aria-label={`${progress.completedStages} of ${progress.totalStages} stages complete`}><strong>{progress.completedStages}/{progress.totalStages}</strong><span>{text.stages}</span></div></header>
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${overallProgress}%` }} /></div><p className={styles.instruction}>{directionText.instruction}</p>
