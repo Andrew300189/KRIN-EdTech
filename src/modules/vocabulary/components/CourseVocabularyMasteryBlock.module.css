@@ -33,6 +33,7 @@
 .instruction { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .speakingCard { display: grid; gap: .8rem; padding: clamp(1rem, 3vw, 1.35rem); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--surface)), var(--surface)); }
 .word { margin: 0; color: var(--text-primary); font-size: clamp(1.75rem, 6vw, 2.8rem); font-weight: 900; letter-spacing: -.02em; text-align: center; }
+.wordTranslation { margin: -.4rem 0 0; color: var(--text-secondary); font-family: var(--font-lesson-meta); font-size: clamp(1rem, 3vw, 1.18rem); font-style: italic; font-weight: 700; text-align: center; }
 .translationForm { display: grid; gap: .85rem; }
 .promptList { display: grid; gap: .7rem; }
 .promptRow { display: grid; grid-template-columns: minmax(10rem, .8fr) minmax(13rem, 1.2fr); align-items: center; gap: .5rem 1rem; padding: .8rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface); }

@@ -84,10 +84,39 @@ function stateForStage(stageIndex: number, stages: VocabularyMasteryStage[]): Ma
   };
 }
 
-/** The first four translation prompts are predictable; after that, continue
- * with a shuffled word from the same group without repeating the last card. */
+function selectionKey(wordIds: string[]) {
+  return [...wordIds].sort().join("\u0000");
+}
+
+function rotatingSelection(stage: VocabularyMasteryStage, previousWordIds: string[], missedWordIds: string[]) {
+  const previousKey = selectionKey(previousWordIds);
+  const missedCandidates = stage.wordIds.filter((wordId) => missedWordIds.includes(wordId));
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const focusedMissedWord = missedCandidates.length
+      ? missedCandidates[Math.floor(Math.random() * missedCandidates.length)]
+      : null;
+    const remaining = focusedMissedWord ? stage.wordIds.filter((wordId) => wordId !== focusedMissedWord) : stage.wordIds;
+    const selected = focusedMissedWord
+      ? [focusedMissedWord, ...sampleWordIds(remaining, stage.promptCount - 1)]
+      : sampleWordIds(stage.wordIds, stage.promptCount);
+    if (selectionKey(selected) !== previousKey) return selected;
+  }
+
+  // Random sampling can theoretically repeat the same set. A shifted window
+  // guarantees a new set whenever the stage has more words than it displays.
+  for (let offset = 0; offset < stage.wordIds.length; offset += 1) {
+    const selected = Array.from({ length: stage.promptCount }, (_, index) => stage.wordIds[(offset + index) % stage.wordIds.length]!);
+    if (selectionKey(selected) !== previousKey) return selected;
+  }
+  return sampleWordIds(stage.wordIds, stage.promptCount);
+}
+
+/** The first four single-word prompts are predictable; after that, continue
+ * with shuffled prompts. Multi-word reviews always receive a new set. */
 function selectWordsForStage(stage: VocabularyMasteryStage, correctInRow: number, previousWordIds: string[] = [], missedWordIds: string[] = []) {
-  if (!stage.rotatePrompt || stage.promptCount !== 1 || stage.wordIds.length < 2) return sampleWordIds(stage.wordIds, stage.promptCount);
+  if (!stage.rotatePrompt || stage.wordIds.length <= stage.promptCount) return sampleWordIds(stage.wordIds, stage.promptCount);
+  if (stage.promptCount > 1) return rotatingSelection(stage, previousWordIds, missedWordIds);
   const previous = previousWordIds[0];
   if (correctInRow < stage.wordIds.length) {
     const previousIndex = previous ? stage.wordIds.indexOf(previous) : -1;
@@ -200,7 +229,7 @@ function taskForState(
     kind: stage.kind,
     metaWords: stage.wordIds.map((wordId) => words.get(wordId)).filter((word): word is MasteryWord => Boolean(word)).map((word) => ({ lemma: word.lemma, lessonNumber: word.lessonNumber })),
     words: selectedWords.map((word) => isSpeaking
-      ? { id: word.id, lemma: word.lemma, lessonNumber: word.lessonNumber, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }
+      ? { id: word.id, lemma: word.lemma, translation: word.translation, lessonNumber: word.lessonNumber, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }
       : { id: word.id, lemma: word.lemma, lessonNumber: word.lessonNumber, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }),
   };
 }

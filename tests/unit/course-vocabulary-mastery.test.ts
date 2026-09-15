@@ -18,10 +18,10 @@ describe("course vocabulary mastery plan", () => {
 
     expect(stages).toHaveLength(58);
     expect(stages).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "group-1-2-en-ru", wordIds: ["word-1", "word-2"] }),
-      expect.objectContaining({ key: "group-1-3-ru-en", wordIds: ["word-1", "word-2", "word-3"] }),
-      expect.objectContaining({ key: "first-eight-en-ru", wordIds: words.slice(0, 8) }),
-      expect.objectContaining({ key: "lesson-block-ru-en", wordIds: words }),
+      expect.objectContaining({ key: "group-1-2-en-ru", wordIds: words.slice(0, 4), promptCount: 2, rotatePrompt: true }),
+      expect.objectContaining({ key: "group-1-3-ru-en", wordIds: words.slice(0, 4), promptCount: 3, rotatePrompt: true }),
+      expect.objectContaining({ key: "first-eight-en-ru", wordIds: words.slice(0, 8), promptCount: 4, rotatePrompt: true }),
+      expect.objectContaining({ key: "lesson-block-ru-en", wordIds: words, promptCount: 4, rotatePrompt: true }),
     ]));
   });
 

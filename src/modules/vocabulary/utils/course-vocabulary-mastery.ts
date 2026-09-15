@@ -45,10 +45,17 @@ export function vocabularyMasteryTranslation(
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function recallStages(key: string, title: string, wordIds: string[], kind: VocabularyMasteryStage["kind"]): VocabularyMasteryStage[] {
+function recallStages(
+  key: string,
+  title: string,
+  wordIds: string[],
+  promptCount: number,
+  kind: VocabularyMasteryStage["kind"],
+): VocabularyMasteryStage[] {
+  const rotatePrompt = wordIds.length > promptCount;
   return [
-    { key: `${key}-en-ru`, direction: "EN_RU", wordIds, promptCount: wordIds.length, requiredConsecutive: 5, title: `${title}: English → Russian`, kind },
-    { key: `${key}-ru-en`, direction: "RU_EN", wordIds, promptCount: wordIds.length, requiredConsecutive: 5, title: `${title}: Russian → English`, kind },
+    { key: `${key}-en-ru`, direction: "EN_RU", wordIds, promptCount, requiredConsecutive: 5, title: `${title}: English → Russian`, kind, rotatePrompt },
+    { key: `${key}-ru-en`, direction: "RU_EN", wordIds, promptCount, requiredConsecutive: 5, title: `${title}: Russian → English`, kind, rotatePrompt },
   ];
 }
 
@@ -73,17 +80,20 @@ export function buildVocabularyMasteryStages(currentWordIds: string[], cumulativ
     });
 
     for (let size = 2; size <= group.length; size += 1) {
-      stages.push(...recallStages(`group-${groupIndex + 1}-${size}`, `${size} words together`, group.slice(0, size), "BLOCK_REVIEW"));
+      // Each round shows only the requested number of terms, sampled from the
+      // full four-word block. This keeps two- and three-word reviews varied.
+      stages.push(...recallStages(`group-${groupIndex + 1}-${size}`, `${size} words together`, group, size, "BLOCK_REVIEW"));
     }
 
     // After the second four-word set, deliberately revisit all first eight.
     if (groupIndex === 1) {
-      stages.push(...recallStages("first-eight", "First 8 words", currentWordIds.slice(0, 8), "BLOCK_REVIEW"));
+      const firstEight = currentWordIds.slice(0, 8);
+      stages.push(...recallStages("first-eight", "First 8 words", firstEight, Math.min(4, firstEight.length), "BLOCK_REVIEW"));
     }
   });
 
   if (currentWordIds.length > 0) {
-    stages.push(...recallStages("lesson-block", `This lesson: ${currentWordIds.length} words`, currentWordIds, "BLOCK_REVIEW"));
+    stages.push(...recallStages("lesson-block", `This lesson: ${currentWordIds.length} words`, currentWordIds, Math.min(4, currentWordIds.length), "BLOCK_REVIEW"));
   }
 
   // A cumulative stage does not make a learner type 24–100 answers into one
@@ -91,8 +101,8 @@ export function buildVocabularyMasteryStages(currentWordIds: string[], cumulativ
   if (cumulativeWordIds.length > currentWordIds.length) {
     const promptCount = Math.min(4, cumulativeWordIds.length);
     stages.push(
-      { key: `cumulative-${cumulativeWordIds.length}-en-ru`, direction: "EN_RU", wordIds: cumulativeWordIds, promptCount, requiredConsecutive: 5, title: `Mixed recall from ${cumulativeWordIds.length} words`, kind: "CUMULATIVE_REVIEW" },
-      { key: `cumulative-${cumulativeWordIds.length}-ru-en`, direction: "RU_EN", wordIds: cumulativeWordIds, promptCount, requiredConsecutive: 5, title: `Mixed recall from ${cumulativeWordIds.length} words`, kind: "CUMULATIVE_REVIEW" },
+      { key: `cumulative-${cumulativeWordIds.length}-en-ru`, direction: "EN_RU", wordIds: cumulativeWordIds, promptCount, requiredConsecutive: 5, title: `Mixed recall from ${cumulativeWordIds.length} words`, kind: "CUMULATIVE_REVIEW", rotatePrompt: cumulativeWordIds.length > promptCount },
+      { key: `cumulative-${cumulativeWordIds.length}-ru-en`, direction: "RU_EN", wordIds: cumulativeWordIds, promptCount, requiredConsecutive: 5, title: `Mixed recall from ${cumulativeWordIds.length} words`, kind: "CUMULATIVE_REVIEW", rotatePrompt: cumulativeWordIds.length > promptCount },
     );
   }
 
