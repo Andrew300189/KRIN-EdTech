@@ -18,11 +18,26 @@ type StageReward = { experience: number; levelUp: boolean; streak: { tone: strin
 type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number; selectedWordIds: string[]; missedWordIds: string[] };
 type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl: string | null | undefined; americanAudioUrl: string | null | undefined };
 
-const keyboardRows: Record<"ru" | "uk" | "en", string[]> = {
-  en: ["qwertyuiop", "asdfghjkl", "zxcvbnm"],
+const physicalKeyboardCodes = [
+  ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP", "BracketLeft", "BracketRight"],
+  ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote"],
+  ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period"],
+] as const;
+
+const physicalKeyboardCharacters: Record<"ru" | "uk" | "en", string[]> = {
+  en: ["qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,."],
   ru: ["йцукенгшщзхъ", "фывапролджэ", "ячсмитьбю"],
-  uk: ["йцукенгшщзхї", "фівапролджє", "ячсмитьбюґ"],
+  uk: ["йцукенгшщзхї", "фівапролджє", "ячсмитьбю"],
 };
+
+function characterForPhysicalKey(language: "ru" | "uk" | "en", code: string) {
+  if (language === "uk" && (code === "Backslash" || code === "IntlBackslash")) return "ґ";
+  for (let rowIndex = 0; rowIndex < physicalKeyboardCodes.length; rowIndex += 1) {
+    const keyIndex = physicalKeyboardCodes[rowIndex]?.indexOf(code as never) ?? -1;
+    if (keyIndex >= 0) return physicalKeyboardCharacters[language][rowIndex]?.[keyIndex] ?? null;
+  }
+  return null;
+}
 
 const copy = {
   ru: {
@@ -31,7 +46,7 @@ const copy = {
     enRuEyebrow: "Английский → русский", enRuInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", enRuLabel: "Перевод на русский",
     ruEnEyebrow: "Русский → английский", ruEnInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", ruEnLabel: "Английский термин",
     russianPlaceholder: "Введите перевод", englishPlaceholder: "Введите английский термин", keyboard: "Язык клавиатуры:", russian: "русский", english: "английский",
-    check: "Проверить", checking: "Проверяем…", consecutive: "правильных ответов", correct: "Правильно.", levelUp: "Новый уровень!", virtualKeyboard: "Экранная клавиатура", space: "Пробел", delete: "Удалить", reset: "Пока не засчитано. Это слово вернётся в следующих карточках.",
+    check: "Проверить", checking: "Проверяем…", consecutive: "правильных ответов", correct: "Правильно.", levelUp: "Новый уровень!", reset: "Пока не засчитано. Это слово вернётся в следующих карточках.",
     stageDone: "Этап завершён — следующая карточка уже готова.", lessonDone: "Все слова этого урока освоены.", completedTitle: "Блок слов завершён", completedText: "Вы прошли все обязательные серии.", guestCompleted: "Гостевая практика завершена. Войдите в аккаунт, чтобы сохранять прогресс и получать XP.",
     loading: "Загружаем практику слов…", unavailable: "Практика слов недоступна.", word: "Слово", wordsTogether: "слов вместе", thisLesson: "Этот урок", mixed: "Смешанное повторение",
   },
@@ -41,7 +56,7 @@ const copy = {
     enRuEyebrow: "Англійська → українська", enRuInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", enRuLabel: "Переклад українською",
     ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", ruEnLabel: "Англійський термін",
     russianPlaceholder: "Введіть переклад", englishPlaceholder: "Введіть англійський термін", keyboard: "Мова клавіатури:", russian: "українська", english: "англійська",
-    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильних відповідей", correct: "Правильно.", levelUp: "Новий рівень!", virtualKeyboard: "Екранна клавіатура", space: "Пробіл", delete: "Видалити", reset: "Поки не зараховано. Це слово повернеться в наступних картках.",
+    check: "Перевірити", checking: "Перевіряємо…", consecutive: "правильних відповідей", correct: "Правильно.", levelUp: "Новий рівень!", reset: "Поки не зараховано. Це слово повернеться в наступних картках.",
     stageDone: "Етап завершено — наступна картка вже готова.", lessonDone: "Усі слова цього уроку опановано.", completedTitle: "Блок слів завершено", completedText: "Ви пройшли всі обов’язкові серії.", guestCompleted: "Гостьову практику завершено. Увійдіть в акаунт, щоб зберігати прогрес і отримувати XP.",
     loading: "Завантажуємо практику слів…", unavailable: "Практика слів недоступна.", word: "Слово", wordsTogether: "слів разом", thisLesson: "Цей урок", mixed: "Змішане повторення",
   },
@@ -158,7 +173,6 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [rewardCelebration, setRewardCelebration] = useState<StageReward | null>(null);
-  const [focusedAnswerIndex, setFocusedAnswerIndex] = useState<number | null>(null);
   const completedSignalled = useRef(false);
   const rewardCelebrationTimer = useRef<number | null>(null);
   const answerInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -195,7 +209,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const progress = canSaveProgress ? state?.progress ?? { completedStages: 0, totalStages: 0, correctStages: 0, incorrectAttempts: 0 } : { completedStages: Math.min(guestProgress.stageIndex, guestStages.length), totalStages: guestStages.length, correctStages: guestProgress.stageIndex, incorrectAttempts: guestProgress.incorrectAttempts };
   const activeTaskKey = task ? `${task.stageKey}:${task.words.map((word) => word.id).join(",")}` : null;
   const activeTaskWordCount = task?.words.length ?? 0;
-  useEffect(() => { setAnswers(activeTaskKey ? Array.from({ length: activeTaskWordCount }, () => "") : []); setFocusedAnswerIndex(null); setFeedback(null); }, [activeTaskKey, activeTaskWordCount]);
+  useEffect(() => { setAnswers(activeTaskKey ? Array.from({ length: activeTaskWordCount }, () => "") : []); setFeedback(null); }, [activeTaskKey, activeTaskWordCount]);
   useEffect(() => { if (!completed || completedSignalled.current) return; completedSignalled.current = true; onComplete?.(); }, [completed, onComplete]);
   useEffect(() => () => { if (rewardCelebrationTimer.current !== null) window.clearTimeout(rewardCelebrationTimer.current); }, []);
 
@@ -248,9 +262,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     } catch (submitError) { setError(submitError instanceof Error ? submitError.message : text.unavailable); } finally { setSubmitting(false); }
   }
   function updateAnswer(index: number, value: string) { setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? value : answer)); }
-  function insertKeyboardText(textToInsert: string) {
-    if (focusedAnswerIndex === null) return;
-    const index = focusedAnswerIndex;
+  function insertKeyboardTextAt(index: number, textToInsert: string) {
     const input = answerInputRefs.current[index];
     let nextCursor = 0;
     setAnswers((current) => {
@@ -259,25 +271,6 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
       const end = input?.selectionEnd ?? start;
       nextCursor = start + textToInsert.length;
       const nextValue = `${currentValue.slice(0, start)}${textToInsert}${currentValue.slice(end)}`;
-      return current.map((answer, answerIndex) => answerIndex === index ? nextValue : answer);
-    });
-    window.requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(nextCursor, nextCursor);
-    });
-  }
-  function deleteKeyboardText() {
-    if (focusedAnswerIndex === null) return;
-    const index = focusedAnswerIndex;
-    const input = answerInputRefs.current[index];
-    let nextCursor = 0;
-    setAnswers((current) => {
-      const currentValue = current[index] ?? "";
-      const start = input?.selectionStart ?? currentValue.length;
-      const end = input?.selectionEnd ?? start;
-      if (start === 0 && end === 0) return current;
-      nextCursor = start === end ? start - 1 : start;
-      const nextValue = `${currentValue.slice(0, start === end ? start - 1 : start)}${currentValue.slice(end)}`;
       return current.map((answer, answerIndex) => answerIndex === index ? nextValue : answer);
     });
     window.requestAnimationFrame(() => {
@@ -327,7 +320,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     {lessonMeta}
     <header className={styles.header}><div><p className={styles.eyebrow}>{canSaveProgress ? directionText.eyebrow : `${text.guest} · ${directionText.eyebrow}`}</p><h3>{localizedTaskTitle(task, locale)}</h3></div><div className={styles.overall} aria-label={`${progress.completedStages} of ${progress.totalStages} stages complete`}><strong>{progress.completedStages}/{progress.totalStages}</strong><span>{text.stages}</span></div></header>
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${overallProgress}%` }} /></div><p className={styles.instruction}>{directionText.instruction}</p>
-    {task.direction === "SPEAK" ? <div className={styles.speakingCard}><p className={styles.word}>{task.words[0]?.prompt}</p>{task.words[0]?.translation ? <p className={styles.wordTranslation}>{task.words[0].translation}</p> : null}<PronunciationCoach locale={locale} word={task.words[0]?.prompt ?? ""} britishAudioUrl={task.words[0]?.britishAudioUrl} americanAudioUrl={task.words[0]?.americanAudioUrl} onAssessment={({ transcript }) => { void submit({ transcript }); }} /></div> : <form className={styles.translationForm} onSubmit={(event) => { event.preventDefault(); void submit({ answers }); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); void submit({ answers }); } }}><div className={styles.promptList}>{task.words.map((word, index) => <label key={word.id} className={styles.promptRow}><span className={styles.prompt}>{word.prompt}</span><span className={styles.answerLabel}>{directionText.inputLabel}</span><input ref={(element) => { answerInputRefs.current[index] = element; }} value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} onFocus={() => setFocusedAnswerIndex(index)} onBlur={() => setFocusedAnswerIndex((current) => current === index ? null : current)} lang={task.inputLanguage} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="none" enterKeyHint="done" placeholder={task.inputLanguage === "en" ? text.englishPlaceholder : text.russianPlaceholder} disabled={submitting} required /></label>)}</div>{focusedAnswerIndex !== null ? <div className={styles.virtualKeyboard} lang={task.inputLanguage} aria-label={`${text.virtualKeyboard}: ${task.inputLanguage}`}><div className={styles.keyboardCaption}><span>{text.keyboard} {task.inputLanguage === "en" ? text.english : text.russian}</span><strong>{task.inputLanguage.toUpperCase()}</strong></div>{keyboardRows[task.inputLanguage].map((row) => <div key={row} className={styles.keyboardRow}>{[...row].map((key) => <button key={key} type="button" className={styles.keyboardKey} disabled={submitting} onPointerDown={(event) => event.preventDefault()} onClick={() => insertKeyboardText(key)}>{key}</button>)}</div>)}<div className={styles.keyboardActions}><button type="button" className={`${styles.keyboardKey} ${styles.keyboardSpace}`} disabled={submitting} onPointerDown={(event) => event.preventDefault()} onClick={() => insertKeyboardText(" ")}>{text.space}</button><button type="button" className={`${styles.keyboardKey} ${styles.keyboardDelete}`} disabled={submitting} onPointerDown={(event) => event.preventDefault()} onClick={deleteKeyboardText} aria-label={text.delete}>⌫</button></div></div> : null}<div className={styles.formActions}><p className={styles.keyboardHint}>{text.keyboard} {task.inputLanguage === "en" ? text.english : text.russian}</p><button type="submit" className={styles.submit} disabled={submitting || answers.length !== task.words.length || answers.some((answer) => !answer.trim())}>{submitting ? text.checking : text.check}</button></div></form>}
+    {task.direction === "SPEAK" ? <div className={styles.speakingCard}><p className={styles.word}>{task.words[0]?.prompt}</p>{task.words[0]?.translation ? <p className={styles.wordTranslation}>{task.words[0].translation}</p> : null}<PronunciationCoach locale={locale} word={task.words[0]?.prompt ?? ""} britishAudioUrl={task.words[0]?.britishAudioUrl} americanAudioUrl={task.words[0]?.americanAudioUrl} onAssessment={({ transcript }) => { void submit({ transcript }); }} /></div> : <form className={styles.translationForm} onSubmit={(event) => { event.preventDefault(); void submit({ answers }); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); void submit({ answers }); } }}><div className={styles.promptList}>{task.words.map((word, index) => <label key={word.id} className={styles.promptRow}><span className={styles.prompt}>{word.prompt}</span><span className={styles.answerLabel}>{directionText.inputLabel}</span><input ref={(element) => { answerInputRefs.current[index] = element; }} value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} onKeyDown={(event) => { if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return; const character = characterForPhysicalKey(task.inputLanguage, event.code); if (!character) return; event.preventDefault(); insertKeyboardTextAt(index, character); }} lang={task.inputLanguage} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="text" enterKeyHint="done" placeholder={task.inputLanguage === "en" ? text.englishPlaceholder : text.russianPlaceholder} disabled={submitting} required /></label>)}</div><div className={styles.formActions}><p className={styles.keyboardHint}>{text.keyboard} {task.inputLanguage === "en" ? text.english : text.russian}</p><button type="submit" className={styles.submit} disabled={submitting || answers.length !== task.words.length || answers.some((answer) => !answer.trim())}>{submitting ? text.checking : text.check}</button></div></form>}
     <div className={styles.series} aria-live="polite"><div><strong>{task.correctInRow} / {task.requiredConsecutive}</strong><span>{text.consecutive}</span></div><div className={styles.seriesTrack} aria-hidden="true"><span style={{ width: `${seriesProgress}%` }} /></div></div>
     {feedback ? <p className={`${styles.feedback} ${feedback.tone === "success" ? styles.feedbackSuccess : feedback.tone === "error" ? styles.feedbackError : ""}`} role="status">{feedback.text}</p> : null}{error ? <p className={styles.error} role="alert">{error}</p> : null}
   </section>;
