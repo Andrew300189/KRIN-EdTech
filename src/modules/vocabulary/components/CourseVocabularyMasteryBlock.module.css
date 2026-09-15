@@ -1,9 +1,10 @@
 .mastery { display: grid; gap: 1rem; margin-top: .35rem; color: var(--text-primary); }
 .intro { display: grid; gap: .85rem; margin-top: .25rem; }
-.lessonMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; min-height: 2.65rem; padding: .45rem .15rem; }
-.metaLabel { color: var(--text-primary); font-size: .82rem; font-weight: 900; }
+.lessonMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; min-height: 2.65rem; padding: .45rem .15rem; font-family: var(--font-lesson-meta); }
+.metaLabel { border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 999px; padding: .22rem .5rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-size: .9rem; font-style: italic; font-weight: 700; line-height: 1; white-space: nowrap; }
+.metaLead { color: var(--text-primary); font-size: 1rem; font-weight: 700; white-space: nowrap; }
 .metaWords { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.metaWord, .metaLesson { position: relative; display: inline-flex; align-items: center; min-height: 1.85rem; border: 1px solid color-mix(in srgb, var(--primary) 23%, var(--border)); border-radius: 999px; padding: .2rem .58rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-size: .75rem; font-weight: 850; }
+.metaWord, .metaLesson { position: relative; display: inline-flex; align-items: center; min-height: 1.85rem; border: 1px solid color-mix(in srgb, var(--primary) 23%, var(--border)); border-radius: 999px; padding: .2rem .58rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-family: var(--font-lesson-meta); font-size: .82rem; font-weight: 700; }
 .metaLesson { cursor: help; outline: none; }
 .metaLesson:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
 .metaTooltip { position: absolute; z-index: 8; bottom: calc(100% + .55rem); left: 0; width: max-content; max-width: min(20rem, calc(100vw - 2rem)); padding: .55rem .7rem; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); border-radius: .7rem; background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 .65rem 1.4rem rgb(15 23 42 / 16%); font-size: .76rem; font-weight: 700; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(.2rem); transition: opacity 120ms ease, transform 120ms ease; }

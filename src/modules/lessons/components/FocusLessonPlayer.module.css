@@ -314,7 +314,8 @@
   min-height: 4.25rem;
   align-items: center;
   align-self: flex-start;
-  gap: .62rem;
+  flex-wrap: nowrap;
+  gap: .72rem;
   margin: 1.1rem 1.25rem 0;
   border: 1px solid rgb(245 158 11 / 32%);
   border-radius: 999px;
@@ -327,19 +328,29 @@
 .lessonGoalTopLabel {
   flex: 0 0 auto;
   color: #a16207;
-  font-size: .66rem;
-  font-weight: 880;
-  letter-spacing: .075em;
-  text-transform: uppercase;
+  border: 1px solid rgb(180 83 9 / 20%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 42%);
+  padding: .22rem .5rem;
+  font-family: var(--font-lesson-meta);
+  font-size: .88rem;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: .01em;
+  line-height: 1;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .lessonGoalTop p {
   min-width: 0;
   margin: 0;
   color: #854d0e;
-  font-size: .86rem;
-  font-weight: 780;
-  line-height: 1.48;
+  font-family: var(--font-lesson-meta);
+  font-size: clamp(.98rem, 1.35vw, 1.1rem);
+  font-weight: 700;
+  letter-spacing: .005em;
+  line-height: 1.28;
 }
 
 .footerNote {
@@ -1787,8 +1798,8 @@
     padding: .62rem .84rem;
   }
 
-  .lessonGoalTopLabel { font-size: .59rem; }
-  .lessonGoalTop p { font-size: .78rem; }
+  .lessonGoalTopLabel { font-size: .76rem; }
+  .lessonGoalTop p { font-size: .9rem; }
 
   .exerciseTaskCard .focusContent :global([class*="ptHeader"]) {
     gap: .55rem;
@@ -1922,6 +1933,7 @@
     width: auto;
     max-width: calc(100% - 1rem);
     margin-inline: .5rem;
+    flex-wrap: wrap;
   }
 
   .taskTopline {

@@ -18,7 +18,7 @@ type GuestWord = { id: string; lemma: string; translation: string; britishAudioU
 
 const copy = {
   ru: {
-    firstBlock: "Слова первого блока", start: "Начать", blockWords: "{count} слова", guest: "Гостевая практика", stages: "этапов", master: "Освоить слова", review: "Повторить", lesson: "Урок",
+    firstBlock: "Слова первого блока", start: "Начать", blockWords: "{count} слова", guest: "Гостевая практика", stages: "этапов", lessonGoal: "Цель урока", master: "Освоить слова", review: "Повторить", lesson: "Урок",
     speakEyebrow: "Слушай · повторяй", speakInstruction: "Прослушайте слово и повторите его вслух. Три точных распознавания подряд откроют следующую карточку.",
     enRuEyebrow: "Английский → русский", enRuInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", enRuLabel: "Перевод на русский",
     ruEnEyebrow: "Русский → английский", ruEnInstruction: "Дайте пять правильных ответов в перемешку. Ошибочные слова вернутся позже.", ruEnLabel: "Английский термин",
@@ -28,7 +28,7 @@ const copy = {
     loading: "Загружаем практику слов…", unavailable: "Практика слов недоступна.", word: "Слово", wordsTogether: "слов вместе", thisLesson: "Этот урок", mixed: "Смешанное повторение",
   },
   uk: {
-    firstBlock: "Слова першого блоку", start: "Почати", blockWords: "{count} слова", guest: "Гостьова практика", stages: "етапів", master: "Освоїти слова", review: "Повторити", lesson: "Урок",
+    firstBlock: "Слова першого блоку", start: "Почати", blockWords: "{count} слова", guest: "Гостьова практика", stages: "етапів", lessonGoal: "Мета уроку", master: "Освоїти слова", review: "Повторити", lesson: "Урок",
     speakEyebrow: "Слухай · повторюй", speakInstruction: "Прослухайте слово й повторіть його вголос. Три точні розпізнавання поспіль відкриють наступну картку.",
     enRuEyebrow: "Англійська → українська", enRuInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", enRuLabel: "Переклад українською",
     ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Дайте п’ять правильних відповідей упереміш. Помилкові слова повернуться пізніше.", ruEnLabel: "Англійський термін",
@@ -201,8 +201,9 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     groups.set(word.lessonNumber, current);
     return groups;
   }, new Map<number, string[]>()).entries());
-  const lessonMeta = <aside className={styles.lessonMeta} aria-label={isReviewTask ? text.review : text.master}>
-    <span className={styles.metaLabel}>{isReviewTask ? text.review : text.master}</span>
+  const lessonMeta = <aside className={styles.lessonMeta} aria-label={text.lessonGoal}>
+    <span className={styles.metaLabel}>{text.lessonGoal}</span>
+    <span className={styles.metaLead}>{isReviewTask ? text.review : text.master}</span>
     <div className={styles.metaWords}>
       {isReviewTask
         ? reviewGroups.map(([lessonNumber, words]) => <span key={lessonNumber} className={styles.metaLesson} tabIndex={0}>{text.lesson} {lessonNumber}<span className={styles.metaTooltip} role="tooltip">{words.join(" · ")}</span></span>)
