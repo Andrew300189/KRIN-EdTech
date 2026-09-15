@@ -1109,11 +1109,11 @@ export function LessonPlayer({
                 </nav>
               ) : null}
               <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
-              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
+              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
                 <span className={styles.taskType}>{localizedBlockType(activeBlock.type, locale)}</span>
                 {activeBlock.isRequired ? <span className={styles.required}>{chromeCopy.requiredStep}</span> : null}
               </div> : null}
-              {!isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
+              {!activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
                 <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
               </div> : null}

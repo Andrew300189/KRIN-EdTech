@@ -1,5 +1,13 @@
 .mastery { display: grid; gap: 1rem; margin-top: .35rem; color: var(--text-primary); }
 .intro { display: grid; gap: .85rem; margin-top: .25rem; }
+.lessonMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; min-height: 2.65rem; padding: .45rem .15rem; }
+.metaLabel { color: var(--text-primary); font-size: .82rem; font-weight: 900; }
+.metaWords { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.metaWord, .metaLesson { position: relative; display: inline-flex; align-items: center; min-height: 1.85rem; border: 1px solid color-mix(in srgb, var(--primary) 23%, var(--border)); border-radius: 999px; padding: .2rem .58rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-size: .75rem; font-weight: 850; }
+.metaLesson { cursor: help; outline: none; }
+.metaLesson:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); }
+.metaTooltip { position: absolute; z-index: 8; bottom: calc(100% + .55rem); left: 0; width: max-content; max-width: min(20rem, calc(100vw - 2rem)); padding: .55rem .7rem; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border)); border-radius: .7rem; background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 .65rem 1.4rem rgb(15 23 42 / 16%); font-size: .76rem; font-weight: 700; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(.2rem); transition: opacity 120ms ease, transform 120ms ease; }
+.metaLesson:hover .metaTooltip, .metaLesson:focus .metaTooltip { opacity: 1; transform: translateY(0); }
 .introDetails { overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 1.15rem; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 9%, var(--surface)), var(--surface)); }
 .introPill { display: flex; align-items: center; gap: .55rem; min-height: 3rem; padding: .7rem .9rem; color: var(--primary); cursor: pointer; font-size: .93rem; font-weight: 900; list-style: none; }
 .introPill::-webkit-details-marker { display: none; }
@@ -31,7 +39,8 @@
 .answerLabel { display: none; }
 .promptRow input { width: 100%; min-height: 2.8rem; border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); border-radius: .7rem; padding: .55rem .7rem; outline: none; background: var(--surface-elevated); color: var(--text-primary); font: inherit; font-weight: 700; }
 .promptRow input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
-.keyboardHint { margin: -.2rem 0 0; color: var(--text-secondary); font-size: .77rem; }
+.formActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .7rem; }
+.keyboardHint { margin: 0; color: var(--text-secondary); font-size: .77rem; }
 .submit { justify-self: start; min-height: 2.8rem; border: 0; border-radius: 999px; padding: .6rem 1.1rem; background: var(--primary); color: var(--primary-contrast); font: inherit; font-weight: 850; cursor: pointer; transition: transform 150ms ease, background-color 150ms ease; }
 .submit:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
 .submit:disabled { cursor: wait; opacity: .62; }
@@ -48,5 +57,5 @@
 .completed span { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; border-radius: 50%; background: var(--success); color: white; font-size: 1.25rem; font-weight: 900; }
 .completed h3, .completed p { margin: 0; }
 .completed p { color: var(--text-secondary); }
-@media (max-width: 640px) { .introWords li { grid-template-columns: 1.55rem minmax(0, 1fr); } .introWords em { grid-column: 2; text-align: start; } .start { width: 100%; } .promptRow { grid-template-columns: 1fr; gap: .45rem; } .answerLabel { display: block; color: var(--text-secondary); font-size: .72rem; font-weight: 750; } .submit { width: 100%; } }
+@media (max-width: 640px) { .introWords li { grid-template-columns: 1.55rem minmax(0, 1fr); } .introWords em { grid-column: 2; text-align: start; } .start { width: 100%; } .promptRow { grid-template-columns: 1fr; gap: .45rem; } .answerLabel { display: block; color: var(--text-secondary); font-size: .72rem; font-weight: 750; } .formActions { align-items: stretch; } .submit { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .overallTrack span, .seriesTrack span, .submit { transition: none; } }

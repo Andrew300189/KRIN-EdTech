@@ -11,6 +11,8 @@ export type VocabularyMasteryStage = {
   requiredConsecutive: number;
   title: string;
   kind: "WORD" | "BLOCK_REVIEW" | "CUMULATIVE_REVIEW";
+  /** Translation prompts rotate through a four-word group before repeating. */
+  rotatePrompt?: boolean;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -65,8 +67,8 @@ export function buildVocabularyMasteryStages(currentWordIds: string[], cumulativ
       const ordinal = groupIndex * 4 + wordIndex + 1;
       stages.push(
         { key: `word-${ordinal}-speak`, direction: "SPEAK", wordIds: [wordId], promptCount: 1, requiredConsecutive: 3, title: `Word ${ordinal}: pronunciation`, kind: "WORD" },
-        { key: `word-${ordinal}-en-ru`, direction: "EN_RU", wordIds: [wordId], promptCount: 1, requiredConsecutive: 5, title: `Word ${ordinal}: English → Russian`, kind: "WORD" },
-        { key: `word-${ordinal}-ru-en`, direction: "RU_EN", wordIds: [wordId], promptCount: 1, requiredConsecutive: 5, title: `Word ${ordinal}: Russian → English`, kind: "WORD" },
+        { key: `word-${ordinal}-en-ru`, direction: "EN_RU", wordIds: group, promptCount: 1, requiredConsecutive: 5, title: `Words ${groupIndex * 4 + 1}–${groupIndex * 4 + group.length}: English → Russian`, kind: "WORD", rotatePrompt: true },
+        { key: `word-${ordinal}-ru-en`, direction: "RU_EN", wordIds: group, promptCount: 1, requiredConsecutive: 5, title: `Words ${groupIndex * 4 + 1}–${groupIndex * 4 + group.length}: Russian → English`, kind: "WORD", rotatePrompt: true },
       );
     });
 

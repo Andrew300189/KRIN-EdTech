@@ -3,13 +3,13 @@ import { buildVocabularyMasteryStages, vocabularyMasteryStageCount, vocabularyMa
 const words = Array.from({ length: 12 }, (_, index) => `word-${index + 1}`);
 
 describe("course vocabulary mastery plan", () => {
-  it("uses 3 pronunciation successes and 5 consecutive translations for a new word", () => {
+  it("uses 3 pronunciation successes, then rotates the four words through translation recall", () => {
     const stages = buildVocabularyMasteryStages(words, words);
 
     expect(stages.slice(0, 3)).toEqual([
       expect.objectContaining({ direction: "SPEAK", requiredConsecutive: 3, wordIds: ["word-1"] }),
-      expect.objectContaining({ direction: "EN_RU", requiredConsecutive: 5, wordIds: ["word-1"] }),
-      expect.objectContaining({ direction: "RU_EN", requiredConsecutive: 5, wordIds: ["word-1"] }),
+      expect.objectContaining({ direction: "EN_RU", requiredConsecutive: 5, promptCount: 1, wordIds: ["word-1", "word-2", "word-3", "word-4"], rotatePrompt: true }),
+      expect.objectContaining({ direction: "RU_EN", requiredConsecutive: 5, promptCount: 1, wordIds: ["word-1", "word-2", "word-3", "word-4"], rotatePrompt: true }),
     ]);
   });
 

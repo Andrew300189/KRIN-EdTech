@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { PronunciationCoach } from "@/modules/vocabulary/components/PronunciationCoach";
 import { useLocale } from "@/core/i18n/locale";
@@ -11,15 +10,15 @@ import styles from "./CourseVocabularyMasteryBlock.module.css";
 
 type Direction = "SPEAK" | "EN_RU" | "RU_EN";
 type IntroWord = { wordId: string; word: { lemma: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null; meanings: Array<{ translation: string | null; definition: string }> } };
-type MasteryTask = { stageIndex: number; stageKey: string; direction: Direction; title: string; requiredConsecutive: number; correctInRow: number; inputLanguage: "ru" | "uk" | "en"; words: Array<{ id: string; prompt: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null }> };
+type MasteryTask = { stageIndex: number; stageKey: string; direction: Direction; title: string; kind: "WORD" | "BLOCK_REVIEW" | "CUMULATIVE_REVIEW"; requiredConsecutive: number; correctInRow: number; inputLanguage: "ru" | "uk" | "en"; metaWords: Array<{ lemma: string; lessonNumber: number }>; words: Array<{ id: string; lemma: string; lessonNumber: number; prompt: string; britishAudioUrl?: string | null; americanAudioUrl?: string | null }> };
 type MasteryState = { completed: boolean; progress: { completedStages: number; totalStages: number; correctStages: number; incorrectAttempts: number }; task: MasteryTask | null };
 type Submission = { isCorrect: boolean; stageCompleted: boolean; sessionCompleted: boolean; state: MasteryState; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; coins: number; levelUp: boolean; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null } | null };
-type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number };
+type GuestProgress = { stageIndex: number; correctInRow: number; incorrectAttempts: number; selectedWordIds: string[] };
 type GuestWord = { id: string; lemma: string; translation: string; britishAudioUrl: string | null | undefined; americanAudioUrl: string | null | undefined };
 
 const copy = {
   ru: {
-    firstBlock: "Слова первого блока", start: "Начать", blockWords: "{count} слова", guest: "Гостевая практика", stages: "этапов",
+    firstBlock: "Слова первого блока", start: "Начать", blockWords: "{count} слова", guest: "Гостевая практика", stages: "этапов", master: "Освоить слова", review: "Повторить", lesson: "Урок",
     speakEyebrow: "Слушай · повторяй", speakInstruction: "Прослушайте слово и повторите его вслух. Три точных распознавания подряд откроют следующую карточку.",
     enRuEyebrow: "Английский → русский", enRuInstruction: "Введите каждый перевод правильно пять раз подряд.", enRuLabel: "Перевод на русский",
     ruEnEyebrow: "Русский → английский", ruEnInstruction: "Введите каждый английский термин правильно пять раз подряд.", ruEnLabel: "Английский термин",
@@ -29,7 +28,7 @@ const copy = {
     loading: "Загружаем практику слов…", unavailable: "Практика слов недоступна.", word: "Слово", wordsTogether: "слов вместе", thisLesson: "Этот урок", mixed: "Смешанное повторение",
   },
   uk: {
-    firstBlock: "Слова першого блоку", start: "Почати", blockWords: "{count} слова", guest: "Гостьова практика", stages: "етапів",
+    firstBlock: "Слова першого блоку", start: "Почати", blockWords: "{count} слова", guest: "Гостьова практика", stages: "етапів", master: "Освоїти слова", review: "Повторити", lesson: "Урок",
     speakEyebrow: "Слухай · повторюй", speakInstruction: "Прослухайте слово й повторіть його вголос. Три точні розпізнавання поспіль відкриють наступну картку.",
     enRuEyebrow: "Англійська → українська", enRuInstruction: "Введіть кожен переклад правильно п’ять разів поспіль.", enRuLabel: "Переклад українською",
     ruEnEyebrow: "Українська → англійська", ruEnInstruction: "Введіть кожен англійський термін правильно п’ять разів поспіль.", ruEnLabel: "Англійський термін",
@@ -85,6 +84,22 @@ async function requestState(lessonId: string, locale: VocabularyMasteryLocale, g
   return payload.data;
 }
 
+function nextGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStages>[number], correctInRow: number, previousWordIds: string[] = []) {
+  if (!stage.rotatePrompt || stage.promptCount !== 1 || stage.wordIds.length < 2) return stage.wordIds.slice(0, stage.promptCount);
+  const previous = previousWordIds[0];
+  if (correctInRow < stage.wordIds.length) {
+    const previousIndex = previous ? stage.wordIds.indexOf(previous) : -1;
+    return [stage.wordIds[previousIndex >= 0 ? (previousIndex + 1) % stage.wordIds.length : correctInRow]!];
+  }
+  const candidates = stage.wordIds.filter((wordId) => wordId !== previous);
+  const pool = candidates.length ? candidates : stage.wordIds;
+  return [pool[Math.floor(Math.random() * pool.length)]!];
+}
+
+function selectGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStages>[number], correctInRow: number, selectedWordIds: string[] = []) {
+  return selectedWordIds.length ? selectedWordIds : nextGuestWordIds(stage, correctInRow);
+}
+
 export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true, contentLocale, settings, introWords = [], guestStageLimit, onGuestLimitReached, onStageComplete, onComplete }: {
   lessonId: string; canSaveProgress?: boolean; contentLocale?: "ru" | "uk"; settings?: unknown; introWords?: IntroWord[]; guestStageLimit?: number;
   onGuestLimitReached?: (resumeStageIndex: number) => void;
@@ -95,12 +110,11 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const text = copy[locale];
   const [started, setStarted] = useState(false);
   const [state, setState] = useState<MasteryState | null>(null);
-  const [guestProgress, setGuestProgress] = useState<GuestProgress>({ stageIndex: 0, correctInRow: 0, incorrectAttempts: 0 });
+  const [guestProgress, setGuestProgress] = useState<GuestProgress>({ stageIndex: 0, correctInRow: 0, incorrectAttempts: 0, selectedWordIds: [] });
   const [answers, setAnswers] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
   const completedSignalled = useRef(false);
   const load = useCallback(async () => {
     setError(null);
@@ -121,14 +135,15 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const guestTask = useMemo(() => {
     const stage = guestStages[guestProgress.stageIndex];
     if (!stage) return null;
-    const selectedWords = stage.wordIds.slice(0, stage.promptCount).map((wordId) => guestWords.find((word) => word.id === wordId)).filter((word): word is GuestWord => Boolean(word));
+    const selectedWordIds = selectGuestWordIds(stage, guestProgress.correctInRow, guestProgress.selectedWordIds);
+    const selectedWords = selectedWordIds.map((wordId) => guestWords.find((word) => word.id === wordId)).filter((word): word is GuestWord => Boolean(word));
     if (selectedWords.length !== stage.promptCount) return null;
     const isSpeaking = stage.direction === "SPEAK";
     return {
-      task: { stageIndex: guestProgress.stageIndex, stageKey: stage.key, direction: stage.direction, title: stage.title, requiredConsecutive: stage.requiredConsecutive, correctInRow: guestProgress.correctInRow, inputLanguage: stage.direction === "EN_RU" ? locale : "en", words: selectedWords.map((word) => isSpeaking ? { id: word.id, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl } : { id: word.id, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }) } satisfies MasteryTask,
+      task: { stageIndex: guestProgress.stageIndex, stageKey: stage.key, direction: stage.direction, title: stage.title, kind: stage.kind, requiredConsecutive: stage.requiredConsecutive, correctInRow: guestProgress.correctInRow, inputLanguage: stage.direction === "EN_RU" ? locale : "en", metaWords: stage.wordIds.map((wordId) => guestWords.find((word) => word.id === wordId)).filter((word): word is GuestWord => Boolean(word)).map((word) => ({ lemma: word.lemma, lessonNumber: 1 })), words: selectedWords.map((word) => isSpeaking ? { id: word.id, lemma: word.lemma, lessonNumber: 1, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl } : { id: word.id, lemma: word.lemma, lessonNumber: 1, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }) } satisfies MasteryTask,
       expectedAnswers: selectedWords.map((word) => stage.direction === "EN_RU" ? word.translation : word.lemma),
     };
-  }, [guestProgress.correctInRow, guestProgress.stageIndex, guestStages, guestWords, locale]);
+  }, [guestProgress.correctInRow, guestProgress.selectedWordIds, guestProgress.stageIndex, guestStages, guestWords, locale]);
   const task = canSaveProgress ? state?.task ?? null : guestTask?.task ?? null;
   const completed = canSaveProgress ? Boolean(state?.completed) : guestProgress.stageIndex >= guestStages.length;
   const progress = canSaveProgress ? state?.progress ?? { completedStages: 0, totalStages: 0, correctStages: 0, incorrectAttempts: 0 } : { completedStages: Math.min(guestProgress.stageIndex, guestStages.length), totalStages: guestStages.length, correctStages: guestProgress.stageIndex, incorrectAttempts: guestProgress.incorrectAttempts };
@@ -144,9 +159,9 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
       ? assessPronunciation(guestTask.expectedAnswers[0] ?? "", payload.transcript ?? "").verdict === "MATCH"
       : Boolean(payload.answers && payload.answers.length === guestTask.expectedAnswers.length && payload.answers.every((answer, index) => cleanAnswer(answer) === cleanAnswer(guestTask.expectedAnswers[index] ?? "")));
     if (!isCorrect) { setGuestProgress((current) => ({ ...current, correctInRow: 0, incorrectAttempts: current.incorrectAttempts + 1 })); setFeedback({ tone: "error", text: text.reset }); return; }
-    if (guestProgress.correctInRow + 1 < task.requiredConsecutive) { const nextCount = guestProgress.correctInRow + 1; setGuestProgress((current) => ({ ...current, correctInRow: nextCount })); setFeedback({ tone: "success", text: `${text.correct} ${nextCount} / ${task.requiredConsecutive}.` }); return; }
+    if (guestProgress.correctInRow + 1 < task.requiredConsecutive) { const nextCount = guestProgress.correctInRow + 1; setGuestProgress((current) => ({ ...current, correctInRow: nextCount, selectedWordIds: nextGuestWordIds(guestStages[current.stageIndex]!, nextCount, current.selectedWordIds) })); setFeedback({ tone: "success", text: `${text.correct} ${nextCount} / ${task.requiredConsecutive}.` }); return; }
     const nextStage = guestProgress.stageIndex + 1;
-    setGuestProgress((current) => ({ ...current, stageIndex: nextStage, correctInRow: 0 }));
+    setGuestProgress((current) => ({ ...current, stageIndex: nextStage, correctInRow: 0, selectedWordIds: [] }));
     if (nextStage >= allowedGuestStageCount && nextStage < guestStages.length) {
       writeGuestResumeStage(lessonId, nextStage);
       onGuestLimitReached?.(nextStage);
@@ -169,28 +184,45 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
         setFeedback({ tone: "success", text: result.sessionCompleted ? text.lessonDone : text.stageDone });
         if (result.exerciseId) { const streak = result.motivationReward?.streak; onStageComplete?.({ exerciseId: result.exerciseId, streakTone: streak?.tone ?? null, streakMilestone: streak?.activated ? streak.modeStart : null }); }
         const reward = result.motivationReward;
-        if (reward?.awarded) { setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : `+${reward.experience} XP`, detail: reward.coins ? `+${reward.coins} KRIN Coins` : text.lessonDone }]); notifyMotivationUpdated(); }
+        if (reward?.awarded) notifyMotivationUpdated();
       } else { const next = result.state.task; setFeedback({ tone: "success", text: `${text.correct} ${next?.correctInRow ?? 0} / ${next?.requiredConsecutive ?? task.requiredConsecutive}.` }); }
     } catch (submitError) { setError(submitError instanceof Error ? submitError.message : text.unavailable); } finally { setSubmitting(false); }
   }
   function updateAnswer(index: number, value: string) { setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? value : answer)); }
 
   const firstBlockWords = guestWords.slice(0, 4);
+  const metaWords = task?.metaWords.length ? task.metaWords : firstBlockWords.map((word) => ({ lemma: word.lemma, lessonNumber: 1 }));
+  const isReviewTask = task?.kind === "BLOCK_REVIEW" || task?.kind === "CUMULATIVE_REVIEW";
+  const reviewGroups = Array.from(metaWords.reduce((groups, word) => {
+    const current = groups.get(word.lessonNumber) ?? [];
+    current.push(word.lemma);
+    groups.set(word.lessonNumber, current);
+    return groups;
+  }, new Map<number, string[]>()).entries());
+  const lessonMeta = <aside className={styles.lessonMeta} aria-label={isReviewTask ? text.review : text.master}>
+    <span className={styles.metaLabel}>{isReviewTask ? text.review : text.master}</span>
+    <div className={styles.metaWords}>
+      {isReviewTask
+        ? reviewGroups.map(([lessonNumber, words]) => <span key={lessonNumber} className={styles.metaLesson} tabIndex={0}>{text.lesson} {lessonNumber}<span className={styles.metaTooltip} role="tooltip">{words.join(" · ")}</span></span>)
+        : metaWords.slice(0, 4).map((word) => <span key={word.lemma} className={styles.metaWord}>{word.lemma}</span>)}
+    </div>
+  </aside>;
   if (!started) return <section className={styles.intro} aria-label={text.firstBlock}>
+    {lessonMeta}
     <details className={styles.introDetails} open><summary className={styles.introPill}><span aria-hidden="true">✦</span>{text.firstBlock}<strong>{text.blockWords.replace("{count}", String(firstBlockWords.length))}</strong></summary><ul className={styles.introWords}>{firstBlockWords.map((word, index) => <li key={word.id}><span>{index + 1}</span><strong>{word.lemma}</strong><em>{word.translation}</em></li>)}</ul></details>
     <button type="button" className={styles.start} onClick={start}>{text.start}</button>
   </section>;
-  if (completed) return <section className={styles.completed} aria-live="polite"><RewardNotification events={rewardEvents} /><span aria-hidden="true">✓</span><h3>{text.completedTitle}</h3><p>{canSaveProgress ? text.completedText : text.guestCompleted}</p></section>;
+  if (completed) return <section className={styles.completed} aria-live="polite"><span aria-hidden="true">✓</span><h3>{text.completedTitle}</h3><p>{canSaveProgress ? text.completedText : text.guestCompleted}</p></section>;
   if (canSaveProgress && !state) return error ? <section className={styles.errorCard} role="alert">{error}</section> : <div className={styles.loading} aria-live="polite">{text.loading}</div>;
   if (!task) return <section className={styles.errorCard} role="alert">{error ?? text.unavailable}</section>;
   const directionText = directionCopy(task.direction, locale);
   const seriesProgress = Math.min(100, Math.round((task.correctInRow / task.requiredConsecutive) * 100));
   const overallProgress = progress.totalStages ? Math.round((progress.completedStages / progress.totalStages) * 100) : 0;
   return <section className={styles.mastery} aria-label="Vocabulary mastery practice">
-    <RewardNotification events={rewardEvents} />
+    {lessonMeta}
     <header className={styles.header}><div><p className={styles.eyebrow}>{canSaveProgress ? directionText.eyebrow : `${text.guest} · ${directionText.eyebrow}`}</p><h3>{localizedTaskTitle(task, locale)}</h3></div><div className={styles.overall} aria-label={`${progress.completedStages} of ${progress.totalStages} stages complete`}><strong>{progress.completedStages}/{progress.totalStages}</strong><span>{text.stages}</span></div></header>
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${overallProgress}%` }} /></div><p className={styles.instruction}>{directionText.instruction}</p>
-    {task.direction === "SPEAK" ? <div className={styles.speakingCard}><p className={styles.word}>{task.words[0]?.prompt}</p><PronunciationCoach locale={locale} word={task.words[0]?.prompt ?? ""} britishAudioUrl={task.words[0]?.britishAudioUrl} americanAudioUrl={task.words[0]?.americanAudioUrl} onAssessment={({ transcript }) => { void submit({ transcript }); }} /></div> : <form className={styles.translationForm} onSubmit={(event) => { event.preventDefault(); void submit({ answers }); }}><div className={styles.promptList}>{task.words.map((word, index) => <label key={word.id} className={styles.promptRow}><span className={styles.prompt}>{word.prompt}</span><span className={styles.answerLabel}>{directionText.inputLabel}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} lang={task.inputLanguage} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="text" placeholder={task.inputLanguage === "en" ? text.englishPlaceholder : text.russianPlaceholder} disabled={submitting} required /></label>)}</div><p className={styles.keyboardHint}>{text.keyboard} {task.inputLanguage === "en" ? text.english : text.russian}</p><button type="submit" className={styles.submit} disabled={submitting || answers.length !== task.words.length || answers.some((answer) => !answer.trim())}>{submitting ? text.checking : text.check}</button></form>}
+    {task.direction === "SPEAK" ? <div className={styles.speakingCard}><p className={styles.word}>{task.words[0]?.prompt}</p><PronunciationCoach locale={locale} word={task.words[0]?.prompt ?? ""} britishAudioUrl={task.words[0]?.britishAudioUrl} americanAudioUrl={task.words[0]?.americanAudioUrl} onAssessment={({ transcript }) => { void submit({ transcript }); }} /></div> : <form className={styles.translationForm} onSubmit={(event) => { event.preventDefault(); void submit({ answers }); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); void submit({ answers }); } }}><div className={styles.promptList}>{task.words.map((word, index) => <label key={word.id} className={styles.promptRow}><span className={styles.prompt}>{word.prompt}</span><span className={styles.answerLabel}>{directionText.inputLabel}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} lang={task.inputLanguage} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="text" placeholder={task.inputLanguage === "en" ? text.englishPlaceholder : text.russianPlaceholder} disabled={submitting} required /></label>)}</div><div className={styles.formActions}><p className={styles.keyboardHint}>{text.keyboard} {task.inputLanguage === "en" ? text.english : text.russian}</p><button type="submit" className={styles.submit} disabled={submitting || answers.length !== task.words.length || answers.some((answer) => !answer.trim())}>{submitting ? text.checking : text.check}</button></div></form>}
     <div className={styles.series} aria-live="polite"><div><strong>{task.correctInRow} / {task.requiredConsecutive}</strong><span>{text.consecutive}</span></div><div className={styles.seriesTrack} aria-hidden="true"><span style={{ width: `${seriesProgress}%` }} /></div></div>
     {feedback ? <p className={`${styles.feedback} ${feedback.tone === "success" ? styles.feedbackSuccess : feedback.tone === "error" ? styles.feedbackError : ""}`} role="status">{feedback.text}</p> : null}{error ? <p className={styles.error} role="alert">{error}</p> : null}
   </section>;

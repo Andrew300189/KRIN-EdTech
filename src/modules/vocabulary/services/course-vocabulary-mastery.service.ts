@@ -19,6 +19,7 @@ type MasteryWord = {
   id: string;
   lemma: string;
   translation: string;
+  lessonNumber: number;
   britishAudioUrl: string | null;
   americanAudioUrl: string | null;
 };
@@ -76,8 +77,22 @@ function stateForStage(stageIndex: number, stages: VocabularyMasteryStage[]): Ma
     stageIndex,
     correctInRow: 0,
     stageKey: stage?.key ?? null,
-    selectedWordIds: stage ? sampleWordIds(stage.wordIds, stage.promptCount) : [],
+    selectedWordIds: stage ? selectWordsForStage(stage, 0) : [],
   };
+}
+
+/** The first four translation prompts are predictable; after that, continue
+ * with a shuffled word from the same group without repeating the last card. */
+function selectWordsForStage(stage: VocabularyMasteryStage, correctInRow: number, previousWordIds: string[] = []) {
+  if (!stage.rotatePrompt || stage.promptCount !== 1 || stage.wordIds.length < 2) return sampleWordIds(stage.wordIds, stage.promptCount);
+  const previous = previousWordIds[0];
+  if (correctInRow < stage.wordIds.length) {
+    const previousIndex = previous ? stage.wordIds.indexOf(previous) : -1;
+    return [stage.wordIds[previousIndex >= 0 ? (previousIndex + 1) % stage.wordIds.length : correctInRow]!];
+  }
+  const candidates = stage.wordIds.filter((wordId) => wordId !== previous);
+  const pool = candidates.length ? candidates : stage.wordIds;
+  return [pool[Math.floor(Math.random() * pool.length)]!];
 }
 
 function normaliseState(state: MasteryState, stages: VocabularyMasteryStage[]) {
@@ -135,7 +150,7 @@ async function getLessonMasteryData(lessonId: string, locale: VocabularyMasteryL
   });
   const lessonPosition = lessons.findIndex((candidate) => candidate.id === lesson.id);
   if (lessonPosition < 0) throw new Error("Lesson vocabulary is unavailable");
-  const toWord = (row: typeof lessons[number]["vocabulary"][number]): MasteryWord => ({
+  const toWord = (row: typeof lessons[number]["vocabulary"][number], lessonNumber: number): MasteryWord => ({
     id: row.word.id,
     lemma: row.word.lemma,
     translation: vocabularyMasteryTranslation(
@@ -144,11 +159,12 @@ async function getLessonMasteryData(lessonId: string, locale: VocabularyMasteryL
       locale,
       row.word.meanings[0]?.translation ?? row.word.meanings[0]?.definition ?? row.word.lemma,
     ),
+    lessonNumber,
     britishAudioUrl: row.word.britishAudioUrl,
     americanAudioUrl: row.word.americanAudioUrl,
   });
-  const currentWords = lessons[lessonPosition].vocabulary.map(toWord);
-  const cumulativeWords = lessons.slice(0, lessonPosition + 1).flatMap((candidate) => candidate.vocabulary.map(toWord));
+  const currentWords = lessons[lessonPosition].vocabulary.map((row) => toWord(row, lessonPosition + 1));
+  const cumulativeWords = lessons.slice(0, lessonPosition + 1).flatMap((candidate, index) => candidate.vocabulary.map((row) => toWord(row, index + 1)));
   const stages = buildVocabularyMasteryStages(currentWords.map((word) => word.id), cumulativeWords.map((word) => word.id));
   if (!currentWords.length || !stages.length) throw new Error("This vocabulary lesson has no words yet");
   if (block.exercises.length !== stages.length) {
@@ -176,9 +192,11 @@ function taskForState(
     requiredConsecutive: stage.requiredConsecutive,
     correctInRow: state.correctInRow,
     inputLanguage: stage.direction === "EN_RU" ? locale : "en",
+    kind: stage.kind,
+    metaWords: stage.wordIds.map((wordId) => words.get(wordId)).filter((word): word is MasteryWord => Boolean(word)).map((word) => ({ lemma: word.lemma, lessonNumber: word.lessonNumber })),
     words: selectedWords.map((word) => isSpeaking
-      ? { id: word.id, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }
-      : { id: word.id, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }),
+      ? { id: word.id, lemma: word.lemma, lessonNumber: word.lessonNumber, prompt: word.lemma, britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }
+      : { id: word.id, lemma: word.lemma, lessonNumber: word.lessonNumber, prompt: stage.direction === "EN_RU" ? word.lemma : word.translation }),
   };
 }
 
@@ -318,7 +336,7 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
 
     const afterCorrect = current.correctInRow + 1;
     if (afterCorrect < stage.requiredConsecutive) {
-      const next = { ...current, correctInRow: afterCorrect };
+      const next = { ...current, correctInRow: afterCorrect, selectedWordIds: selectWordsForStage(stage, afterCorrect, current.selectedWordIds) };
       await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: toJson({ engine: "course-vocabulary-mastery", state: next }) } });
       return { isCorrect: true, stageCompleted: false, sessionCompleted: false, state: publicState(session, next, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
     }
