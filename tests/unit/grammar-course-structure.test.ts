@@ -33,13 +33,13 @@ describe("grammar course structure validation", () => {
   });
 
   it("reports every publication blocker for an incomplete practice fragment", () => {
-    const module = validModule();
-    module.minimumFinalLessonScore = 60;
-    module.lessons[0].blocks[0].content = {};
-    module.lessons[0].blocks[1].exercises = [exercise(1)];
-    module.lessons[0].blocks[1].exercises[0].explanation = "";
+    const grammarModule = validModule();
+    grammarModule.minimumFinalLessonScore = 60;
+    grammarModule.lessons[0].blocks[0].content = {};
+    grammarModule.lessons[0].blocks[1].exercises = [exercise(1)];
+    grammarModule.lessons[0].blocks[1].exercises[0].explanation = "";
 
-    const codes = validateGrammarCourseStructure({ modules: [module] }).map((issue) => issue.code);
+    const codes = validateGrammarCourseStructure({ modules: [grammarModule] }).map((issue) => issue.code);
     expect(codes).toEqual(expect.arrayContaining([
       "GRAMMAR_MODULE_FINAL_SCORE",
       "GRAMMAR_FRAGMENT_EXPLANATION",

@@ -98,9 +98,9 @@ export async function createCourseTranslationDraft(actorId: string, courseId: st
   if (!source) throw new Error("Course not found.");
   await prisma.$transaction(async (tx) => {
     await tx.courseTranslation.upsert({ where: { courseId_locale: { courseId, locale } }, create: { courseId, locale, slug: source.slug, title: source.title, shortDescription: source.shortDescription, fullDescription: source.fullDescription, seoTitle: null, seoDescription: null, seoKeywords: null, learningOutcomes: toInputJson(source.learningOutcomes), prerequisites: toInputJson(source.prerequisites), ...draftStatusData() }, update: {} });
-    for (const module of source.modules) {
-      await tx.courseModuleTranslation.upsert({ where: { moduleId_locale: { moduleId: module.id, locale } }, create: { moduleId: module.id, locale, title: module.title, description: module.description, ...draftStatusData() }, update: {} });
-      for (const lesson of module.lessons) {
+    for (const courseModule of source.modules) {
+      await tx.courseModuleTranslation.upsert({ where: { moduleId_locale: { moduleId: courseModule.id, locale } }, create: { moduleId: courseModule.id, locale, title: courseModule.title, description: courseModule.description, ...draftStatusData() }, update: {} });
+      for (const lesson of courseModule.lessons) {
         await tx.lessonTranslation.upsert({ where: { lessonId_locale: { lessonId: lesson.id, locale } }, create: { lessonId: lesson.id, locale, slug: lesson.slug, title: lesson.title, description: lesson.description, phraseOfTheDay: lesson.phraseOfTheDay, motivationalQuote: lesson.motivationalQuote, learningObjectives: toInputJson(lesson.learningObjectives), previewText: lesson.previewText, ...draftStatusData() }, update: {} });
         for (const block of lesson.blocks) {
           await tx.lessonBlockTranslation.upsert({ where: { lessonBlockId_locale: { lessonBlockId: block.id, locale } }, create: { lessonBlockId: block.id, locale, title: block.title, content: toInputJson(block.content), ...draftStatusData() }, update: {} });
@@ -151,9 +151,9 @@ export async function updateCourseTranslation(actorId: string, courseId: string,
     if (update.entityId !== courseId) throw new Error("Course translation does not match the selected course.");
     await prisma.courseTranslation.update({ where: { courseId_locale: { courseId, locale } }, data: { ...update.values, ...reset } });
   } else if (update.entityType === "MODULE") {
-    const module = await prisma.courseModule.findFirst({ where: { id: update.entityId, courseId }, select: { id: true } });
-    if (!module) throw new Error("Module is not part of this course.");
-    await prisma.courseModuleTranslation.update({ where: { moduleId_locale: { moduleId: module.id, locale } }, data: { ...update.values, ...reset } });
+    const courseModule = await prisma.courseModule.findFirst({ where: { id: update.entityId, courseId }, select: { id: true } });
+    if (!courseModule) throw new Error("Module is not part of this course.");
+    await prisma.courseModuleTranslation.update({ where: { moduleId_locale: { moduleId: courseModule.id, locale } }, data: { ...update.values, ...reset } });
   } else if (update.entityType === "LESSON") {
     const lesson = await prisma.lesson.findFirst({ where: { id: update.entityId, module: { courseId } }, select: { id: true } });
     if (!lesson) throw new Error("Lesson is not part of this course.");

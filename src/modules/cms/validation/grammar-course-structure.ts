@@ -73,25 +73,25 @@ function grammarLesson(role: string | null | undefined) {
 export function validateGrammarCourseStructure(course: GrammarCourseStructure): GrammarStructureIssue[] {
   const issues: GrammarStructureIssue[] = [];
 
-  for (const module of course.modules) {
-    const grammarLessons = module.lessons.filter((lesson) => grammarLesson(lesson.curriculumRole));
+  for (const courseModule of course.modules) {
+    const grammarLessons = courseModule.lessons.filter((lesson) => grammarLesson(lesson.curriculumRole));
     if (!grammarLessons.length) continue;
 
-    if (module.lessons.length !== 10) {
+    if (courseModule.lessons.length !== 10) {
       issues.push({
         code: "GRAMMAR_MODULE_LESSON_COUNT",
-        path: `module:${module.id}`,
+        path: `module:${courseModule.id}`,
         message: "A grammar module must contain exactly 10 lessons: overview, eight development lessons and a final lesson.",
       });
     }
-    if (module.lessons[0]?.curriculumRole !== "OVERVIEW") {
-      issues.push({ code: "GRAMMAR_MODULE_OVERVIEW", path: `module:${module.id}`, message: "The first lesson in a grammar module must be an overview." });
+    if (courseModule.lessons[0]?.curriculumRole !== "OVERVIEW") {
+      issues.push({ code: "GRAMMAR_MODULE_OVERVIEW", path: `module:${courseModule.id}`, message: "The first lesson in a grammar module must be an overview." });
     }
-    if (module.lessons.at(-1)?.curriculumRole !== "FINAL") {
-      issues.push({ code: "GRAMMAR_MODULE_FINAL", path: `module:${module.id}`, message: "The tenth lesson in a grammar module must be the integrated final lesson." });
+    if (courseModule.lessons.at(-1)?.curriculumRole !== "FINAL") {
+      issues.push({ code: "GRAMMAR_MODULE_FINAL", path: `module:${courseModule.id}`, message: "The tenth lesson in a grammar module must be the integrated final lesson." });
     }
-    if ((module.minimumFinalLessonScore ?? 0) < 75) {
-      issues.push({ code: "GRAMMAR_MODULE_FINAL_SCORE", path: `module:${module.id}`, message: "A grammar module needs a final-lesson score requirement of at least 75%." });
+    if ((courseModule.minimumFinalLessonScore ?? 0) < 75) {
+      issues.push({ code: "GRAMMAR_MODULE_FINAL_SCORE", path: `module:${courseModule.id}`, message: "A grammar module needs a final-lesson score requirement of at least 75%." });
     }
 
     for (const lesson of grammarLessons) {

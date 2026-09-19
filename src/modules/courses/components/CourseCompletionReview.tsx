@@ -88,7 +88,7 @@ export function CourseCompletionReview({ courseSlug, active }: { courseSlug: str
     <form className={styles.courseReview} onSubmit={submit}>
       <div>
         <h3>Comment on this course</h3>
-        <p>You've completed the full paid course. Choose your rating, then share what was useful for you.</p>
+        <p>You&apos;ve completed the full paid course. Choose your rating, then share what was useful for you.</p>
       </div>
       <fieldset className={styles.courseRating}>
         <legend>Your rating: {rating ? `${rating}/7` : "choose 1–7"}</legend>
