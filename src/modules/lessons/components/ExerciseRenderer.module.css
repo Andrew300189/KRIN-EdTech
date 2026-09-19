@@ -90,6 +90,27 @@
 .choice:hover { border-color: #a5b4fc !important; background: #f7f7ff !important; transform: translateX(2px); }
 .choice input { accent-color: #4f46e5; }
 
+/* Sentence-builder answers are interactive word chips, never a semantic
+   bullet list. The explicit reset prevents browser markers and legacy
+   page-level li::before decorations from leaking into the exercise. */
+.tokenAnswer {
+  list-style: none;
+  margin: 0;
+}
+
+.tokenAnswerItem {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tokenAnswerItem::before,
+.tokenAnswerItem::after {
+  content: none !important;
+  display: none !important;
+}
+
 .actionRow {
   display: flex;
   align-items: center;
