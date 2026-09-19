@@ -883,6 +883,22 @@ export function LessonPlayer({
       const saved = await persistProgress(true);
       if (!saved || saved.status !== "COMPLETED") return;
     }
+    // The only moment that persists this session's First-Time Right result is
+    // an explicit Next action. Save & exit intentionally never calls it.
+    if (canSaveProgress && !previewMode && !isReviewSession && learningSessionId.current) {
+      try {
+        const response = await fetch(`/api/learning/lessons/${lessonId}/session-streak`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ learningSessionId: learningSessionId.current }),
+        });
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error ?? "Unable to save the lesson streak.");
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : "Unable to save the lesson streak.");
+        return;
+      }
+    }
     router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
   }
 

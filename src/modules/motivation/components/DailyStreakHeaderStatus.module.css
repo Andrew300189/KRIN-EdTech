@@ -65,6 +65,10 @@
 .modalStreak > span:last-child { color: var(--text-secondary); font-size: 0.84rem; font-weight: 700; }
 .modalMeta { display: flex; justify-content: space-between; gap: 0.65rem; color: var(--text-secondary); font-size: 0.77rem; font-weight: 700; }
 .purchaseButton { display: flex; min-height: 3.1rem; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.64rem 0.85rem; border: 0; border-radius: 0.85rem; background: #f4510b; color: #fff; cursor: pointer; font: inherit; font-weight: 850; box-shadow: 0 8px 18px rgb(234 88 12 / 22%); }
+.restoreButton { display: flex; min-height: 3.1rem; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.64rem 0.85rem; border: 1px solid #67c6ea; border-radius: .85rem; background: linear-gradient(135deg, #edfbff, #f3f7ff); color: #075985; cursor: pointer; font: inherit; font-weight: 850; box-shadow: 0 8px 18px rgb(14 116 144 / 12%); }
+.restoreButton small { color: #0e7490; font-size: .72rem; font-weight: 800; }
+.restoreButton:hover:not(:disabled) { border-color: #0ea5e9; background: #e3f8ff; }
+.restoreButton:disabled { cursor: wait; opacity: .62; box-shadow: none; }
 .purchaseButton small { font-size: 0.72rem; font-weight: 800; }
 .purchaseButton:hover:not(:disabled) { background: #d94608; }
 .purchaseButton:disabled { cursor: not-allowed; opacity: .5; box-shadow: none; }

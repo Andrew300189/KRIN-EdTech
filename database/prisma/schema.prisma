@@ -113,6 +113,7 @@ model User {
   vocabularyImportLogs          VocabularyImportLog[]
   learningActivities            LearningActivity[]
   learningSessions              LearningSession[]
+  lessonSessionPerfectStreaks   LessonSessionPerfectStreak[]
   dailyActivities               UserDailyActivity[]
   experienceTransactions        ExperienceTransaction[]
   learningBonusBalance          UserLearningBonusBalance?
@@ -534,6 +535,7 @@ model Lesson {
   vocabularySessions VocabularyTrainingSession[] @relation("WarmUpLesson")
   learningActivities LearningActivity[]
   learningSessions   LearningSession[]
+  lessonSessionPerfectStreaks LessonSessionPerfectStreak[]
   assignments        Assignment[]
   grammarTopics      LessonGrammarTopic[]
   grammarSkills      LessonGrammarSkill[]
@@ -1454,6 +1456,24 @@ model LearningSession {
   @@index([userId, type, lessonId, status])
 }
 
+/// Immutable, server-calculated first-attempt result for one completed lesson
+/// session. It is written only from the final Next action, never from Save &
+/// Exit or a browser-owned counter.
+model LessonSessionPerfectStreak {
+  id                   String          @id @default(cuid())
+  userId               String
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId             String
+  lesson               Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  learningSessionId    String          @unique
+  firstTryCorrectTotal Int             @default(0)
+  longestFirstTryRun   Int             @default(0)
+  finalizedAt          DateTime        @default(now())
+
+  @@index([userId, finalizedAt])
+  @@index([userId, lessonId, finalizedAt])
+}
+
 model UserDailyActivity {
   id                 String   @id @default(cuid())
   userId             String
@@ -1622,6 +1642,12 @@ model UserStreak {
   lastQualifiedDate String?
   streakStartedAt   DateTime?
   freezeCount       Int       @default(0)
+  /// Water Lilies are flower-chest inventory, not automatic day-off freezes.
+  waterLilyCount    Int       @default(0)
+  /// A gap records exactly one restorable daily streak until it is restored
+  /// or another later lapse replaces it.
+  recoverableStreak Int       @default(0)
+  streakLostAt      DateTime?
   updatedAt         DateTime  @updatedAt
 }
 

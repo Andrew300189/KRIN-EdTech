@@ -33,8 +33,6 @@
 .reward.hint > span { background: #fff0b6; color: #a16207; }
 .reward.translation { border-color: #93d8fb; background: #edf9ff; }
 .reward.translation > span { background: #d8f2ff; color: #0284c7; }
-.reward.restore { border-color: #7dd3fc; background: linear-gradient(135deg, #effbff, #f0f9ff); }
-.reward.restore > span { background: #dff6ff; color: #0369a1; }
 .reward.xpCoin { border-color: #a5b4fc; background: linear-gradient(135deg, #eef2ff, #f5f3ff); }
 .reward.xpCoin > span { background: #dbeafe; color: #4338ca; }
 .reward.coin { border-color: #f0c15f; background: linear-gradient(135deg, #fff9e8, #fff1c7); }
@@ -42,7 +40,11 @@
 .reward.legendaryReward { border-color: #f4c96a; background: radial-gradient(circle at 15% 10%, #fffbe8, transparent 46%), linear-gradient(135deg, #fff9e8, #fffdf7); box-shadow: 0 .5rem 1.1rem rgb(161 98 7 / 14%); }
 .reward.legendaryReward > span { background: #fff2bd; color: #a16207; }
 .rewardNote { font-size: .78rem !important; }
-.restoreNote { margin: -.12rem 0 0; color: #075985 !important; font-size: .76rem !important; font-weight: 750; }
+.waterLily { display: flex; width: 100%; align-items: flex-start; gap: .6rem; border: 1px solid #7dd3fc; border-radius: 1rem; background: linear-gradient(135deg, #effbff, #f5fdff); padding: .72rem; text-align: left; }
+.waterLily > span { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 auto; place-items: center; border-radius: .72rem; background: #dff6ff; font-size: 1.2rem; }
+.waterLily div { display: grid; gap: .16rem; }
+.waterLily strong { color: #075985; font-size: .8rem; }
+.waterLily p { margin: 0; color: #155e75; font-size: .72rem; line-height: 1.35; }
 .questBook { display: flex; width: 100%; align-items: flex-start; gap: .6rem; border: 1px solid #d9d3ff; border-radius: 1rem; background: linear-gradient(135deg, #f6f3ff, #fff); padding: .72rem; text-align: left; }
 .questBook > span { display: grid; width: 2.2rem; height: 2.2rem; flex: 0 0 auto; place-items: center; border-radius: .72rem; background: #e9e4ff; font-size: 1.2rem; }
 .questBook div { display: grid; gap: .16rem; }

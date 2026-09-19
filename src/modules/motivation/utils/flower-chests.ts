@@ -13,9 +13,26 @@ export type FlowerChestDefinition = {
   translationCredits: number;
   xpCoinMinor: number;
   questBookDenominator: number | null;
-  grantsStreakRestore?: boolean;
   weight: number;
 };
+
+/**
+ * The drop-rate configuration is deliberately a server module.  It is never
+ * returned as a claimable value or accepted from a browser request: a weight
+ * only defines the relative chance in the server-side flower pool.
+ */
+export const FLOWER_DROP_RATE_WEIGHTS = {
+  chamomile: 3400,
+  poppy: 2700,
+  lungwort: 1800,
+  "forget-me-not": 1400,
+  clover: 1000,
+  bellflower: 700,
+  "pink-lily": 200,
+  // White Lily remains deliberately exceptional: 1 / 11,201 before the
+  // no-repeat re-roll rule is applied.
+  "white-lily": 1,
+} as const;
 
 /**
  * Flowers common to Ukraine, Belarus, and European Russia. Their reward
@@ -23,22 +40,24 @@ export type FlowerChestDefinition = {
  * records it together with the immutable reward ledger entry.
  */
 export const FLOWER_CHESTS: readonly FlowerChestDefinition[] = [
-  { id: "chamomile", icon: "🌼", hue: 48, rarity: "COMMON", names: { en: "Chamomile", ru: "Ромашка", uk: "Ромашка" }, minimumExperience: 10, maximumExperience: 100, hintCredits: 0, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 16, weight: 3400 },
-  { id: "poppy", icon: "🌺", hue: 4, rarity: "COMMON", names: { en: "Poppy", ru: "Мак", uk: "Мак" }, minimumExperience: 20, maximumExperience: 150, hintCredits: 1, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 12, weight: 2700 },
-  { id: "lungwort", icon: "🪻", hue: 273, rarity: "UNCOMMON", names: { en: "Lungwort", ru: "Медуница", uk: "Медунка" }, minimumExperience: 30, maximumExperience: 180, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 10, weight: 1800 },
-  { id: "forget-me-not", icon: "🩵", hue: 210, rarity: "UNCOMMON", names: { en: "Forget-me-not", ru: "Незабудка", uk: "Незабудка" }, minimumExperience: 45, maximumExperience: 220, hintCredits: 0, translationCredits: 2, xpCoinMinor: 0, questBookDenominator: 8, weight: 1400 },
-  { id: "clover", icon: "☘️", hue: 142, rarity: "RARE", names: { en: "Clover", ru: "Клевер", uk: "Конюшина" }, minimumExperience: 70, maximumExperience: 260, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 7, weight: 1000 },
-  { id: "bellflower", icon: "🔔", hue: 244, rarity: "RARE", names: { en: "Bellflower", ru: "Колокольчик", uk: "Дзвіночок" }, minimumExperience: 100, maximumExperience: 320, hintCredits: 2, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 6, weight: 700 },
-  { id: "pink-lily", icon: "🌸", hue: 322, rarity: "EPIC", names: { en: "Pink lily", ru: "Розовая лилия", uk: "Рожева лілія" }, minimumExperience: 200, maximumExperience: 500, hintCredits: 2, translationCredits: 2, xpCoinMinor: 25, questBookDenominator: 3, weight: 200 },
-  // The special flower is forced once in every completed 50-answer band. It
-  // is intentionally excluded from the ordinary random pool below.
-  { id: "fern", icon: "🌿", hue: 155, rarity: "RARE", names: { en: "Fern", ru: "Папоротник", uk: "Папороть" }, minimumExperience: 35, maximumExperience: 180, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 8, grantsStreakRestore: true, weight: 0 },
+  { id: "chamomile", icon: "🌼", hue: 48, rarity: "COMMON", names: { en: "Chamomile", ru: "Ромашка", uk: "Ромашка" }, minimumExperience: 10, maximumExperience: 100, hintCredits: 0, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 16, weight: FLOWER_DROP_RATE_WEIGHTS.chamomile },
+  { id: "poppy", icon: "🌺", hue: 4, rarity: "COMMON", names: { en: "Poppy", ru: "Мак", uk: "Мак" }, minimumExperience: 20, maximumExperience: 150, hintCredits: 1, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 12, weight: FLOWER_DROP_RATE_WEIGHTS.poppy },
+  { id: "lungwort", icon: "🪻", hue: 273, rarity: "UNCOMMON", names: { en: "Lungwort", ru: "Медуница", uk: "Медунка" }, minimumExperience: 30, maximumExperience: 180, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 10, weight: FLOWER_DROP_RATE_WEIGHTS.lungwort },
+  { id: "forget-me-not", icon: "🩵", hue: 210, rarity: "UNCOMMON", names: { en: "Forget-me-not", ru: "Незабудка", uk: "Незабудка" }, minimumExperience: 45, maximumExperience: 220, hintCredits: 0, translationCredits: 2, xpCoinMinor: 0, questBookDenominator: 8, weight: FLOWER_DROP_RATE_WEIGHTS["forget-me-not"] },
+  { id: "clover", icon: "☘️", hue: 142, rarity: "RARE", names: { en: "Clover", ru: "Клевер", uk: "Конюшина" }, minimumExperience: 70, maximumExperience: 260, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 7, weight: FLOWER_DROP_RATE_WEIGHTS.clover },
+  { id: "bellflower", icon: "🔔", hue: 244, rarity: "RARE", names: { en: "Bellflower", ru: "Колокольчик", uk: "Дзвіночок" }, minimumExperience: 100, maximumExperience: 320, hintCredits: 2, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 6, weight: FLOWER_DROP_RATE_WEIGHTS.bellflower },
+  { id: "pink-lily", icon: "🌸", hue: 322, rarity: "EPIC", names: { en: "Pink lily", ru: "Розовая лилия", uk: "Рожева лілія" }, minimumExperience: 200, maximumExperience: 500, hintCredits: 2, translationCredits: 2, xpCoinMinor: 25, questBookDenominator: 3, weight: FLOWER_DROP_RATE_WEIGHTS["pink-lily"] },
   // The white lily has the smallest non-zero weight in the pool. Its exact
   // 1,000 XP reward is enforced on the server, not in this display record.
-  { id: "white-lily", icon: "⚜️", hue: 0, rarity: "LEGENDARY", names: { en: "White lily", ru: "Белая лилия", uk: "Біла лілія" }, minimumExperience: 1000, maximumExperience: 1000, hintCredits: 3, translationCredits: 3, xpCoinMinor: 100, questBookDenominator: 1, weight: 1 },
+  { id: "white-lily", icon: "⚜️", hue: 0, rarity: "LEGENDARY", names: { en: "White lily", ru: "Белая лилия", uk: "Біла лілія" }, minimumExperience: 1000, maximumExperience: 1000, hintCredits: 3, translationCredits: 3, xpCoinMinor: 100, questBookDenominator: 1, weight: FLOWER_DROP_RATE_WEIGHTS["white-lily"] },
 ] as const;
 
-export const STREAK_RESTORE_FLOWER_ID = "fern";
+/** A Water Lily is an inventory item, awarded beside an ordinary flower. */
+export const WATER_LILY = {
+  id: "water-lily",
+  icon: "🪷",
+  names: { en: "Water lily", ru: "Кувшинка", uk: "Латаття" },
+} as const;
 export const WHITE_LILY_FLOWER_ID = "white-lily";
 
 export function flowerChestById(id: string | null | undefined) {

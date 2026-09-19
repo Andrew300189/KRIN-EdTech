@@ -252,13 +252,22 @@ async function updateStreakForDate(tx: Tx, userId: string, date: string) {
   const previous = streak.currentStreak;
   let currentStreak = 1;
   let freezeCount = streak.freezeCount;
+  let recoverableStreak = streak.recoverableStreak;
+  let streakLostAt = streak.streakLostAt;
   let type: "STARTED" | "CONTINUED" | "RESET" | "FREEZE_USED" = streak.lastQualifiedDate ? "RESET" : "STARTED";
   if (streak.lastQualifiedDate) {
     const gap = dateDistanceInDays(streak.lastQualifiedDate, date);
     if (gap === 1) { currentStreak = streak.currentStreak + 1; type = "CONTINUED"; }
     else if (gap === 2 && streak.freezeCount > 0) { currentStreak = streak.currentStreak + 1; freezeCount -= 1; type = "FREEZE_USED"; }
+    else if (previous > 0) {
+      // Keep the just-lost run as a single server-owned recovery candidate.
+      // A newer lapse replaces an older one; a client cannot choose a larger
+      // historic value when it asks to restore a streak.
+      recoverableStreak = previous;
+      streakLostAt = new Date();
+    }
   }
-  const updated = await tx.userStreak.update({ where: { userId }, data: { currentStreak, longestStreak: Math.max(streak.longestStreak, currentStreak), lastQualifiedDate: date, freezeCount, streakStartedAt: currentStreak === 1 ? new Date() : streak.streakStartedAt } });
+  const updated = await tx.userStreak.update({ where: { userId }, data: { currentStreak, longestStreak: Math.max(streak.longestStreak, currentStreak), lastQualifiedDate: date, freezeCount, recoverableStreak, streakLostAt, streakStartedAt: currentStreak === 1 ? new Date() : streak.streakStartedAt } });
   await tx.streakEvent.create({ data: { userId, type, date, previousStreak: previous, nextStreak: currentStreak, metadata: type === "FREEZE_USED" ? json({ remainingFreezes: freezeCount }) : undefined } });
   return updated;
 }
@@ -500,6 +509,86 @@ export async function completeLearningSession(userId: string, sessionId: string)
   return prisma.learningSession.updateMany({ where: { id: sessionId, userId, status: { in: ["ACTIVE", "PAUSED"] } }, data: { status: "COMPLETED", completedAt: new Date() } });
 }
 
+export type FirstTryLessonStreak = {
+  /** Every answer that was correct on the first try in this completed session. */
+  firstTryCorrectTotal: number;
+  /** The largest uninterrupted first-try-correct segment in the session. */
+  longestFirstTryRun: number;
+};
+
+/**
+ * Corrected answers deliberately break a run. We track both values because
+ * the lesson's perfect-answer credit is the total (2 + 5 = 7 in the product
+ * example), while the longest continuous run remains a separate, auditable
+ * number (5 in that same example).
+ */
+export function calculateFirstTryLessonStreak(attempts: Array<{ exerciseId: string; isCorrect: boolean }>): FirstTryLessonStreak {
+  const attemptedExerciseIds = new Set<string>();
+  let firstTryCorrectTotal = 0;
+  let currentRun = 0;
+  let longestFirstTryRun = 0;
+
+  for (const attempt of attempts) {
+    const isFirstTryForExercise = !attemptedExerciseIds.has(attempt.exerciseId);
+    attemptedExerciseIds.add(attempt.exerciseId);
+    if (isFirstTryForExercise && attempt.isCorrect) {
+      firstTryCorrectTotal += 1;
+      currentRun += 1;
+      longestFirstTryRun = Math.max(longestFirstTryRun, currentRun);
+    } else {
+      // A wrong answer, and a subsequent correction of that same task, may
+      // never continue or restart a First-Time Right streak.
+      currentRun = 0;
+    }
+  }
+  return { firstTryCorrectTotal, longestFirstTryRun };
+}
+
+/**
+ * Saves a lesson session's perfect-answer result only after the learner uses
+ * Next on a completed lesson. The request carries a session id but never
+ * accepts totals, multipliers or any other browser-calculated reward value.
+ */
+export async function finalizeLessonSessionPerfectStreak(userId: string, lessonId: string, learningSessionId: string) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.lessonSessionPerfectStreak.findUnique({
+      where: { learningSessionId },
+      select: { firstTryCorrectTotal: true, longestFirstTryRun: true },
+    });
+    if (existing) return { ...existing, finalized: false };
+
+    const [session, progress, latestSession] = await Promise.all([
+      tx.learningSession.findFirst({
+        where: { id: learningSessionId, userId, lessonId, type: "LESSON" },
+        select: { id: true, startedAt: true },
+      }),
+      tx.lessonProgress.findUnique({
+        where: { userId_lessonId: { userId, lessonId } },
+        select: { status: true },
+      }),
+      tx.learningSession.findFirst({
+        where: { userId, lessonId, type: "LESSON" },
+        orderBy: { startedAt: "desc" },
+        select: { id: true },
+      }),
+    ]);
+    if (!session || latestSession?.id !== learningSessionId) throw new Error("This lesson session is no longer active.");
+    if (progress?.status !== "COMPLETED") throw new Error("Finish the lesson before continuing.");
+
+    const attempts = await tx.exerciseAttempt.findMany({
+      where: { userId, lessonId, createdAt: { gte: session.startedAt } },
+      orderBy: [{ createdAt: "asc" }, { attemptNumber: "asc" }],
+      select: { exerciseId: true, isCorrect: true },
+    });
+    const calculated = calculateFirstTryLessonStreak(attempts);
+    const saved = await tx.lessonSessionPerfectStreak.create({
+      data: { userId, lessonId, learningSessionId, ...calculated },
+      select: { firstTryCorrectTotal: true, longestFirstTryRun: true },
+    });
+    return { ...saved, finalized: true };
+  });
+}
+
 export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstAttemptCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean }) {
   const context = await userContext(tx, input.userId);
   await ensureDailyActivity(tx, input.userId, context.date);
@@ -632,7 +721,23 @@ export async function getMotivationOverview(userId: string) {
       tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userLearningBonusBalance.upsert({ where: { userId }, create: { userId }, update: {} }),
     ]);
-    return { date: context.date, timeZone: context.timeZone, dailyGoalMinutes: context.dailyGoalMinutes, daily, level, wallet, streak, learningBonuses: { hintCredits: learningBonuses.hintCredits, translationCredits: learningBonuses.translationCredits } };
+    return {
+      date: context.date,
+      timeZone: context.timeZone,
+      dailyGoalMinutes: context.dailyGoalMinutes,
+      daily,
+      level,
+      wallet,
+      streak,
+      streakRecovery: {
+        available: streak.recoverableStreak > 0,
+        streakLength: streak.recoverableStreak,
+        experienceCost: streak.recoverableStreak > 0 ? streakRestoreXpCost(streak.recoverableStreak) : 0,
+        coinCostMinor: streak.recoverableStreak > 0 ? streakRestoreCoinCostMinor(streakRestoreXpCost(streak.recoverableStreak)) : 0,
+        waterLilyCount: streak.waterLilyCount,
+      },
+      learningBonuses: { hintCredits: learningBonuses.hintCredits, translationCredits: learningBonuses.translationCredits },
+    };
   });
 }
 
@@ -642,6 +747,182 @@ const XP_COIN_MINOR_PER_COIN = 100;
 /** A freeze protects one missed calendar day in a qualified daily streak. */
 export const STREAK_FREEZE_PRICE_COINS = 1;
 export const WEEKLY_EASTER_EGG_XP = 500;
+
+/** Server-owned cost grid for restoring a burned daily streak. */
+export function streakRestoreXpCost(streakLength: number) {
+  const length = Math.max(0, Math.trunc(streakLength));
+  if (length >= 100) return 200 + Math.floor((length - 100) / 25) * 50;
+  if (length >= 81) return 120;
+  if (length >= 71) return 90;
+  if (length >= 51) return 80;
+  if (length >= 31) return 70;
+  if (length >= 21) return 50;
+  if (length >= 11) return 40;
+  return 30;
+}
+
+/** XP Coins and KRIN Coins use the established 1,000 XP = 1.00 coin ratio. */
+export function streakRestoreCoinCostMinor(experienceCost: number) {
+  return Math.max(1, Math.ceil((Math.max(0, experienceCost) / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN));
+}
+
+async function lockStreakRestore(tx: Tx, userId: string) {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`streak-restore:${userId}`}))`);
+}
+
+/**
+ * Restores the one server-recorded burned streak. Resource priority is fixed:
+ * Water Lily -> XP -> XP Coins -> KRIN Coins. All balances and the restored
+ * streak change inside a single transaction so neither an altered browser
+ * request nor two tabs can spend/restore twice.
+ */
+export async function restoreLostStreak(userId: string) {
+  return prisma.$transaction(async (tx) => {
+    await lockStreakRestore(tx, userId);
+    const context = await userContext(tx, userId);
+    const streak = await tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} });
+    if (streak.recoverableStreak < 1 || !streak.streakLostAt) throw new Error("There is no burned streak to restore.");
+
+    const previousStreak = streak.currentStreak;
+    const restoredStreak = streak.recoverableStreak + Math.max(1, streak.currentStreak);
+    const experienceCost = streakRestoreXpCost(streak.recoverableStreak);
+    const coinCostMinor = streakRestoreCoinCostMinor(experienceCost);
+    const restoreId = randomUUID();
+    let paidWith: "WATER_LILY" | "XP" | "XP_COINS" | "KRIN_COINS";
+    let perfectSession: FirstTryLessonStreak | null = null;
+
+    if (streak.waterLilyCount > 0) {
+      // A Water Lily applies only after a completed lesson's final Next. The
+      // saved result is calculated from authoritative attempts, never from a
+      // client-side consecutive-answer counter.
+      const perfectSessions = await tx.lessonSessionPerfectStreak.aggregate({
+        where: { userId, finalizedAt: { gte: streak.streakLostAt } },
+        _sum: { firstTryCorrectTotal: true },
+        _max: { longestFirstTryRun: true },
+      });
+      const firstTryCorrectTotal = perfectSessions._sum.firstTryCorrectTotal ?? 0;
+      if (!firstTryCorrectTotal) {
+        throw new Error("Finish a lesson with at least one first-try correct answer before using a Water Lily.");
+      }
+      perfectSession = { firstTryCorrectTotal, longestFirstTryRun: perfectSessions._max.longestFirstTryRun ?? 0 };
+      const consumed = await tx.userStreak.updateMany({
+        where: { id: streak.id, waterLilyCount: { gte: 1 }, recoverableStreak: { gt: 0 } },
+        data: { waterLilyCount: { decrement: 1 } },
+      });
+      if (!consumed.count) throw new Error("The Water Lily is no longer available.");
+      paidWith = "WATER_LILY";
+    } else {
+      const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
+      const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+      if (level.lifetimeExperience >= experienceCost) {
+        const deducted = await tx.userLevel.updateMany({
+          where: { id: level.id, lifetimeExperience: { gte: experienceCost } },
+          data: { lifetimeExperience: { decrement: experienceCost } },
+        });
+        if (!deducted.count) throw new Error("Insufficient XP to restore this streak.");
+        const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { id: level.id } });
+        await tx.userLevel.update({ where: { id: level.id }, data: calculateUserLevel(reducedLevel.lifetimeExperience) });
+        await tx.experienceTransaction.create({
+          data: {
+            userId,
+            amount: -experienceCost,
+            type: "XP_EXCHANGE",
+            sourceType: "STREAK_RESTORE",
+            sourceId: restoreId,
+            idempotencyKey: `streak-restore-xp:${userId}:${restoreId}`,
+            localDate: context.date,
+            description: `Restored ${streak.recoverableStreak}-day streak for ${experienceCost} XP`,
+          },
+        });
+        paidWith = "XP";
+      } else if (wallet.xpCoinBalanceMinor >= coinCostMinor) {
+        const deducted = await tx.userWallet.updateMany({
+          where: { id: wallet.id, xpCoinBalanceMinor: { gte: coinCostMinor } },
+          data: { xpCoinBalanceMinor: { decrement: coinCostMinor }, lifetimeXpCoinsSpentMinor: { increment: coinCostMinor } },
+        });
+        if (!deducted.count) throw new Error("Insufficient XP Coins to restore this streak.");
+        const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+        await tx.coinTransaction.create({
+          data: {
+            userId,
+            walletId: wallet.id,
+            amount: 0,
+            amountMinor: -coinCostMinor,
+            balanceBefore: wallet.balance,
+            balanceAfter: updatedWallet.balance,
+            balanceBeforeMinor: wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance,
+            balanceAfterMinor: updatedWallet.balance * XP_COIN_MINOR_PER_COIN + updatedWallet.fractionalBalance,
+            type: "PURCHASE",
+            sourceType: "STREAK_RESTORE_XP_COIN",
+            sourceId: restoreId,
+            idempotencyKey: `streak-restore-xp-coin:${userId}:${restoreId}`,
+            localDate: context.date,
+            description: `Restored ${streak.recoverableStreak}-day streak for ${(coinCostMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins`,
+          },
+        });
+        paidWith = "XP_COINS";
+      } else {
+        const currentMinor = wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance;
+        if (currentMinor < coinCostMinor) throw new Error("Insufficient XP, XP Coins, and KRIN Coins to restore this streak.");
+        const updatedMinor = currentMinor - coinCostMinor;
+        const deducted = await tx.$executeRaw(Prisma.sql`
+          UPDATE "UserWallet"
+          SET "balance" = ${Math.floor(updatedMinor / XP_COIN_MINOR_PER_COIN)},
+              "fractionalBalance" = ${updatedMinor % XP_COIN_MINOR_PER_COIN},
+              "lifetimeSpent" = "lifetimeSpent" + ${Math.floor(coinCostMinor / XP_COIN_MINOR_PER_COIN)}
+          WHERE "id" = ${wallet.id}
+            AND ("balance" * ${XP_COIN_MINOR_PER_COIN} + "fractionalBalance") >= ${coinCostMinor}
+        `);
+        if (!deducted) throw new Error("Insufficient KRIN Coins to restore this streak.");
+        const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+        await tx.coinTransaction.create({
+          data: {
+            userId,
+            walletId: wallet.id,
+            amount: 0,
+            amountMinor: -coinCostMinor,
+            balanceBefore: wallet.balance,
+            balanceAfter: updatedWallet.balance,
+            balanceBeforeMinor: currentMinor,
+            balanceAfterMinor: updatedMinor,
+            type: "PURCHASE",
+            sourceType: "STREAK_RESTORE_KRIN_COIN",
+            sourceId: restoreId,
+            idempotencyKey: `streak-restore-krin-coin:${userId}:${restoreId}`,
+            localDate: context.date,
+            description: `Restored ${streak.recoverableStreak}-day streak for ${(coinCostMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} KRIN Coins`,
+          },
+        });
+        paidWith = "KRIN_COINS";
+      }
+    }
+
+    const restored = await tx.userStreak.update({
+      where: { id: streak.id },
+      data: {
+        currentStreak: restoredStreak,
+        longestStreak: Math.max(streak.longestStreak, restoredStreak),
+        recoverableStreak: 0,
+        streakLostAt: null,
+      },
+    });
+    await tx.streakEvent.create({
+      data: {
+        userId,
+        type: "RESTORED",
+        date: context.date,
+        previousStreak,
+        nextStreak: restoredStreak,
+        metadata: json({ paidWith, experienceCost, coinCostMinor, perfectSession }),
+      },
+    });
+    const [level, wallet] = await Promise.all([
+      tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+    ]);
+    return { streak: restored, level, wallet, paidWith, experienceCost, coinCostMinor, perfectSession };
+  });
+}
 
 /**
  * Buys a single, server-recorded streak freeze. The balance check and the
