@@ -184,14 +184,54 @@ const MILESTONE_CHEST_SOURCE_TYPE: Record<MilestoneChestKind, string> = {
   MODULE: "MILESTONE_CHEST_MODULE",
   COURSE: "MILESTONE_CHEST_COURSE",
 };
-const WHEEL_REWARDS = [
-  { id: "xp-15", experience: 15, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-25", experience: 25, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-40", experience: 40, hintCredits: 0, translationCredits: 0 },
-  { id: "hint-credit", experience: 10, hintCredits: 1, translationCredits: 0 },
-  { id: "translation-credit", experience: 10, hintCredits: 0, translationCredits: 1 },
-  { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
-] as const;
+/** The multiplier wheel deliberately contains every tenth between 1.0 and
+ * 3.0 exactly once. There are no hidden weights or "near miss" values. */
+export const LESSON_XP_MULTIPLIER_MIN_STEP = 10;
+export const LESSON_XP_MULTIPLIER_MAX_STEP = 30;
+export const LESSON_XP_MULTIPLIER_STEP_COUNT = LESSON_XP_MULTIPLIER_MAX_STEP - LESSON_XP_MULTIPLIER_MIN_STEP + 1;
+
+export type LessonXpMultiplierWheelResult = {
+  available: boolean;
+  spun: boolean;
+  alreadySpun: boolean;
+  baseExperience: number;
+  multiplierStep: number | null;
+  multiplier: number | null;
+  bonusExperience: number;
+  totalExperience: number;
+};
+
+type LessonXpMultiplierTransaction = { amount: number; description: string | null };
+
+function selectLessonXpMultiplierStep() {
+  // This is intentionally an unweighted, uniform Math.random() selection.
+  // It executes only on the server; the browser cannot submit a multiplier.
+  return LESSON_XP_MULTIPLIER_MIN_STEP + Math.floor(Math.random() * LESSON_XP_MULTIPLIER_STEP_COUNT);
+}
+
+function multiplierWheelResultFromTransaction(transaction: LessonXpMultiplierTransaction, currentBaseExperience: number): LessonXpMultiplierWheelResult {
+  const step = Number(transaction.description?.match(/\bstep:(\d{2})\b/)?.[1]);
+  const storedBase = Number(transaction.description?.match(/\bbase:(\d+)\b/)?.[1]);
+  const storedTotal = Number(transaction.description?.match(/\btotal:(\d+)\b/)?.[1]);
+  const multiplierStep = Number.isInteger(step) && step >= LESSON_XP_MULTIPLIER_MIN_STEP && step <= LESSON_XP_MULTIPLIER_MAX_STEP
+    ? step
+    : LESSON_XP_MULTIPLIER_MIN_STEP;
+  const baseExperience = Number.isSafeInteger(storedBase) && storedBase >= 0 ? storedBase : currentBaseExperience;
+  const totalExperience = Number.isSafeInteger(storedTotal) && storedTotal >= baseExperience
+    ? storedTotal
+    : Math.max(baseExperience, baseExperience + Math.max(0, transaction.amount));
+
+  return {
+    available: true,
+    spun: false,
+    alreadySpun: true,
+    baseExperience,
+    multiplierStep,
+    multiplier: multiplierStep / 10,
+    bonusExperience: Math.max(0, totalExperience - baseExperience),
+    totalExperience,
+  };
+}
 
 type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number; localDate: string };
 
@@ -726,56 +766,120 @@ export async function equipShopItem(userId: string, itemId: string) {
   };
 }
 
-export async function spinLessonRewardWheel(userId: string, lessonId: string) {
-  const reward = WHEEL_REWARDS[randomInt(WHEEL_REWARDS.length)];
-  const idempotencyKey = `lesson-wheel:${userId}:${lessonId}`;
+async function lessonExperienceBeforeMultiplier(tx: Prisma.TransactionClient, userId: string, lessonId: string) {
+  // Keep this calculation in the immutable ledger rather than trusting a
+  // reward configured in the lesson editor. The multiplier is intentionally
+  // not part of the queried types, so it can never multiply itself.
+  const [completionCredits, correctAttempts] = await Promise.all([
+    tx.experienceTransaction.findMany({
+      where: { userId, type: "LESSON_COMPLETED", sourceId: lessonId },
+      select: { amount: true },
+    }),
+    tx.exerciseAttempt.findMany({
+      where: { userId, lessonId, isCorrect: true },
+      select: { exerciseId: true },
+    }),
+  ]);
+  const exerciseIds = [...new Set(correctAttempts.map((attempt) => attempt.exerciseId))];
+  if (!exerciseIds.length) return completionCredits.reduce((total, transaction) => total + transaction.amount, 0);
+
+  const exerciseCredits = await tx.experienceTransaction.findMany({
+    where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
+    select: { amount: true },
+  });
+  return [...completionCredits, ...exerciseCredits].reduce((total, transaction) => total + transaction.amount, 0);
+}
+
+async function assertCompletedLessonAndGetBaseExperience(tx: Prisma.TransactionClient, userId: string, lessonId: string) {
+  const progress = await tx.lessonProgress.findUnique({
+    where: { userId_lessonId: { userId, lessonId } },
+    select: { status: true },
+  });
+  if (progress?.status !== "COMPLETED") throw new Error("Finish the lesson before spinning the multiplier wheel.");
+  return lessonExperienceBeforeMultiplier(tx, userId, lessonId);
+}
+
+function multiplierIdempotencyKey(userId: string, lessonId: string) {
+  return `lesson-xp-multiplier:${userId}:${lessonId}`;
+}
+
+/** Returns the durable state as well as an already-spun outcome after reload.
+ * A 0-XP practice run has no wheel because multiplying it cannot reward XP. */
+export async function getLessonXpMultiplierWheelState(userId: string, lessonId: string): Promise<LessonXpMultiplierWheelResult> {
+  const idempotencyKey = multiplierIdempotencyKey(userId, lessonId);
   return prisma.$transaction(async (tx) => {
-    const progress = await tx.lessonProgress.findUnique({
-      where: { userId_lessonId: { userId, lessonId } },
-      select: { status: true },
+    const baseExperience = await assertCompletedLessonAndGetBaseExperience(tx, userId, lessonId);
+    const existing = await tx.experienceTransaction.findUnique({
+      where: { idempotencyKey },
+      select: { amount: true, description: true },
     });
-    if (progress?.status !== "COMPLETED") throw new Error("Finish the lesson before spinning the wheel.");
-    const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } });
-    if (existing) {
-      const coins = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
-      const bonusTransactions = await tx.learningBonusTransaction.findMany({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: lessonId, amount: { gt: 0 } }, select: { kind: true, amount: true } });
+    if (existing) return multiplierWheelResultFromTransaction(existing, baseExperience);
+    return {
+      available: baseExperience > 0,
+      spun: false,
+      alreadySpun: false,
+      baseExperience,
+      multiplierStep: null,
+      multiplier: null,
+      bonusExperience: 0,
+      totalExperience: baseExperience,
+    };
+  });
+}
+
+/**
+ * Roll and credit the lesson multiplier exactly once. The uniform roll is
+ * server-owned and the immutable idempotency key prevents retries, duplicate
+ * tabs, or modified browser requests from awarding it a second time.
+ */
+export async function spinLessonXpMultiplierWheel(userId: string, lessonId: string): Promise<LessonXpMultiplierWheelResult> {
+  const idempotencyKey = multiplierIdempotencyKey(userId, lessonId);
+  return prisma.$transaction(async (tx) => {
+    const baseExperience = await assertCompletedLessonAndGetBaseExperience(tx, userId, lessonId);
+    const existing = await tx.experienceTransaction.findUnique({
+      where: { idempotencyKey },
+      select: { amount: true, description: true },
+    });
+    if (existing) return multiplierWheelResultFromTransaction(existing, baseExperience);
+    if (baseExperience <= 0) {
       return {
+        available: false,
         spun: false,
-        alreadySpun: true,
-        experience: existing.amount,
-        coins: coins?.amount ?? 0,
-        hintCredits: bonusTransactions.filter((item) => item.kind === "HINT").reduce((sum, item) => sum + item.amount, 0),
-        translationCredits: bonusTransactions.filter((item) => item.kind === "TRANSLATION").reduce((sum, item) => sum + item.amount, 0),
-        rewardId: existing.description?.match(/wheel:([^\s]+)/)?.[1] ?? null,
+        alreadySpun: false,
+        baseExperience,
+        multiplierStep: null,
+        multiplier: null,
+        bonusExperience: 0,
+        totalExperience: baseExperience,
       };
     }
+
+    const multiplierStep = selectLessonXpMultiplierStep();
+    const totalExperience = Math.round(baseExperience * (multiplierStep / 10));
+    const bonusExperience = Math.max(0, totalExperience - baseExperience);
     const awarded = await grantEconomyReward(tx, {
       userId,
-      experience: reward.experience,
-      hintCredits: reward.hintCredits,
-      translationCredits: reward.translationCredits,
-      sourceType: "LESSON_WHEEL",
+      experience: bonusExperience,
+      sourceType: "LESSON_XP_MULTIPLIER",
       sourceId: lessonId,
       idempotencyKey,
-      description: `Lesson wheel:${reward.id}`,
+      description: `Lesson XP multiplier | step:${multiplierStep} | base:${baseExperience} | total:${totalExperience}`,
     });
-    return { spun: awarded.awarded, alreadySpun: false, experience: awarded.experience, coins: awarded.coins, hintCredits: awarded.hintCredits, translationCredits: awarded.translationCredits, rewardId: reward.id };
+    return {
+      available: true,
+      spun: awarded.awarded,
+      alreadySpun: false,
+      baseExperience,
+      multiplierStep,
+      multiplier: multiplierStep / 10,
+      bonusExperience,
+      totalExperience,
+    };
   }).catch(async (error: unknown) => {
+    // A second concurrent POST loses the unique ledger race. Treat it as the
+    // first spin's durable result, not as a chance to roll again.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const existing = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
-      const coins = await prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
-      if (existing) {
-        const bonusTransactions = await prisma.learningBonusTransaction.findMany({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: lessonId, amount: { gt: 0 } }, select: { kind: true, amount: true } });
-        return {
-          spun: false,
-          alreadySpun: true,
-          experience: existing.amount,
-          coins: coins?.amount ?? 0,
-          hintCredits: bonusTransactions.filter((item) => item.kind === "HINT").reduce((sum, item) => sum + item.amount, 0),
-          translationCredits: bonusTransactions.filter((item) => item.kind === "TRANSLATION").reduce((sum, item) => sum + item.amount, 0),
-          rewardId: null,
-        };
-      }
+      return getLessonXpMultiplierWheelState(userId, lessonId);
     }
     throw error;
   });

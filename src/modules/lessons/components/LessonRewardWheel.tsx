@@ -1,61 +1,174 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import styles from "./LessonRewardWheel.module.css";
 
-type WheelReward = { spun: boolean; alreadySpun: boolean; experience: number; coins: number; hintCredits: number; translationCredits: number; rewardId: string | null };
+export type LessonXpMultiplierWheelResult = {
+  available: boolean;
+  spun: boolean;
+  alreadySpun: boolean;
+  baseExperience: number;
+  multiplierStep: number | null;
+  multiplier: number | null;
+  bonusExperience: number;
+  totalExperience: number;
+};
+
+const MULTIPLIER_STEPS = Array.from({ length: 21 }, (_, index) => index + 10);
+const SEGMENT_DEGREES = 360 / MULTIPLIER_STEPS.length;
 
 const copy = {
-  en: { title: "Bonus wheel", ready: "Spin for a guaranteed reward", spin: "Spin the wheel", spinning: "Spinning…", done: "Reward collected", already: "This lesson reward was already collected.", error: "Unable to spin the reward wheel." },
-  ru: { title: "Бонусное колесо", ready: "Крутите: приз гарантирован", spin: "Крутить колесо", spinning: "Крутим…", done: "Награда получена", already: "Награда за этот урок уже получена.", error: "Не удалось крутануть колесо." },
-  uk: { title: "Бонусне колесо", ready: "Крутіть: приз гарантовано", spin: "Крутити колесо", spinning: "Крутимо…", done: "Нагороду отримано", already: "Нагороду за цей урок уже отримано.", error: "Не вдалося крутнути колесо." },
+  en: {
+    title: "XP multiplier wheel", range: "Every value from ×1.0 to ×3.0 is equally likely", ready: "Your XP counter is ready — spin for the final total.",
+    spin: "Spin for XP", preparing: "Preparing…", spinning: "Spinning…", complete: "Multiplier applied", restored: "Multiplier already applied",
+    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · ${total} XP total`,
+    error: "Unable to spin the XP multiplier wheel.",
+  },
+  ru: {
+    title: "Колесо множителя XP", range: "Каждое значение от ×1.0 до ×3.0 выпадает с одинаковой вероятностью", ready: "XP посчитаны — крутите колесо, чтобы узнать итог.",
+    spin: "Крутить на XP", preparing: "Готовим…", spinning: "Крутим…", complete: "Множитель применён", restored: "Множитель уже применён",
+    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · всего ${total} XP`,
+    error: "Не удалось запустить колесо множителя XP.",
+  },
+  uk: {
+    title: "Колесо множника XP", range: "Кожне значення від ×1.0 до ×3.0 має однакову ймовірність", ready: "XP пораховано — крутіть колесо, щоб дізнатися підсумок.",
+    spin: "Крутити на XP", preparing: "Готуємо…", spinning: "Крутимо…", complete: "Множник застосовано", restored: "Множник уже застосовано",
+    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · усього ${total} XP`,
+    error: "Не вдалося запустити колесо множника XP.",
+  },
 } as const;
 
-function rewardText(reward: WheelReward, locale: "en" | "ru" | "uk") {
-  const parts = [];
-  if (reward.experience) parts.push(`+${reward.experience} XP`);
-  if (reward.coins) parts.push(`+${reward.coins} ◉`);
-  if (reward.hintCredits) parts.push(locale === "uk" ? "+1 бонус підказки" : locale === "ru" ? "+1 бонус подсказки" : "+1 hint credit");
-  if (reward.translationCredits) parts.push(locale === "uk" ? "+1 бонус перекладу" : locale === "ru" ? "+1 бонус перевода" : "+1 translation credit");
-  return parts.join(" · ") || "✦";
+function landingTurn(multiplierStep: number, currentTurn: number) {
+  const index = MULTIPLIER_STEPS.indexOf(multiplierStep);
+  const segmentCentre = Math.max(0, index) * SEGMENT_DEGREES + SEGMENT_DEGREES / 2;
+  // CSS conic gradients begin at 12 o'clock. Bring the selected segment to
+  // the fixed pointer after a visibly satisfying number of full rotations.
+  const landingAngle = (360 - segmentCentre) % 360;
+  const currentAngle = ((currentTurn % 360) + 360) % 360;
+  const adjustment = (landingAngle - currentAngle + 360) % 360;
+  return currentTurn + (6 + Math.floor(Math.random() * 3)) * 360 + adjustment;
 }
 
-export function LessonRewardWheel({ lessonId, onCollected }: { lessonId: string; onCollected?: () => void }) {
+function isMultiplierResult(value: unknown): value is LessonXpMultiplierWheelResult {
+  if (!value || typeof value !== "object") return false;
+  const result = value as Partial<LessonXpMultiplierWheelResult>;
+  return typeof result.available === "boolean"
+    && typeof result.spun === "boolean"
+    && typeof result.alreadySpun === "boolean"
+    && typeof result.baseExperience === "number"
+    && typeof result.totalExperience === "number";
+}
+
+type Props = {
+  lessonId: string;
+  /** The immutable XP total shown in the initial counter. */
+  baseExperience: number;
+  /** The card is deliberately withheld until that first counter has settled. */
+  ready: boolean;
+  onCollected?: () => void;
+  onMultiplierApplied?: (result: LessonXpMultiplierWheelResult) => void;
+};
+
+/**
+ * The wheel is presentation only. Its exact result is selected and written
+ * once by the protected API before this component animates to that segment.
+ */
+export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected, onMultiplierApplied }: Props) {
   const { locale } = useLocale();
   const text = copy[locale];
   const [spinning, setSpinning] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [turn, setTurn] = useState(0);
-  const [reward, setReward] = useState<WheelReward | null>(null);
+  const [reward, setReward] = useState<LessonXpMultiplierWheelResult | null>(null);
+  const onCollectedRef = useRef(onCollected);
+  const onMultiplierAppliedRef = useRef(onMultiplierApplied);
+  const resolvedReward = reward ?? {
+    available: baseExperience > 0,
+    spun: false,
+    alreadySpun: false,
+    baseExperience,
+    multiplierStep: null,
+    multiplier: null,
+    bonusExperience: 0,
+    totalExperience: baseExperience,
+  };
+
+  useEffect(() => { onCollectedRef.current = onCollected; }, [onCollected]);
+  useEffect(() => { onMultiplierAppliedRef.current = onMultiplierApplied; }, [onMultiplierApplied]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/wheel`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null) as { data?: unknown } | null;
+        const result = payload?.data;
+        if (!response.ok || !isMultiplierResult(result)) return;
+        setReward(result);
+        if (result.alreadySpun) {
+          if (result.multiplierStep !== null) setTurn(landingTurn(result.multiplierStep, 0));
+          onMultiplierAppliedRef.current?.(result);
+          onCollectedRef.current?.();
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [lessonId]);
 
   async function spin() {
-    if (spinning || reward) return;
+    if (spinning || loading || reward?.alreadySpun || reward?.spun) return;
     setSpinning(true);
-    setTurn((current) => current + 1_800 + Math.floor(Math.random() * 360));
     try {
       const response = await fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/wheel`, { method: "POST" });
-      const payload = await response.json().catch(() => null) as { data?: WheelReward; error?: string } | null;
-      await new Promise((resolve) => window.setTimeout(resolve, 900));
-      if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.error);
-      setReward(payload.data);
-      // The parent keeps onward navigation locked until the server confirms
-      // this exact lesson's wheel has been collected. An already-spun wheel
-      // is also a valid confirmation after a reload.
-      if (payload.data.spun || payload.data.alreadySpun) onCollected?.();
-      if (payload.data.spun) {
+      const payload = await response.json().catch(() => null) as { data?: unknown; error?: string } | null;
+      const result = payload?.data;
+      if (!response.ok || !isMultiplierResult(result)) throw new Error(payload?.error ?? text.error);
+      if (!result.available || result.multiplierStep === null) {
+        setReward(result);
+        onCollected?.();
+        return;
+      }
+
+      setTurn((current) => landingTurn(result.multiplierStep!, current));
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reducedMotion) await new Promise((resolve) => window.setTimeout(resolve, 1_450));
+      setReward(result);
+      onMultiplierApplied?.(result);
+      onCollected?.();
+      if (result.spun) {
         notifyMotivationUpdated();
-        toast.success(rewardText(payload.data, locale));
+        toast.success(text.result(result.multiplier ?? 1, result.totalExperience));
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : text.error);
-    } finally { setSpinning(false); }
+    } finally {
+      setSpinning(false);
+    }
   }
 
-  return <section className={styles.card} aria-live="polite">
-    <div className={styles.wheelWrap}><span className={styles.pointer} aria-hidden="true">▼</span><span className={styles.wheel} style={{ transform: `rotate(${turn}deg)` }} aria-hidden="true">✦</span></div>
-    <div className={styles.copy}><p>{text.title}</p><strong>{reward?.spun ? rewardText(reward, locale) : reward?.alreadySpun ? text.already : text.ready}</strong></div>
-    <button type="button" onClick={() => void spin()} disabled={spinning || Boolean(reward)}>{spinning ? text.spinning : reward?.spun ? text.done : reward?.alreadySpun ? text.already : text.spin}</button>
+  if (!ready || !resolvedReward.available) return null;
+  const hasResult = resolvedReward.spun || resolvedReward.alreadySpun;
+  const buttonText = loading ? text.preparing : spinning ? text.spinning : hasResult ? text.complete : text.spin;
+  const centreText = spinning ? "×?" : hasResult && resolvedReward.multiplier !== null ? `×${resolvedReward.multiplier.toFixed(1)}` : "×";
+
+  return <section className={styles.card} aria-live="polite" aria-label={text.title}>
+    <div className={styles.wheelWrap}>
+      <span className={styles.pointer} aria-hidden="true">◆</span>
+      <span className={styles.wheel} style={{ transform: `rotate(${turn}deg)` }} aria-hidden="true">
+        {MULTIPLIER_STEPS.map((step, index) => <span key={step} className={styles.wheelTick} style={{ transform: `rotate(${index * SEGMENT_DEGREES + SEGMENT_DEGREES / 2}deg)` }} />)}
+      </span>
+      <span className={styles.wheelCentre} aria-hidden="true">{centreText}</span>
+    </div>
+    <div className={styles.copy}>
+      <p>{text.title}</p>
+      <strong>{hasResult && resolvedReward.multiplier !== null ? text.result(resolvedReward.multiplier, resolvedReward.totalExperience) : text.ready}</strong>
+      <small>{hasResult && resolvedReward.alreadySpun ? text.restored : text.range}</small>
+    </div>
+    <button type="button" onClick={() => void spin()} disabled={loading || spinning || hasResult}>
+      {buttonText}
+    </button>
   </section>;
 }

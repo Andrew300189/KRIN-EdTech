@@ -1,4 +1,46 @@
-.card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; margin-top: 1rem; border: 1px solid #fde68a; border-radius: 1rem; padding: .7rem .8rem; background: linear-gradient(120deg, #fffbeb, #fff7ed); text-align: left; }
-.wheelWrap { position: relative; display: grid; width: 3.15rem; height: 3.15rem; place-items: center; }.pointer { position: absolute; z-index: 2; top: -.45rem; color: #c2410c; font-size: .75rem; }.wheel { display: grid; width: 2.8rem; height: 2.8rem; place-items: center; border: .25rem dotted #fff; border-radius: 50%; background: conic-gradient(#f97316 0 17%, #facc15 17% 34%, #8b5cf6 34% 50%, #2dd4bf 50% 67%, #fb7185 67% 84%, #60a5fa 84%); color: #fff; font-weight: 900; text-shadow: 0 1px 3px rgb(0 0 0 / 35%); transition: transform 850ms cubic-bezier(.12,.7,.18,1); box-shadow: 0 .45rem 1rem rgb(194 65 12 / 18%); }
-.copy { display: grid; gap: .15rem; }.copy p { margin: 0; color: #9a3412; font-size: .68rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }.copy strong { color: #431407; font-size: .88rem; line-height: 1.25; }.card button { min-height: 2.35rem; border-radius: .72rem; padding: .42rem .7rem; background: #ea580c; color: #fff; font-size: .78rem; font-weight: 850; white-space: nowrap; }.card button:disabled { background: #e8dccf; color: #7c6758; }
-@media (max-width: 560px) { .card { grid-template-columns: auto 1fr; }.card button { grid-column: 1 / -1; width: 100%; } }
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .9rem;
+  margin-top: 1rem;
+  border: 1px solid #c4b5fd;
+  border-radius: 1.15rem;
+  padding: .8rem .9rem;
+  background: linear-gradient(125deg, #f5f3ff, #eff6ff 55%, #fdf4ff);
+  box-shadow: 0 .65rem 1.5rem rgb(79 70 229 / 10%);
+  text-align: left;
+}
+
+.wheelWrap { position: relative; display: grid; width: 5.4rem; height: 5.4rem; place-items: center; }
+.pointer { position: absolute; z-index: 3; top: -.34rem; color: #4338ca; font-size: .83rem; filter: drop-shadow(0 .1rem .16rem rgb(49 46 129 / 25%)); }
+.wheel {
+  position: relative;
+  display: block;
+  width: 5rem;
+  height: 5rem;
+  overflow: hidden;
+  border: .24rem solid #fff;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #6366f1 0deg 17.142deg, #a78bfa 17.142deg 34.285deg, #38bdf8 34.285deg 51.428deg, #2dd4bf 51.428deg 68.571deg, #818cf8 68.571deg 85.714deg, #c084fc 85.714deg 102.857deg, #60a5fa 102.857deg 120deg, #5eead4 120deg 137.142deg, #818cf8 137.142deg 154.285deg, #a78bfa 154.285deg 171.428deg, #38bdf8 171.428deg 188.571deg, #2dd4bf 188.571deg 205.714deg, #6366f1 205.714deg 222.857deg, #c084fc 222.857deg 240deg, #60a5fa 240deg 257.142deg, #5eead4 257.142deg 274.285deg, #818cf8 274.285deg 291.428deg, #a78bfa 291.428deg 308.571deg, #38bdf8 308.571deg 325.714deg, #2dd4bf 325.714deg 342.857deg, #6366f1 342.857deg 360deg);
+  box-shadow: 0 .45rem 1rem rgb(67 56 202 / 20%);
+  transition: transform 1.4s cubic-bezier(.08,.72,.1,1);
+}
+.wheelTick { position: absolute; top: 0; bottom: 50%; left: calc(50% - .045rem); width: .09rem; transform-origin: bottom center; background: rgb(255 255 255 / 70%); }
+.wheelCentre { position: absolute; z-index: 2; display: grid; width: 2.32rem; height: 2.32rem; place-items: center; border: .16rem solid #ede9fe; border-radius: 50%; background: #fff; color: #4338ca; font-size: .83rem; font-weight: 950; letter-spacing: -.03em; box-shadow: 0 .18rem .4rem rgb(67 56 202 / 14%); }
+.copy { display: grid; gap: .16rem; min-width: 0; }
+.copy p { margin: 0; color: #5b21b6; font-size: .68rem; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
+.copy strong { color: #1e1b4b; font-size: .92rem; line-height: 1.27; }
+.copy small { color: #5b647f; font-size: .72rem; line-height: 1.28; }
+.card button { min-height: 2.42rem; border-radius: .78rem; padding: .45rem .78rem; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; font-size: .78rem; font-weight: 900; white-space: nowrap; box-shadow: 0 .35rem .7rem rgb(79 70 229 / 18%); }
+.card button:disabled { background: #ddd6fe; color: #5b5682; box-shadow: none; }
+
+@media (max-width: 560px) {
+  .card { grid-template-columns: auto minmax(0, 1fr); gap: .7rem; padding: .75rem; }
+  .wheelWrap { width: 4.65rem; height: 4.65rem; }
+  .wheel { width: 4.3rem; height: 4.3rem; }
+  .wheelCentre { width: 2.04rem; height: 2.04rem; font-size: .75rem; }
+  .card button { grid-column: 1 / -1; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) { .wheel { transition-duration: .01ms; } }

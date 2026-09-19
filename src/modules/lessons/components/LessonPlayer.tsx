@@ -15,7 +15,7 @@ import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events"
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
-import { LessonRewardWheel } from "./LessonRewardWheel";
+import { LessonRewardWheel, type LessonXpMultiplierWheelResult } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
@@ -211,32 +211,35 @@ function getBlockProgressFraction(
 /** Animate a completion reward from zero without changing the announced
  * server-verified total. Motion-sensitive learners see the final amount
  * immediately. */
-function useAnimatedXpCounter(targetXp: number, active: boolean) {
+function useAnimatedXpCounter(fromXp: number, targetXp: number, active: boolean) {
   const [displayedXp, setDisplayedXp] = useState(0);
 
   useEffect(() => {
+    const safeStart = Math.max(0, Math.round(fromXp));
     const safeTarget = Math.max(0, Math.round(targetXp));
     if (!active) {
       setDisplayedXp(0);
       return;
     }
-    if (safeTarget === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (safeTarget === safeStart || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setDisplayedXp(safeTarget);
       return;
     }
 
-    const duration = Math.min(900, Math.max(380, 360 + safeTarget * 2));
+    setDisplayedXp(safeStart);
+    const duration = Math.min(900, Math.max(380, 360 + Math.abs(safeTarget - safeStart) * 2));
     const startedAt = window.performance.now();
     let animationFrame = 0;
     const tick = (now: number) => {
       const progress = Math.min(1, (now - startedAt) / duration);
       // Start fast and settle precisely on the verified total.
-      setDisplayedXp(Math.round(safeTarget * (1 - (1 - progress) ** 4)));
+      const eased = 1 - (1 - progress) ** 4;
+      setDisplayedXp(Math.round(safeStart + (safeTarget - safeStart) * eased));
       if (progress < 1) animationFrame = window.requestAnimationFrame(tick);
     };
     animationFrame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [active, targetXp]);
+  }, [active, fromXp, targetXp]);
 
   return displayedXp;
 }
@@ -253,7 +256,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Back to course",
     nextLesson: "Continue to next lesson",
     openNextLesson: "Open next lesson",
-    wheelRequired: "Spin the bonus wheel to unlock the next lesson.",
+    wheelRequired: "Spin the XP multiplier wheel to unlock the next lesson.",
   },
   ru: {
     complete: "Урок завершён",
@@ -266,7 +269,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Вернуться к курсу",
     nextLesson: "К следующему уроку",
     openNextLesson: "Открыть следующий урок",
-    wheelRequired: "Прокрутите бонусное колесо, чтобы открыть следующий урок.",
+    wheelRequired: "Прокрутите колесо множителя XP, чтобы открыть следующий урок.",
   },
   uk: {
     complete: "Урок завершено",
@@ -279,7 +282,7 @@ const lessonFeedbackCopy = {
     backToCourse: "Повернутися до курсу",
     nextLesson: "До наступного уроку",
     openNextLesson: "Відкрити наступний урок",
-    wheelRequired: "Прокрутіть бонусне колесо, щоб відкрити продовження уроків.",
+    wheelRequired: "Прокрутіть колесо множника XP, щоб відкрити продовження уроків.",
   },
 } as const;
 
@@ -357,6 +360,8 @@ export function LessonPlayer({
   const [guestRegistrationRequired, setGuestRegistrationRequired] = useState(false);
   const [guestExerciseResume, setGuestExerciseResume] = useState<GuestExerciseResume | null>(null);
   const [wheelCollected, setWheelCollected] = useState(false);
+  const [xpMultiplierReward, setXpMultiplierReward] = useState<LessonXpMultiplierWheelResult | null>(null);
+  const [baseXpAnimationComplete, setBaseXpAnimationComplete] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
   // This is deliberately session-local. It represents the sequence of answers
   // the learner is making right now, not a historic course statistic.
@@ -967,7 +972,25 @@ export function LessonPlayer({
   // This is the actual total for the lesson, not the fixed completion rule
   // (which may currently happen to be 50 XP).
   const totalEarnedXp = Math.max(0, Math.round(storedProgress?.experienceEarned ?? 0));
-  const animatedCompletionXp = useAnimatedXpCounter(totalEarnedXp, finished && !hasUnfinishedRequiredBlocks);
+  const completionAnimationActive = finished && !hasUnfinishedRequiredBlocks;
+  // An existing spin can hydrate before the first count-up has completed
+  // (for example after a refresh). Always finish 0 → base XP first, then run
+  // the second base → multiplied-total animation.
+  const multiplierAnimationActive = Boolean(xpMultiplierReward) && baseXpAnimationComplete;
+  const completionXpTarget = multiplierAnimationActive ? xpMultiplierReward!.totalExperience : totalEarnedXp;
+  const completionXpStart = multiplierAnimationActive ? totalEarnedXp : 0;
+  const animatedCompletionXp = useAnimatedXpCounter(completionXpStart, completionXpTarget, completionAnimationActive);
+  const multiplierWheelRequired = !previewMode && canSaveProgress && totalEarnedXp > 0;
+  const multiplierXpAnimationComplete = !xpMultiplierReward || (multiplierAnimationActive && animatedCompletionXp === xpMultiplierReward.totalExperience);
+  const multiplierWheelResolved = !multiplierWheelRequired || (wheelCollected && multiplierXpAnimationComplete);
+
+  useEffect(() => {
+    if (!completionAnimationActive) {
+      setBaseXpAnimationComplete(false);
+      return;
+    }
+    if (animatedCompletionXp === totalEarnedXp) setBaseXpAnimationComplete(true);
+  }, [animatedCompletionXp, completionAnimationActive, totalEarnedXp]);
 
   return (
     <main className={styles.player}>
@@ -1092,15 +1115,15 @@ export function LessonPlayer({
             <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? feedbackCopy.saved : feedbackCopy.complete}</p>
             {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
             <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
-            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${totalEarnedXp} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
+            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={totalEarnedXp} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{totalEarnedXp} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
-            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks ? <LessonRewardWheel lessonId={lessonId} onCollected={() => setWheelCollected(true)} /> : null}
-            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
+            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={completionXpTarget} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{completionXpTarget} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => setWheelCollected(true)} onMultiplierApplied={setXpMultiplierReward} /> : null}
+            {!previewMode && multiplierWheelRequired && baseXpAnimationComplete && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
-            {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || wheelCollected) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
-            {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || wheelCollected) ? <div className={styles.completionActions}>
+            {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
+            {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
                 <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
                 {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => void openNextLesson()}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
                 {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
