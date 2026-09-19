@@ -37,6 +37,8 @@ type StoredProgress = {
   solutionsOpened: number;
   activeSeconds: number;
   totalSeconds: number;
+  /** Immutable XP credited for this lesson's first-correct answers and completion. */
+  experienceEarned?: number;
   motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean } | null;
   attemptAccuracy?: {
     correctAnswers: number;
@@ -204,6 +206,39 @@ function getBlockProgressFraction(
     return block.exercises.filter((exercise) => correctExerciseIds.has(exercise.id)).length / block.exercises.length;
   }
   return completedBlockIds.includes(block.id) ? 1 : 0;
+}
+
+/** Animate a completion reward from zero without changing the announced
+ * server-verified total. Motion-sensitive learners see the final amount
+ * immediately. */
+function useAnimatedXpCounter(targetXp: number, active: boolean) {
+  const [displayedXp, setDisplayedXp] = useState(0);
+
+  useEffect(() => {
+    const safeTarget = Math.max(0, Math.round(targetXp));
+    if (!active) {
+      setDisplayedXp(0);
+      return;
+    }
+    if (safeTarget === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplayedXp(safeTarget);
+      return;
+    }
+
+    const duration = Math.min(900, Math.max(380, 360 + safeTarget * 2));
+    const startedAt = window.performance.now();
+    let animationFrame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      // Start fast and settle precisely on the verified total.
+      setDisplayedXp(Math.round(safeTarget * (1 - (1 - progress) ** 4)));
+      if (progress < 1) animationFrame = window.requestAnimationFrame(tick);
+    };
+    animationFrame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [active, targetXp]);
+
+  return displayedXp;
 }
 
 const lessonFeedbackCopy = {
@@ -928,7 +963,10 @@ export function LessonPlayer({
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
   const feedbackCopy = lessonFeedbackCopy[locale] ?? lessonFeedbackCopy.en;
-  const completionXp = lessonReward?.awarded ? lessonReward.experience : 0;
+  // This is the actual total for the lesson, not the fixed completion rule
+  // (which may currently happen to be 50 XP).
+  const totalEarnedXp = Math.max(0, Math.round(storedProgress?.experienceEarned ?? 0));
+  const animatedCompletionXp = useAnimatedXpCounter(totalEarnedXp, finished && !hasUnfinishedRequiredBlocks);
 
   return (
     <main className={styles.player}>
@@ -1053,9 +1091,9 @@ export function LessonPlayer({
             <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? feedbackCopy.saved : feedbackCopy.complete}</p>
             {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
             <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
-            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward}>+{completionXp} XP <span>{feedbackCopy.reward}</span></p> : null}
+            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${totalEarnedXp} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={lessonReward.experience} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{lessonReward.experience} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={totalEarnedXp} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{totalEarnedXp} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks ? <LessonRewardWheel lessonId={lessonId} onCollected={() => setWheelCollected(true)} /> : null}
             {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}

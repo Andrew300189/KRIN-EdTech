@@ -2262,7 +2262,23 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       const lesson = await tx.lesson.findUnique({ where: { id: lessonId }, select: { module: { select: { courseId: true } } } });
       if (lesson) motivationReward = await recordLessonCompletion(tx, userId, lessonId, lesson.module.courseId, true);
     }
-    return { ...progress, minimumCompletionScore: lessonSettings.minimumCompletionScore, scoreRequirementMet: meetsScoreRequirement, motivationReward, firstCompletion: completedNow && !wasCompleted };
+    // The completion screen must reflect immutable credits actually earned in
+    // this lesson, rather than the configured completion-reward default.
+    // Read inside this transaction so the just-created completion credit is
+    // included immediately on the learner's first completion render.
+    const correctExerciseIds = [...new Set(attempts.filter((attempt) => attempt.isCorrect).map((attempt) => attempt.exerciseId))];
+    const earnedExperienceTransactions = await tx.experienceTransaction.findMany({
+      where: {
+        userId,
+        OR: [
+          { type: "LESSON_COMPLETED", sourceId: lessonId },
+          ...(correctExerciseIds.length ? [{ type: "EXERCISE_CORRECT" as const, sourceId: { in: correctExerciseIds } }] : []),
+        ],
+      },
+      select: { amount: true },
+    });
+    const experienceEarned = earnedExperienceTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+    return { ...progress, minimumCompletionScore: lessonSettings.minimumCompletionScore, scoreRequirementMet: meetsScoreRequirement, motivationReward, firstCompletion: completedNow && !wasCompleted, experienceEarned };
   });
   if (saved.firstCompletion) {
     try {

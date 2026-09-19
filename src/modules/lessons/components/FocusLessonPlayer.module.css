@@ -512,6 +512,16 @@
   text-transform: uppercase;
 }
 
+.triumphRewardValue {
+  display: inline-block;
+  color: #047857;
+  font-size: inherit !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: inherit !important;
+  line-height: inherit;
+  text-transform: none !important;
+}
+
 .triumphPrimaryAction {
   min-width: min(100%, 18rem);
   min-height: 3.25rem;
