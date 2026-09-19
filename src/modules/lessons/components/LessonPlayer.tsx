@@ -11,6 +11,8 @@ import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStat
 import { LessonAnswerStreakStatus } from "@/modules/motivation/components/LessonAnswerStreakStatus";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
+import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
+import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
@@ -1012,8 +1014,11 @@ export function LessonPlayer({
     <main className={styles.player}>
       <CourseLocaleSync courseSlug={courseSlug} routeLocale={routeLocale} />
       <RewardNotification events={rewardEvents} />
+      {!previewMode && canSaveProgress ? <LeaderboardRiseNotifier /> : null}
       <LessonSuccessEffects effect={successEffect} />
       <StreakChestReward milestone={streakChestMilestone} onDismiss={() => setStreakChestMilestone(null)} />
+      {!progressHydrated && canSaveProgress && !previewMode ? <LilyMascot context="LOADING" placement="inline" /> : null}
+      {leavingLesson ? <LilyMascot context="LEAVING" /> : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
           <div className={styles.headerNavigation}>
@@ -1135,6 +1140,7 @@ export function LessonPlayer({
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={completionXpTarget} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{completionXpTarget} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => setWheelCollected(true)} onMultiplierApplied={setXpMultiplierReward} /> : null}
+            {!previewMode && !hasUnfinishedRequiredBlocks ? <LilyMascot context="COMPLETION" placement="inline" /> : null}
             {!previewMode && multiplierWheelRequired && baseXpAnimationComplete && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}

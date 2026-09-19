@@ -11,6 +11,7 @@ import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailySt
 import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
 import { LeaderboardHeaderStatus, type LeaderboardHeaderSummary } from "@/modules/motivation/components/LeaderboardHeaderStatus";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
+import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { shopAvatarDetails } from "@/modules/motivation/utils/shop-avatar";
 import { useLocale } from "@/core/i18n/locale";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
@@ -265,6 +266,7 @@ export function WorkspaceShell({
   return (
     <div className={styles.workspace}>
       <PresenceHeartbeat />
+      {leaderboardSummary ? <LeaderboardRiseNotifier initialRank={leaderboardSummary.rank} /> : null}
       <div className={styles.desktopSidebar}>{sidebar()}</div>
 
       {menuOpen ? (

@@ -12,6 +12,7 @@ import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
+import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -76,6 +77,7 @@ export default async function StudentHomePage({
     <section className={styles.page}>
       <FirstVisitQueryCleaner active={arrivedFromOnboarding} />
       <PlacementResultSync />
+      <LilyMascot context="DASHBOARD" />
       <header className={styles.hero}>
         <div>
           <h2><LocalizedText id={isFirstVisit ? "student.home.welcome" : "student.home.welcomeBack"} fallback={`${isFirstVisit ? "Welcome" : "Welcome back"}, {name}`} values={{ name }} /></h2>

@@ -1,0 +1,17 @@
+.body { padding-top: .2rem; }
+.card { display: grid; gap: .8rem; text-align: center; }
+.rankJump { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .7rem; }
+.rank { display: grid; gap: .12rem; min-height: 5.4rem; align-content: center; border: 1px solid #d9d7ee; border-radius: 1rem; background: linear-gradient(145deg, #fafaff, #f0eff9); color: #60667e; }
+.rank span { font-size: .71rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
+.rank strong { color: #45516d; font-size: 1.75rem; font-variant-numeric: tabular-nums; line-height: 1; }
+.newRank { border-color: #86ddb0; background: linear-gradient(145deg, #f1fff6, #dff8e9); box-shadow: 0 .7rem 1.4rem rgb(16 129 76 / 14%); animation: rank-arrival .42s cubic-bezier(.18,.82,.28,1.35) both; }
+.newRank strong { color: #11814d; }
+.arrow { display: grid; width: 2.15rem; height: 2.15rem; place-items: center; border-radius: 50%; background: #e2f8eb; color: #16824f; font-size: 1.4rem; font-weight: 950; animation: rank-arrow .9s ease-in-out infinite alternate; }
+.gained { justify-self: center; margin: 0; border-radius: 999px; background: #e1f9eb; padding: .4rem .78rem; color: #137544; font-size: .9rem; font-weight: 950; }
+.context { margin: -.15rem 0 0; color: var(--text-secondary); font-size: .82rem; font-weight: 700; }
+.confirm { min-height: 2.8rem; border: 0; border-radius: .85rem; background: linear-gradient(135deg, #6354e7, #4a3bd1); color: #fff; cursor: pointer; font: inherit; font-weight: 900; box-shadow: 0 .6rem 1.15rem rgb(73 56 202 / 26%); }
+.confirm:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.confirm:focus-visible { outline: 3px solid rgb(92 73 238 / 38%); outline-offset: 3px; }
+@keyframes rank-arrival { from { opacity: .1; transform: translateY(.65rem) scale(.82); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes rank-arrow { from { transform: translateY(.1rem); } to { transform: translateY(-.14rem); } }
+@media (prefers-reduced-motion: reduce) { .newRank, .arrow { animation: none; } .confirm:hover { transform: none; } }

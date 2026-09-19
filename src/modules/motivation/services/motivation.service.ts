@@ -1393,6 +1393,17 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   return { entries, current, participantCount: ranked.length };
 }
 
+/** A compact, authenticated snapshot for post-reward rank movement UI. */
+export async function getCurrentLeaderboardPosition(userId: string) {
+  const leaderboard = await getDashboardLeaderboard(userId, 1);
+  const rank = leaderboard.current?.rank ?? null;
+  return {
+    rank,
+    participantCount: leaderboard.participantCount,
+    positionsToTopThree: rank ? Math.max(0, rank - 3) : null,
+  };
+}
+
 export async function listRewardRules() { return prisma.rewardRule.findMany({ orderBy: { eventType: "asc" } }); }
 export async function updateRewardRule(actorId: string, eventType: RewardEvent, input: unknown) {
   const value = rewardRuleSchema.parse(input);

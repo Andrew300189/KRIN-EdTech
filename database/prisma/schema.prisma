@@ -114,6 +114,7 @@ model User {
   learningActivities            LearningActivity[]
   learningSessions              LearningSession[]
   lessonSessionPerfectStreaks   LessonSessionPerfectStreak[]
+  philologyFactViews            PhilologyFactView[]
   dailyActivities               UserDailyActivity[]
   experienceTransactions        ExperienceTransaction[]
   learningBonusBalance          UserLearningBonusBalance?
@@ -1472,6 +1473,39 @@ model LessonSessionPerfectStreak {
 
   @@index([userId, finalizedAt])
   @@index([userId, lessonId, finalizedAt])
+}
+
+/// Editorial fact cards spoken by the Lily mascot. Facts are server content;
+/// the client receives a selected card, never writes it.
+model PhilologyFact {
+  id               String              @id @default(cuid())
+  text             String
+  category         String
+  characterEmotion String
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  views            PhilologyFactView[]
+
+  @@index([isActive, category])
+  @@map("philology_facts")
+}
+
+/// Durable per-user delivery log: dashboard greetings are once per local day
+/// and click cooldowns apply across every browser, not just localStorage.
+model PhilologyFactView {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  factId      String
+  fact        PhilologyFact @relation(fields: [factId], references: [id], onDelete: Cascade)
+  context     String
+  localDate   String
+  createdAt   DateTime      @default(now())
+
+  @@index([userId, context, createdAt])
+  @@index([userId, localDate, context])
+  @@map("philology_fact_views")
 }
 
 model UserDailyActivity {

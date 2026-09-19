@@ -35,8 +35,8 @@ describe("StreakChestReward", () => {
     fireEvent.keyDown(window, { key: "Escape" });
 
     expect(onDismiss).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("button", { name: "Open chest" })).toHaveLength(2);
-    screen.getAllByRole("button", { name: "Open chest" }).forEach((button) => {
+    expect(screen.getAllByRole("button", { name: "Let it bloom" })).toHaveLength(2);
+    screen.getAllByRole("button", { name: "Let it bloom" }).forEach((button) => {
       expect(button).toBeEnabled();
     });
   });
@@ -68,7 +68,7 @@ describe("StreakChestReward", () => {
         createElement(StreakChestReward, { milestone: 7, onDismiss: jest.fn() }),
       ));
 
-      fireEvent.click(screen.getAllByRole("button", { name: "Open chest" })[0]);
+      fireEvent.click(screen.getAllByRole("button", { name: "Let it bloom" })[0]);
 
       await waitFor(() => expect(refreshes).toBe(1));
       expect(fetchMock).toHaveBeenCalledWith("/api/profile/rewards/streak-chest", expect.objectContaining({ method: "POST" }));
