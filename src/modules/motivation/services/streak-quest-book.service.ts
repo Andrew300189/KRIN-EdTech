@@ -99,9 +99,15 @@ async function lockQuestBook(tx: Tx, userId: string, bookId: string) {
   await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`streak-quest-book:${userId}:${bookId}`}))`);
 }
 
-/** There can be only one unopened or active book at a time. The drop chance
- * is rolled in the same transaction as the chest reward, never in the UI. */
-export async function maybeDropStreakQuestBook(tx: Tx, userId: string, sourceMilestone: number) {
+/** Normal drops keep one unopened or active book at a time. A legendary
+ * flower may explicitly bypass that queue so its promised rare book is never
+ * lost. Every decision is rolled in the chest transaction, never in the UI. */
+export async function maybeDropStreakQuestBook(
+  tx: Tx,
+  userId: string,
+  sourceMilestone: number,
+  options: { dropDenominator?: number; guaranteed?: boolean } = {},
+) {
   const existing = await tx.streakQuestBook.findUnique({
     where: { userId_sourceMilestone: { userId, sourceMilestone } },
   });
@@ -110,7 +116,12 @@ export async function maybeDropStreakQuestBook(tx: Tx, userId: string, sourceMil
   const pendingCount = await tx.streakQuestBook.count({
     where: { userId, status: { in: ["LOCKED", "ACTIVE"] } },
   });
-  if (pendingCount || randomInt(STREAK_QUEST_BOOK.dropDenominator) !== 0) return null;
+  // A legendary White Lily always keeps its promised rare book. Normal flower
+  // drops retain the single-pending-book guard, so daily chest luck cannot
+  // flood a learner with unfinished quests.
+  if (!options.guaranteed && pendingCount) return null;
+  const dropDenominator = Math.max(1, Math.trunc(options.dropDenominator ?? STREAK_QUEST_BOOK.dropDenominator));
+  if (!options.guaranteed && randomInt(dropDenominator) !== 0) return null;
 
   const reward = questBookRewardForMilestone(sourceMilestone);
   const book = await tx.streakQuestBook.create({

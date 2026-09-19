@@ -4,6 +4,7 @@ import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
 import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-quest-book.service";
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
+import { flowerChestById, flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, STREAK_RESTORE_FLOWER_ID, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
@@ -127,15 +128,6 @@ export function selectStreakChestExperience(input: { ceiling: number; previous: 
   if (band === "UPPER") return randomAmount(201, Math.min(299, ceiling), input.previous);
   if (band === "MID") return randomAmount(101, Math.min(200, ceiling), input.previous);
   return randomAmount(STREAK_CHEST_XP_MINIMUM, Math.min(100, ceiling), input.previous);
-}
-
-function streakChestReward(experience: number, chestLevel: number): EconomyBonusReward {
-  const kind = randomInt(3);
-  return kind === 1
-    ? { id: `level-${chestLevel}-hint-xp-${experience}`, experience, hintCredits: 1, translationCredits: 0 }
-    : kind === 2
-      ? { id: `level-${chestLevel}-translation-xp-${experience}`, experience, hintCredits: 0, translationCredits: 1 }
-      : { id: `level-${chestLevel}-xp-${experience}`, experience, hintCredits: 0, translationCredits: 0 };
 }
 
 export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
@@ -270,8 +262,17 @@ function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardConte
   return { ...reward, experience: Math.max(1, Math.round(reward.experience * (1 + difficultyBonus + chestBonus + streakBonus))) };
 }
 
-async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: string, milestone: number, context: ChestRewardContext) {
-  const [recentRewards, previousJackpot] = await Promise.all([
+type FlowerChestRewardChoice = EconomyBonusReward & {
+  flower: FlowerChestDefinition;
+};
+
+function flowerIdFromDescription(description: string | null | undefined) {
+  return description?.match(/\bflower:([a-z-]+)\b/)?.[1] ?? null;
+}
+
+async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: string, milestone: number, context: ChestRewardContext): Promise<FlowerChestRewardChoice> {
+  const restoreCycle = flowerRestoreCycle(milestone);
+  const [recentRewards, previousJackpot, previousFlower, restoreFlowerInCycle] = await Promise.all([
     tx.experienceTransaction.findMany({
       where: { userId, sourceType: "STREAK_CHEST", localDate: context.localDate },
       orderBy: { createdAt: "desc" },
@@ -283,8 +284,24 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
       orderBy: { createdAt: "desc" },
       select: { amount: true },
     }),
+    tx.experienceTransaction.findFirst({
+      where: { userId, sourceType: "STREAK_CHEST", description: { contains: "flower:" } },
+      orderBy: { createdAt: "desc" },
+      select: { description: true },
+    }),
+    tx.experienceTransaction.findFirst({
+      where: { userId, sourceType: "STREAK_CHEST", description: { contains: `restore-cycle:${restoreCycle}` } },
+      select: { id: true },
+    }),
   ]);
-  const experience = selectStreakChestExperience({
+  // The first earned chest in every 50-correct-answer band becomes Fern if
+  // that band's recovery flower has not been claimed yet. Every other chest
+  // uses the weighted flower pool while excluding the immediately previous
+  // flower, so no flower can appear twice in a row.
+  const flower = !restoreFlowerInCycle
+    ? flowerChestById(STREAK_RESTORE_FLOWER_ID)!
+    : selectRandomFlowerChest(flowerIdFromDescription(previousFlower?.description), randomInt);
+  const standardExperience = selectStreakChestExperience({
     ceiling: streakChestExperienceCeiling({
       milestone,
       chestLevel: context.chestLevel,
@@ -296,7 +313,20 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
     dailyCounts: streakChestDailyCounts(recentRewards.map((reward) => reward.amount)),
     isCenturyMilestone: isCenturyStreakChest(milestone),
   });
-  return streakChestReward(experience, context.chestLevel);
+  const experience = isWhiteLily(flower)
+    ? 1_000
+    // Keep the previously promised 300/400/500 reward at exact century
+    // milestones. A forced Fern remains the one stated recovery exception.
+    : isCenturyStreakChest(milestone) && !flower.grantsStreakRestore
+      ? standardExperience
+      : Math.max(flower.minimumExperience, Math.min(flower.maximumExperience, standardExperience));
+  return {
+    id: `flower-${flower.id}-xp-${experience}`,
+    flower,
+    experience,
+    hintCredits: flower.hintCredits,
+    translationCredits: flower.translationCredits,
+  };
 }
 
 /**
@@ -308,6 +338,13 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
  */
 async function lockStreakChestDay(tx: Prisma.TransactionClient, userId: string, localDate: string) {
   await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`streak-chest:${userId}:${localDate}`}))`);
+}
+
+/** Serialize a learner's flower pool across all milestones. This makes both
+ * guarantees strict under racing tabs: no repeated flower and one Fern per
+ * 50-answer cycle, even when two eligible chests are opened together. */
+async function lockFlowerChestPool(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`flower-chest:${userId}`}))`);
 }
 
 function streakChestResultFromExisting(existing: NonNullable<Awaited<ReturnType<typeof existingChestReward>>>) {
@@ -336,6 +373,8 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
     experience: existing.amount,
     coins: coin?.amount ?? 0,
     xpCoins: Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
+    flowerId: flowerIdFromDescription(existing.description),
+    streakRestore: Number(existing.description?.match(/streak-restore:(\d+)/)?.[1] ?? 0),
     hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
     translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
   };
@@ -435,6 +474,7 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     if (!chestLevel) throw new Error("This streak chest is unavailable.");
     const context = await chestRewardContext(tx, userId, chestLevel);
     await lockStreakChestDay(tx, userId, context.localDate);
+    await lockFlowerChestPool(tx, userId);
 
     // The first read happened before waiting for the per-day lock. Check once
     // more after acquiring it so a request that finished in another tab is
@@ -446,10 +486,14 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     };
 
     const choice = await randomStreakChestReward(tx, userId, milestone, context);
-    if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || choice.experience > STREAK_CHEST_XP_MAXIMUM) {
+    const allowsLegendaryExperience = isWhiteLily(choice.flower);
+    if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || (!allowsLegendaryExperience && choice.experience > STREAK_CHEST_XP_MAXIMUM) || (allowsLegendaryExperience && choice.experience !== 1_000)) {
       throw new Error("Invalid streak chest reward.");
     }
-    if (isCenturyStreakChest(milestone) !== STREAK_CHEST_JACKPOT_VALUES.includes(choice.experience as typeof STREAK_CHEST_JACKPOT_VALUES[number])) {
+    // An unclaimed recovery flower must still be honoured at the first chest
+    // in its 50-answer band, even when that chest happens to be a century
+    // checkpoint. A White Lily is the only other intentional exception.
+    if (isCenturyStreakChest(milestone) && !choice.flower.grantsStreakRestore && !allowsLegendaryExperience && !STREAK_CHEST_JACKPOT_VALUES.includes(choice.experience as typeof STREAK_CHEST_JACKPOT_VALUES[number])) {
       throw new Error("Invalid streak chest reward tier.");
     }
     const reward = await grantEconomyReward(tx, {
@@ -457,12 +501,13 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       experience: choice.experience,
       // A real, non-ranked KRIN Coin is awarded at each century checkpoint.
       krinCoins: streakChestKrinCoinReward(milestone),
+      xpCoinMinor: choice.flower.xpCoinMinor,
       hintCredits: choice.hintCredits,
       translationCredits: choice.translationCredits,
       sourceType: "STREAK_CHEST",
       sourceId: String(milestone),
       idempotencyKey,
-      description: `Streak chest L${chestLevel}:${choice.id}`,
+      description: `Streak flower chest:${choice.id} | flower:${choice.flower.id}${choice.flower.grantsStreakRestore ? ` | restore-cycle:${flowerRestoreCycle(milestone)} | streak-restore:1` : ""}`,
     });
     if (!reward.awarded) {
       // This is defensive against a legacy/retry race: never show a newly
@@ -474,11 +519,26 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       };
       throw new Error("The streak chest reward could not be verified.");
     }
-    const questBook = await maybeDropStreakQuestBook(tx, userId, milestone);
+    if (choice.flower.grantsStreakRestore) {
+      // The recovery flower is a free, server-recorded one-day streak restore.
+      // It is consumed only by the existing qualified-streak service after an
+      // exactly one-day gap; opening the flower cannot alter a streak directly.
+      await tx.userStreak.upsert({
+        where: { userId },
+        create: { userId, freezeCount: 1 },
+        update: { freezeCount: { increment: 1 } },
+      });
+    }
+    const questBook = await maybeDropStreakQuestBook(tx, userId, milestone, {
+      dropDenominator: choice.flower.questBookDenominator ?? undefined,
+      guaranteed: isWhiteLily(choice.flower),
+    });
     return {
       opened: reward.awarded,
       alreadyOpened: false,
       rewardId: choice.id,
+      flowerId: choice.flower.id,
+      streakRestore: choice.flower.grantsStreakRestore ? 1 : 0,
       experience: reward.experience,
       coins: reward.coins,
       xpCoins: reward.xpCoins,
