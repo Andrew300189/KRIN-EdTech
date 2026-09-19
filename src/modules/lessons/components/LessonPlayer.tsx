@@ -745,7 +745,8 @@ export function LessonPlayer({
       if (complete) setLessonReward(payload.data.motivationReward ?? null);
       if (payload.data.motivationReward?.awarded) {
         const reward = payload.data.motivationReward;
-        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
+        const totalEarnedXp = Math.max(0, Math.round(payload.data.experienceEarned ?? reward.experience));
+        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${totalEarnedXp} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
         notifyMotivationUpdated();
       }
       if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
