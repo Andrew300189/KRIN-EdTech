@@ -83,6 +83,13 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
   const [loading, setLoading] = useState(true);
   const [turn, setTurn] = useState(0);
   const [reward, setReward] = useState<LessonXpMultiplierWheelResult | null>(null);
+  // State updates are asynchronous. Keep an imperative latch as well so a
+  // double tap, held Enter/Space key, or a stale event from a touch device can
+  // never submit a second spin before React has redrawn the disabled button.
+  const spinRequestedRef = useRef(false);
+  // A GET and a POST can resolve in either order. The first confirmed outcome
+  // is the only one allowed to update the parent completion screen.
+  const resultAppliedRef = useRef(false);
   const onCollectedRef = useRef(onCollected);
   const onMultiplierAppliedRef = useRef(onMultiplierApplied);
   const resolvedReward = reward ?? {
@@ -99,6 +106,13 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
   useEffect(() => { onCollectedRef.current = onCollected; }, [onCollected]);
   useEffect(() => { onMultiplierAppliedRef.current = onMultiplierApplied; }, [onMultiplierApplied]);
 
+  function applyResolvedReward(result: LessonXpMultiplierWheelResult) {
+    if (resultAppliedRef.current) return;
+    resultAppliedRef.current = true;
+    onMultiplierAppliedRef.current?.(result);
+    onCollectedRef.current?.();
+  }
+
   useEffect(() => {
     const controller = new AbortController();
     void fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/wheel`, { signal: controller.signal })
@@ -109,8 +123,7 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
         setReward(result);
         if (result.alreadySpun) {
           if (result.multiplierStep !== null) setTurn(landingTurn(result.multiplierStep, 0));
-          onMultiplierAppliedRef.current?.(result);
-          onCollectedRef.current?.();
+          applyResolvedReward(result);
         }
       })
       .catch(() => undefined)
@@ -119,7 +132,8 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
   }, [lessonId]);
 
   async function spin() {
-    if (spinning || loading || reward?.alreadySpun || reward?.spun) return;
+    if (spinRequestedRef.current || spinning || loading || reward?.alreadySpun || reward?.spun) return;
+    spinRequestedRef.current = true;
     setSpinning(true);
     try {
       const response = await fetch(`/api/learning/lessons/${encodeURIComponent(lessonId)}/wheel`, { method: "POST" });
@@ -128,7 +142,7 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
       if (!response.ok || !isMultiplierResult(result)) throw new Error(payload?.error ?? text.error);
       if (!result.available || result.multiplierStep === null) {
         setReward(result);
-        onCollected?.();
+        applyResolvedReward(result);
         return;
       }
 
@@ -136,13 +150,15 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!reducedMotion) await new Promise((resolve) => window.setTimeout(resolve, 1_450));
       setReward(result);
-      onMultiplierApplied?.(result);
-      onCollected?.();
+      applyResolvedReward(result);
       if (result.spun) {
         notifyMotivationUpdated();
         toast.success(text.result(result.multiplier ?? 1, result.totalExperience));
       }
     } catch (error) {
+      // A failed request did not produce a server reward, so explicitly allow
+      // the learner to retry. Successful requests keep the latch forever.
+      spinRequestedRef.current = false;
       toast.error(error instanceof Error ? error.message : text.error);
     } finally {
       setSpinning(false);

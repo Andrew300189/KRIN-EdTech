@@ -364,6 +364,7 @@ export function LessonPlayer({
   const [wheelCollected, setWheelCollected] = useState(false);
   const [xpMultiplierReward, setXpMultiplierReward] = useState<LessonXpMultiplierWheelResult | null>(null);
   const [baseXpAnimationComplete, setBaseXpAnimationComplete] = useState(false);
+  const [openingNextLesson, setOpeningNextLesson] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
   // This is deliberately session-local. It represents the sequence of answers
   // the learner is making right now, not a historic course statistic.
@@ -393,6 +394,10 @@ export function LessonPlayer({
   const reviewAdvanceStartedRef = useRef(false);
   const advanceStepRef = useRef<() => void>(() => undefined);
   const successEffectSequenceRef = useRef(0);
+  // Completion controls may be mounted after the wheel resolves. This latch
+  // makes changing lesson routes an explicit, one-time learner action; a
+  // delayed pointer/keyboard event from the wheel can never trigger it.
+  const nextLessonNavigationRef = useRef(false);
   const pendingProgressRef = useRef<PendingLessonProgress>({
     completed: [],
     current: reviewBlockId ?? blocks[0]?.id ?? null,
@@ -877,18 +882,20 @@ export function LessonPlayer({
   }
 
   async function openNextLesson() {
-    if (!nextLesson) return;
+    if (!nextLesson || nextLessonNavigationRef.current) return;
+    nextLessonNavigationRef.current = true;
+    setOpeningNextLesson(true);
     // Navigation must wait for the one completion write. Relying on pagehide
     // created a race: the destination's server-side access gate could read
     // the old 75% record before the browser had sent the final snapshot.
-    if (canSaveProgress && !previewMode && storedProgress?.status !== "COMPLETED") {
-      const saved = await persistProgress(true);
-      if (!saved || saved.status !== "COMPLETED") return;
-    }
-    // The only moment that persists this session's First-Time Right result is
-    // an explicit Next action. Save & exit intentionally never calls it.
-    if (canSaveProgress && !previewMode && !isReviewSession && learningSessionId.current) {
-      try {
+    try {
+      if (canSaveProgress && !previewMode && storedProgress?.status !== "COMPLETED") {
+        const saved = await persistProgress(true);
+        if (!saved || saved.status !== "COMPLETED") return;
+      }
+      // The only moment that persists this session's First-Time Right result is
+      // an explicit Next action. Save & exit intentionally never calls it.
+      if (canSaveProgress && !previewMode && !isReviewSession && learningSessionId.current) {
         const response = await fetch(`/api/learning/lessons/${lessonId}/session-streak`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -896,12 +903,16 @@ export function LessonPlayer({
         });
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         if (!response.ok) throw new Error(payload?.error ?? "Unable to save the lesson streak.");
-      } catch (error) {
-        setSaveError(error instanceof Error ? error.message : "Unable to save the lesson streak.");
-        return;
       }
+      router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to save the lesson streak.");
+    } finally {
+      // A successful route push unmounts the player. If saving failed, release
+      // the latch so the visible button is a safe, deliberate retry.
+      nextLessonNavigationRef.current = false;
+      setOpeningNextLesson(false);
     }
-    router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
   }
 
   async function openCourseContent() {
@@ -1147,7 +1158,7 @@ export function LessonPlayer({
             {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
                 <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
-                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} onClick={() => void openNextLesson()}>{autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
+                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
                 {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
               </div> : null}
           </section>
