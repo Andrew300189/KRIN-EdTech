@@ -567,6 +567,11 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const textAnswerPlaceholder = correctedWordOnly
     ? locale === "uk" ? "Впишіть лише правильне слово" : locale === "ru" ? "Введите только правильное слово" : "Type only the corrected word"
     : locale === "uk" ? "Впишіть свою відповідь" : locale === "ru" ? "Введите свой ответ" : "Type your answer";
+  const sentenceBuilderCopy = locale === "uk"
+    ? { bank: "Слова для речення", answer: "Ваше речення", empty: "Натисніть на слова вище, щоб скласти речення.", reset: "Очистити" }
+    : locale === "ru"
+      ? { bank: "Слова для предложения", answer: "Ваше предложение", empty: "Нажмите на слова выше, чтобы собрать предложение.", reset: "Очистить" }
+      : { bank: "Words to use", answer: "Your sentence", empty: "Choose the words above to build the sentence.", reset: "Clear" };
   const solutionCopy = locale === "uk"
     ? { show: "Показати розв’язання", saved: "Показати збережене розв’язання?", confirm: "Показати розв’язання за {cost} XP?", opening: "Відкриваємо…", cancel: "Скасувати", later: "Відкласти", example: "Приклад:", reviewRule: "Повторити правило", allErrors: "Показати всі помилки" }
     : locale === "ru"
@@ -616,7 +621,36 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
           changeAnswer(next);
         }} onKeyDown={(event) => submitAssignedSelectOnEnter(event, leftItem, true)} aria-keyshortcuts="Enter"><option value="">Choose a match</option>{matchingOptions.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>;
       })}
-      {ordered ? <><div className="lesson-exercise-token-bank flex flex-wrap gap-2" aria-label="Available tokens">{orderedOptions.map((option, index) => { const selected = (answer as string[]).includes(option); return <button key={`${option}-${index}`} type="button" disabled={inputsLocked || selected} onClick={() => changeAnswer([...answer as string[], option])} onKeyDown={(event) => submitOrderedTokenOnEnter(event, option)} aria-keyshortcuts="Enter" className="lesson-exercise-token rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{displaySentenceBuilderToken(option)}</button>; })}</div><ul className={`${styles.tokenAnswer} lesson-exercise-token-answer flex min-h-12 flex-wrap gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-700`} aria-label="Selected order">{(answer as string[]).map((token, index) => <li key={`${token}-${index}`} className={styles.tokenAnswerItem}><button type="button" disabled={inputsLocked} onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))} className="lesson-exercise-token-selected rounded bg-blue-50 px-2 py-1 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Remove ${token}`}>{displaySentenceBuilderToken(token)}</button></li>)}</ul><button type="button" disabled={inputsLocked} onClick={() => changeAnswer([])} className="lesson-exercise-reset text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">Reset order</button></> : null}
+      {ordered ? <section className={styles.sentenceBuilder} aria-label={sentenceBuilderCopy.answer}>
+        <div className={`${styles.tokenBank} lesson-exercise-token-bank`} aria-label="Available tokens">
+          <p className={styles.tokenSectionLabel}>{sentenceBuilderCopy.bank}</p>
+          <div className={styles.tokenGrid}>{orderedOptions.map((option, index) => {
+            const selected = (answer as string[]).includes(option);
+            return <button
+              key={`${option}-${index}`}
+              type="button"
+              disabled={inputsLocked || selected}
+              onClick={() => changeAnswer([...answer as string[], option])}
+              onKeyDown={(event) => submitOrderedTokenOnEnter(event, option)}
+              aria-keyshortcuts="Enter"
+              className={`${styles.token} lesson-exercise-token`}
+            >{displaySentenceBuilderToken(option)}</button>;
+          })}</div>
+        </div>
+        <div className={`${styles.tokenAnswer} lesson-exercise-token-answer`} aria-label="Selected order">
+          <p className={styles.tokenSectionLabel}>{sentenceBuilderCopy.answer}</p>
+          {(answer as string[]).length ? <ul className={styles.tokenAnswerList}>{(answer as string[]).map((token, index) => <li key={`${token}-${index}`} className={styles.tokenAnswerItem}>
+            <button
+              type="button"
+              disabled={inputsLocked}
+              onClick={() => changeAnswer((answer as string[]).filter((_, tokenIndex) => tokenIndex !== index))}
+              className={`${styles.tokenSelected} lesson-exercise-token-selected`}
+              aria-label={`Remove ${token}`}
+            >{displaySentenceBuilderToken(token)}</button>
+          </li>)}</ul> : <p className={styles.tokenAnswerEmpty}>{sentenceBuilderCopy.empty}</p>}
+        </div>
+        <button type="button" disabled={inputsLocked || !(answer as string[]).length} onClick={() => changeAnswer([])} className={`${styles.tokenReset} lesson-exercise-reset`}>{sentenceBuilderCopy.reset}</button>
+      </section> : null}
       {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })} onKeyDown={(event) => submitAssignedSelectOnEnter(event, item, false)} aria-keyshortcuts="Enter"><option value="">Choose a category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
       {!choice && !matching && !ordered && !classification ? <label className={`${styles.textAnswer} lesson-exercise-text-answer block`}>{correctedWordOnly ? <span className={`${styles.answerLabel} lesson-exercise-answer-label`}>{textAnswerLabel}</span> : null}{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitLongTextAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" rows={5} className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={renderer === "recording" ? "Write a transcript or response for review" : textAnswerPlaceholder} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={textAnswerPlaceholder} />}</label> : null}
     </div>

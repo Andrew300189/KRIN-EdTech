@@ -90,26 +90,94 @@
 .choice:hover { border-color: #a5b4fc !important; background: #f7f7ff !important; transform: translateX(2px); }
 .choice input { accent-color: #4f46e5; }
 
-/* Sentence-builder answers are interactive word chips, never a semantic
-   bullet list. The explicit reset prevents browser markers and legacy
-   page-level li::before decorations from leaking into the exercise. */
+/* Sentence builder: a deliberate two-zone interaction, not a line of
+   browser-default buttons or list items. These explicit resets also prevent
+   legacy li markers and pseudo-elements from leaking into word chips. */
+.sentenceBuilder { display: grid; gap: .72rem; margin-top: .1rem; }
+.tokenBank,
 .tokenAnswer {
-  list-style: none;
+  display: grid;
+  gap: .55rem;
   margin: 0;
+  border-radius: 15px;
+  padding: .82rem;
 }
 
-.tokenAnswerItem {
+.sentenceBuilder .tokenBank {
+  border: 1px solid #d9ddff !important;
+  background: linear-gradient(135deg, #f5f5ff, #fbfbff) !important;
+  padding: .82rem !important;
+}
+
+.sentenceBuilder .tokenAnswer {
+  min-height: 6.1rem !important;
+  border: 1.5px dashed #abb6f5 !important;
+  background: #fff !important;
+  padding: .82rem !important;
+}
+
+.tokenSectionLabel {
+  margin: 0;
+  color: #59627c;
+  font-size: .69rem;
+  font-weight: 900;
+  letter-spacing: .075em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.tokenGrid,
+.tokenAnswerList {
   display: flex;
-  list-style: none;
+  flex-wrap: wrap;
+  gap: .48rem;
+  align-items: center;
   margin: 0;
   padding: 0;
+  list-style: none;
 }
 
-.tokenAnswerItem::before,
-.tokenAnswerItem::after {
-  content: none !important;
-  display: none !important;
+.sentenceBuilder .token,
+.sentenceBuilder .tokenSelected {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: .72rem !important;
+  cursor: pointer;
+  font: inherit;
+  font-size: .88rem !important;
+  font-weight: 800;
+  line-height: 1.1;
+  padding: .48rem .7rem !important;
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
+
+.sentenceBuilder .token {
+  border: 1.5px solid #bec6ff !important;
+  background: #fff !important;
+  color: #4038ae;
+  box-shadow: 0 .18rem .45rem rgb(70 62 180 / 8%);
+}
+
+.token:hover:not(:disabled) { border-color: #756ce8; background: #ecebff; box-shadow: 0 .3rem .7rem rgb(70 62 180 / 15%); transform: translateY(-1px); }
+.token:focus-visible,
+.tokenSelected:focus-visible,
+.tokenReset:focus-visible { outline: 3px solid rgb(99 102 241 / 35%); outline-offset: 3px; }
+.token:disabled { border-color: #e1e4f0; background: #f2f4f9; color: #9aa3b7; box-shadow: none; cursor: not-allowed; opacity: 1; text-decoration: line-through; text-decoration-color: #c8cede; }
+
+.tokenAnswerList { min-height: 2.45rem; align-content: flex-start; }
+.tokenAnswerItem { display: flex; margin: 0; padding: 0; list-style: none; }
+.tokenAnswerItem::before,
+.tokenAnswerItem::after { content: none !important; display: none !important; }
+
+.sentenceBuilder .tokenSelected { border: 1.5px solid #8e99f0 !important; background: linear-gradient(135deg, #e9eaff, #f6f5ff) !important; color: #312b8f; box-shadow: 0 .18rem .5rem rgb(75 63 186 / 13%); }
+.tokenSelected:hover:not(:disabled) { border-color: #5d53d4; background: #dfe1ff; transform: translateY(-1px); }
+.tokenSelected:disabled { cursor: not-allowed; opacity: .65; }
+.tokenAnswerEmpty { align-self: center; margin: .15rem 0 0; color: #8992a8; font-size: .86rem; font-weight: 650; line-height: 1.35; }
+.tokenReset { justify-self: start; border: 0; background: transparent; color: #554bd3; cursor: pointer; font: inherit; font-size: .79rem; font-weight: 850; padding: .18rem .1rem; }
+.tokenReset:hover:not(:disabled) { color: #3328aa; text-decoration: underline; }
+.tokenReset:disabled { color: #a7adbd; cursor: not-allowed; }
 
 .actionRow {
   display: flex;
