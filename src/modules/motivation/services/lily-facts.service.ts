@@ -12,7 +12,7 @@ export type LilyFact = {
   characterEmotion: "JOYFUL" | "THOUGHTFUL" | "SURPRISED";
 };
 
-const CLICK_COOLDOWN_MS = 5 * 60 * 1_000;
+const RECENT_FACT_EXCLUSION_LIMIT = 64;
 
 function asLilyFact(row: { id: string; text: string; category: string; characterEmotion: string }): LilyFact {
   return {
@@ -24,57 +24,47 @@ function asLilyFact(row: { id: string; text: string; category: string; character
 }
 
 /**
- * Server-selected mascot fact. Dashboard greetings are one per learner-local
- * day and manual clicks have a durable five-minute cooldown, so opening more
- * tabs or clearing browser storage cannot spam the fact feed.
+ * Server-selected mascot fact. Every request chooses a card which the learner
+ * has not seen recently, including the first request after a page refresh and
+ * a new click after closing the bubble. The delivery log remains server-owned
+ * so this behaviour cannot be bypassed or reset by browser storage.
  */
 export async function requestLilyFact(userId: string, context: LilyFactContext) {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId }, select: { timeZone: true } });
     if (!user) throw new Error("User not found");
     const localDate = userLocalDate(safeTimeZone(user.timeZone));
-    const now = new Date();
-
-    if (context === "DASHBOARD") {
-      const alreadyGreeted = await tx.philologyFactView.findFirst({
-        where: { userId, context, localDate },
-        select: { id: true },
-      });
-      if (alreadyGreeted) return { fact: null, retryAfterSeconds: 0 };
-    }
-    if (context === "CLICK") {
-      const latestClick = await tx.philologyFactView.findFirst({
-        where: { userId, context },
-        orderBy: { createdAt: "desc" },
-        select: { createdAt: true },
-      });
-      const remainingMs = latestClick ? CLICK_COOLDOWN_MS - (now.getTime() - latestClick.createdAt.getTime()) : 0;
-      if (remainingMs > 0) return { fact: null, retryAfterSeconds: Math.ceil(remainingMs / 1_000) };
-    }
-
-    const latestFact = await tx.philologyFactView.findFirst({
+    const recentViews = await tx.philologyFactView.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      take: RECENT_FACT_EXCLUSION_LIMIT,
       select: { factId: true },
     });
-    const candidates = await tx.philologyFact.findMany({
-      where: {
-        isActive: true,
-        ...(latestFact?.factId ? { id: { not: latestFact.factId } } : {}),
-      },
-      select: { id: true, text: true, category: true, characterEmotion: true },
-      orderBy: { createdAt: "asc" },
-    });
-    const pool = candidates.length
-      ? candidates
-      : await tx.philologyFact.findMany({
-        where: { isActive: true },
+    const recentFactIds = [...new Set(recentViews.map((view) => view.factId))];
+    const where = { isActive: true, ...(recentFactIds.length ? { id: { notIn: recentFactIds } } : {}) };
+    let total = await tx.philologyFact.count({ where });
+    let fact = total
+      ? await tx.philologyFact.findFirst({
+        where,
+        orderBy: { id: "asc" },
+        skip: randomInt(total),
         select: { id: true, text: true, category: true, characterEmotion: true },
-        orderBy: { createdAt: "asc" },
-      });
-    if (!pool.length) return { fact: null, retryAfterSeconds: 0 };
+      })
+      : null;
 
-    const fact = pool[randomInt(pool.length)]!;
+    // The fallback is relevant only after a learner has exhausted the entire
+    // catalogue. It still keeps the service usable on a freshly restored DB.
+    if (!fact) {
+      total = await tx.philologyFact.count({ where: { isActive: true } });
+      if (!total) return { fact: null, retryAfterSeconds: 0 };
+      fact = await tx.philologyFact.findFirst({
+        where: { isActive: true },
+        orderBy: { id: "asc" },
+        skip: randomInt(total),
+        select: { id: true, text: true, category: true, characterEmotion: true },
+      });
+    }
+    if (!fact) return { fact: null, retryAfterSeconds: 0 };
     await tx.philologyFactView.create({ data: { userId, factId: fact.id, context, localDate } });
     return { fact: asLilyFact(fact), retryAfterSeconds: 0 };
   });

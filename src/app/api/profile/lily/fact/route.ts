@@ -9,8 +9,11 @@ const querySchema = z.object({ context: z.enum(LILY_FACT_CONTEXTS).default("CLIC
 export async function GET(request: NextRequest) {
   const guard = await requireLearningUser(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
-  const limit = consumeRateLimit(`lily-fact:${guard.user.id}`, 18, 60_000);
-  if (!limit.allowed) return NextResponse.json({ error: "Please give Lily a moment before asking for another fact." }, { status: 429 });
+  // A fresh fact is available on every intentional click. Keep only a broad
+  // abuse guard; normal reading and closing/reopening the mascot must not hit
+  // a visible cooldown.
+  const limit = consumeRateLimit(`lily-fact:${guard.user.id}`, 120, 60_000);
+  if (!limit.allowed) return NextResponse.json({ error: "Too many fact requests. Please try again in a moment." }, { status: 429 });
 
   try {
     const { context } = querySchema.parse({ context: request.nextUrl.searchParams.get("context") ?? undefined });
