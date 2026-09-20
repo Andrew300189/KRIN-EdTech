@@ -1601,6 +1601,10 @@ model UserLevel {
   /// Fractional XP balance in hundredths (0-99), so a 1.5 XP review reward
   /// remains real value instead of being rounded away.
   fractionalExperience  Int      @default(0)
+  /// Permanent, server-owned rank score in XP hundredths. It starts from a
+  /// one-time legacy snapshot and grows only when new XP is earned; spending
+  /// or exchanging XP can never lower a learner's leaderboard position.
+  leaderboardExperienceMinor Int @default(0)
   experienceToNextLevel Int      @default(100)
   currentCorrectStreak  Int      @default(0)
   bestCorrectStreak     Int      @default(0)
@@ -1617,8 +1621,8 @@ model UserWallet {
   /// Legacy counter of KRIN Coins obtained by the former direct XP exchange.
   /// It is retained for audit history and is never used for ranking.
   exchangeBalanceMinor Int          @default(0)
-  /// Earned XP Coins, stored in hundredths. XP Coins retain their learning
-  /// value in the leaderboard and may later be converted into KRIN Coins.
+  /// Earned XP Coins, stored in hundredths. They may later be converted into
+  /// KRIN Coins. A separate permanent XP counter owns leaderboard scoring.
   xpCoinBalanceMinor Int            @default(0)
   lifetimeXpCoinsEarnedMinor Int    @default(0)
   lifetimeXpCoinsSpentMinor Int     @default(0)

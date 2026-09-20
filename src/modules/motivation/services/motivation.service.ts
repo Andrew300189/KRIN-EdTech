@@ -73,6 +73,11 @@ async function logSuspicious(tx: Tx, userId: string, type: "HEARTBEAT_FUTURE_TIM
 async function updateUserLevel(tx: Tx, userId: string, amount: number) {
   const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
   const next = calculateUserLevel(Math.max(0, current.lifetimeExperience + amount));
+  // `lifetimeExperience` is the spendable XP balance kept for the level and
+  // exchange economy. The permanent leaderboard counter is changed only by
+  // the database trigger on a positive ExperienceTransaction ledger entry.
+  // This prevents a browser request or later XP/coin exchange from changing
+  // rank independently of a verified server reward.
   const updated = await tx.userLevel.update({ where: { userId }, data: { ...next } });
   return { ...updated, levelUp: next.level > current.level };
 }
@@ -220,6 +225,8 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
   const levelData = calculateUserLevel(nextExperience);
   const updated = await tx.userLevel.update({
     where: { id: current.id },
+    // The exact 1.5 XP ledger entry below is what the database trigger uses
+    // to increase the permanent rank score.
     data: { ...levelData, fractionalExperience },
   });
   await tx.experienceTransaction.create({
@@ -1010,8 +1017,8 @@ export async function claimWeeklyEasterEgg(userId: string) {
 
 /**
  * Converts earned XP into XP Coins. This is deliberately separate from KRIN
- * Coins: XP Coins keep their XP-equivalent value in the leaderboard, whereas
- * KRIN Coins are a spendable currency and must never affect a learner's rank.
+ * Coins. The permanent leaderboard score is not touched: earned XP keeps its
+ * rank value after any later exchange, while KRIN Coins never add rank value.
  */
 export async function exchangeExperienceForXpCoins(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
@@ -1277,6 +1284,7 @@ type LeaderboardSource = {
     level: number;
     lifetimeExperience: number;
     fractionalExperience: number;
+    leaderboardExperienceMinor: number;
   } | null;
   wallet: {
     xpCoinBalanceMinor: number;
@@ -1288,7 +1296,7 @@ export type LearnerLeaderboardEntry = {
   userId: string;
   displayName: string;
   level: number;
-  /** XP and XP Coins are kept in hundredths for stable sorting and display. */
+  /** Balances and permanent rank score are kept in hundredths. */
   experienceMinor: number;
   xpCoinsMinor: number;
   totalMinor: number;
@@ -1300,7 +1308,11 @@ function motivationMinor(whole: number, fraction: number | null | undefined) {
   return Math.max(0, whole) * 100 + Math.max(0, Math.min(99, fraction ?? 0));
 }
 
-/** Rank in XP-equivalent hundredths; spendable KRIN Coins are excluded. */
+/**
+ * Legacy score formula used only to freeze the pre-permanent-score ranking in
+ * the database migration. New ranking reads `leaderboardExperienceMinor` and
+ * never recalculates KRIN Coins back into XP.
+ */
 export function leaderboardScoreMinor(experienceMinor: number, xpCoinsMinor: number) {
   return Math.max(0, experienceMinor) + Math.max(0, xpCoinsMinor) * XP_PER_KRIN_COIN;
 }
@@ -1309,8 +1321,9 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
   return rows
     .map((row) => {
       const experienceMinor = motivationMinor(row.level?.lifetimeExperience ?? 0, row.level?.fractionalExperience);
-      // Only earned XP Coins retain learning value in the leaderboard.
-      // Spendable KRIN Coins are excluded so purchases cannot affect rank.
+      // This remains a balance for display only. It has no effect on rank
+      // after the one-time migration snapshot, so exchanging it for KRIN
+      // Coins cannot make a learner fall in the leaderboard.
       const xpCoinsMinor = Math.max(0, row.wallet?.xpCoinBalanceMinor ?? 0);
       return {
         userId: row.id,
@@ -1318,12 +1331,12 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
         level: row.level?.level ?? 1,
         experienceMinor,
         xpCoinsMinor,
-        totalMinor: leaderboardScoreMinor(experienceMinor, xpCoinsMinor),
+        totalMinor: Math.max(0, row.level?.leaderboardExperienceMinor ?? 0),
         isProfileVisible: row.showInLeaderboard,
         createdAt: row.createdAt,
       };
     })
-    // The score is only XP + XP Coins. The remaining fields merely make equal
+    // The score is permanent earned XP. The remaining fields merely make equal
     // scores stable instead of moving places between dashboard refreshes.
     .sort((left, right) => right.totalMinor - left.totalMinor || left.createdAt.getTime() - right.createdAt.getTime() || left.userId.localeCompare(right.userId))
     .map(({ createdAt: _createdAt, ...entry }, index) => ({
@@ -1342,26 +1355,26 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
       firstName: true,
       showInLeaderboard: true,
       createdAt: true,
-      userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true } },
+      userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true, leaderboardExperienceMinor: true } },
       wallet: { select: { xpCoinBalanceMinor: true } },
     },
   });
   return rows.map(({ userLevelProgress, ...row }) => ({ ...row, level: userLevelProgress }));
 }
 
-/** Public ranking remains XP-only: a learner's KRIN Coin balance stays private. */
+/** Public ranking uses the same permanent earned-XP score as the dashboard. */
 export async function listPublicLeaderboard(limit = 20) {
   const rows = await prisma.userLevel.findMany({
     where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
-    orderBy: [{ lifetimeExperience: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
+    orderBy: [{ leaderboardExperienceMinor: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
     take: Math.min(Math.max(limit, 1), 50),
-    select: { level: true, lifetimeExperience: true, user: { select: { name: true } } },
+    select: { level: true, leaderboardExperienceMinor: true, user: { select: { name: true } } },
   });
   return rows.map((row, index) => ({
     rank: index + 1,
     displayName: row.user.name.trim().split(/\s+/)[0] || "Learner",
     level: row.level,
-    experience: row.lifetimeExperience,
+    experience: Math.floor(Math.max(0, row.leaderboardExperienceMinor) / 100),
   }));
 }
 
@@ -1377,8 +1390,8 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;
-  // `totalMinor` is the XP-equivalent score used only for placement: XP Coins
-  // equal 1,000 XP, while ordinary KRIN Coins are never included.
+  // `totalMinor` is permanent earned XP. It is immutable with respect to XP
+  // and coin exchanges; ordinary KRIN Coins are never included.
   const entries = ranked.slice(0, Math.max(limit, 1)).map((entry) => {
     const canShowProfile = entry.isProfileVisible || entry.isCurrentUser;
     return {
