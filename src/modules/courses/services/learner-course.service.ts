@@ -34,6 +34,8 @@ export type LearnerCourseCard = {
   source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "TEACHER_CREATED" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
   canRemove: boolean;
   nextLesson: { slug: string; title: string } | null;
+  /** ISO timestamp of the learner's latest saved step in this course. */
+  lastActivityAt: string | null;
 };
 
 export type InterruptedLesson = {
@@ -153,7 +155,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     )).map((progress) => [progress.lessonId, progress]),
   );
 
-  return courses.map((course) => {
+  const courseCards = courses.map((course) => {
     const lessons = course.modules.flatMap((courseModule) => courseModule.lessons);
     const requiredModules = course.modules.filter((courseModule) => courseModule.isRequired);
     const requiredLessons = requiredModules.length ? requiredModules.flatMap((courseModule) => courseModule.lessons) : lessons;
@@ -171,6 +173,11 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
           ) / totalLessons,
         );
     const nextLesson = lessons.find((lesson) => !isLessonProgressComplete(lessonProgressById.get(lesson.id)));
+    const latestLessonActivity = lessons.reduce<Date | null>((latest, lesson) => {
+      const lastSeenAt = lessonProgressById.get(lesson.id)?.lastSeenAt;
+      if (!lastSeenAt || (latest && lastSeenAt <= latest)) return latest;
+      return lastSeenAt;
+    }, null);
     const lessonAccuracy = progressEntries.reduce(
       (summary, item) => ({
         correctAnswers: summary.correctAnswers + (item?.attemptAccuracy.correctAnswers ?? 0),
@@ -217,7 +224,18 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       nextLesson: nextLesson
         ? { slug: nextLesson.slug, title: nextLesson.title }
         : null,
+      lastActivityAt: latestLessonActivity?.toISOString() ?? null,
     };
+  });
+
+  // A course's editorial `updatedAt` must never decide where a learner
+  // resumes.  Put the course with the most recent real learner activity
+  // first, while retaining the existing catalogue order for untouched courses.
+  return courseCards.sort((left, right) => {
+    if (!left.lastActivityAt && !right.lastActivityAt) return 0;
+    if (!left.lastActivityAt) return 1;
+    if (!right.lastActivityAt) return -1;
+    return Date.parse(right.lastActivityAt) - Date.parse(left.lastActivityAt);
   });
 }
 

@@ -62,7 +62,11 @@ export default async function StudentHomePage({
   // back" appears only after genuine learning progress exists.
   const isFirstVisit = arrivedFromOnboarding || startedLessonCount === 0;
 
-  const next = courses.find((course) => course.nextLesson) ?? courses[0];
+  // `listLearnerCourses` is ordered by the learner's own last saved lesson
+  // activity.  Prefer that course so the main Continue action never jumps to
+  // a different course merely because its content was edited more recently.
+  const mostRecentlyStudiedCourse = courses.find((course) => course.lastActivityAt);
+  const next = mostRecentlyStudiedCourse ?? courses.find((course) => course.nextLesson) ?? courses[0];
   const name = guard.user.firstName || guard.user.name?.split(" ")[0] || "Learner";
   const completedLessons = courses.reduce((sum, course) => sum + course.completedLessons, 0);
   const totalLessons = courses.reduce((sum, course) => sum + course.totalLessons, 0);

@@ -2433,7 +2433,7 @@ export async function listLessonProgressByLessonIds(userId: string, lessonIds: s
   const [progress, accuracyByLesson, experienceByLesson] = await Promise.all([
     prisma.lessonProgress.findMany({
       where: { userId, lessonId: { in: lessonIds } },
-      select: { lessonId: true, status: true, completionPercent: true, score: true, grade: true },
+      select: { lessonId: true, status: true, completionPercent: true, score: true, grade: true, lastSeenAt: true },
     }),
     getLatestLessonAttemptAccuracy(userId, lessonIds),
     getLessonExperienceEarned(userId, lessonIds),
