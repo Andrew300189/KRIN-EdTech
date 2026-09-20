@@ -5,7 +5,7 @@ import { entitlementAllowsLesson, hasLessonEntitlement, listActiveLessonEntitlem
 import { hasReachedLessonCompletion, isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 import { reconcileLessonProgressFromPublishedBlocks } from "@/modules/courses/services/lesson-progress-reconciliation.service";
 
-export type LessonAccessReason = "AVAILABLE" | "AUTH_REQUIRED" | "PREMIUM_REQUIRED" | "SEQUENCE_LOCKED" | "PREREQUISITE_LOCKED" | "WHEEL_REQUIRED" | "UNPUBLISHED" | "NOT_FOUND";
+export type LessonAccessReason = "AVAILABLE" | "AUTH_REQUIRED" | "PREMIUM_REQUIRED" | "SEQUENCE_LOCKED" | "PREREQUISITE_LOCKED" | "UNPUBLISHED" | "NOT_FOUND";
 export type LessonAccessResult = { allowed: boolean; reason: LessonAccessReason; lessonId?: string; courseSlug?: string };
 
 type AccessRule = { courseAccessPlan: string; firstFreeLessonCount: number; lessonIsFree: boolean; lessonPosition: number };
@@ -54,14 +54,12 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
   if (!course) return [];
 
   const lessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
-  const [user, entitlements, progress, spunWheels] = await Promise.all([
+  const [user, entitlements, progress] = await Promise.all([
     userId ? prisma.user.findUnique({ where: { id: userId }, select: { role: true, subscriptionPlan: true, subscriptionStatus: true, subscriptionCurrentPeriodEnd: true } }) : null,
     userId ? listActiveLessonEntitlements(userId, course.id) : [],
     userId ? prisma.lessonProgress.findMany({ where: { userId, lessonId: { in: lessonIds } }, select: { lessonId: true, status: true, completionPercent: true, grade: true } }) : [],
-    userId ? prisma.experienceTransaction.findMany({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: { in: lessonIds } }, select: { sourceId: true } }) : [],
   ]);
   const progressByLesson = new Map(progress.map((item) => [item.lessonId, item]));
-  const spunLessonIds = new Set(spunWheels.map((item) => item.sourceId));
   const orderedLessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
   const privileged = hasAnyRole(parseRole(user?.role), ["content_manager"]);
   const results: Array<[string, LessonAccessResult]> = [];
@@ -94,11 +92,6 @@ export async function listCourseLessonAccess(userId: string | null, courseId: st
         const prerequisite = progressByLesson.get(lesson.prerequisiteLessonId);
         if (!userId) access = { allowed: false, reason: "AUTH_REQUIRED" };
         else if (!hasReachedLessonCompletion(prerequisite, lesson.requiredPrerequisiteCompletion)) access = { allowed: false, reason: "PREREQUISITE_LOCKED" };
-      }
-      const lessonPosition = orderedLessonIds.indexOf(lesson.id);
-      const previousLessonId = lessonPosition > 0 ? orderedLessonIds[lessonPosition - 1] : null;
-      if (access.allowed && userId && !privileged && previousLessonId && isLessonProgressComplete(progressByLesson.get(previousLessonId)) && !spunLessonIds.has(previousLessonId)) {
-        access = { allowed: false, reason: "WHEEL_REQUIRED" };
       }
       results.push([lesson.id, { ...access, lessonId: lesson.id, courseSlug: course.slug }]);
     }
@@ -230,15 +223,8 @@ export async function canAccessLesson(userId: string | null, lessonId: string): 
     }
   }
 
-  const previousLessonId = lessonPosition > 0 ? orderedLessonIds[lessonPosition - 1] : null;
-  if (userId && previousLessonId && !hasAnyRole(parseRole(user?.role), ["content_manager"])) {
-    const [previousProgress, wheelReward] = await Promise.all([
-      prisma.lessonProgress.findUnique({ where: { userId_lessonId: { userId, lessonId: previousLessonId } }, select: { status: true, completionPercent: true } }),
-      prisma.experienceTransaction.findFirst({ where: { userId, sourceType: "LESSON_WHEEL", sourceId: previousLessonId }, select: { id: true } }),
-    ]);
-    if (isLessonProgressComplete(previousProgress) && !wheelReward) {
-      return { allowed: false, reason: "WHEEL_REQUIRED", lessonId, courseSlug: course.slug };
-    }
-  }
+  // The multiplier wheel awards an optional lesson bonus. It must never be a
+  // prerequisite: a learner who has completed this lesson may always open the
+  // next one, including progress saved before the wheel was introduced.
   return { allowed: true, reason: "AVAILABLE", lessonId, courseSlug: course.slug };
 }

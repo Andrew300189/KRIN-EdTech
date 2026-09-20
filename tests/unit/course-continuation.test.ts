@@ -25,18 +25,18 @@ describe("course continuation target", () => {
     expect(result?.id).toBe("lesson-2");
   });
 
-  it("returns the exact completed lesson whose wheel is blocking the next one", () => {
+  it("opens the next unfinished lesson after a completed lesson", () => {
     const result = findCourseContinuationLesson(
       lessons,
       new Map([
         ["lesson-1", { allowed: true }],
-        ["lesson-2", { allowed: false, reason: "WHEEL_REQUIRED" }],
-        ["lesson-3", { allowed: false, reason: "WHEEL_REQUIRED" }],
+        ["lesson-2", { allowed: true }],
+        ["lesson-3", { allowed: false, reason: "PREREQUISITE_LOCKED" }],
       ]),
       progress([["lesson-1", "COMPLETED", 100, "2026-09-02T10:00:00.000Z"]]),
     );
 
-    expect(result?.id).toBe("lesson-1");
+    expect(result?.id).toBe("lesson-2");
   });
 
   it("does not fall back to lesson one after a fully resolved course", () => {

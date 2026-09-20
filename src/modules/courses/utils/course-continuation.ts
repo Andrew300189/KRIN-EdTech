@@ -12,9 +12,8 @@ type CourseLessonAccess = { allowed: boolean; reason?: string };
 /**
  * Selects one deliberate course-resume target.
  *
- * A wheel gate belongs to the preceding, already completed lesson. Returning
- * that precise lesson lets the learner resolve the gate in one place instead
- * of falling back to lesson one and replaying an entire course.
+ * Completion is the only condition for moving through a course. Bonus-wheel
+ * rewards remain optional and never change the continuation target.
  */
 export function findCourseContinuationLesson<T extends CourseLesson>(
   lessons: readonly T[],
@@ -34,12 +33,6 @@ export function findCourseContinuationLesson<T extends CourseLesson>(
     && !isLessonProgressComplete(progressByLessonId.get(lesson.id))
   ));
   if (firstAvailableUnfinishedLesson) return firstAvailableUnfinishedLesson;
-
-  const wheelGateIndex = lessons.findIndex((lesson) => accessByLessonId.get(lesson.id)?.reason === "WHEEL_REQUIRED");
-  if (wheelGateIndex > 0) {
-    const wheelSourceLesson = lessons[wheelGateIndex - 1];
-    if (isLessonProgressComplete(progressByLessonId.get(wheelSourceLesson.id))) return wheelSourceLesson;
-  }
 
   return null;
 }
