@@ -1,6 +1,7 @@
 import { prisma } from "@/core/server/prisma";
 import { isPlatformOwner } from "@/core/server/platform-owner";
 import { getUserPresence } from "@/core/server/presence";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import { CmsPageShell } from "@/modules/cms/components/CmsPageShell";
 import { CmsUserActions } from "@/modules/cms/components/CmsUserActions";
 import { CmsUsersPresenceRefresh } from "@/modules/cms/components/CmsUsersPresenceRefresh";
@@ -19,6 +20,7 @@ function initials(name: string, email: string) {
 
 export default async function CmsUsersPage() {
   const users = await prisma.user.findMany({
+    where: excludeSystemAccounts(),
     orderBy: { createdAt: "desc" },
     take: 100,
     select: { id: true, name: true, email: true, role: true, isBlocked: true, deletedAt: true, lastActiveAt: true, createdAt: true },

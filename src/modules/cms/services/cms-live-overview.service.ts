@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import type { CmsLiveActivity, CmsLiveOverview } from "@/modules/cms/types/cms-live-overview.types";
 
 function displayAccountName(user: { name: string; email: string }): string {
@@ -45,14 +46,14 @@ export async function getCmsLiveOverview(): Promise<CmsLiveOverview> {
     paymentFailures,
     urgentTickets,
   ] = await Promise.all([
-    prisma.user.count({ where: { deletedAt: null } }),
-    prisma.user.count({ where: { role: "STUDENT", deletedAt: null, isBlocked: false } }),
-    prisma.user.count({ where: { role: "TEACHER", deletedAt: null, isBlocked: false } }),
+    prisma.user.count({ where: { deletedAt: null, ...excludeSystemAccounts() } }),
+    prisma.user.count({ where: { role: "STUDENT", deletedAt: null, isBlocked: false, ...excludeSystemAccounts() } }),
+    prisma.user.count({ where: { role: "TEACHER", deletedAt: null, isBlocked: false, ...excludeSystemAccounts() } }),
     prisma.user.count({
-      where: { role: "STUDENT", deletedAt: null, isBlocked: false, createdAt: { gte: last24Hours } },
+      where: { role: "STUDENT", deletedAt: null, isBlocked: false, createdAt: { gte: last24Hours }, ...excludeSystemAccounts() },
     }),
     prisma.user.count({
-      where: { role: "STUDENT", deletedAt: null, isBlocked: false, createdAt: { gte: last7Days } },
+      where: { role: "STUDENT", deletedAt: null, isBlocked: false, createdAt: { gte: last7Days }, ...excludeSystemAccounts() },
     }),
     prisma.studentCourse.count({
       where: { status: "ACTIVE", student: { deletedAt: null, isBlocked: false } },

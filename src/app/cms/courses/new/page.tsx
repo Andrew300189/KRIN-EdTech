@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import { CmsCourseCreationWizard } from "@/modules/cms/components/CmsCourseCreationWizard";
 import { CmsPageShell } from "@/modules/cms/components/CmsPageShell";
 
@@ -7,7 +8,7 @@ export default async function CmsNewCoursePage({ searchParams }: { searchParams:
   const [levels, categories, authors, curriculumNodes] = await Promise.all([
     prisma.languageLevel.findMany({ orderBy: { order: "asc" }, select: { code: true, title: true } }),
     prisma.courseCategory.findMany({ orderBy: { order: "asc" }, select: { slug: true, title: true } }),
-    prisma.user.findMany({ orderBy: [{ role: "asc" }, { email: "asc" }], take: 500, select: { id: true, name: true, email: true, role: true } }),
+    prisma.user.findMany({ where: excludeSystemAccounts(), orderBy: [{ role: "asc" }, { email: "asc" }], take: 500, select: { id: true, name: true, email: true, role: true } }),
     prisma.curriculumNode.findMany({ where: { contentStatus: { not: "ARCHIVED" } }, orderBy: [{ level: { order: "asc" } }, { order: "asc" }], select: { id: true, type: true, title: true, slug: true, parentId: true, level: { select: { code: true } } } }),
   ]);
   const selectedLevel = (await searchParams).level?.toUpperCase();

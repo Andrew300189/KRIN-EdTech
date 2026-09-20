@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import {
   CMS_NOTIFICATION_CATEGORY_META,
   type CmsNotificationCategory,
@@ -69,8 +70,8 @@ export async function getCmsNotificationSummary(ownerId: string): Promise<CmsNot
     securityUnread,
     securityLatest,
   ] = await Promise.all([
-    prisma.user.count({ where: { id: { not: ownerId }, createdAt: { gt: since } } }),
-    prisma.user.findFirst({ where: { id: { not: ownerId } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    prisma.user.count({ where: { id: { not: ownerId }, createdAt: { gt: since }, ...excludeSystemAccounts() } }),
+    prisma.user.findFirst({ where: { id: { not: ownerId }, ...excludeSystemAccounts() }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.coursePurchase.count({
       where: {
         status: "ACTIVE",
@@ -136,6 +137,7 @@ export async function getCmsNotificationDetail(
 
   if (category === "registrations") {
     const users = await prisma.user.findMany({
+      where: excludeSystemAccounts(),
       orderBy: { createdAt: "desc" },
       take,
       select: { id: true, name: true, email: true, role: true, isBlocked: true, deletedAt: true, createdAt: true },

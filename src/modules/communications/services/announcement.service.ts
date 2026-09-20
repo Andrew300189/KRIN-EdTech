@@ -1,4 +1,5 @@
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import { notificationService } from "@/modules/communications/services/notification.service";
 
 function matchesAudience(audience: unknown, user: { role: string; country: string | null }) {
@@ -12,7 +13,7 @@ function matchesAudience(audience: unknown, user: { role: string; country: strin
 export async function publishDueAnnouncements(now = new Date()) {
   await prisma.systemAnnouncement.updateMany({ where: { status: "SCHEDULED", scheduledAt: { lte: now } }, data: { status: "PUBLISHED", publishedAt: now } });
   const announcements = await prisma.systemAnnouncement.findMany({ where: { status: "PUBLISHED", OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, take: 20 });
-  const users = await prisma.user.findMany({ where: { isBlocked: false, deletedAt: null }, select: { id: true, role: true, country: true }, take: 1000 });
+  const users = await prisma.user.findMany({ where: { isBlocked: false, deletedAt: null, ...excludeSystemAccounts() }, select: { id: true, role: true, country: true }, take: 1000 });
   let created = 0;
   for (const announcement of announcements) for (const user of users) {
     if (!matchesAudience(announcement.audience, user)) continue;

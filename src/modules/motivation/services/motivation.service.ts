@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-config";
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
 import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
@@ -1351,7 +1352,7 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
 /** Public ranking remains XP-only: a learner's KRIN Coin balance stays private. */
 export async function listPublicLeaderboard(limit = 20) {
   const rows = await prisma.userLevel.findMany({
-    where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null } },
+    where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
     orderBy: [{ lifetimeExperience: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
     take: Math.min(Math.max(limit, 1), 50),
     select: { level: true, lifetimeExperience: true, user: { select: { name: true } } },
@@ -1372,6 +1373,7 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   const rows = await leaderboardSources({
     isBlocked: false,
     deletedAt: null,
+    ...excludeSystemAccounts(),
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;

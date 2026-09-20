@@ -1,4 +1,5 @@
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 
 export type LeagueTier = "BRONZE" | "SILVER" | "DIAMOND";
 
@@ -49,7 +50,7 @@ export async function getWeeklyLeague(userId: string, now = new Date()): Promise
   const start = weekStartUtc(now);
   const [users, rewards] = await Promise.all([
     prisma.user.findMany({
-      where: { isBlocked: false, deletedAt: null, OR: [{ showInLeaderboard: true }, { id: userId }] },
+      where: { isBlocked: false, deletedAt: null, ...excludeSystemAccounts(), OR: [{ showInLeaderboard: true }, { id: userId }] },
       select: { id: true, name: true, firstName: true },
     }),
     prisma.experienceTransaction.findMany({

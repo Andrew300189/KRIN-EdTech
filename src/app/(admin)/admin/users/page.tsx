@@ -1,7 +1,9 @@
 import { prisma } from "@/core/server/prisma";
+import { excludeSystemAccounts } from "@/core/server/system-accounts";
 
 export default async function AdminUsersPage() {
   const users = await prisma.user.findMany({
+    where: excludeSystemAccounts(),
     orderBy: { createdAt: "desc" },
     take: 100,
     select: { id: true, name: true, email: true, role: true, isBlocked: true, createdAt: true },
