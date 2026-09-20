@@ -12,9 +12,9 @@ type Product = { id: string; title: string; description: string | null; plan: { 
 type CheckoutResponse = { kind: "redirect" | "form"; url?: string; form?: { action: string; fields: Record<string, string> }; error?: string };
 
 const accessCopy = {
-  en: { label: "Course access", eyebrow: "Your access", title: "Ready to continue", body: "You already have access to this course. Your lesson progress remains in your account.", action: "Continue learning" },
-  uk: { label: "Доступ до курсу", eyebrow: "Ваш доступ", title: "Готові продовжити", body: "Ви вже маєте доступ до цього курсу. Прогрес уроків збережено у вашому акаунті.", action: "Продовжити навчання" },
-  ru: { label: "Доступ к курсу", eyebrow: "Ваш доступ", title: "Можно продолжить", body: "У вас уже есть доступ к этому курсу. Прогресс уроков сохранён в вашем аккаунте.", action: "Продолжить обучение" },
+  en: { label: "Course access", eyebrow: "Your access", title: "Ready to continue", body: "You already have access to this course. Your lesson progress remains in your account.", action: "Continue learning", completeTitle: "Course completed", completeBody: "Every lesson is complete and all bonus wheels are resolved. You can review any lesson whenever you like.", reviewAction: "Review course" },
+  uk: { label: "Доступ до курсу", eyebrow: "Ваш доступ", title: "Готові продовжити", body: "Ви вже маєте доступ до цього курсу. Прогрес уроків збережено у вашому акаунті.", action: "Продовжити навчання", completeTitle: "Курс завершено", completeBody: "Усі уроки завершено, а бонусні колеса прокручено. Ви можете повторити будь-який урок у зручний час.", reviewAction: "Повторити курс" },
+  ru: { label: "Доступ к курсу", eyebrow: "Ваш доступ", title: "Можно продолжить", body: "У вас уже есть доступ к этому курсу. Прогресс уроков сохранён в вашем аккаунте.", action: "Продолжить обучение", completeTitle: "Курс завершён", completeBody: "Все уроки завершены, а бонусные колёса прокручены. В любой момент можно повторить нужный урок.", reviewAction: "Повторить курс" },
 } as const;
 
 function accessLocale(locale?: string) {
@@ -27,8 +27,8 @@ function providerLabel(provider: Provider) { return provider === "STRIPE" ? "Car
 function submitHostedForm(form: NonNullable<CheckoutResponse["form"]>) { const element = document.createElement("form"); element.method = "POST"; element.action = form.action; for (const [name, value] of Object.entries(form.fields)) { const input = document.createElement("input"); input.type = "hidden"; input.name = name; input.value = value; element.append(input); } document.body.append(element); element.submit(); }
 
 export function CoursePurchasePanel({
-  courseId, courseSlug, coursePath, accessPlan, products, signedIn, hasFullAccess, continueHref, initialPriceId, locale,
-}: { courseId: string; courseSlug: string; coursePath?: string; accessPlan: "FREE" | "BASIC" | "PREMIUM" | "PRO" | "CORPORATE"; products: Product[]; signedIn: boolean; hasFullAccess: boolean; continueHref: string | null; initialPriceId?: string; locale?: string }) {
+  courseId, courseSlug, coursePath, accessPlan, products, signedIn, hasFullAccess, continueHref, courseCompleted = false, initialPriceId, locale,
+}: { courseId: string; courseSlug: string; coursePath?: string; accessPlan: "FREE" | "BASIC" | "PREMIUM" | "PRO" | "CORPORATE"; products: Product[]; signedIn: boolean; hasFullAccess: boolean; continueHref: string | null; courseCompleted?: boolean; initialPriceId?: string; locale?: string }) {
   const text = accessCopy[accessLocale(locale)];
   const priceOptions = useMemo(() => products.flatMap((product) => product.prices.map((price) => ({ product, price }))), [products]);
   const [selectedPriceId, setSelectedPriceId] = useState(() => priceOptions.some((entry) => entry.price.id === initialPriceId) ? initialPriceId! : priceOptions[0]?.price.id ?? "");
@@ -59,6 +59,8 @@ export function CoursePurchasePanel({
   }
 
   if (hasFullAccess && continueHref) return <aside className={`${styles.purchasePanel} ${styles.hasAccess}`} aria-label={text.label} data-course-purchase><p className={styles.purchaseEyebrow}>{text.eyebrow}</p><h2>{text.title}</h2><p>{text.body}</p><Link className={styles.purchasePrimary} href={continueHref}>{text.action}</Link></aside>;
+
+  if (hasFullAccess && courseCompleted) return <aside className={`${styles.purchasePanel} ${styles.hasAccess}`} aria-label={text.label} data-course-purchase><p className={styles.purchaseEyebrow}>{text.eyebrow}</p><h2>{text.completeTitle}</h2><p>{text.completeBody}</p><Link className={styles.purchasePrimary} href={`${coursePath ?? `/courses/${encodeURIComponent(courseSlug)}`}?content=open`}>{text.reviewAction}</Link></aside>;
 
   if (!selected) return <aside className={styles.purchasePanel} aria-label="Course access options" data-course-purchase><p className={styles.purchaseEyebrow}>Access options</p><h2>Review available plans</h2><p>No direct checkout option is configured for this course yet. Current public plans and prices are listed separately.</p><Link className={styles.purchasePrimary} href="/pricing">View pricing</Link></aside>;
 

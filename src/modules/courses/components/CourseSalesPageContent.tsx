@@ -13,6 +13,7 @@ import { listPublicCourseReviews } from "@/modules/courses/services/course-revie
 import { CourseLearningPath } from "@/modules/courses/components/CourseLearningPath";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
+import { findCourseContinuationLesson } from "@/modules/courses/utils/course-continuation";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type CourseUiLocale = "en" | "uk" | "ru";
@@ -76,11 +77,10 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
   const progressByLessonId = new Map(progress.map((item) => [item.lessonId, item]));
   const hasPrivilegedAccess = authenticated ? ["ADMIN", "SUPER_ADMIN", "CONTENT_MANAGER"].includes(authenticated.user.role) : false;
   const hasFullAccess = course.accessPlan === "FREE" || entitlement || hasPrivilegedAccess;
-  const firstAvailable = lessons.find((lesson) => accessByLessonId.get(lesson.id)?.allowed) ?? null;
-  const nextAvailable = lessons.find((lesson) => (
-    accessByLessonId.get(lesson.id)?.allowed
-    && !isLessonProgressComplete(progressByLessonId.get(lesson.id))
-  )) ?? firstAvailable;
+  const continuationLesson = findCourseContinuationLesson(lessons, accessByLessonId, progressByLessonId);
+  const courseCompleted = lessons.length > 0
+    && lessons.every((lesson) => isLessonProgressComplete(progressByLessonId.get(lesson.id)))
+    && !continuationLesson;
   const trialLesson = lessons.find((lesson, index) => course.accessPlan === "FREE" || lesson.isFree || index < course.firstFreeLessonCount) ?? null;
   const outcomes = strings(course.learningOutcomes);
   const interfaceLocale = courseUiLocale(locale ?? course.contentLocale);
@@ -92,8 +92,9 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
   const profile = author.teacherProfile?.status === "ACTIVE" ? author.teacherProfile : null;
   const products = course.commerceProducts.map((product) => ({ id: product.id, title: product.title, description: product.description, plan: product.plan, prices: product.prices }));
   const coursePath = locale && course.contentLocale !== "en" ? `/${course.contentLocale}/courses/${course.localizedSlug}` : `/courses/${course.slug}`;
-  const continueHref = nextAvailable ? `${coursePath}/lessons/${nextAvailable.localizedSlug ?? nextAvailable.slug}` : null;
-  const startCourseHref = continueHref ?? (course.accessPlan === "FREE" && trialLesson ? `${coursePath}/lessons/${trialLesson.localizedSlug ?? trialLesson.slug}` : null);
+  const continueHref = continuationLesson ? `${coursePath}/lessons/${continuationLesson.localizedSlug ?? continuationLesson.slug}` : null;
+  const reviewHref = `${coursePath}?content=open`;
+  const startCourseHref = continueHref ?? (hasFullAccess && courseCompleted ? reviewHref : course.accessPlan === "FREE" && trialLesson ? `${coursePath}/lessons/${trialLesson.localizedSlug ?? trialLesson.slug}` : null);
   const offers = products.flatMap((product) => product.prices.map((price) => ({ "@type": "Offer", name: product.title, price: price.amount / 100, priceCurrency: price.currency, availability: "https://schema.org/InStock", url: `https://krin-edtech.com/courses/${course.slug}?price=${encodeURIComponent(price.id)}` })));
   const structuredData = JSON.stringify({
     "@context": "https://schema.org",
@@ -121,7 +122,7 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
     ],
   }).replace(/</g, "\\u003c");
 
-  const purchase = <CoursePurchasePanel courseId={course.id} courseSlug={course.slug} coursePath={coursePath} accessPlan={course.accessPlan} products={products} signedIn={Boolean(authenticated)} hasFullAccess={hasFullAccess} continueHref={continueHref} initialPriceId={selectedPriceId} locale={interfaceLocale} />;
+  const purchase = <CoursePurchasePanel courseId={course.id} courseSlug={course.slug} coursePath={coursePath} accessPlan={course.accessPlan} products={products} signedIn={Boolean(authenticated)} hasFullAccess={hasFullAccess} continueHref={continueHref} courseCompleted={courseCompleted} initialPriceId={selectedPriceId} locale={interfaceLocale} />;
 
   const courseFaq = <section className={styles.sidePanel} aria-labelledby="course-faq-title"><div className={styles.sidePanelHeading}><h2 id="course-faq-title">{text.faqTitle}</h2><p>{text.faqDescription}</p></div><div className={styles.faq}><details><summary>{text.faqTrial}</summary><p>{trialLesson ? text.faqTrialYes : text.faqTrialNo}</p></details><details><summary>{text.faqStructure}</summary><p>{text.faqStructureAnswer}</p></details><details><summary>{text.faqPayment}</summary><p>{text.faqPaymentAnswer}</p></details><details><summary>{text.faqReviews}</summary><p>{text.faqReviewsAnswer}</p></details></div></section>;
 
@@ -136,7 +137,7 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
           <h1>{course.title}</h1>
           <p>{courseResult}</p>
           <div className={styles.summary}><span>{course.lessonCount} {course.lessonCount === 1 ? text.lesson : text.lessons}</span>{course.estimatedDuration > 0 ? <span>{course.estimatedDuration} {text.minute}</span> : <span>{text.selfPaced}</span>}<span>{courseTypeLabel(course.courseType, text)}</span><span>{accessLabel(course.accessPlan, text)}</span></div>
-          <CourseHeroActions actionClassName={styles.publicLesson} containerClassName={styles.heroActions} startCourseHref={startCourseHref} labels={{ showContent: text.showContent, startCourse: text.startCourse }} />
+          <CourseHeroActions actionClassName={styles.publicLesson} containerClassName={styles.heroActions} startCourseHref={startCourseHref} labels={{ showContent: text.showContent, startCourse: courseCompleted ? text.showContent : text.startCourse }} />
           <div className={styles.mobilePurchase}>{purchase}</div>
         </header>
         {outcomes.length ? <section className={styles.learningOutcomes} aria-labelledby="learning-outcomes-title"><div><p className={styles.outcomesEyebrow}>{text.outcomeEyebrow}</p><h2 id="learning-outcomes-title">{learningOutcomesTitle}</h2></div><ul>{outcomes.map((outcome) => <li key={outcome}>{outcome}</li>)}</ul></section> : null}

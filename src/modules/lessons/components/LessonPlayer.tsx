@@ -384,6 +384,10 @@ export function LessonPlayer({
   const [successEffect, setSuccessEffect] = useState<LessonSuccessEffect | null>(null);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
+  // A course-resume link can intentionally open a previously completed lesson
+  // to resolve its pending bonus wheel. That is a one-off recovery step, not
+  // permission to walk a learner through every old lesson afterwards.
+  const wasCompletedOnEntryRef = useRef(false);
   const previewCompleteReported = useRef(false);
   const progressMutationRef = useRef(false);
   const learningSessionId = useRef<string | null>(null);
@@ -591,6 +595,7 @@ export function LessonPlayer({
           // state. Practice remains available from the timeline, but never
           // silently restarts the first task in the first exercise block.
           isPracticeRunRef.current = false;
+          wasCompletedOnEntryRef.current = true;
           setPracticeBlockIds([]);
           setCompletedBlocks(restoredBlocks);
           setCurrentBlockId(restoredCurrentBlock);
@@ -1158,7 +1163,7 @@ export function LessonPlayer({
             {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
                 <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
-                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
+                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson && !wasCompletedOnEntryRef.current ? <button type="button" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
                 {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
               </div> : null}
           </section>
