@@ -155,7 +155,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
     )).map((progress) => [progress.lessonId, progress]),
   );
 
-  const courseCards = courses.map((course) => {
+  const courseCards: LearnerCourseCard[] = courses.map((course) => {
     const lessons = course.modules.flatMap((courseModule) => courseModule.lessons);
     const requiredModules = course.modules.filter((courseModule) => courseModule.isRequired);
     const requiredLessons = requiredModules.length ? requiredModules.flatMap((courseModule) => courseModule.lessons) : lessons;
