@@ -84,7 +84,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
   const earnsKrinCoin = streakChestKrinCoinReward(milestone) > 0;
   const kind = reward ? rewardKind(reward) : null;
   const kindLabel = kind === "coin" ? text.coin : kind === "xpCoin" ? text.xpCoin : kind === "hint" ? text.hint : kind === "translation" ? text.translation : text.regular;
-  const flowerName = flower?.names[locale];
+  const flowerName = flower?.names[locale] ?? flower?.names.ru;
 
   return <AppModal
     open

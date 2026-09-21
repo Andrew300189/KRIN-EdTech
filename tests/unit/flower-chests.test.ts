@@ -33,6 +33,19 @@ describe("flower chest rewards", () => {
     expect(FLOWER_CHESTS.filter((flower) => flower.id === WHITE_LILY_FLOWER_ID)).toHaveLength(1);
   });
 
+  it("uses every supplied natural-frequency group as a real flower chest", () => {
+    const ghostOrchid = flowerChestById("ghost-orchid");
+    const localFlower = flowerChestById("greater-butterfly-orchid");
+    const ordinaryFlower = flowerChestById("cornflower");
+    const ubiquitousFlower = flowerChestById("dandelion");
+
+    expect(FLOWER_CHESTS.length).toBeGreaterThanOrEqual(100);
+    expect(ghostOrchid?.minimumExperience).toBe(700);
+    expect(ghostOrchid?.weight).toBeLessThan(localFlower!.weight);
+    expect(localFlower!.minimumExperience).toBeGreaterThan(ordinaryFlower!.maximumExperience);
+    expect(ordinaryFlower!.minimumExperience).toBeGreaterThan(ubiquitousFlower!.maximumExperience);
+  });
+
   it("makes each naturally rarer tier less likely and strictly more valuable", () => {
     const byNaturalRarity = new Map<number, typeof FLOWER_CHESTS[number]>();
     for (const flower of FLOWER_CHESTS) {
