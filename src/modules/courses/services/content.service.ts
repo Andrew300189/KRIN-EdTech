@@ -21,6 +21,7 @@ import {
 } from "@/modules/courses/schemas/content.schemas";
 import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 import { calculateExerciseProgressDelta } from "@/modules/courses/utils/exercise-progress-delta";
+import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds } from "@/modules/courses/utils/exercise-speed-reward";
 import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-result";
 import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
@@ -1580,6 +1581,44 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
   };
 }
 
+/**
+ * Opens (or returns) the sole active speed window for a learner's exercise.
+ * Its timestamp is persisted before the browser is told about it, so neither
+ * a changed browser clock nor a crafted duration can increase the XP band.
+ */
+export async function startExerciseSpeedWindow(userId: string, exerciseId: string) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      id: true,
+      isGeneratedReview: true,
+      timeLimitSeconds: true,
+      lessonBlock: { select: { lessonId: true } },
+    },
+  });
+  if (!exercise) throw new Error("Exercise not found");
+  if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) {
+    throw new Error("This review question belongs to a different learner.");
+  }
+  const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error("You cannot access this lesson");
+
+  const activeKey = `${userId}:${exerciseId}`;
+  const speedWindow = await prisma.exerciseSpeedWindow.upsert({
+    where: { activeKey },
+    create: { userId, exerciseId, activeKey },
+    // Do not reset openedAt here. Reloading or remounting the card must not
+    // turn a known answer into a fresh three-XP attempt.
+    update: {},
+    select: { id: true, openedAt: true },
+  });
+  return {
+    id: speedWindow.id,
+    openedAt: speedWindow.openedAt.toISOString(),
+    windowSeconds: exerciseSpeedWindowSeconds(exercise.timeLimitSeconds),
+  };
+}
+
 export async function submitExerciseAttempt(userId: string, exerciseId: string, input: unknown, reviewRunId?: string, localeInput?: string | null) {
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
@@ -1671,6 +1710,33 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       where: { userId, exerciseId, solutionOpened: true },
       select: { id: true },
     }));
+    // The browser may report a duration for analytics, but never chooses the
+    // XP tier.  Only a matching, still-active server window supplies an
+    // elapsed time; a missing/replayed window falls back to the safe 1 XP.
+    const now = new Date();
+    const speedWindow = value.speedWindowId
+      ? await tx.exerciseSpeedWindow.findFirst({
+        where: {
+          id: value.speedWindowId,
+          userId,
+          exerciseId,
+          activeKey: `${userId}:${exerciseId}`,
+          consumedAt: null,
+        },
+        select: { id: true, openedAt: true },
+      })
+      : null;
+    const trustedTimeSpentSeconds = speedWindow
+      ? Math.max(0, Math.floor((now.getTime() - speedWindow.openedAt.getTime()) / 1000))
+      : null;
+    const speedExperience = experienceForExerciseSpeed(trustedTimeSpentSeconds ?? Number.POSITIVE_INFINITY, exercise.timeLimitSeconds);
+    if (speedWindow) {
+      await tx.exerciseSpeedWindow.update({
+        where: { id: speedWindow.id },
+        data: { activeKey: null, consumedAt: now },
+      });
+    }
+
     // A solution remains useful after an error, but it cannot be used to earn
     // the full score on a later attempt. Hints are deliberately free: their
     // use is still tracked for learning analytics, never for a score penalty.
@@ -1685,7 +1751,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
         submittedAnswer: toPrismaJson(submittedAnswer)!,
         isCorrect,
         scoreAwarded,
-        timeSpentSeconds: value.timeSpentSeconds,
+        timeSpentSeconds: trustedTimeSpentSeconds,
         hintUsed: value.hintUsed,
         solutionOpened: value.solutionOpened,
         attemptNumber: (previous?.attemptNumber ?? 0) + 1,
@@ -1790,6 +1856,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       score: scoreAwarded,
       difficulty: exercise.difficulty,
       isSpacedReview: exercise.isGeneratedReview,
+      speedExperience,
     });
 
     return {

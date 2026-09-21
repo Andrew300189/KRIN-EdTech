@@ -10,6 +10,7 @@ import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExe
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
 import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
+import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds, remainingExerciseSpeedPercent } from "@/modules/courses/utils/exercise-speed-reward";
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hints";
@@ -37,6 +38,7 @@ type AttemptResult = {
 };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
 type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number; freeFallback?: boolean };
+type SpeedWindowResult = { id: string; openedAt: string; windowSeconds: number };
 
 function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
@@ -263,6 +265,11 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const [hintOpen, setHintOpen] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
+  const [speedWindowId, setSpeedWindowId] = useState<string | null>(null);
+  const [speedWindowStartedAt, setSpeedWindowStartedAt] = useState(() => Date.now());
+  const [speedWindowSeconds, setSpeedWindowSeconds] = useState(() => exerciseSpeedWindowSeconds(exercise.timeLimitSeconds));
+  const [speedWindowRun, setSpeedWindowRun] = useState(0);
+  const [speedClock, setSpeedClock] = useState(() => Date.now());
   const submissionInFlightRef = useRef(false);
   const translationRequestRef = useRef(0);
   const answerEvaluationContent = useMemo(
@@ -305,6 +312,44 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   useEffect(() => { if (error) toast.error(error); }, [error]);
   useEffect(() => { if (translationError) toast.error(translationError); }, [translationError]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const localStartedAt = Date.now();
+    const defaultWindowSeconds = exerciseSpeedWindowSeconds(exercise.timeLimitSeconds);
+    setSpeedWindowId(null);
+    setSpeedWindowStartedAt(localStartedAt);
+    setSpeedWindowSeconds(defaultWindowSeconds);
+    setSpeedClock(localStartedAt);
+    setAttemptStartedAt(localStartedAt);
+
+    if (previewMode) return () => controller.abort();
+    void (async () => {
+      try {
+        const response = await fetch(`/api/learning/exercises/${exercise.id}/speed-window`, {
+          method: "POST",
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => null) as { data?: SpeedWindowResult } | null;
+        if (!response.ok || !payload?.data || controller.signal.aborted) return;
+        const openedAt = Date.parse(payload.data.openedAt);
+        const serverStartedAt = Number.isFinite(openedAt) ? openedAt : Date.now();
+        setSpeedWindowId(payload.data.id);
+        setSpeedWindowStartedAt(serverStartedAt);
+        setSpeedWindowSeconds(exerciseSpeedWindowSeconds(payload.data.windowSeconds));
+        setAttemptStartedAt(serverStartedAt);
+        setSpeedClock(Date.now());
+      } catch {
+        // Guest cards stay usable and signed-in learners still receive the
+        // safe 1 XP fallback if a timer request is interrupted.
+      }
+    })();
+    return () => controller.abort();
+  }, [exercise.id, exercise.timeLimitSeconds, previewMode, speedWindowRun]);
+  useEffect(() => {
+    if (result) return;
+    const interval = window.setInterval(() => setSpeedClock(Date.now()), 100);
+    return () => window.clearInterval(interval);
+  }, [result]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
@@ -351,6 +396,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     setTranslationError(null);
     setTranslationSending(false);
     setAttemptStartedAt(Date.now());
+    setSpeedWindowRun((run) => run + 1);
   }
 
   async function checkAnswer(answerToCheck: ExerciseAnswer = answer) {
@@ -373,7 +419,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     }
     const idempotencyKey = crypto.randomUUID();
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json", ...(contentLocale ? { "x-krin-content-locale": contentLocale } : {}) }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(reviewRunId ? { reviewRunId } : {}) }) });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json", ...(contentLocale ? { "x-krin-content-locale": contentLocale } : {}) }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(speedWindowId ? { speedWindowId } : {}), ...(reviewRunId ? { reviewRunId } : {}) }) });
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
@@ -591,6 +637,14 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const activeStreakTone = result?.isCorrect ? streakTone : result ? null : persistentStreakTone;
   const activeStreakClass = activeStreakTone && /^[a-z-]+$/.test(activeStreakTone) ? ` lesson-exercise-streak-${activeStreakTone}` : "";
   const streakActivated = Boolean(result?.motivationReward?.awarded && streak?.activated && streakTone);
+  const speedElapsedSeconds = Math.max(0, (speedClock - speedWindowStartedAt) / 1000);
+  const speedExperience = experienceForExerciseSpeed(speedElapsedSeconds, speedWindowSeconds);
+  const speedRemainingPercent = remainingExerciseSpeedPercent(speedElapsedSeconds, speedWindowSeconds);
+  const speedCopy = locale === "uk"
+    ? { label: "Нагорода за швидкість", bar: "Час на відповідь" }
+    : locale === "ru"
+      ? { label: "Награда за скорость", bar: "Время на ответ" }
+      : { label: "Speed reward", bar: "Answer time" };
 
   return <section className={`${styles.card} lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
@@ -602,6 +656,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
     <div className={`${styles.heading} lesson-exercise-heading`}><div className={`${styles.instruction} lesson-exercise-instruction`} role="note"><p>{visibleInstruction}</p></div></div>
+    {!result ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
+      <div className={styles.speedRewardHeader}><span>{speedCopy.label}</span><strong>+{speedExperience} XP</strong></div>
+      <div className={styles.speedTrack} aria-hidden="true"><span className={styles.speedFill} style={{ width: `${speedRemainingPercent}%` }} /></div>
+    </div> : null}
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}

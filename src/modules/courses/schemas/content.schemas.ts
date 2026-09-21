@@ -239,6 +239,9 @@ export const updateExerciseSchema = createExerciseSchema
 export const submitExerciseSchema = z.object({
   answer: jsonValueSchema,
   idempotencyKey: z.string().uuid().optional(),
+  // Issued by the server when the card opens. The submitted client duration
+  // is analytics-only; XP is derived from this server-side window instead.
+  speedWindowId: z.string().cuid().optional(),
   timeSpentSeconds: z.number().int().min(0).max(86400).optional(),
   hintUsed: z.boolean().default(false),
   solutionOpened: z.boolean().default(false),

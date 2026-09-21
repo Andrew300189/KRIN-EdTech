@@ -101,6 +101,7 @@ model User {
   promotionRedemptions          PromotionRedemption[]
   lessonProgress                LessonProgress[]
   exerciseAttempts              ExerciseAttempt[]
+  exerciseSpeedWindows          ExerciseSpeedWindow[]
   mistakes                      UserMistake[]
   grammarSkillProgress          UserGrammarSkillProgress[]
   mistakeReviewRuns             MistakeReviewRun[]
@@ -916,6 +917,7 @@ model Exercise {
   archivedAt         DateTime?
   order              Int
   attempts           ExerciseAttempt[]
+  speedWindows       ExerciseSpeedWindow[]
   mistakes           UserMistake[]
   vocabularyLinks    ExerciseVocabulary[]
   grammarLinks       ExerciseGrammarTopic[]
@@ -1101,6 +1103,25 @@ model ExerciseAttempt {
   @@index([userId, lessonId, createdAt])
   @@index([exerciseId, createdAt])
   @@index([lessonId, createdAt])
+}
+
+/// A server-issued opening timestamp for the visible answer-speed bar. Only
+/// one active window can exist per learner and exercise; it is consumed with
+/// the submitted answer, so a browser cannot choose a faster elapsed time.
+model ExerciseSpeedWindow {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  /// Non-null only while the timer may be used. A unique key makes opening
+  /// the same card repeatedly reuse its original server timestamp.
+  activeKey  String?  @unique
+  openedAt   DateTime @default(now())
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, exerciseId, consumedAt, openedAt])
 }
 
 model HomeworkSubmission {
