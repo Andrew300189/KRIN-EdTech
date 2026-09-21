@@ -1235,8 +1235,6 @@ export function LessonPlayer({
                   block={activeBlock}
                   contentLocale={contentLocale}
                   persistentStreakTone={persistentStreakTone}
-                  completed={completedBlocks.includes(activeBlock.id)}
-                  onToggleComplete={() => undefined}
                   canSaveProgress={canSaveProgress}
                   previewMode={previewMode}
                   vocabularyWords={vocabulary}

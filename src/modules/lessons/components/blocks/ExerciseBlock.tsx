@@ -10,7 +10,6 @@ type ExerciseBlockProps = {
   block: LessonBlock;
   contentLocale?: "ru" | "uk";
   persistentStreakTone?: string | null;
-  completed?: boolean;
   previewMode?: boolean;
   playerStyle?: boolean;
   hideContext?: boolean;

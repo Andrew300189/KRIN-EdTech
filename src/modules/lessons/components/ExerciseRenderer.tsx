@@ -364,7 +364,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
       const scoreAwarded = isCorrect ? exercise.basePoints : -exercise.basePoints;
       setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
-      if (!isCorrect) clearTranslation();
+      if (isCorrect) setHintOpen(false);
+      else clearTranslation();
       onAttemptResolved?.({ exerciseId: exercise.id, isCorrect });
       setSending(false);
       submissionInFlightRef.current = false;
@@ -376,7 +377,8 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);
-      if (!payload.data.isCorrect) clearTranslation();
+      if (payload.data.isCorrect) setHintOpen(false);
+      else clearTranslation();
       onAttemptResolved?.({
         exerciseId: exercise.id,
         isCorrect: payload.data.isCorrect,
@@ -605,7 +607,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
     {!compactToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{visibleQuestion}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
-    {hintOpen && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
+    {hintOpen && !result?.isCorrect && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className={`${styles.answerList} lesson-exercise-answer-list mt-4 space-y-2`}>
       {choice && choiceOptions.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className={`${styles.choice} lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500`}><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} onKeyDown={(event) => submitChoiceOnEnter(event, option)} aria-keyshortcuts="Enter" /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
