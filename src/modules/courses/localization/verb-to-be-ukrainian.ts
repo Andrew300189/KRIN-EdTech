@@ -10,6 +10,11 @@
 export const verbToBeCourseSlug = "verb-to-be-masterclass";
 
 const exactReplacements: ReadonlyArray<readonly [string, string]> = [
+  ["Знакомство с глаголом to be", "Знайомство з дієсловом to be"],
+  ["Запоминаем формы am, is, are", "Запам’ятовуємо форми am, is, are"],
+  ["Впишите правильную форму", "Впишіть правильну форму"],
+  ["Впишите правильную форму: am, is или are.", "Впишіть правильну форму: am, is або are."],
+  ["Сначала найдите подлежащее.", "Спочатку знайдіть підмет."],
   ["Глагол to be: Present Simple для A1", "Дієслово to be: Present Simple для A1"],
   ["Модуль 1. Настоящее время: am, is, are", "Модуль 1. Теперішній час: am, is, are"],
   ["Урок 1. To be: основная идея и формы am, is, are", "Урок 1. To be: основна ідея та форми am, is, are"],

@@ -120,8 +120,13 @@ function exerciseTheory(block: LessonBlock) {
 }
 
 /** A CMS author can set a concise, step-specific goal separately from theory. */
-function learnerGoalForBlock(block: LessonBlock) {
-  const goal = asObject(block.settings).lessonGoal;
+function learnerGoalForBlock(block: LessonBlock, locale: string) {
+  const settings = asObject(block.settings);
+  const translatedGoals = asObject(settings.lessonGoalTranslations);
+  const translatedGoal = translatedGoals[locale];
+  if (typeof translatedGoal === "string" && translatedGoal.trim()) return translatedGoal.trim();
+
+  const goal = settings.lessonGoal;
   return typeof goal === "string" && goal.trim() ? goal.trim() : null;
 }
 
@@ -1213,7 +1218,7 @@ export function LessonPlayer({
               </div> : null}
               {!activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
-                <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
+                <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock, locale) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
               </div> : null}
               <div className={styles.focusContent} key={activeBlock.id}>
                 <LessonBlockRenderer
