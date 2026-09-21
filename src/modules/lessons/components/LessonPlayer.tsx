@@ -16,6 +16,7 @@ import { LeaderboardRiseNotifier } from "@/modules/motivation/components/Leaderb
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
+import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonRewardWheel, type LessonXpMultiplierWheelResult } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
@@ -428,6 +429,7 @@ export function LessonPlayer({
   const lessonPath = `${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${currentSlug}`;
   const registerHref = `/register?next=${encodeURIComponent(lessonPath)}`;
   const loginHref = `/login?next=${encodeURIComponent(lessonPath)}`;
+  const courseContentDestination = courseContentHref(courseSlug, lessonHrefPrefix);
   const activeBlockRule = activeBlock ? learnerRuleForBlock(activeBlock, locale) : null;
   const headerCopy = blockHeaderCopy[locale] ?? blockHeaderCopy.en;
   const chromeCopy = lessonChromeCopy[locale] ?? lessonChromeCopy.en;
@@ -921,9 +923,16 @@ export function LessonPlayer({
   }
 
   async function openCourseContent() {
-    const saved = await persistProgress(false);
-    if (canSaveProgress && !previewMode && !saved) return;
-    router.push(`/courses/${courseSlug}?content=open`);
+    if (canSaveProgress && !previewMode && !isReviewSession) {
+      // The outline must never become a dead end when a progress request is
+      // slow or temporarily unavailable. The pagehide safety net retains the
+      // same snapshot while the learner moves to the course programme.
+      await Promise.race([
+        persistProgress(false),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 4_000)),
+      ]);
+    }
+    router.push(courseContentDestination);
   }
 
   async function startAllMistakesReview() {
