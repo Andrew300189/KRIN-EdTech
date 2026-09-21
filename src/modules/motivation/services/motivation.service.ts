@@ -1277,7 +1277,21 @@ export async function activateUserQuest(userId: string, achievementId: string) {
 export async function updateMotivationSettings(userId: string, input: unknown) {
   const value = motivationSettingsSchema.parse(input);
   const timeZone = safeTimeZone(value.timeZone);
-  return prisma.user.update({ where: { id: userId }, data: { dailyGoalMinutes: value.dailyGoalMinutes, timeZone, ...(value.showInLeaderboard === undefined ? {} : { showInLeaderboard: value.showInLeaderboard }) }, select: { dailyGoalMinutes: true, timeZone: true, showInLeaderboard: true } });
+  // A public learner card only has meaning inside the opt-in community
+  // directory. Turning off the directory immediately hides the card too.
+  const publicProfileUpdate = value.showInLeaderboard === false
+    ? { showPublicProfile: false }
+    : value.showPublicProfile === undefined ? {} : { showPublicProfile: value.showPublicProfile };
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      dailyGoalMinutes: value.dailyGoalMinutes,
+      timeZone,
+      ...(value.showInLeaderboard === undefined ? {} : { showInLeaderboard: value.showInLeaderboard }),
+      ...publicProfileUpdate,
+    },
+    select: { dailyGoalMinutes: true, timeZone: true, showInLeaderboard: true, showPublicProfile: true },
+  });
 }
 
 type LeaderboardSource = {
@@ -1285,6 +1299,8 @@ type LeaderboardSource = {
   name: string;
   firstName: string | null;
   showInLeaderboard: boolean;
+  showPublicProfile: boolean;
+  username: string;
   createdAt: Date;
   level: {
     level: number;
@@ -1308,6 +1324,7 @@ export type LearnerLeaderboardEntry = {
   totalMinor: number;
   isCurrentUser: boolean;
   isProfileVisible: boolean;
+  publicProfileUsername: string | null;
 };
 
 function motivationMinor(whole: number, fraction: number | null | undefined) {
@@ -1339,6 +1356,7 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
         xpCoinsMinor,
         totalMinor: Math.max(0, row.level?.leaderboardExperienceMinor ?? 0),
         isProfileVisible: row.showInLeaderboard,
+        publicProfileUsername: row.showInLeaderboard && row.showPublicProfile ? row.username : null,
         createdAt: row.createdAt,
       };
     })
@@ -1359,7 +1377,9 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
       id: true,
       name: true,
       firstName: true,
+      username: true,
       showInLeaderboard: true,
+      showPublicProfile: true,
       createdAt: true,
       userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true, leaderboardExperienceMinor: true } },
       wallet: { select: { xpCoinBalanceMinor: true } },
@@ -1374,13 +1394,14 @@ export async function listPublicLeaderboard(limit = 20) {
     where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
     orderBy: [{ leaderboardExperienceMinor: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
     take: Math.min(Math.max(limit, 1), 50),
-    select: { level: true, leaderboardExperienceMinor: true, user: { select: { name: true } } },
+    select: { level: true, leaderboardExperienceMinor: true, user: { select: { name: true, username: true, showPublicProfile: true } } },
   });
   return rows.map((row, index) => ({
     rank: index + 1,
     displayName: row.user.name.trim().split(/\s+/)[0] || "Learner",
     level: row.level,
     experience: Math.floor(Math.max(0, row.leaderboardExperienceMinor) / 100),
+    publicProfileUsername: row.user.showPublicProfile ? row.user.username : null,
   }));
 }
 
@@ -1409,6 +1430,7 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
       totalMinor: canShowProfile ? entry.totalMinor : null,
       isCurrentUser: entry.isCurrentUser,
       isProfileVisible: entry.isProfileVisible,
+      publicProfileUsername: canShowProfile ? entry.publicProfileUsername : null,
     };
   });
   return { entries, current, participantCount: ranked.length };

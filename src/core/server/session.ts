@@ -302,6 +302,7 @@ export const AUTHENTICATED_USER_SELECT = {
   dailyIntensityMinutes: true,
   dailyGoalMinutes: true,
   showInLeaderboard: true,
+  showPublicProfile: true,
   takePlacementTest: true,
   onboardingCompletedAt: true,
   welcomeBonusPoints: true,

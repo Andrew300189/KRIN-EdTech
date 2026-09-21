@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppModal } from "@/core/components/AppModal";
 import { useLocale } from "@/core/i18n/locale";
@@ -15,6 +16,7 @@ type LeaderboardEntry = {
   totalMinor: number | null;
   isCurrentUser: boolean;
   isProfileVisible: boolean;
+  publicProfileUsername: string | null;
 };
 
 type LeaderboardData = {
@@ -103,10 +105,11 @@ export function LeaderboardHeaderStatus({ summary }: { summary: LeaderboardHeade
         {board.entries.map((entry) => {
           const showStats = entry.experienceMinor !== null && entry.xpCoinsMinor !== null && entry.totalMinor !== null;
           const displayName = entry.isCurrentUser ? (locale === "ru" ? "Вы" : locale === "uk" ? "Ви" : "You") : entry.displayName ?? text.anonymous;
+          const profileHref = entry.publicProfileUsername ? `/u/${encodeURIComponent(entry.publicProfileUsername)}` : null;
           return <li key={entry.userId} className={entry.isCurrentUser ? styles.currentEntry : undefined}>
             <span className={`${styles.place} ${placeClass(entry.rank)}`}>{entry.rank}</span>
             <div className={styles.learner}>
-              <strong>{displayName}</strong>
+              {profileHref ? <Link href={profileHref} className={styles.profileLink}>{displayName}</Link> : <strong>{displayName}</strong>}
               <span>{showStats ? `${text.balances}: ${displayMinor(entry.experienceMinor!, locale)} ${text.xp} · ${displayMinor(entry.xpCoinsMinor!, locale)} ${text.coins}` : text.privateStats}</span>
             </div>
             {showStats ? <span className={styles.score}>{displayMinor(entry.totalMinor!, locale)}<small>{text.total}</small></span> : null}

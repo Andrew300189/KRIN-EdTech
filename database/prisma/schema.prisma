@@ -62,6 +62,10 @@ model User {
   /// Learners opt in to the public leaderboard. Names, emails and other
   /// private profile data are never exposed by leaderboard queries.
   showInLeaderboard             Boolean                      @default(true)
+  /// A separate, explicit consent for the richer learner card. This is kept
+  /// independent from leaderboard participation so an existing opt-in never
+  /// unexpectedly reveals course progress or learning statistics.
+  showPublicProfile             Boolean                      @default(false)
   takePlacementTest             Boolean                      @default(false)
   onboardingCompletedAt         DateTime?
   welcomeBonusPoints            Int                          @default(0)

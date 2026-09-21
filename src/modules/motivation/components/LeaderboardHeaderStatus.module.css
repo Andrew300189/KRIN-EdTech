@@ -56,6 +56,9 @@
 .otherPlace { background: #eef2ff; color: #4f46e5; }
 .learner { display: grid; min-width: 0; gap: 0.12rem; }
 .learner strong { overflow: hidden; color: var(--text-primary); font-size: 0.86rem; text-overflow: ellipsis; white-space: nowrap; }
+.profileLink { overflow: hidden; color: #4338ca; font-size: 0.86rem; font-weight: 800; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.profileLink:hover { color: #312e81; text-decoration: underline; text-underline-offset: 0.18em; }
+.profileLink:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; border-radius: 0.2rem; }
 .learner span { overflow: hidden; color: var(--text-secondary); font-size: 0.7rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .score { display: grid; justify-items: end; color: var(--text-primary); font-size: 0.82rem; font-weight: 900; font-variant-numeric: tabular-nums; }
 .score small { color: var(--text-muted); font-size: 0.57rem; font-weight: 800; text-transform: uppercase; }
@@ -71,6 +74,7 @@
 :global(html[data-theme="dark"]) .diamond .tierIcon { background: #082f49; color: #7dd3fc; }
 :global(html[data-theme="dark"]) .boardHeading strong span, :global(html[data-theme="dark"]) .otherPlace { background: #252a57; color: #c7d2fe; }
 :global(html[data-theme="dark"]) .entries li.currentEntry { border-color: #4f46e5; background: #242449; }
+:global(html[data-theme="dark"]) .profileLink { color: #c7d2fe; }
 :global(html[data-theme="dark"]) .refresh { border-color: #725612; background: #382e10; color: #fde68a; }
 
 @media (max-width: 600px) {
