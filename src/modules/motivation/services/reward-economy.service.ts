@@ -304,14 +304,12 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
     dailyCounts: streakChestDailyCounts(recentRewards.map((reward) => reward.amount)),
     isCenturyMilestone: isCenturyStreakChest(milestone),
   });
+  // A century streak continues to unlock its separate non-ranked KRIN Coin,
+  // but cannot make a common flower imitate a rare flower's chest. Every XP
+  // result is clamped to the selected flower's own natural-rarity band.
   const experience = isWhiteLily(flower)
     ? 1_000
-    // Keep the previously promised 300/400/500 reward at exact century
-    // milestones. A Water Lily is delivered independently and never changes
-    // the XP amount belonging to the regular flower.
-    : isCenturyStreakChest(milestone)
-      ? standardExperience
-      : Math.max(flower.minimumExperience, Math.min(flower.maximumExperience, standardExperience));
+    : Math.max(flower.minimumExperience, Math.min(flower.maximumExperience, standardExperience));
   return {
     id: `flower-${flower.id}-xp-${experience}`,
     flower,
@@ -481,9 +479,6 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     const allowsLegendaryExperience = isWhiteLily(choice.flower);
     if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || (!allowsLegendaryExperience && choice.experience > STREAK_CHEST_XP_MAXIMUM) || (allowsLegendaryExperience && choice.experience !== 1_000)) {
       throw new Error("Invalid streak chest reward.");
-    }
-    if (isCenturyStreakChest(milestone) && !allowsLegendaryExperience && !STREAK_CHEST_JACKPOT_VALUES.includes(choice.experience as typeof STREAK_CHEST_JACKPOT_VALUES[number])) {
-      throw new Error("Invalid streak chest reward tier.");
     }
     const waterLilyCycle = flowerRestoreCycle(milestone);
     const waterLilyAlreadyAwarded = await tx.experienceTransaction.findFirst({

@@ -32,4 +32,18 @@ describe("flower chest rewards", () => {
     expect(whiteLily?.maximumExperience).toBe(1_000);
     expect(FLOWER_CHESTS.filter((flower) => flower.id === WHITE_LILY_FLOWER_ID)).toHaveLength(1);
   });
+
+  it("makes each naturally rarer tier less likely and strictly more valuable", () => {
+    const byNaturalRarity = new Map<number, typeof FLOWER_CHESTS[number]>();
+    for (const flower of FLOWER_CHESTS) {
+      const previous = byNaturalRarity.get(flower.naturalRarityRank);
+      if (!previous || flower.maximumExperience > previous.maximumExperience) byNaturalRarity.set(flower.naturalRarityRank, flower);
+    }
+
+    const tiers = [...byNaturalRarity.values()].sort((left, right) => left.naturalRarityRank - right.naturalRarityRank);
+    for (let index = 1; index < tiers.length; index += 1) {
+      expect(tiers[index]!.weight).toBeLessThan(tiers[index - 1]!.weight);
+      expect(tiers[index]!.minimumExperience).toBeGreaterThan(tiers[index - 1]!.maximumExperience);
+    }
+  });
 });
