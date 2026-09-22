@@ -2424,11 +2424,21 @@ async function getLatestLessonAttemptAccuracy(userId: string, lessonIds: string[
 async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
   const experienceByLesson = new Map<string, number>();
   if (lessonIds.length === 0) return experienceByLesson;
+  const transactionExperience = (transaction: { amount: number; amountMinor: number | null }) => (
+    typeof transaction.amountMinor === "number" ? transaction.amountMinor / 100 : transaction.amount
+  );
 
-  const [lessonRewards, correctAttempts] = await Promise.all([
+  const [lessonRewards, multiplierRewards, correctAttempts] = await Promise.all([
     prisma.experienceTransaction.findMany({
       where: { userId, type: "LESSON_COMPLETED", sourceId: { in: lessonIds } },
-      select: { sourceId: true, amount: true },
+      select: { sourceId: true, amount: true, amountMinor: true },
+    }),
+    // A wheel credit is deliberately stored as an achievement reward, but its
+    // source is still the completed lesson. Keep it with that lesson so every
+    // learner-facing course total is based on the immutable XP ledger.
+    prisma.experienceTransaction.findMany({
+      where: { userId, sourceType: "LESSON_XP_MULTIPLIER", sourceId: { in: lessonIds } },
+      select: { sourceId: true, amount: true, amountMinor: true },
     }),
     prisma.exerciseAttempt.findMany({
       where: { userId, lessonId: { in: lessonIds }, isCorrect: true },
@@ -2436,8 +2446,8 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
     }),
   ]);
 
-  for (const reward of lessonRewards) {
-    experienceByLesson.set(reward.sourceId, (experienceByLesson.get(reward.sourceId) ?? 0) + reward.amount);
+  for (const reward of [...lessonRewards, ...multiplierRewards]) {
+    experienceByLesson.set(reward.sourceId, (experienceByLesson.get(reward.sourceId) ?? 0) + transactionExperience(reward));
   }
 
   const lessonIdByExerciseId = new Map<string, string>();
@@ -2447,11 +2457,11 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
 
   const exerciseRewards = await prisma.experienceTransaction.findMany({
     where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
-    select: { sourceId: true, amount: true },
+    select: { sourceId: true, amount: true, amountMinor: true },
   });
   for (const reward of exerciseRewards) {
     const lessonId = lessonIdByExerciseId.get(reward.sourceId);
-    if (lessonId) experienceByLesson.set(lessonId, (experienceByLesson.get(lessonId) ?? 0) + reward.amount);
+    if (lessonId) experienceByLesson.set(lessonId, (experienceByLesson.get(lessonId) ?? 0) + transactionExperience(reward));
   }
   return experienceByLesson;
 }

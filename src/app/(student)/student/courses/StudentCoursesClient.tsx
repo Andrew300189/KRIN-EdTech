@@ -31,10 +31,8 @@ function getProgressLabel(course: LearnerCourseCard) {
 }
 
 function getXpLabel(course: LearnerCourseCard) {
-  if (course.lessonExperience <= 0) return "No XP reward is active for lessons right now.";
-  const remaining = Math.max(0, course.totalLessons - course.completedLessons);
-  if (remaining === 0 && course.totalLessons > 0) return "First-completion XP collected. Repeats do not award XP.";
-  return `${remaining} new ${remaining === 1 ? "lesson" : "lessons"} available · +${course.lessonExperience} XP each on first completion`;
+  if (course.experienceEarned <= 0) return "No XP earned in this course yet.";
+  return `${course.experienceEarned} XP earned in this course so far`;
 }
 
 export function StudentCoursesClient({
@@ -126,7 +124,7 @@ export function StudentCoursesClient({
             <div className={styles.progressHeading}><span>{getProgressLabel(course)}</span><strong>{course.progress}%</strong></div>
             <div className={styles.progressTrack} aria-label={`${course.progress}% complete`}><div className={styles.progressFill} style={{ width: `${course.progress}%` }} /></div>
             <p className={styles.nextLesson}>{course.nextLesson ? `Next: ${course.nextLesson.title}` : course.progress >= 100 ? "You have completed this course." : "Choose a lesson when you are ready."}</p>
-            <div className={styles.xpReward}><LessonXpBadge experience={course.lessonExperience} correctAnswers={course.lessonAccuracy.correctAnswers} incorrectAnswers={course.lessonAccuracy.incorrectAnswers} progressPercent={course.progress} /><span>{getXpLabel(course)}</span></div>
+            <div className={styles.xpReward}><LessonXpBadge experience={course.experienceEarned} correctAnswers={course.lessonAccuracy.correctAnswers} incorrectAnswers={course.lessonAccuracy.incorrectAnswers} progressPercent={course.progress} rewardScope="course" /><span>{getXpLabel(course)}</span></div>
           </div>
           <div className={styles.cardActions}>
             <Link href={learnerCourseContinueHref(course)} className={styles.primaryAction}>{course.progress ? "Continue" : "Start course"}</Link>

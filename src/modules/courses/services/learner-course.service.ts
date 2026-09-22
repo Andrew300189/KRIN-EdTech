@@ -1,6 +1,5 @@
 import { Prisma, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
-import { getLearningRewardPreview } from "@/modules/motivation/services/motivation.service";
 import { listLessonProgressByLessonIds } from "./content.service";
 import { isLessonProgressComplete } from "@/modules/lessons/utils/lesson-progress-state";
 
@@ -29,7 +28,8 @@ export type LearnerCourseCard = {
   progress: number;
   completedLessons: number;
   totalLessons: number;
-  lessonExperience: number;
+  /** Immutable XP actually credited while studying this course. */
+  experienceEarned: number;
   lessonAccuracy: { correctAnswers: number; incorrectAnswers: number };
   source: "ENROLLED" | "PURCHASED" | "SUBSCRIPTION" | "IN_PROGRESS" | "TEACHER_CREATED" | "SELF_ADDED" | "TEACHER_ASSIGNED" | "GROUP_ASSIGNED";
   canRemove: boolean;
@@ -58,19 +58,16 @@ function plansAvailableTo(subscriptionPlan: SubscriptionPlan | undefined) {
  */
 export async function listLearnerCourses(userId: string): Promise<LearnerCourseCard[]> {
   const now = new Date();
-  const [subscription, rewardPreview] = await Promise.all([
-    prisma.entitlement.findFirst({
-      where: {
-        userId,
-        type: "SUBSCRIPTION",
-        ...activeWindow(now),
-        plan: { isNot: null },
-      },
-      orderBy: { createdAt: "desc" },
-      select: { plan: { select: { code: true } } },
-    }),
-    getLearningRewardPreview(),
-  ]);
+  const subscription = await prisma.entitlement.findFirst({
+    where: {
+      userId,
+      type: "SUBSCRIPTION",
+      ...activeWindow(now),
+      plan: { isNot: null },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { plan: { select: { code: true } } },
+  });
   const subscriptionPlans = plansAvailableTo(subscription?.plan?.code);
 
   const directEntitlement = { userId, ...activeWindow(now) };
@@ -154,12 +151,27 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       courses.flatMap((course) => course.modules.flatMap((courseModule) => courseModule.lessons.map((lesson) => lesson.id))),
     )).map((progress) => [progress.lessonId, progress]),
   );
+  // Course-completion XP has the course itself as its ledger source. All
+  // lesson XP (including the wheel) is already attached to lesson progress.
+  const courseCompletionExperience = await prisma.experienceTransaction.groupBy({
+    by: ["sourceId"],
+    where: {
+      userId,
+      type: "COURSE_COMPLETED",
+      sourceId: { in: courses.map((course) => course.id) },
+    },
+    _sum: { amount: true },
+  });
+  const courseCompletionExperienceById = new Map(
+    courseCompletionExperience.map((item) => [item.sourceId, item._sum.amount ?? 0]),
+  );
 
   const courseCards: LearnerCourseCard[] = courses.map((course) => {
     const lessons = course.modules.flatMap((courseModule) => courseModule.lessons);
     const requiredModules = course.modules.filter((courseModule) => courseModule.isRequired);
     const requiredLessons = requiredModules.length ? requiredModules.flatMap((courseModule) => courseModule.lessons) : lessons;
     const progressEntries = requiredLessons.map((lesson) => lessonProgressById.get(lesson.id));
+    const lessonProgressEntries = lessons.map((lesson) => lessonProgressById.get(lesson.id));
     const totalLessons = requiredLessons.length;
     const completedLessons = progressEntries.filter(
       (progress) => isLessonProgressComplete(progress),
@@ -184,6 +196,10 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
         incorrectAnswers: summary.incorrectAnswers + (item?.attemptAccuracy.incorrectAnswers ?? 0),
       }),
       { correctAnswers: 0, incorrectAnswers: 0 },
+    );
+    const experienceEarned = lessonProgressEntries.reduce(
+      (total, item) => total + (item?.experienceEarned ?? 0),
+      courseCompletionExperienceById.get(course.id) ?? 0,
     );
     const hasModuleEntitlement = course.modules.some(
       (module) => module.entitlements.length > 0,
@@ -217,7 +233,7 @@ export async function listLearnerCourses(userId: string): Promise<LearnerCourseC
       progress,
       completedLessons,
       totalLessons,
-      lessonExperience: rewardPreview.lesson.experience,
+      experienceEarned,
       lessonAccuracy,
       source,
       canRemove: Boolean(libraryEntry),

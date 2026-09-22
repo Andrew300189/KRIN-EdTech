@@ -7,6 +7,8 @@ type LessonXpBadgeProps = {
   incorrectAnswers?: number;
   /** Keeps the remaining, not-yet-completed part of a lesson/course neutral. */
   progressPercent?: number;
+  /** Changes accessible copy when the badge represents a whole course. */
+  rewardScope?: "lesson" | "course";
   className?: string;
 };
 
@@ -19,6 +21,7 @@ export function LessonXpBadge({
   correctAnswers = 0,
   incorrectAnswers = 0,
   progressPercent,
+  rewardScope = "lesson",
   className = "",
 }: LessonXpBadgeProps) {
   const attempted = Math.max(0, correctAnswers + incorrectAnswers);
@@ -37,8 +40,8 @@ export function LessonXpBadge({
     <span
       className={`${styles.badge} ${className}`}
       style={{ "--lesson-xp-ring": ring } as CSSProperties}
-      aria-label={`${experience} XP earned for this lesson. ${summary}.`}
-      title={`${experience} XP earned. ${summary}.`}
+      aria-label={`${experience} XP earned for this ${rewardScope}. ${summary}.`}
+      title={`${experience} XP earned for this ${rewardScope}. ${summary}.`}
     >
       <span className={styles.value}>{experience > 0 ? `+${experience}` : "0"}</span>
       <span className={styles.unit}>XP</span>
