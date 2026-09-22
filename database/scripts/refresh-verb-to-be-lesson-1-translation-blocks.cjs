@@ -216,9 +216,13 @@ async function main() {
       if (blockId) {
         // Preserve every historic attempt by retiring the old cards before
         // their order slots are reused by the new exercise versions.
+        // Previous refreshes may already have archived a historical card at
+        // order 1001, 1002, etc.  Move the whole retired set far beyond the
+        // active slots so a second refresh can never collide with those
+        // unique (lessonBlockId, order) values.
         await tx.exercise.updateMany({
           where: { lessonBlockId: blockId },
-          data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: 1000 } },
+          data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: 1_000_000 } },
         });
         await tx.lessonBlock.update({
           where: { id: blockId },
