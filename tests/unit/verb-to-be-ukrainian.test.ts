@@ -44,4 +44,10 @@ describe("legacy To Be Ukrainian learner copy", () => {
     expect(translateVerbToBeTextToUkrainian("Матчинг: личные местоимения и to be")).toBe("Зіставлення: особові займенники й to be");
     expect(translateVerbToBeTextToUkrainian("Соедините личное местоимение с правильной формой глагола to be.")).toBe("Зіставте особовий займенник із правильною формою дієслова to be.");
   });
+
+  it("keeps the full and contracted-form cards fully Ukrainian", () => {
+    expect(translateVerbToBeTextToUkrainian("Сокращённые формы: напишите полную")).toBe("Скорочені форми: впишіть повну");
+    expect(translateVerbToBeTextToUkrainian("Дана сокращённая форма. Впишите полную форму.")).toBe("Дано скорочену форму. Впишіть повну форму.");
+    expect(translateVerbToBeTextToUkrainian("Преобразуйте форму: сокращённую разверните, полную сократите.")).toBe("Перетворіть форму: скорочену розгорніть, повну скоротіть.");
+  });
 });

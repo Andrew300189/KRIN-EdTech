@@ -27,6 +27,9 @@ const DYNAMIC_MATCHING_MARKER = "TO_BE_DYNAMIC_MATCHING_V1";
 const translationInstruction = "Переведите на английский. Впишите только два слова.";
 const correctionInstruction = "В предложении есть ошибка. Впишите правильную форму глагола to be.";
 const dynamicMatchingInstruction = "Соедините личное местоимение с правильной формой глагола to be.";
+const contractionToFullInstruction = "Дана сокращённая форма. Впишите полную форму.";
+const fullToContractionInstruction = "Дана полная форма. Впишите сокращённую форму.";
+const mixedContractionsInstruction = "Преобразуйте форму: сокращённую разверните, полную сократите.";
 const dynamicToBePairs = Array.from({ length: 36 }, (_, index) => {
   const cycle = [
     ["I", "am"], ["you", "are"], ["he", "is"], ["she", "is"],
@@ -130,6 +133,48 @@ const blocks = [
     goal: "Соединить личные местоимения с правильной формой глагола to be.",
     ukrainianGoal: "Зіставити особові займенники з правильною формою дієслова to be.",
     prompts: [["am, is, are", Object.fromEntries(dynamicToBePairs.map((pair) => [pair.id, pair.right]))]],
+  },
+  {
+    order: 10,
+    marker: "TO_BE_CONTRACTION_TO_FULL_V1",
+    instruction: contractionToFullInstruction,
+    variantKey: "TO_BE_CONTRACTION_TO_FULL",
+    title: "Сокращённые формы: напишите полную",
+    goal: "Развернуть сокращённые формы глагола to be.",
+    ukrainianGoal: "Розгорнути скорочені форми дієслова to be.",
+    prompts: [
+      ["I'm", "I am"], ["you're", "you are"], ["he's", "he is"], ["she's", "she is"],
+      ["it's", "it is"], ["we're", "we are"], ["you're", "you are"], ["they're", "they are"],
+      ["I'm", "I am"], ["she's", "she is"], ["we're", "we are"], ["they're", "they are"],
+    ],
+  },
+  {
+    order: 11,
+    marker: "TO_BE_FULL_TO_CONTRACTION_V1",
+    instruction: fullToContractionInstruction,
+    variantKey: "TO_BE_FULL_TO_CONTRACTION",
+    title: "Полные формы: напишите сокращённую",
+    goal: "Сократить полные формы глагола to be.",
+    ukrainianGoal: "Скоротити повні форми дієслова to be.",
+    prompts: [
+      ["I am", "I'm"], ["you are", "you're"], ["he is", "he's"], ["she is", "she's"],
+      ["it is", "it's"], ["we are", "we're"], ["you are", "you're"], ["they are", "they're"],
+      ["I am", "I'm"], ["he is", "he's"], ["we are", "we're"], ["they are", "they're"],
+    ],
+  },
+  {
+    order: 12,
+    marker: "TO_BE_MIXED_CONTRACTIONS_V1",
+    instruction: mixedContractionsInstruction,
+    variantKey: "TO_BE_MIXED_CONTRACTIONS",
+    title: "Полные и сокращённые формы: вперемешку",
+    goal: "Преобразовать полные и сокращённые формы глагола to be.",
+    ukrainianGoal: "Перетворити повні та скорочені форми дієслова to be.",
+    prompts: [
+      ["I'm", "I am"], ["he is", "he's"], ["we're", "we are"], ["they are", "they're"],
+      ["it's", "it is"], ["you are", "you're"], ["she's", "she is"], ["I am", "I'm"],
+      ["they're", "they are"], ["we are", "we're"], ["he's", "he is"], ["she is", "she's"],
+    ],
   },
 ];
 
