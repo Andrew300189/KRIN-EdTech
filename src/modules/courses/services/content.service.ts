@@ -997,10 +997,24 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
   };
 }
 
-export const getPublishedLessonBySlug = cachePublicContent(
+const getPublishedLessonBySlugCached = cachePublicContent(
   ["published-lesson-by-slug"],
   getPublishedLessonBySlugUncached,
 );
+
+// This lesson gained two authored theory steps after its earlier learner path
+// was cached. Give just that lesson a new cache namespace so returning
+// learners see the restored steps immediately after deployment.
+const getToBeLessonOneWithTheory = cachePublicContent(
+  ["published-lesson-by-slug", "to-be-lesson-one-theory-v2"],
+  getPublishedLessonBySlugUncached,
+);
+
+export function getPublishedLessonBySlug(courseSlug: string, lessonSlug: string, localeInput?: string | null) {
+  return courseSlug === "verb-to-be-masterclass" && lessonSlug === "to-be-the-core-idea"
+    ? getToBeLessonOneWithTheory(courseSlug, lessonSlug, localeInput)
+    : getPublishedLessonBySlugCached(courseSlug, lessonSlug, localeInput);
+}
 
 export async function listManagedCourses() {
   return prisma.course.findMany({

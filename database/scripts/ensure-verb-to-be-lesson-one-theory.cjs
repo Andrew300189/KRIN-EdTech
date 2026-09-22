@@ -1,7 +1,7 @@
 /*
  * Keep the Russian source theory for /ru and publish authored Ukrainian
- * translations for /uk. Add a separate contractions reading step immediately
- * before the three contractions practice blocks without replacing their IDs.
+ * translations for /uk. Keep separate reading steps for am/is/are after the
+ * introduction and for contractions before their three practice blocks.
  * This runs after the initial course bootstrap and is safe on later deploys.
  */
 
@@ -17,6 +17,7 @@ const prisma = new PrismaClient({
 });
 
 const THEORY_MARKER = "TO_BE_CONTRACTIONS_THEORY_V1";
+const FORMS_THEORY_MARKER = "TO_BE_FORMS_THEORY_V1";
 const violet = "color: rgb(91, 78, 232); background-color: rgb(238, 236, 255); font-weight: 700";
 const green = "color: rgb(22, 115, 74); background-color: rgb(232, 248, 239); font-weight: 700";
 const red = "color: rgb(180, 35, 57); background-color: rgb(255, 240, 242); font-weight: 700";
@@ -33,6 +34,22 @@ const firstTheoryUk = [
   `<h3 style="font-family: Georgia, serif">Де ви побачите to be</h3>`,
   `<ul><li>професія: <strong style="${blue}">My brother is a doctor.</strong></li><li>ознака: <strong style="${blue}">The film is interesting.</strong></li><li>місце: <strong style="${blue}">My friends are at the cinema.</strong></li><li>стан і почуття: <strong style="${blue}">I am tired. We are happy.</strong></li><li>вік: <strong style="${blue}">She is twenty years old.</strong></li><li>погода, час і дата: <strong style="${blue}">It is rainy. It is five o’clock. Today is Saturday.</strong></li></ul>`,
   `<p><strong style="${green}">Головне правило:</strong> якщо треба поєднати людину чи предмет із професією, ознакою, місцем або станом, оберіть відповідну форму <strong style="${violet}">am, is або are</strong>.</p>`,
+].join("\n");
+
+const formsRu = [
+  `<h2 style="font-family: Georgia, serif"><span style="${violet}">Am, is, are</span>: выбираем форму</h2>`,
+  `<p>Перед каждым ответом посмотрите на <strong style="${blue}">подлежащее</strong> — кто или что перед вами. Именно оно определяет форму глагола <em style="${violet}">to be</em>.</p>`,
+  `<ul><li><strong style="${violet}">I → am</strong>: <em>I am ready.</em></li><li><strong style="${green}">he / she / it → is</strong>: <em>She is here. It is cold.</em></li><li><strong style="${blue}">we / you / they → are</strong>: <em>We are friends. You are right.</em></li></ul>`,
+  `<p><strong style="${red}">Важно:</strong> <strong>you</strong> всегда требует <strong style="${blue}">are</strong> — и для одного человека («ты»), и для нескольких («вы»). С именем одного человека используйте <strong style="${green}">is</strong>, с несколькими именами — <strong style="${blue}">are</strong>.</p>`,
+  `<p><strong style="${green}">Проверьте себя:</strong> <em>I ___ ready</em> → <strong>am</strong>; <em>She ___ here</em> → <strong>is</strong>; <em>They ___ at home</em> → <strong>are</strong>. В следующем блоке нужно вписывать только одну подходящую форму.</p>`,
+].join("\n");
+
+const formsUk = [
+  `<h2 style="font-family: Georgia, serif"><span style="${violet}">Am, is, are</span>: обираємо форму</h2>`,
+  `<p>Перед кожною відповіддю подивіться на <strong style="${blue}">підмет</strong> — хто або що перед вами. Саме він визначає форму дієслова <em style="${violet}">to be</em>.</p>`,
+  `<ul><li><strong style="${violet}">I → am</strong>: <em>I am ready.</em></li><li><strong style="${green}">he / she / it → is</strong>: <em>She is here. It is cold.</em></li><li><strong style="${blue}">we / you / they → are</strong>: <em>We are friends. You are right.</em></li></ul>`,
+  `<p><strong style="${red}">Важливо:</strong> <strong>you</strong> завжди потребує <strong style="${blue}">are</strong> — і для однієї людини («ти»), і для кількох («ви»). З ім’ям однієї людини вживайте <strong style="${green}">is</strong>, із кількома іменами — <strong style="${blue}">are</strong>.</p>`,
+  `<p><strong style="${green}">Перевірте себе:</strong> <em>I ___ ready</em> → <strong>am</strong>; <em>She ___ here</em> → <strong>is</strong>; <em>They ___ at home</em> → <strong>are</strong>. У наступному блоці потрібно вписувати лише одну відповідну форму.</p>`,
 ].join("\n");
 
 const contractionsRu = [
@@ -75,20 +92,57 @@ async function main() {
 
   const firstTheory = lesson.blocks.find((block) => block.order === 1 && block.type === "THEORY");
   if (!firstTheory) throw new Error("The first To Be theory block is missing.");
+  const existingFormsTheory = lesson.blocks.find((block) => block.settings?.seedMarker === FORMS_THEORY_MARKER);
   const existingContractionsTheory = lesson.blocks.find((block) => block.settings?.seedMarker === THEORY_MARKER);
 
   await prisma.$transaction(async (tx) => {
     await publishTranslation(tx, firstTheory.id, "uk", "Як працює to be", firstTheoryUk);
 
-    let theoryId = existingContractionsTheory?.id;
-    if (!theoryId) {
-      for (const block of lesson.blocks.filter((item) => item.order >= 10)) {
+    let formsTheoryId = existingFormsTheory?.id;
+    if (!formsTheoryId) {
+      for (const block of lesson.blocks.filter((item) => item.order >= 2)) {
         await tx.lessonBlock.update({ where: { id: block.id }, data: { order: block.order + 1 } });
       }
       const theory = await tx.lessonBlock.create({
         data: {
           lessonId: lesson.id,
-          order: 10,
+          order: 2,
+          type: "THEORY",
+          title: "Формы am, is, are",
+          content: { text: formsRu },
+          settings: {
+            seedMarker: FORMS_THEORY_MARKER,
+            lessonGoal: "Научиться выбирать am, is или are по подлежащему.",
+            lessonGoalTranslations: {
+              ru: "Научиться выбирать am, is или are по подлежащему.",
+              uk: "Навчитися обирати am, is або are за підметом.",
+            },
+          },
+          isRequired: true,
+          contentStatus: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      });
+      formsTheoryId = theory.id;
+    }
+    await publishTranslation(tx, formsTheoryId, "uk", "Форми am, is, are", formsUk);
+
+    let theoryId = existingContractionsTheory?.id;
+    if (!theoryId) {
+      const currentBlocks = await tx.lessonBlock.findMany({
+        where: { lessonId: lesson.id },
+        orderBy: { order: "desc" },
+        select: { id: true, order: true, settings: true },
+      });
+      const contractionsOrder = currentBlocks.find((block) => block.settings?.seedMarker === "TO_BE_CONTRACTION_TO_FULL_V1")?.order
+        ?? (existingFormsTheory ? 10 : 11);
+      for (const block of currentBlocks.filter((item) => item.order >= contractionsOrder)) {
+        await tx.lessonBlock.update({ where: { id: block.id }, data: { order: block.order + 1 } });
+      }
+      const theory = await tx.lessonBlock.create({
+        data: {
+          lessonId: lesson.id,
+          order: contractionsOrder,
           type: "THEORY",
           title: "Сокращённые формы to be",
           content: { text: contractionsRu },
@@ -110,7 +164,7 @@ async function main() {
     await publishTranslation(tx, theoryId, "uk", "Скорочені форми to be", contractionsUk);
   }, { maxWait: 30_000, timeout: 120_000 });
 
-  console.log(existingContractionsTheory ? "To Be theory translations are current." : "Added To Be contractions theory and Ukrainian theory translations.");
+  console.log("Ensured To Be introductory, am/is/are, and contractions theory.");
 }
 
 main()

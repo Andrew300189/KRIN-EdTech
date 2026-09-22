@@ -1090,8 +1090,12 @@ export function LessonPlayer({
                 const isCompleted = completedBlocks.includes(block.id);
                 const isCurrent = block.id === activeBlock?.id;
                 const isReviewableAfterCompletion = Boolean(lessonIsCompleted);
-                const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent;
-                const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : "locked";
+                // Returning learners can be partway through this lesson when
+                // its missing theory steps are restored. Let them read those
+                // steps without resetting their saved exercise progress.
+                const isAccessibleToBeTheory = courseSlug === "verb-to-be-masterclass" && isFirstCourseLesson && block.type === "THEORY" && index < activeIndex;
+                const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent || isAccessibleToBeTheory;
+                const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : isAccessibleToBeTheory ? "available" : "locked";
                 const label = block.title?.trim() || `${localizedBlockType(block.type, locale)} ${chromeCopy.step}`;
                 const attemptVisual = canOpenBlock
                   ? getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
