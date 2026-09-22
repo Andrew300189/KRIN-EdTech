@@ -37,6 +37,7 @@ const FUTURE_CONTINUOUS_COURSE_SCRIPT = "database/scripts/import-future-continuo
 const FUTURE_SIMPLE_COURSE_SCRIPT = "database/scripts/import-future-simple-full-mastery.cjs";
 const DENTAL_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-dental-english-vocabulary-mastery.cjs";
 const TO_BE_TRANSLATION_BLOCKS_SCRIPT = "database/scripts/refresh-verb-to-be-lesson-1-translation-blocks.cjs";
+const TO_BE_THEORY_SCRIPT = "database/scripts/ensure-verb-to-be-lesson-one-theory.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
 const DEMO_COURSE_SLUGS = ["demo-free-course", "demo-premium-course"];
 const dateFields = ["scheduledAt", "publishedAt", "archivedAt"];
@@ -228,6 +229,8 @@ async function main() {
   // theory. Refresh only the three authored personal-pronoun translation
   // blocks afterwards, so a brand-new deployment matches existing databases.
   if (process.env.VERCEL_ENV === "production") {
+    console.log("Ensuring Russian and Ukrainian To Be lesson-one theory is current…");
+    runSeedScript(TO_BE_THEORY_SCRIPT);
     console.log("Ensuring the To Be personal-pronoun translation blocks are current…");
     runSeedScript(TO_BE_TRANSLATION_BLOCKS_SCRIPT);
   }

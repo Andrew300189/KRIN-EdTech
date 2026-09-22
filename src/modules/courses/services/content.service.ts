@@ -970,11 +970,13 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
       // while the lesson player deliberately accepts only a visible title or
       // null. Normalise it here so a fresh production Prisma generation and
       // the local client agree on the public lesson shape.
-      const blockTitle = blockTranslation?.title ?? block.title ?? null;
       return {
         ...block,
-        title: localizeText(blockTitle) ?? null,
-        content: localizeJson(blockTranslation?.content ?? block.content),
+        // Published locale rows are already authored in their target language.
+        // Running the legacy Russian-to-Ukrainian phrase fallback over them
+        // can corrupt Ukrainian inflections or styled HTML fragments.
+        title: blockTranslation?.title ?? localizeText(block.title) ?? null,
+        content: blockTranslation?.content ?? localizeJson(block.content),
         exercises: block.exercises.map((exercise) => {
           const exerciseTranslation = exercise.translations[0];
           return {

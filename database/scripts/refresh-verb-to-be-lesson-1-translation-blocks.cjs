@@ -135,7 +135,7 @@ const blocks = [
     prompts: [["am, is, are", Object.fromEntries(dynamicToBePairs.map((pair) => [pair.id, pair.right]))]],
   },
   {
-    order: 10,
+    order: 11,
     marker: "TO_BE_CONTRACTION_TO_FULL_V1",
     instruction: contractionToFullInstruction,
     variantKey: "TO_BE_CONTRACTION_TO_FULL",
@@ -149,7 +149,7 @@ const blocks = [
     ],
   },
   {
-    order: 11,
+    order: 12,
     marker: "TO_BE_FULL_TO_CONTRACTION_V1",
     instruction: fullToContractionInstruction,
     variantKey: "TO_BE_FULL_TO_CONTRACTION",
@@ -163,7 +163,7 @@ const blocks = [
     ],
   },
   {
-    order: 12,
+    order: 13,
     marker: "TO_BE_MIXED_CONTRACTIONS_V1",
     instruction: mixedContractionsInstruction,
     variantKey: "TO_BE_MIXED_CONTRACTIONS",
@@ -249,6 +249,10 @@ async function main() {
 
   const existingByOrder = new Map(lesson.blocks.map((block) => [block.order, block]));
   const updates = blocks.filter((definition) => !isCurrentBlock(existingByOrder.get(definition.order), definition));
+  if (process.argv.includes("--check")) {
+    console.log(JSON.stringify({ outOfDateBlockOrders: updates.map((definition) => definition.order) }));
+    return;
+  }
   if (!updates.length) {
     console.log("Verb to be lesson 1 practice blocks are already current.");
     return;
