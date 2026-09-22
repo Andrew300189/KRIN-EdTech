@@ -24,4 +24,12 @@ describe("legacy To Be Ukrainian learner copy", () => {
   it("translates every learner-facing course outcome without mixed Russian text", () => {
     expect(translateVerbToBeTextToUkrainian("Задавать общие и специальные вопросы, а также давать короткие ответы.")).toBe("Ставити загальні й спеціальні запитання, а також давати короткі відповіді.");
   });
+
+  it("keeps the personal-pronoun translation cards fully Ukrainian", () => {
+    expect(translateVerbToBeTextToUkrainian("Переведите на английский. Впишите только два слова.")).toBe("Перекладіть англійською. Впишіть лише два слова.");
+    expect(translateVerbToBeTextToUkrainian("Я есть")).toBe("Я є");
+    expect(translateVerbToBeTextToUkrainian("Ты являешься")).toBe("Ти є");
+    expect(translateVerbToBeTextToUkrainian("Они находятся")).toBe("Вони перебувають");
+    expect(translateVerbToBeTextToUkrainian("Он существует")).toBe("Він існує");
+  });
 });
