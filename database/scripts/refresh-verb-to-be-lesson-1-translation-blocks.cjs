@@ -1,10 +1,10 @@
 /*
- * Keeps the first To Be lesson's three personal-pronoun translation blocks
- * aligned in populated databases and in a freshly bootstrapped database.
+ * Keeps the first To Be lesson's personal-pronoun translation and error-
+ * correction blocks aligned in populated databases and in a fresh bootstrap.
  *
- * Each card deliberately contains only the source phrase. Learners type the
- * complete English pair (for example, "I am") rather than a missing word in
- * a longer sentence.
+ * Translation cards contain only a source phrase and expect a complete pair
+ * (for example, "I am"). Correction cards show an incorrect pair and expect
+ * only the corrected to-be form.
  */
 
 try {
@@ -21,12 +21,17 @@ const prisma = new PrismaClient({
 });
 
 const COURSE_SLUG = "verb-to-be-masterclass";
-const MARKER = "TO_BE_TRANSLATION_PERSONAL_PRONOUNS_V1";
-const instruction = "Переведите на английский. Впишите только два слова.";
+const TRANSLATION_MARKER = "TO_BE_TRANSLATION_PERSONAL_PRONOUNS_V1";
+const CORRECTION_MARKER = "TO_BE_ERROR_CORRECTION_V1";
+const translationInstruction = "Переведите на английский. Впишите только два слова.";
+const correctionInstruction = "В предложении есть ошибка. Впишите правильную форму глагола to be.";
 
 const blocks = [
   {
     order: 3,
+    marker: TRANSLATION_MARKER,
+    instruction: translationInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_TRANSLATION",
     title: "Личные местоимения: быть",
     goal: "Перевести простые личные местоимения с формой «быть».",
     ukrainianGoal: "Перекласти прості особові займенники з формою «бути».",
@@ -38,6 +43,9 @@ const blocks = [
   },
   {
     order: 4,
+    marker: TRANSLATION_MARKER,
+    instruction: translationInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_TRANSLATION",
     title: "Личные местоимения: являться",
     goal: "Перевести личные местоимения с формой «являться».",
     ukrainianGoal: "Перекласти особові займенники з формою «бути».",
@@ -49,6 +57,9 @@ const blocks = [
   },
   {
     order: 5,
+    marker: TRANSLATION_MARKER,
+    instruction: translationInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_TRANSLATION",
     title: "Личные местоимения: находиться и существовать",
     goal: "Перевести личные местоимения с формами «находиться» и «существовать».",
     ukrainianGoal: "Перекласти особові займенники з формами «перебувати» та «існувати».",
@@ -56,6 +67,48 @@ const blocks = [
       ["Я нахожусь", "I am"], ["Ты находишься", "You are"], ["Он находится", "He is"], ["Она находится", "She is"],
       ["Оно находится", "It is"], ["Мы находимся", "We are"], ["Вы находитесь", "You are"], ["Они находятся", "They are"],
       ["Я существую", "I am"], ["Ты существуешь", "You are"], ["Он существует", "He is"], ["Они существуют", "They are"],
+    ],
+  },
+  {
+    order: 6,
+    marker: CORRECTION_MARKER,
+    instruction: correctionInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_ERROR_CORRECTION",
+    title: "Исправляем ошибки: am, is, are",
+    goal: "Исправить форму глагола to be в коротких фразах.",
+    ukrainianGoal: "Виправити форму дієслова to be у коротких фразах.",
+    prompts: [
+      ["Я есть — I is.", "am"], ["Ты есть — You am.", "are"], ["Он есть — He are.", "is"], ["Она есть — She are.", "is"],
+      ["Оно есть — It are.", "is"], ["Мы есть — We am.", "are"], ["Вы есть — You is.", "are"], ["Они есть — They is.", "are"],
+      ["Я являюсь — I are.", "am"], ["Ты являешься — You is.", "are"], ["Он является — He am.", "is"], ["Они являются — They am.", "are"],
+    ],
+  },
+  {
+    order: 7,
+    marker: CORRECTION_MARKER,
+    instruction: correctionInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_ERROR_CORRECTION",
+    title: "Исправляем ошибки: находиться",
+    goal: "Исправить форму глагола to be в фразах о местонахождении.",
+    ukrainianGoal: "Виправити форму дієслова to be у фразах про місцезнаходження.",
+    prompts: [
+      ["Я нахожусь — I is.", "am"], ["Ты находишься — You am.", "are"], ["Он находится — He are.", "is"], ["Она находится — She are.", "is"],
+      ["Оно находится — It are.", "is"], ["Мы находимся — We is.", "are"], ["Вы находитесь — You am.", "are"], ["Они находятся — They is.", "are"],
+      ["Я нахожусь — I are.", "am"], ["Ты находишься — You is.", "are"], ["Она находится — She am.", "is"], ["Они находятся — They am.", "are"],
+    ],
+  },
+  {
+    order: 8,
+    marker: CORRECTION_MARKER,
+    instruction: correctionInstruction,
+    variantKey: "TO_BE_PERSONAL_PRONOUN_ERROR_CORRECTION",
+    title: "Исправляем ошибки: существовать",
+    goal: "Исправить форму глагола to be в смешанных коротких фразах.",
+    ukrainianGoal: "Виправити форму дієслова to be у змішаних коротких фразах.",
+    prompts: [
+      ["Я существую — I is.", "am"], ["Ты существуешь — You am.", "are"], ["Он существует — He are.", "is"], ["Они существуют — They is.", "are"],
+      ["Я есть — I are.", "am"], ["Ты являешься — You is.", "are"], ["Он находится — He am.", "is"], ["Она есть — She are.", "is"],
+      ["Оно существует — It are.", "is"], ["Мы являемся — We is.", "are"], ["Вы находитесь — You am.", "are"], ["Они существуют — They am.", "are"],
     ],
   },
 ];
@@ -66,20 +119,20 @@ function cuid() {
 
 function settings(definition) {
   return {
-    seedMarker: MARKER,
+    seedMarker: definition.marker,
     lessonGoal: definition.goal,
     lessonGoalTranslations: { ru: definition.goal, uk: definition.ukrainianGoal },
   };
 }
 
-function exercise(blockId, [question, answer], index) {
+function exercise(blockId, definition, [question, answer], index) {
   return {
     id: cuid(),
     lessonBlockId: blockId,
     type: "TEXT_INPUT",
     engineKey: "text-input",
-    variantKey: "TO_BE_PERSONAL_PRONOUN_TRANSLATION",
-    instruction,
+    variantKey: definition.variantKey,
+    instruction: definition.instruction,
     question,
     content: { ignorePunctuation: true },
     correctAnswer: answer,
@@ -102,12 +155,14 @@ function isCurrentBlock(block, definition) {
   return block?.settings
     && typeof block.settings === "object"
     && !Array.isArray(block.settings)
-    && block.settings.seedMarker === MARKER
+    && block.settings.seedMarker === definition.marker
     && publishedExercises.length === definition.prompts.length
     && definition.prompts.every(([question, answer], index) => (
       publishedExercises[index]?.order === index + 1
+      && publishedExercises[index]?.instruction === definition.instruction
       && publishedExercises[index]?.question === question
       && publishedExercises[index]?.correctAnswer === answer
+      && publishedExercises[index]?.variantKey === definition.variantKey
     ));
 }
 
@@ -117,7 +172,7 @@ async function main() {
     include: {
       blocks: {
         where: { order: { in: blocks.map((block) => block.order) } },
-        include: { exercises: { orderBy: { order: "asc" }, select: { id: true, order: true, question: true, correctAnswer: true, contentStatus: true } } },
+        include: { exercises: { orderBy: { order: "asc" }, select: { id: true, order: true, instruction: true, question: true, correctAnswer: true, variantKey: true, contentStatus: true } } },
       },
     },
   });
@@ -129,7 +184,7 @@ async function main() {
   const existingByOrder = new Map(lesson.blocks.map((block) => [block.order, block]));
   const updates = blocks.filter((definition) => !isCurrentBlock(existingByOrder.get(definition.order), definition));
   if (!updates.length) {
-    console.log("Verb to be personal-pronoun translation blocks are already current.");
+    console.log("Verb to be lesson 1 practice blocks are already current.");
     return;
   }
 
@@ -173,11 +228,11 @@ async function main() {
           },
         });
       }
-      await tx.exercise.createMany({ data: definition.prompts.map((prompt, index) => exercise(blockId, prompt, index)) });
+      await tx.exercise.createMany({ data: definition.prompts.map((prompt, index) => exercise(blockId, definition, prompt, index)) });
     }
   }, { maxWait: 30_000, timeout: 120_000 });
 
-  console.log(`Published ${updates.length} To Be translation block(s), each with 12 short-answer cards.`);
+  console.log(`Published ${updates.length} To Be practice block(s), each with 12 short-answer cards.`);
 }
 
 main()

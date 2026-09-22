@@ -32,4 +32,11 @@ describe("legacy To Be Ukrainian learner copy", () => {
     expect(translateVerbToBeTextToUkrainian("Они находятся")).toBe("Вони перебувають");
     expect(translateVerbToBeTextToUkrainian("Он существует")).toBe("Він існує");
   });
+
+  it("keeps the To Be error-correction cards fully Ukrainian", () => {
+    expect(translateVerbToBeTextToUkrainian("В предложении есть ошибка. Впишите правильную форму глагола to be.")).toBe("У реченні є помилка. Впишіть правильну форму дієслова to be.");
+    expect(translateVerbToBeTextToUkrainian("Исправляем ошибки: находиться")).toBe("Виправляємо помилки: перебувати");
+    expect(translateVerbToBeTextToUkrainian("Я есть — I is.")).toBe("Я є — I is.");
+    expect(translateVerbToBeTextToUkrainian("Оно существует — It are.")).toBe("Воно існує — It are.");
+  });
 });
