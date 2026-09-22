@@ -74,5 +74,11 @@ export default async function LocalizedLessonPage({ params }: { params: Promise<
   const firstCourseLessonId = lesson.module.course.modules.flatMap((courseModule) => courseModule.lessons).at(0)?.id;
   const isFirstCourseLesson = Boolean(authenticated && lesson.module.course.accessPlan !== "FREE" && firstCourseLessonId === lesson.id);
   const courseLessons = lesson.module.course.modules.flatMap((courseModule) => courseModule.lessons);
-  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={lesson.blocks} lessons={courseLessons} currentSlug={lesson.localizedSlug} canSaveProgress={Boolean(authenticated)} vocabulary={lesson.vocabulary} warmUpSessionId={warmUp?.id} warmUpRequired={warmUpConfiguration?.isRequired ?? false} autoUnlockNextLesson={lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} returnHref={courseHref} lessonHrefPrefix={`${courseHref}/lessons`} contentLocale={locale === "uk" || locale === "ru" ? locale : undefined} routeLocale={locale === "uk" || locale === "ru" ? locale : undefined} />;
+  const completedLessonIds = authenticated ? await prisma.lessonProgress.findMany({
+    where: { userId: authenticated.user.id, lessonId: { in: courseLessons.map((item) => item.id) }, OR: [{ status: "COMPLETED" }, { completionPercent: 100 }] },
+    select: { lessonId: true },
+  }) : [];
+  const completedIdSet = new Set(completedLessonIds.map((item) => item.lessonId));
+  const completedLessonSlugs = courseLessons.filter((item) => completedIdSet.has(item.id)).map((item) => item.slug);
+  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={lesson.blocks} lessons={courseLessons} completedLessonSlugs={completedLessonSlugs} currentSlug={lesson.localizedSlug} canSaveProgress={Boolean(authenticated)} vocabulary={lesson.vocabulary} warmUpSessionId={warmUp?.id} warmUpRequired={warmUpConfiguration?.isRequired ?? false} autoUnlockNextLesson={lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} returnHref={courseHref} lessonHrefPrefix={`${courseHref}/lessons`} contentLocale={locale === "uk" || locale === "ru" ? locale : undefined} routeLocale={locale === "uk" || locale === "ru" ? locale : undefined} />;
 }

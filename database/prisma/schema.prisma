@@ -105,6 +105,7 @@ model User {
   promotionRedemptions          PromotionRedemption[]
   lessonProgress                LessonProgress[]
   exerciseAttempts              ExerciseAttempt[]
+  retiredExerciseAttempts       RetiredExerciseAttempt[]
   dynamicMatchingPairProgress   DynamicMatchingPairProgress[]
   exerciseSpeedWindows          ExerciseSpeedWindow[]
   mistakes                      UserMistake[]
@@ -535,6 +536,7 @@ model Lesson {
   blocks             LessonBlock[]
   progress           LessonProgress[]
   exerciseAttempts   ExerciseAttempt[]
+  retiredExerciseAttempts RetiredExerciseAttempt[]
   mistakes           UserMistake[]
   spacedReviewRuns   LessonSpacedReviewRun[]
   vocabulary         LessonVocabulary[]
@@ -1109,6 +1111,41 @@ model ExerciseAttempt {
   @@index([userId, lessonId, createdAt])
   @@index([exerciseId, createdAt])
   @@index([lessonId, createdAt])
+}
+
+/// An audit copy of a retired card, kept outside the active exercise catalog.
+/// This lets old attempts and earned XP remain attributable after CMS cleanup.
+model RetiredExercise {
+  id            String                   @id
+  lessonId      String
+  lessonBlockId String
+  snapshot      Json
+  retiredAt     DateTime                 @default(now())
+  attempts      RetiredExerciseAttempt[]
+
+  @@index([lessonId])
+}
+
+model RetiredExerciseAttempt {
+  id               String          @id
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId         String
+  lesson           Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  exerciseId       String
+  exercise         RetiredExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  submittedAnswer  Json
+  isCorrect        Boolean
+  scoreAwarded     Int
+  timeSpentSeconds Int?
+  hintUsed         Boolean
+  solutionOpened   Boolean
+  attemptNumber    Int
+  idempotencyKey   String?
+  createdAt        DateTime
+
+  @@index([userId, lessonId, createdAt])
+  @@index([userId, exerciseId])
 }
 
 /// Server-owned progress for a pair inside a dynamic matching card. A unique

@@ -84,6 +84,7 @@ type Props = {
   objectives: unknown;
   blocks: LessonBlock[];
   lessons: Array<{ slug: string; title: string; order: number }>;
+  completedLessonSlugs?: string[];
   currentSlug: string;
   canSaveProgress: boolean;
   vocabulary?: LessonWord[];
@@ -262,6 +263,7 @@ const lessonFeedbackCopy = {
     savedDescription: "Finish the remaining required steps whenever you are ready.",
     reward: "Lesson reward",
     backToCourse: "Back to course",
+    nextCompletedLesson: "Next completed lesson",
     nextLesson: "Continue to next lesson",
     openNextLesson: "Open next lesson",
     wheelRequired: "Spin the XP multiplier wheel to unlock the next lesson.",
@@ -275,6 +277,7 @@ const lessonFeedbackCopy = {
     savedDescription: "Когда будете готовы, завершите оставшиеся обязательные шаги.",
     reward: "Награда за урок",
     backToCourse: "Вернуться к курсу",
+    nextCompletedLesson: "Следующий пройденный урок",
     nextLesson: "К следующему уроку",
     openNextLesson: "Открыть следующий урок",
     wheelRequired: "Прокрутите колесо множителя XP, чтобы открыть следующий урок.",
@@ -288,6 +291,7 @@ const lessonFeedbackCopy = {
     savedDescription: "Коли будете готові, завершіть решту обов’язкових кроків.",
     reward: "Нагорода за урок",
     backToCourse: "Повернутися до курсу",
+    nextCompletedLesson: "Наступний пройдений урок",
     nextLesson: "До наступного уроку",
     openNextLesson: "Відкрити наступний урок",
     wheelRequired: "Прокрутіть колесо множника XP, щоб відкрити продовження уроків.",
@@ -341,7 +345,7 @@ function localizedBlockType(type: string, locale: "en" | "ru" | "uk") {
 }
 
 export function LessonPlayer({
-  lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
+  lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons, completedLessonSlugs = [],
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
   autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
   reviewMistake, reviewSession, contentLocale, routeLocale,
@@ -416,6 +420,10 @@ export function LessonPlayer({
 
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
   const nextLesson = currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
+  const completedLessonSet = new Set(completedLessonSlugs);
+  const nextCompletedLesson = currentIndex >= 0
+    ? lessons.slice(currentIndex + 1).find((lesson) => completedLessonSet.has(lesson.slug))
+    : null;
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
@@ -935,6 +943,21 @@ export function LessonPlayer({
     router.push(courseContentDestination);
   }
 
+  async function openNextCompletedLesson() {
+    if (!nextCompletedLesson || leavingLesson) return;
+    setLeavingLesson(true);
+    try {
+      if (canSaveProgress && !previewMode && !isReviewSession) {
+        await Promise.race([
+          persistProgress(false),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 4_000)),
+        ]);
+      }
+    } finally {
+      router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextCompletedLesson.slug}`);
+    }
+  }
+
   async function startAllMistakesReview() {
     if (startingAllMistakesReview || !canSaveProgress || previewMode) return;
     setStartingAllMistakesReview(true);
@@ -1158,7 +1181,7 @@ export function LessonPlayer({
           </section>
         ) : finished ? (
           <section className={`${styles.completion} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphScreen}`} aria-live="polite">
-            <p className={styles.taskType}>{hasUnfinishedRequiredBlocks ? feedbackCopy.saved : feedbackCopy.complete}</p>
+            {!hasUnfinishedRequiredBlocks ? <p className={styles.taskType}>{feedbackCopy.complete}</p> : null}
             {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
             <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
             {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
@@ -1171,7 +1194,8 @@ export function LessonPlayer({
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
             {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
-                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void leaveLesson()}>{previewMode ? "Back to editor" : feedbackCopy.backToCourse}</button>
+                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
+                {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
                 {/* This must also be available after reopening a completed lesson.
                     The wheel never advances the route itself; this handler runs
                     only after the learner explicitly clicks the button. */}

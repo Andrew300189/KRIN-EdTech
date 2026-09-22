@@ -2429,13 +2429,18 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       where: { userId, lessonId, status: "COMPLETED" },
       select: { id: true },
     }));
-    const [attempts, sessionTime] = await Promise.all([
+    const [activeAttempts, retiredAttempts, sessionTime] = await Promise.all([
       tx.exerciseAttempt.findMany({
+        where: { userId, lessonId },
+        select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true, hintUsed: true, solutionOpened: true },
+      }),
+      tx.retiredExerciseAttempt.findMany({
         where: { userId, lessonId },
         select: { exerciseId: true, isCorrect: true, scoreAwarded: true, attemptNumber: true, createdAt: true, hintUsed: true, solutionOpened: true },
       }),
       tx.learningSession.aggregate({ where: { userId, lessonId }, _sum: { activeSeconds: true } }),
     ]);
+    const attempts = [...activeAttempts, ...retiredAttempts];
     const result = calculateLessonResult(attempts);
     const hintsUsed = attempts.filter((attempt) => attempt.hintUsed).length;
     const solutionsOpened = attempts.filter((attempt) => attempt.solutionOpened).length;
@@ -2583,16 +2588,24 @@ async function getLatestLessonAttemptAccuracy(userId: string, lessonIds: string[
   const accuracyByLesson = new Map<string, LessonAttemptAccuracy>();
   if (lessonIds.length === 0) return accuracyByLesson;
 
-  const attempts = await prisma.exerciseAttempt.findMany({
-    where: { userId, lessonId: { in: lessonIds } },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: {
-      lessonId: true,
-      exerciseId: true,
-      isCorrect: true,
-      exercise: { select: { lessonBlockId: true } },
-    },
-  });
+  const [activeAttempts, retiredAttempts] = await Promise.all([
+    prisma.exerciseAttempt.findMany({
+      where: { userId, lessonId: { in: lessonIds } },
+      select: {
+        id: true, createdAt: true, lessonId: true, exerciseId: true, isCorrect: true,
+        exercise: { select: { lessonBlockId: true } },
+      },
+    }),
+    prisma.retiredExerciseAttempt.findMany({
+      where: { userId, lessonId: { in: lessonIds } },
+      select: {
+        id: true, createdAt: true, lessonId: true, exerciseId: true, isCorrect: true,
+        exercise: { select: { lessonBlockId: true } },
+      },
+    }),
+  ]);
+  const attempts = [...activeAttempts, ...retiredAttempts]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime() || right.id.localeCompare(left.id));
 
   const seenExerciseIds = new Set<string>();
   for (const attempt of attempts) {
@@ -2626,7 +2639,7 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
     typeof transaction.amountMinor === "number" ? transaction.amountMinor / 100 : transaction.amount
   );
 
-  const [lessonRewards, multiplierRewards, correctAttempts, lessonExercises] = await Promise.all([
+  const [lessonRewards, multiplierRewards, activeCorrectAttempts, retiredCorrectAttempts, lessonExercises, retiredExercises] = await Promise.all([
     prisma.experienceTransaction.findMany({
       where: { userId, type: "LESSON_COMPLETED", sourceId: { in: lessonIds } },
       select: { sourceId: true, amount: true, amountMinor: true },
@@ -2642,9 +2655,17 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
       where: { userId, lessonId: { in: lessonIds }, isCorrect: true },
       select: { lessonId: true, exerciseId: true },
     }),
+    prisma.retiredExerciseAttempt.findMany({
+      where: { userId, lessonId: { in: lessonIds }, isCorrect: true },
+      select: { lessonId: true, exerciseId: true },
+    }),
     prisma.exercise.findMany({
       where: { lessonBlock: { lessonId: { in: lessonIds } } },
       select: { id: true, lessonBlock: { select: { lessonId: true } } },
+    }),
+    prisma.retiredExercise.findMany({
+      where: { lessonId: { in: lessonIds } },
+      select: { id: true, lessonId: true },
     }),
   ]);
 
@@ -2653,9 +2674,12 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
   }
 
   const lessonIdByExerciseId = new Map<string, string>();
-  for (const attempt of correctAttempts) lessonIdByExerciseId.set(attempt.exerciseId, attempt.lessonId);
+  for (const attempt of [...activeCorrectAttempts, ...retiredCorrectAttempts]) lessonIdByExerciseId.set(attempt.exerciseId, attempt.lessonId);
   const exerciseIds = [...lessonIdByExerciseId.keys()];
-  const lessonIdByDynamicExerciseId = new Map(lessonExercises.map((exercise) => [exercise.id, exercise.lessonBlock.lessonId]));
+  const lessonIdByDynamicExerciseId = new Map([
+    ...lessonExercises.map((exercise) => [exercise.id, exercise.lessonBlock.lessonId] as const),
+    ...retiredExercises.map((exercise) => [exercise.id, exercise.lessonId] as const),
+  ]);
   const [exerciseRewards, dynamicMatchingRewards] = await Promise.all([
     exerciseIds.length
       ? prisma.experienceTransaction.findMany({
@@ -2663,9 +2687,9 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
         select: { sourceId: true, amount: true, amountMinor: true },
       })
       : Promise.resolve([]),
-    lessonExercises.length
+    lessonIdByDynamicExerciseId.size
       ? prisma.experienceTransaction.findMany({
-        where: { userId, sourceType: "DYNAMIC_MATCHING_PAIR", sourceId: { in: lessonExercises.map((exercise) => exercise.id) } },
+        where: { userId, sourceType: "DYNAMIC_MATCHING_PAIR", sourceId: { in: [...lessonIdByDynamicExerciseId.keys()] } },
         select: { sourceId: true, amount: true, amountMinor: true },
       })
       : Promise.resolve([]),
