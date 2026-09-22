@@ -105,6 +105,7 @@ model User {
   promotionRedemptions          PromotionRedemption[]
   lessonProgress                LessonProgress[]
   exerciseAttempts              ExerciseAttempt[]
+  dynamicMatchingPairProgress   DynamicMatchingPairProgress[]
   exerciseSpeedWindows          ExerciseSpeedWindow[]
   mistakes                      UserMistake[]
   grammarSkillProgress          UserGrammarSkillProgress[]
@@ -921,6 +922,7 @@ model Exercise {
   archivedAt         DateTime?
   order              Int
   attempts           ExerciseAttempt[]
+  dynamicMatchingPairProgress DynamicMatchingPairProgress[]
   speedWindows       ExerciseSpeedWindow[]
   mistakes           UserMistake[]
   vocabularyLinks    ExerciseVocabulary[]
@@ -1107,6 +1109,22 @@ model ExerciseAttempt {
   @@index([userId, lessonId, createdAt])
   @@index([exerciseId, createdAt])
   @@index([lessonId, createdAt])
+}
+
+/// Server-owned progress for a pair inside a dynamic matching card. A unique
+/// key ensures that a double click, retry, or second browser tab can never
+/// claim the same pair's XP twice.
+model DynamicMatchingPairProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  pairId      String
+  completedAt DateTime @default(now())
+
+  @@unique([userId, exerciseId, pairId])
+  @@index([userId, exerciseId, completedAt])
 }
 
 /// A server-issued opening timestamp for the visible answer-speed bar. Only

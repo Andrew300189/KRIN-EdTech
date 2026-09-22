@@ -23,8 +23,17 @@ const prisma = new PrismaClient({
 const COURSE_SLUG = "verb-to-be-masterclass";
 const TRANSLATION_MARKER = "TO_BE_TRANSLATION_PERSONAL_PRONOUNS_V1";
 const CORRECTION_MARKER = "TO_BE_ERROR_CORRECTION_V1";
+const DYNAMIC_MATCHING_MARKER = "TO_BE_DYNAMIC_MATCHING_V1";
 const translationInstruction = "Переведите на английский. Впишите только два слова.";
 const correctionInstruction = "В предложении есть ошибка. Впишите правильную форму глагола to be.";
+const dynamicMatchingInstruction = "Соедините личное местоимение с правильной формой глагола to be.";
+const dynamicToBePairs = Array.from({ length: 36 }, (_, index) => {
+  const cycle = [
+    ["I", "am"], ["you", "are"], ["he", "is"], ["she", "is"],
+    ["it", "is"], ["we", "are"], ["you", "are"], ["they", "are"],
+  ][index % 8];
+  return { id: `p${String(index + 1).padStart(2, "0")}`, left: cycle[0], right: cycle[1] };
+});
 
 const blocks = [
   {
@@ -111,6 +120,17 @@ const blocks = [
       ["Оно существует — It are.", "is"], ["Мы являемся — We is.", "are"], ["Вы находитесь — You am.", "are"], ["Они существуют — They am.", "are"],
     ],
   },
+  {
+    order: 9,
+    marker: DYNAMIC_MATCHING_MARKER,
+    instruction: dynamicMatchingInstruction,
+    variantKey: "TO_BE_DYNAMIC_PRONOUN_MATCHING",
+    dynamicPairs: dynamicToBePairs,
+    title: "Матчинг: личные местоимения и to be",
+    goal: "Соединить личные местоимения с правильной формой глагола to be.",
+    ukrainianGoal: "Зіставити особові займенники з правильною формою дієслова to be.",
+    prompts: [["am, is, are", Object.fromEntries(dynamicToBePairs.map((pair) => [pair.id, pair.right]))]],
+  },
 ];
 
 function cuid() {
@@ -126,19 +146,20 @@ function settings(definition) {
 }
 
 function exercise(blockId, definition, [question, answer], index) {
+  const dynamicPairs = definition.dynamicPairs;
   return {
     id: cuid(),
     lessonBlockId: blockId,
-    type: "TEXT_INPUT",
-    engineKey: "text-input",
+    type: dynamicPairs ? "MATCHING" : "TEXT_INPUT",
+    engineKey: dynamicPairs ? "matching" : "text-input",
     variantKey: definition.variantKey,
     instruction: definition.instruction,
     question,
-    content: { ignorePunctuation: true },
+    content: dynamicPairs ? { dynamicMatching: true, pairs: dynamicPairs } : { ignorePunctuation: true },
     correctAnswer: answer,
     hintsEnabled: false,
     difficulty: 1,
-    basePoints: 1,
+    basePoints: dynamicPairs ? dynamicPairs.length : 1,
     timeLimitSeconds: 15,
     solutionCost: 0,
     allowInstantCheck: true,
@@ -161,7 +182,7 @@ function isCurrentBlock(block, definition) {
       publishedExercises[index]?.order === index + 1
       && publishedExercises[index]?.instruction === definition.instruction
       && publishedExercises[index]?.question === question
-      && publishedExercises[index]?.correctAnswer === answer
+      && JSON.stringify(publishedExercises[index]?.correctAnswer) === JSON.stringify(answer)
       && publishedExercises[index]?.variantKey === definition.variantKey
     ));
 }
@@ -232,7 +253,7 @@ async function main() {
     }
   }, { maxWait: 30_000, timeout: 120_000 });
 
-  console.log(`Published ${updates.length} To Be practice block(s), each with 12 short-answer cards.`);
+  console.log(`Published ${updates.length} To Be practice block(s).`);
 }
 
 main()

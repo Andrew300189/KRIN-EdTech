@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import { Prisma, type CourseAccessMode, type CourseType, type SubscriptionPlan } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { cachePublicContent } from "@/core/server/public-content-cache";
@@ -26,7 +27,7 @@ import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-
 import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
-import { calculateUserLevel, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
+import { calculateUserLevel, grantEconomyReward, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { consumeLearningBonusCredit } from "@/modules/motivation/services/learning-bonus.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { recordGrammarSkillAttempt } from "@/modules/grammar/services/grammar-skill-progress.service";
@@ -113,6 +114,34 @@ type ExerciseFeedback = {
   theoryHref: string | null;
   errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }>;
 };
+
+type DynamicToBeMatchingPair = { id: string; left: string; right: "am" | "is" | "are" };
+
+const dynamicMatchingPairSchema = z.object({
+  pairId: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/i),
+  selectedForm: z.enum(["am", "is", "are"]),
+});
+
+/** Parses only the small, authored dynamic To Be format.  The browser never
+ * decides a pair's correct form or the number of rewards available. */
+function dynamicToBeMatchingPairs(content: Prisma.JsonValue | null): DynamicToBeMatchingPair[] {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return [];
+  const record = content as Prisma.JsonObject;
+  if (record.dynamicMatching !== true || !Array.isArray(record.pairs)) return [];
+  const seenIds = new Set<string>();
+  const pairs: DynamicToBeMatchingPair[] = [];
+  for (const item of record.pairs) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const pair = item as Prisma.JsonObject;
+    const id = typeof pair.id === "string" ? pair.id.trim() : "";
+    const left = typeof pair.left === "string" ? pair.left.trim() : "";
+    const right = typeof pair.right === "string" ? pair.right.trim().toLowerCase() : "";
+    if (!/^[a-z0-9-]+$/i.test(id) || !left || (right !== "am" && right !== "is" && right !== "are") || seenIds.has(id)) return [];
+    seenIds.add(id);
+    pairs.push({ id, left, right });
+  }
+  return pairs.length ? pairs : [];
+}
 
 /** Content-managed feedback is deliberately constrained before it reaches the client. */
 function getExerciseFeedback(content: Prisma.JsonValue | null): ExerciseFeedback {
@@ -1582,6 +1611,135 @@ export async function evaluatePublicExerciseAttempt(exerciseId: string, input: u
 }
 
 /**
+ * Returns durable progress for the interactive To Be matching card. It is
+ * intentionally a separate endpoint from normal exercise attempts: each of
+ * the 36 server-authored pairs can grant XP exactly once, while the card is
+ * marked complete only after every pair has been matched.
+ */
+export async function getDynamicMatchingPairProgress(userId: string, exerciseId: string) {
+  const exercise = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: {
+      engineKey: true,
+      content: true,
+      contentStatus: true,
+      lessonBlock: { select: { contentStatus: true, lessonId: true } },
+    },
+  });
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+  const pairs = dynamicToBeMatchingPairs(exercise.content);
+  if (exercise.engineKey !== "matching" || !pairs.length) throw new Error("This exercise does not use dynamic matching.");
+  const access = await canAccessLesson(userId, exercise.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
+  const progress = await prisma.dynamicMatchingPairProgress.findMany({
+    where: { userId, exerciseId },
+    select: { pairId: true },
+  });
+  const allowedPairIds = new Set(pairs.map((pair) => pair.id));
+  return {
+    completedPairIds: progress.map((item) => item.pairId).filter((pairId) => allowedPairIds.has(pairId)),
+    totalPairs: pairs.length,
+  };
+}
+
+/**
+ * Verifies and credits one matching pair on the server. A correct pair is
+ * stored before XP is granted; the unique progress and ledger keys make this
+ * safe against double-clicks, retries and concurrent tabs. Wrong selections
+ * deliberately create no attempt, score penalty, or side effect.
+ */
+export async function submitDynamicMatchingPair(userId: string, exerciseId: string, input: unknown) {
+  const value = dynamicMatchingPairSchema.parse(input);
+  const exerciseForAccess = await prisma.exercise.findUnique({
+    where: { id: exerciseId },
+    select: { lessonBlock: { select: { lessonId: true } } },
+  });
+  if (!exerciseForAccess) throw new Error("Exercise not found");
+  const access = await canAccessLesson(userId, exerciseForAccess.lessonBlock.lessonId);
+  if (!access.allowed) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const exercise = await tx.exercise.findUnique({
+        where: { id: exerciseId },
+        select: {
+          engineKey: true,
+          content: true,
+          contentStatus: true,
+          lessonBlock: {
+            select: {
+              contentStatus: true,
+              lessonId: true,
+              lesson: { select: { module: { select: { courseId: true } } } },
+            },
+          },
+        },
+      });
+      if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") throw new Error("Exercise is unavailable.");
+      const pairs = dynamicToBeMatchingPairs(exercise.content);
+      if (exercise.engineKey !== "matching" || !pairs.length) throw new Error("This exercise does not use dynamic matching.");
+      const pair = pairs.find((item) => item.id === value.pairId);
+      if (!pair) throw new Error("Unknown matching pair.");
+
+      const completed = await tx.dynamicMatchingPairProgress.findMany({
+        where: { userId, exerciseId },
+        select: { pairId: true },
+      });
+      const alreadyCompleted = completed.some((item) => item.pairId === pair.id);
+      if (value.selectedForm !== pair.right) {
+        return {
+          isCorrect: false,
+          alreadyCompleted,
+          completedPairIds: completed.map((item) => item.pairId),
+          totalPairs: pairs.length,
+          motivationReward: { awarded: false, experience: 0 },
+        };
+      }
+      if (alreadyCompleted) {
+        return {
+          isCorrect: true,
+          alreadyCompleted: true,
+          completedPairIds: completed.map((item) => item.pairId),
+          totalPairs: pairs.length,
+          motivationReward: { awarded: false, experience: 0 },
+        };
+      }
+
+      await tx.dynamicMatchingPairProgress.create({ data: { userId, exerciseId, pairId: pair.id } });
+      const reward = await grantEconomyReward(tx, {
+        userId,
+        experience: 1,
+        sourceType: "DYNAMIC_MATCHING_PAIR",
+        sourceId: exerciseId,
+        idempotencyKey: `dynamic-matching-pair:${userId}:${exerciseId}:${pair.id}`,
+        description: `Correct dynamic To Be match | pair:${pair.id} | form:${pair.right}`,
+      });
+      return {
+        isCorrect: true,
+        alreadyCompleted: false,
+        completedPairIds: [...completed.map((item) => item.pairId), pair.id],
+        totalPairs: pairs.length,
+        motivationReward: { awarded: reward.awarded, experience: reward.experience },
+      };
+    }, { maxWait: 10_000, timeout: 30_000 });
+  } catch (error) {
+    // A second tab can lose the unique-pair race after the first transaction
+    // succeeds. Return its durable state rather than surfacing a database
+    // error or attempting another XP credit.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const state = await getDynamicMatchingPairProgress(userId, exerciseId);
+      return {
+        isCorrect: true,
+        alreadyCompleted: true,
+        ...state,
+        motivationReward: { awarded: false, experience: 0 },
+      };
+    }
+    throw error;
+  }
+}
+
+/**
  * Opens (or returns) the sole active speed window for a learner's exercise.
  * Its timestamp is persisted before the browser is told about it, so neither
  * a changed browser clock nor a crafted duration can increase the XP band.
@@ -1665,6 +1823,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
     const localizedHint = localizeLegacyVerbToBeText(exercise.hint, localeInput, courseSlug);
     const localizedFeedback = getExerciseFeedback(localizedContent);
     const submittedAnswer = normalizeCompactToBeMatchingAnswer(value.answer, localizedCorrectAnswer, exercise.engineKey) as JsonValue;
+    const dynamicMatchingPairs = exercise.engineKey === "matching" ? dynamicToBeMatchingPairs(exercise.content) : [];
 
     if (value.idempotencyKey) {
       const existing = await tx.exerciseAttempt.findUnique({
@@ -1694,6 +1853,16 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       localizedAlternatives,
       contentWithOrderSensitiveAnswerValidation(localizedContent, exercise.engineKey),
     );
+    if (dynamicMatchingPairs.length) {
+      const completedPairIds = await tx.dynamicMatchingPairProgress.findMany({
+        where: { userId, exerciseId },
+        select: { pairId: true },
+      });
+      const completedSet = new Set(completedPairIds.map((item) => item.pairId));
+      if (!dynamicMatchingPairs.every((pair) => completedSet.has(pair.id))) {
+        throw new Error("Match every pair before completing this card.");
+      }
+    }
     const [previous, firstAttempt] = await Promise.all([
       tx.exerciseAttempt.findFirst({
         where: { userId, exerciseId },
@@ -1845,19 +2014,23 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
     // failed to credit an otherwise eligible answer, the immutable XP ledger
     // will still let a later retry repair that missing credit exactly once.
     const isEligibleForExperience = isCorrect && (firstAttempt?.isCorrect ?? true);
-    const motivationReward = await recordExerciseResult(tx, {
-      userId,
-      exerciseId,
-      lessonId: exercise.lessonBlock.lessonId,
-      courseId: exercise.lessonBlock.lesson.module.courseId,
-      attemptId: attempt.id,
-      isCorrect,
-      isFirstAttemptCorrect: isEligibleForExperience,
-      score: scoreAwarded,
-      difficulty: exercise.difficulty,
-      isSpacedReview: exercise.isGeneratedReview,
-      speedExperience,
-    });
+    // Dynamic matching grants one server-validated XP credit per individual
+    // pair. Do not add a 37th generic exercise reward on its final submit.
+    const motivationReward = dynamicMatchingPairs.length
+      ? undefined
+      : await recordExerciseResult(tx, {
+        userId,
+        exerciseId,
+        lessonId: exercise.lessonBlock.lessonId,
+        courseId: exercise.lessonBlock.lesson.module.courseId,
+        attemptId: attempt.id,
+        isCorrect,
+        isFirstAttemptCorrect: isEligibleForExperience,
+        score: scoreAwarded,
+        difficulty: exercise.difficulty,
+        isSpacedReview: exercise.isGeneratedReview,
+        speedExperience,
+      });
 
     return {
       attempt,
@@ -2428,7 +2601,7 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
     typeof transaction.amountMinor === "number" ? transaction.amountMinor / 100 : transaction.amount
   );
 
-  const [lessonRewards, multiplierRewards, correctAttempts] = await Promise.all([
+  const [lessonRewards, multiplierRewards, correctAttempts, lessonExercises] = await Promise.all([
     prisma.experienceTransaction.findMany({
       where: { userId, type: "LESSON_COMPLETED", sourceId: { in: lessonIds } },
       select: { sourceId: true, amount: true, amountMinor: true },
@@ -2444,6 +2617,10 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
       where: { userId, lessonId: { in: lessonIds }, isCorrect: true },
       select: { lessonId: true, exerciseId: true },
     }),
+    prisma.exercise.findMany({
+      where: { lessonBlock: { lessonId: { in: lessonIds } } },
+      select: { id: true, lessonBlock: { select: { lessonId: true } } },
+    }),
   ]);
 
   for (const reward of [...lessonRewards, ...multiplierRewards]) {
@@ -2453,14 +2630,27 @@ async function getLessonExperienceEarned(userId: string, lessonIds: string[]) {
   const lessonIdByExerciseId = new Map<string, string>();
   for (const attempt of correctAttempts) lessonIdByExerciseId.set(attempt.exerciseId, attempt.lessonId);
   const exerciseIds = [...lessonIdByExerciseId.keys()];
-  if (exerciseIds.length === 0) return experienceByLesson;
-
-  const exerciseRewards = await prisma.experienceTransaction.findMany({
-    where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
-    select: { sourceId: true, amount: true, amountMinor: true },
-  });
+  const lessonIdByDynamicExerciseId = new Map(lessonExercises.map((exercise) => [exercise.id, exercise.lessonBlock.lessonId]));
+  const [exerciseRewards, dynamicMatchingRewards] = await Promise.all([
+    exerciseIds.length
+      ? prisma.experienceTransaction.findMany({
+        where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
+        select: { sourceId: true, amount: true, amountMinor: true },
+      })
+      : Promise.resolve([]),
+    lessonExercises.length
+      ? prisma.experienceTransaction.findMany({
+        where: { userId, sourceType: "DYNAMIC_MATCHING_PAIR", sourceId: { in: lessonExercises.map((exercise) => exercise.id) } },
+        select: { sourceId: true, amount: true, amountMinor: true },
+      })
+      : Promise.resolve([]),
+  ]);
   for (const reward of exerciseRewards) {
     const lessonId = lessonIdByExerciseId.get(reward.sourceId);
+    if (lessonId) experienceByLesson.set(lessonId, (experienceByLesson.get(lessonId) ?? 0) + transactionExperience(reward));
+  }
+  for (const reward of dynamicMatchingRewards) {
+    const lessonId = lessonIdByDynamicExerciseId.get(reward.sourceId);
     if (lessonId) experienceByLesson.set(lessonId, (experienceByLesson.get(lessonId) ?? 0) + transactionExperience(reward));
   }
   return experienceByLesson;

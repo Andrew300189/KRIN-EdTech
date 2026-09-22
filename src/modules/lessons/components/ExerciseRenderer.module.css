@@ -136,6 +136,141 @@
 .choice:hover { border-color: #a5b4fc !important; background: #f7f7ff !important; transform: translateX(2px); }
 .choice input { accent-color: #4f46e5; }
 
+/* Dynamic matching keeps a small, changing set of tiles on screen. The
+   semantic buttons make it equally usable with touch, mouse and keyboard. */
+.dynamicMatching {
+  display: grid;
+  gap: .85rem;
+  border: 1px solid #d9ddff;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f7f7ff, #fff);
+  padding: .9rem;
+}
+
+.dynamicMatchingHeader {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: #5d6280;
+  font-size: .75rem;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.dynamicMatchingHeader strong {
+  color: #4c42cf;
+  font-size: .92rem;
+  letter-spacing: 0;
+}
+
+.dynamicXpFlash {
+  margin-left: auto;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: .78rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0;
+  padding: .25rem .52rem;
+  animation: dynamic-xp-pop 950ms ease both;
+}
+
+@keyframes dynamic-xp-pop {
+  0% { opacity: 0; transform: translateY(.35rem) scale(.82); }
+  22% { opacity: 1; transform: translateY(0) scale(1.08); }
+  100% { opacity: 0; transform: translateY(-.4rem) scale(1); }
+}
+
+.dynamicMatchingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.dynamicMatchingColumn {
+  display: grid;
+  gap: .52rem;
+  min-width: 0;
+  border: 1px solid #e1e5f6;
+  border-radius: 13px;
+  background: #fff;
+  padding: .72rem;
+}
+
+.dynamicMatchingColumn h3 {
+  margin: 0;
+  color: #5b6280;
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.dynamicMatchingTokens {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.dynamicMatchingToken {
+  min-height: 2.75rem;
+  overflow: hidden;
+  border: 1.5px solid #c8cefd;
+  border-radius: .75rem;
+  background: #fdfdff;
+  color: #3931a5;
+  cursor: pointer;
+  font: inherit;
+  font-size: clamp(.86rem, 2vw, .98rem);
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.dynamicMatchingToken:hover:not(:disabled) {
+  border-color: #756ce8;
+  background: #eeedff;
+  box-shadow: 0 .35rem .8rem rgb(79 70 229 / 14%);
+  transform: translateY(-1px);
+}
+
+.dynamicMatchingToken:focus-visible { outline: 3px solid rgb(99 102 241 / 35%); outline-offset: 3px; }
+.dynamicMatchingToken:disabled { cursor: not-allowed; opacity: .58; }
+
+.dynamicMatchingTokenSelected {
+  border-color: #4f46e5 !important;
+  background: #dedcff !important;
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 16%);
+  color: #29227c;
+}
+
+.dynamicMatchingFormToken { color: #155e75; border-color: #a8d9ef; background: #f4fcff; }
+
+.dynamicMatchingTokenWrong {
+  border-color: #ef4444 !important;
+  background: #fff0f1 !important;
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 14%);
+  color: #b4232c !important;
+  animation: dynamic-match-wrong 360ms ease both;
+}
+
+@keyframes dynamic-match-wrong {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-.22rem); }
+  70% { transform: translateX(.22rem); }
+}
+
+.dynamicMatchingStatus {
+  margin: 0;
+  color: #5a627a;
+  font-size: .84rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* Sentence builder: a deliberate two-zone interaction, not a line of
    browser-default buttons or list items. These explicit resets also prevent
    legacy li markers and pseudo-elements from leaking into word chips. */
@@ -318,4 +453,5 @@
   .nextButton { width: 100%; }
   .actionRowWithTranslation .nextButton,
   .actionRowWithTranslation .translationButton { flex: 1 1 0; inline-size: auto; min-width: 0; width: auto; }
+  .dynamicMatchingGrid { grid-template-columns: 1fr; }
 }

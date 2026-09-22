@@ -177,6 +177,26 @@ function normalizeMatchingForm(value: string) {
   return value.trim().toLowerCase().replace(/[.!?]+$/u, "");
 }
 
+type DynamicToBeMatchingPair = { id: string; left: string; right: "am" | "is" | "are" };
+
+/** Reads the server-authored dynamic To Be matcher without trusting arbitrary
+ * client configuration. The answer itself remains validated by the API. */
+function dynamicToBeMatchingPairs(content: JsonObject): DynamicToBeMatchingPair[] {
+  if (content.dynamicMatching !== true || !Array.isArray(content.pairs)) return [];
+  const seen = new Set<string>();
+  const pairs: DynamicToBeMatchingPair[] = [];
+  for (const item of content.pairs) {
+    const candidate = asObject(item);
+    const id = typeof candidate.id === "string" ? candidate.id : "";
+    const left = typeof candidate.left === "string" ? candidate.left : "";
+    const right = typeof candidate.right === "string" ? candidate.right.toLowerCase() : "";
+    if (!/^[a-z0-9-]+$/i.test(id) || !left || (right !== "am" && right !== "is" && right !== "are") || seen.has(id)) return [];
+    seen.add(id);
+    pairs.push({ id, left, right });
+  }
+  return pairs;
+}
+
 function displayTranslation(value: string) {
   return value.trim().replace(/^(?:translation|перевод|переклад)\s*:\s*/iu, "");
 }
@@ -235,6 +255,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const options = useMemo(() => asStringArray(content.options), [content]);
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
   const matchingRight = useMemo(() => asStringArray(content.right), [content]);
+  const dynamicToBePairs = useMemo(() => dynamicToBeMatchingPairs(content), [content]);
   const compactToBeMatching = useMemo(() => {
     const forms = matchingRight.map(toBeMatchingForm);
     if (!forms.length || forms.some((form) => !form)) return null;
@@ -248,6 +269,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const multiple = isMultipleChoice(exercise);
   const choice = renderer === "choice" || renderer === "audio-choice" || renderer === "hotspot";
   const matching = renderer === "matching";
+  const dynamicToBeMatching = matching && dynamicToBePairs.length > 0;
   const ordered = renderer === "ordering" || renderer === "word-bank";
   const classification = renderer === "classification";
   const longText = renderer === "long-text" || renderer === "recording" || renderer === "media";
@@ -270,8 +292,16 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const [speedWindowSeconds, setSpeedWindowSeconds] = useState(() => exerciseSpeedWindowSeconds(exercise.timeLimitSeconds));
   const [speedWindowRun, setSpeedWindowRun] = useState(0);
   const [speedClock, setSpeedClock] = useState(() => Date.now());
+  const [dynamicCompletedPairIds, setDynamicCompletedPairIds] = useState<string[]>([]);
+  const [dynamicPairsReady, setDynamicPairsReady] = useState(!dynamicToBeMatching);
+  const [dynamicUsesServer, setDynamicUsesServer] = useState(false);
+  const [dynamicSelectedLeftId, setDynamicSelectedLeftId] = useState<string | null>(null);
+  const [dynamicWrongSelection, setDynamicWrongSelection] = useState<{ leftId: string; rightTokenId: string } | null>(null);
+  const [dynamicSending, setDynamicSending] = useState(false);
+  const [dynamicXpFlash, setDynamicXpFlash] = useState(0);
   const submissionInFlightRef = useRef(false);
   const translationRequestRef = useRef(0);
+  const dynamicFinalizingRef = useRef(false);
   const answerEvaluationContent = useMemo(
     () => contentWithOrderSensitiveAnswerValidation(content, exercise.engineKey),
     [content, exercise.engineKey],
@@ -295,6 +325,29 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       ? shuffleTokens(matchingRight, `${exercise.id}:matching-options`, [])
       : matchingRight
   ), [compactToBeMatching, exercise.id, matching, matchingRight]);
+  const dynamicPairById = useMemo(() => new Map(dynamicToBePairs.map((pair) => [pair.id, pair])), [dynamicToBePairs]);
+  const dynamicPairOrder = useMemo(() => {
+    const orderedIds = shuffleTokens(dynamicToBePairs.map((pair) => pair.id), `${exercise.id}:dynamic-to-be-pairs`, []);
+    return orderedIds.map((id) => dynamicPairById.get(id)).filter((pair): pair is DynamicToBeMatchingPair => Boolean(pair));
+  }, [dynamicPairById, dynamicToBePairs, exercise.id]);
+  const dynamicCompletedSet = useMemo(() => new Set(dynamicCompletedPairIds), [dynamicCompletedPairIds]);
+  const dynamicActivePairs = useMemo(
+    () => dynamicPairOrder.filter((pair) => !dynamicCompletedSet.has(pair.id)).slice(0, 3),
+    [dynamicCompletedSet, dynamicPairOrder],
+  );
+  const dynamicLeftPairs = useMemo(() => {
+    const orderedIds = shuffleTokens(dynamicActivePairs.map((pair) => pair.id), `${exercise.id}:${dynamicCompletedPairIds.join(",")}:dynamic-left`, []);
+    return orderedIds.map((id) => dynamicPairById.get(id)).filter((pair): pair is DynamicToBeMatchingPair => Boolean(pair));
+  }, [dynamicActivePairs, dynamicCompletedPairIds, dynamicPairById, exercise.id]);
+  const dynamicRightTokens = useMemo(() => {
+    const tokens = dynamicActivePairs.map((pair, index) => ({ id: `${pair.id}:${index}`, form: pair.right }));
+    const order = shuffleTokens(tokens.map((token) => token.id), `${exercise.id}:${dynamicCompletedPairIds.join(",")}:dynamic-right`, []);
+    return order.map((id) => tokens.find((token) => token.id === id)).filter((token): token is { id: string; form: "am" | "is" | "are" } => Boolean(token));
+  }, [dynamicActivePairs, dynamicCompletedPairIds, exercise.id]);
+  const dynamicFinalAnswer = useMemo<JsonObject>(
+    () => Object.fromEntries(dynamicToBePairs.map((pair) => [pair.id, pair.right])),
+    [dynamicToBePairs],
+  );
   const categoryOptions = useMemo(() => (
     classification ? shuffleTokens(categories, `${exercise.id}:category-options`, []) : categories
   ), [categories, classification, exercise.id]);
@@ -312,6 +365,41 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   useEffect(() => { if (error) toast.error(error); }, [error]);
   useEffect(() => { if (translationError) toast.error(translationError); }, [translationError]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setDynamicCompletedPairIds([]);
+    setDynamicSelectedLeftId(null);
+    setDynamicWrongSelection(null);
+    setDynamicXpFlash(0);
+    setDynamicUsesServer(false);
+    setDynamicPairsReady(!dynamicToBeMatching);
+    dynamicFinalizingRef.current = false;
+    if (!dynamicToBeMatching || previewMode) {
+      setDynamicPairsReady(true);
+      return () => controller.abort();
+    }
+    void (async () => {
+      try {
+        const response = await fetch(`/api/learning/exercises/${exercise.id}/matching-pairs`, { signal: controller.signal, cache: "no-store" });
+        if (controller.signal.aborted) return;
+        if (response.status === 401) {
+          // Guest lessons keep their local interaction; final card validation
+          // still uses the existing public attempt route and grants no XP.
+          setDynamicPairsReady(true);
+          return;
+        }
+        const payload = await response.json().catch(() => null) as { data?: { completedPairIds?: unknown } } | null;
+        if (!response.ok || !payload?.data || !Array.isArray(payload.data.completedPairIds)) throw new Error("Unable to load matching progress.");
+        const allowedIds = new Set(dynamicToBePairs.map((pair) => pair.id));
+        setDynamicCompletedPairIds(payload.data.completedPairIds.filter((pairId): pairId is string => typeof pairId === "string" && allowedIds.has(pairId)));
+        setDynamicUsesServer(true);
+        setDynamicPairsReady(true);
+      } catch (caught) {
+        if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : "Unable to load matching progress.");
+      }
+    })();
+    return () => controller.abort();
+  }, [dynamicToBeMatching, dynamicToBePairs, exercise.id, previewMode]);
   useEffect(() => {
     const controller = new AbortController();
     const localStartedAt = Date.now();
@@ -443,6 +531,81 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       }
     } catch { setError("Unable to check the answer. Please try again."); }
     finally { setSending(false); submissionInFlightRef.current = false; }
+  }
+
+  function markDynamicPairComplete(pairId: string, completedIds: string[], awardedExperience: number) {
+    const allowedIds = new Set(dynamicToBePairs.map((pair) => pair.id));
+    const nextIds = [...new Set([...completedIds, pairId])].filter((id) => allowedIds.has(id));
+    setDynamicCompletedPairIds(nextIds);
+    setDynamicSelectedLeftId(null);
+    setDynamicWrongSelection(null);
+    if (awardedExperience > 0) {
+      setDynamicXpFlash(awardedExperience);
+      window.setTimeout(() => setDynamicXpFlash(0), 950);
+      notifyMotivationUpdated();
+    }
+    // The final validation is deliberately submitted only after the 36th
+    // verified match. It is what unlocks the lesson's regular Next flow.
+    if (nextIds.length === dynamicToBePairs.length && !dynamicFinalizingRef.current) {
+      dynamicFinalizingRef.current = true;
+      void checkAnswer(dynamicFinalAnswer);
+    }
+  }
+
+  function showDynamicWrong(leftId: string, rightTokenId: string) {
+    setDynamicWrongSelection({ leftId, rightTokenId });
+    setDynamicSelectedLeftId(null);
+    window.setTimeout(() => setDynamicWrongSelection(null), 650);
+  }
+
+  async function selectDynamicRight(rightToken: { id: string; form: "am" | "is" | "are" }) {
+    const selectedPair = dynamicSelectedLeftId ? dynamicPairById.get(dynamicSelectedLeftId) : null;
+    if (!selectedPair || dynamicSending || result) return;
+    if (selectedPair.right !== rightToken.form) {
+      showDynamicWrong(selectedPair.id, rightToken.id);
+      return;
+    }
+
+    if (!dynamicUsesServer || previewMode) {
+      markDynamicPairComplete(selectedPair.id, dynamicCompletedPairIds, 0);
+      return;
+    }
+
+    setDynamicSending(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/matching-pairs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pairId: selectedPair.id, selectedForm: rightToken.form }),
+      });
+      if (response.status === 401) {
+        // An expired session should not make the visual matcher unusable. The
+        // final public validation remains available, but no local XP is shown.
+        setDynamicUsesServer(false);
+        markDynamicPairComplete(selectedPair.id, dynamicCompletedPairIds, 0);
+        return;
+      }
+      const payload = await response.json().catch(() => null) as {
+        data?: { isCorrect?: boolean; completedPairIds?: unknown; motivationReward?: { awarded?: boolean; experience?: number } };
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.data || !Array.isArray(payload.data.completedPairIds)) throw new Error(payload?.error ?? "Unable to check this match.");
+      if (!payload.data.isCorrect) {
+        showDynamicWrong(selectedPair.id, rightToken.id);
+        return;
+      }
+      const completedIds = payload.data.completedPairIds.filter((pairId): pairId is string => typeof pairId === "string");
+      markDynamicPairComplete(
+        selectedPair.id,
+        completedIds,
+        payload.data.motivationReward?.awarded ? Math.max(0, payload.data.motivationReward.experience ?? 0) : 0,
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to check this match.");
+    } finally {
+      setDynamicSending(false);
+    }
   }
 
   function submitSingleLineAnswerOnEnter(event: KeyboardEvent<HTMLInputElement>) {
@@ -645,6 +808,11 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     : locale === "ru"
       ? { label: "Награда за скорость", bar: "Время на ответ" }
       : { label: "Speed reward", bar: "Answer time" };
+  const dynamicMatchingCopy = locale === "uk"
+    ? { left: "Займенники", right: "Форми to be", progress: "Збігів", loading: "Відновлюємо збіги…", completing: "Завершуємо картку…" }
+    : locale === "ru"
+      ? { left: "Местоимения", right: "Формы to be", progress: "Совпадений", loading: "Восстанавливаем совпадения…", completing: "Завершаем карточку…" }
+      : { left: "Pronouns", right: "To be forms", progress: "Matches", loading: "Restoring matches…", completing: "Completing card…" };
 
   return <section className={`${styles.card} lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
@@ -656,17 +824,53 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
     <div className={`${styles.heading} lesson-exercise-heading`}><div className={`${styles.instruction} lesson-exercise-instruction`} role="note"><p>{visibleInstruction}</p></div></div>
-    {!result ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
+    {!result && !dynamicToBeMatching ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
       <div className={styles.speedRewardHeader}><span>{speedCopy.label}</span><strong>+{speedExperience} XP</strong></div>
       <div className={styles.speedTrack} aria-hidden="true"><span className={styles.speedFill} style={{ width: `${speedRemainingPercent}%` }} /></div>
     </div> : null}
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
-    {!compactToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{visibleQuestion}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
+    {!compactToBeMatching && !dynamicToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{visibleQuestion}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {hintOpen && !result?.isCorrect && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className={`${styles.answerList} lesson-exercise-answer-list mt-4 space-y-2`}>
+      {dynamicToBeMatching ? <section className={styles.dynamicMatching} aria-label={visibleInstruction}>
+        <header className={styles.dynamicMatchingHeader}>
+          <span>{dynamicMatchingCopy.progress}</span>
+          <strong>{dynamicCompletedPairIds.length} / {dynamicToBePairs.length}</strong>
+          {dynamicXpFlash > 0 ? <em className={styles.dynamicXpFlash} role="status">+{dynamicXpFlash} XP</em> : null}
+        </header>
+        {!dynamicPairsReady ? <p className={styles.dynamicMatchingStatus} role="status">{dynamicMatchingCopy.loading}</p> : null}
+        {dynamicPairsReady ? <div className={styles.dynamicMatchingGrid}>
+          <section className={styles.dynamicMatchingColumn} aria-label={dynamicMatchingCopy.left}>
+            <h3>{dynamicMatchingCopy.left}</h3>
+            <div className={styles.dynamicMatchingTokens}>
+              {dynamicLeftPairs.map((pair) => <button
+                key={pair.id}
+                type="button"
+                disabled={dynamicSending || Boolean(result)}
+                aria-pressed={dynamicSelectedLeftId === pair.id}
+                onClick={() => { setDynamicSelectedLeftId(pair.id); setDynamicWrongSelection(null); }}
+                className={`${styles.dynamicMatchingToken} ${dynamicSelectedLeftId === pair.id ? styles.dynamicMatchingTokenSelected : ""} ${dynamicWrongSelection?.leftId === pair.id ? styles.dynamicMatchingTokenWrong : ""}`}
+              >{pair.left}</button>)}
+            </div>
+          </section>
+          <section className={styles.dynamicMatchingColumn} aria-label={dynamicMatchingCopy.right}>
+            <h3>{dynamicMatchingCopy.right}</h3>
+            <div className={styles.dynamicMatchingTokens}>
+              {dynamicRightTokens.map((token) => <button
+                key={token.id}
+                type="button"
+                disabled={dynamicSending || !dynamicSelectedLeftId || Boolean(result)}
+                onClick={() => void selectDynamicRight(token)}
+                className={`${styles.dynamicMatchingToken} ${styles.dynamicMatchingFormToken} ${dynamicWrongSelection?.rightTokenId === token.id ? styles.dynamicMatchingTokenWrong : ""}`}
+              >{token.form}</button>)}
+            </div>
+          </section>
+        </div> : null}
+        {dynamicPairsReady && dynamicCompletedPairIds.length === dynamicToBePairs.length && !result ? <p className={styles.dynamicMatchingStatus} role="status">{dynamicMatchingCopy.completing}</p> : null}
+      </section> : null}
       {choice && choiceOptions.map((option) => { const selected = multiple ? (answer as string[]).includes(option) : answer === option; return <label key={option} className={`${styles.choice} lesson-exercise-choice flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 focus-within:ring-2 focus-within:ring-blue-500`}><input type={multiple ? "checkbox" : "radio"} name={exercise.id} checked={selected} disabled={inputsLocked} onChange={() => { const next = multiple ? (selected ? (answer as string[]).filter((item) => item !== option) : [...answer as string[], option]) : option; changeAnswer(next); }} onKeyDown={(event) => submitChoiceOnEnter(event, option)} aria-keyshortcuts="Enter" /><span>{option}</span></label>; })}
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
         const current = String((answer as JsonObject)[leftItem] ?? "");
@@ -714,7 +918,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })} onKeyDown={(event) => submitAssignedSelectOnEnter(event, item, false)} aria-keyshortcuts="Enter"><option value="">Choose a category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
       {!choice && !matching && !ordered && !classification ? <label className={`${styles.textAnswer} lesson-exercise-text-answer block`}>{correctedWordOnly ? <span className={`${styles.answerLabel} lesson-exercise-answer-label`}>{textAnswerLabel}</span> : null}{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitLongTextAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" rows={5} className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={renderer === "recording" ? "Write a transcript or response for review" : textAnswerPlaceholder} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={textAnswerPlaceholder} />}</label> : null}
     </div>
-    {!result ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource || (exercise.hintsEnabled && visibleHint)) ? styles.actionRowWithTranslation : ""}`}>
+    {!result && !dynamicToBeMatching ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource || (exercise.hintsEnabled && visibleHint)) ? styles.actionRowWithTranslation : ""}`}>
       {exercise.hintsEnabled && visibleHint ? <button type="button" onClick={() => void revealHint()} disabled={hintOpen} aria-expanded={hintOpen} className="lesson-exercise-hint-control">{hintInlineLabel.replace(/:$/, "")}</button> : null}
       {(authoredTranslation || translationSource) ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} className={`${styles.translationButton} lesson-exercise-translation-trigger`}>{translationSending ? translationOpeningLabel : translationLabel}</button> : null}
       <button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>

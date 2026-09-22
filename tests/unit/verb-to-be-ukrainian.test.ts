@@ -39,4 +39,9 @@ describe("legacy To Be Ukrainian learner copy", () => {
     expect(translateVerbToBeTextToUkrainian("Я есть — I is.")).toBe("Я є — I is.");
     expect(translateVerbToBeTextToUkrainian("Оно существует — It are.")).toBe("Воно існує — It are.");
   });
+
+  it("keeps the dynamic To Be matching card fully Ukrainian", () => {
+    expect(translateVerbToBeTextToUkrainian("Матчинг: личные местоимения и to be")).toBe("Зіставлення: особові займенники й to be");
+    expect(translateVerbToBeTextToUkrainian("Соедините личное местоимение с правильной формой глагола to be.")).toBe("Зіставте особовий займенник із правильною формою дієслова to be.");
+  });
 });
