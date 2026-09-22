@@ -120,6 +120,7 @@ type DynamicToBeMatchingPair = { id: string; left: string; right: "am" | "is" | 
 const dynamicMatchingPairSchema = z.object({
   pairId: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/i),
   selectedForm: z.enum(["am", "is", "are"]),
+  speedWindowId: z.string().trim().min(1).max(80).optional(),
 });
 
 /** Parses only the small, authored dynamic To Be format.  The browser never
@@ -1645,7 +1646,8 @@ export async function getDynamicMatchingPairProgress(userId: string, exerciseId:
 /**
  * Verifies and credits one matching pair on the server. A correct pair is
  * stored before XP is granted; the unique progress and ledger keys make this
- * safe against double-clicks, retries and concurrent tabs. Wrong selections
+ * safe against double-clicks, retries and concurrent tabs. Each newly shown
+ * pair also consumes its own server-owned speed window. Wrong selections
  * deliberately create no attempt, score penalty, or side effect.
  */
 export async function submitDynamicMatchingPair(userId: string, exerciseId: string, input: unknown) {
@@ -1665,6 +1667,7 @@ export async function submitDynamicMatchingPair(userId: string, exerciseId: stri
         select: {
           engineKey: true,
           content: true,
+          timeLimitSeconds: true,
           contentStatus: true,
           lessonBlock: {
             select: {
@@ -1706,9 +1709,31 @@ export async function submitDynamicMatchingPair(userId: string, exerciseId: stri
       }
 
       await tx.dynamicMatchingPairProgress.create({ data: { userId, exerciseId, pairId: pair.id } });
+      const now = new Date();
+      const speedWindow = value.speedWindowId
+        ? await tx.exerciseSpeedWindow.findFirst({
+          where: {
+            id: value.speedWindowId,
+            userId,
+            exerciseId,
+            activeKey: `${userId}:${exerciseId}`,
+            consumedAt: null,
+          },
+          select: { id: true, openedAt: true },
+        })
+        : null;
+      const speedExperience = speedWindow
+        ? experienceForExerciseSpeed(Math.max(0, Math.floor((now.getTime() - speedWindow.openedAt.getTime()) / 1000)), exercise.timeLimitSeconds)
+        : 1;
+      if (speedWindow) {
+        await tx.exerciseSpeedWindow.update({
+          where: { id: speedWindow.id },
+          data: { activeKey: null, consumedAt: now },
+        });
+      }
       const reward = await grantEconomyReward(tx, {
         userId,
-        experience: 1,
+        experience: speedExperience,
         sourceType: "DYNAMIC_MATCHING_PAIR",
         sourceId: exerciseId,
         idempotencyKey: `dynamic-matching-pair:${userId}:${exerciseId}:${pair.id}`,

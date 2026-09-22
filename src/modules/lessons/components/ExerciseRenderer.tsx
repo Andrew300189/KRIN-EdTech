@@ -549,6 +549,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     if (nextIds.length === dynamicToBePairs.length && !dynamicFinalizingRef.current) {
       dynamicFinalizingRef.current = true;
       void checkAnswer(dynamicFinalAnswer);
+    } else {
+      // Dynamic matching changes the visible pair after every correct choice;
+      // begin the same calm speed window for that newly appearing task.
+      setSpeedWindowRun((run) => run + 1);
     }
   }
 
@@ -577,7 +581,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       const response = await fetch(`/api/learning/exercises/${exercise.id}/matching-pairs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pairId: selectedPair.id, selectedForm: rightToken.form }),
+        body: JSON.stringify({ pairId: selectedPair.id, selectedForm: rightToken.form, ...(speedWindowId ? { speedWindowId } : {}) }),
       });
       if (response.status === 401) {
         // An expired session should not make the visual matcher unusable. The
@@ -824,7 +828,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
     <div className={`${styles.heading} lesson-exercise-heading`}><div className={`${styles.instruction} lesson-exercise-instruction`} role="note"><p>{visibleInstruction}</p></div></div>
-    {!result && !dynamicToBeMatching ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
+    {!result ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
       <div className={styles.speedRewardHeader}><span>{speedCopy.label}</span><strong>+{speedExperience} XP</strong></div>
       <div className={styles.speedTrack} aria-hidden="true"><span className={styles.speedFill} style={{ width: `${speedRemainingPercent}%` }} /></div>
     </div> : null}

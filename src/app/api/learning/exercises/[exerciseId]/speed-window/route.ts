@@ -8,7 +8,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const guard = await requireLearningUser(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
   const { exerciseId } = await params;
-  const rateLimit = consumeRateLimit(`exercise-speed-window:${guard.user.id}:${exerciseId}`, 30, 60_000);
+  // Dynamic matching can legitimately open one new window for each of its
+  // 36 changing pairs. The key still scopes the limit to one learner/card.
+  const rateLimit = consumeRateLimit(`exercise-speed-window:${guard.user.id}:${exerciseId}`, 90, 60_000);
   if (!rateLimit.allowed) return NextResponse.json({ error: "Please wait before reopening this task." }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
   try {
     return NextResponse.json({ data: await startExerciseSpeedWindow(guard.user.id, exerciseId) });

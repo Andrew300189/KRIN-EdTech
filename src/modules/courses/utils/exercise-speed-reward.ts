@@ -1,15 +1,18 @@
 /**
- * A short, visible answer window makes a fast, confident response feel
- * rewarding without preventing a learner from thinking through a question.
+ * A relaxed, visible answer window makes a fast, confident response feel
+ * rewarding without turning ordinary learning into a race.
  * The same pure policy runs in the card and on the server; the server owns the
  * start time and is the only place that can actually grant XP.
  */
 export const MIN_EXERCISE_SPEED_XP = 1;
 export const MAX_EXERCISE_SPEED_XP = 3;
 
-const DEFAULT_SPEED_WINDOW_SECONDS = 20;
-const MIN_SPEED_WINDOW_SECONDS = 10;
-const MAX_SPEED_WINDOW_SECONDS = 60;
+// The authored limits were originally designed for internal timing.  The
+// learner-facing XP bar must be calmer and consistent across every card, so
+// even a short authored task receives at least 45 seconds.
+const DEFAULT_SPEED_WINDOW_SECONDS = 45;
+const MIN_SPEED_WINDOW_SECONDS = 45;
+const MAX_SPEED_WINDOW_SECONDS = 90;
 
 export function exerciseSpeedWindowSeconds(configuredSeconds: number | null | undefined) {
   const source = Number.isFinite(configuredSeconds)
