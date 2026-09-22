@@ -61,6 +61,8 @@ function isMultipleChoice(exercise: LessonExercise) {
 
 type ExerciseRendererProps = {
   exercise: LessonExercise;
+  /** Hidden cards must not start a server speed window before the learner sees them. */
+  active?: boolean;
   /** The locale of the course route takes priority over a saved site setting. */
   contentLocale?: "ru" | "uk";
   /** Active mode survives question changes until a wrong first answer resets it. */
@@ -247,7 +249,7 @@ function AnswerReveal({ answer }: { answer: unknown }) {
   return <strong className="lesson-exercise-answer-reveal-value">{displayAnswer(answer)}</strong>;
 }
 
-export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
+export function ExerciseRenderer({ exercise, active = true, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
@@ -402,6 +404,10 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   }, [dynamicToBeMatching, dynamicToBePairs, exercise.id, previewMode]);
   useEffect(() => {
     const controller = new AbortController();
+    if (!active || result) {
+      setSpeedWindowId(null);
+      return () => controller.abort();
+    }
     const localStartedAt = Date.now();
     const defaultWindowSeconds = exerciseSpeedWindowSeconds(exercise.timeLimitSeconds);
     setSpeedWindowId(null);
@@ -432,12 +438,12 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
       }
     })();
     return () => controller.abort();
-  }, [exercise.id, exercise.timeLimitSeconds, previewMode, speedWindowRun]);
+  }, [active, exercise.id, exercise.timeLimitSeconds, previewMode, result, speedWindowRun]);
   useEffect(() => {
-    if (result) return;
+    if (!active || result) return;
     const interval = window.setInterval(() => setSpeedClock(Date.now()), 100);
     return () => window.clearInterval(interval);
-  }, [result]);
+  }, [active, result]);
 
   const expectedChoiceCount = Array.isArray(exercise.correctAnswer) ? exercise.correctAnswer.length : 1;
   const inputsLocked = sending || result !== null;
@@ -552,6 +558,7 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
     } else {
       // Dynamic matching changes the visible pair after every correct choice;
       // begin the same calm speed window for that newly appearing task.
+      setSpeedWindowId(null);
       setSpeedWindowRun((run) => run + 1);
     }
   }
@@ -805,13 +812,27 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
   const activeStreakClass = activeStreakTone && /^[a-z-]+$/.test(activeStreakTone) ? ` lesson-exercise-streak-${activeStreakTone}` : "";
   const streakActivated = Boolean(result?.motivationReward?.awarded && streak?.activated && streakTone);
   const speedElapsedSeconds = Math.max(0, (speedClock - speedWindowStartedAt) / 1000);
-  const speedExperience = experienceForExerciseSpeed(speedElapsedSeconds, speedWindowSeconds);
-  const speedRemainingPercent = remainingExerciseSpeedPercent(speedElapsedSeconds, speedWindowSeconds);
+  // Until the server confirms this visible task's window, only the guaranteed
+  // base XP is shown. A slow/failed timer request must never promise 3 XP
+  // while the server can safely award only 1 XP.
+  const speedExperience = previewMode || speedWindowId
+    ? experienceForExerciseSpeed(speedElapsedSeconds, speedWindowSeconds)
+    : 1;
+  const speedRemainingPercent = previewMode || speedWindowId
+    ? remainingExerciseSpeedPercent(speedElapsedSeconds, speedWindowSeconds)
+    : 100;
   const speedCopy = locale === "uk"
     ? { label: "Нагорода за швидкість", bar: "Час на відповідь" }
     : locale === "ru"
       ? { label: "Награда за скорость", bar: "Время на ответ" }
       : { label: "Speed reward", bar: "Answer time" };
+  const xpBreakdown = result?.motivationReward?.awarded && typeof result.motivationReward.baseExperience === "number"
+    ? locale === "uk"
+      ? `1 XP за відповідь${result.motivationReward.baseExperience > 1 ? ` · +${result.motivationReward.baseExperience - 1} за швидкість` : ""}${result.motivationReward.streakBonus ? ` · +${result.motivationReward.streakBonus} за серію` : ""}`
+      : locale === "ru"
+        ? `1 XP за ответ${result.motivationReward.baseExperience > 1 ? ` · +${result.motivationReward.baseExperience - 1} за скорость` : ""}${result.motivationReward.streakBonus ? ` · +${result.motivationReward.streakBonus} за серию` : ""}`
+        : `1 XP for the answer${result.motivationReward.baseExperience > 1 ? ` · +${result.motivationReward.baseExperience - 1} for speed` : ""}${result.motivationReward.streakBonus ? ` · +${result.motivationReward.streakBonus} for streak` : ""}`
+    : null;
   const dynamicMatchingCopy = locale === "uk"
     ? { left: "Займенники", right: "Форми to be", progress: "Збігів", loading: "Відновлюємо збіги…", completing: "Завершуємо картку…" }
     : locale === "ru"
@@ -820,15 +841,14 @@ export function ExerciseRenderer({ exercise, contentLocale, persistentStreakTone
 
   return <section className={`${styles.card} lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
-      {streakActivated
-        ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{streak?.modeStart}</strong></div>
-        : result.motivationReward?.awarded
-        ? <><strong>{answerFeedback.xpAwarded(result.motivationReward.experience)}</strong>{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
+      {streakActivated ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{streak?.modeStart}</strong></div> : null}
+      {result.motivationReward?.awarded
+        ? <><strong>{answerFeedback.xpAwarded(result.motivationReward.experience)}</strong>{xpBreakdown ? <span className={styles.xpBreakdown}>{xpBreakdown}</span> : null}{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
         : <strong>{answerFeedback.wellDone}</strong>}
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}
     <div className={`${styles.heading} lesson-exercise-heading`}><div className={`${styles.instruction} lesson-exercise-instruction`} role="note"><p>{visibleInstruction}</p></div></div>
-    {!result ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
+    {!result && active ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
       <div className={styles.speedRewardHeader}><span>{speedCopy.label}</span><strong>+{speedExperience} XP</strong></div>
       <div className={styles.speedTrack} aria-hidden="true"><span className={styles.speedFill} style={{ width: `${speedRemainingPercent}%` }} /></div>
     </div> : null}

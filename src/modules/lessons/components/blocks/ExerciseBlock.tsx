@@ -196,9 +196,16 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
   }
 
   const exerciseCards = exercises.slice(0, allowedExerciseCount).map((exercise, index) => (
-    <div key={exercise.id} data-task-index={index + 1} hidden={!showAllExercises && index !== activeIndex}>
+    <div
+      key={exercise.id}
+      data-task-index={index + 1}
+      hidden={!showAllExercises && index !== activeIndex}
+      onPointerDownCapture={showAllExercises && index !== activeIndex ? () => setActiveIndex(index) : undefined}
+      onFocusCapture={showAllExercises && index !== activeIndex ? () => setActiveIndex(index) : undefined}
+    >
       <ExerciseRenderer
         exercise={exercise}
+        active={progressHydrated && index === activeIndex}
         contentLocale={contentLocale}
         persistentStreakTone={persistentStreakTone}
         previewMode={previewMode}

@@ -6,8 +6,8 @@ import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-con
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
 import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
-import { experienceForExerciseDifficulty } from "@/modules/motivation/utils/exercise-experience";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
+import { baseExperienceForExercise } from "@/modules/courses/utils/exercise-speed-reward";
 import { grantLearningBonusCredits } from "@/modules/motivation/services/learning-bonus.service";
 
 type Tx = Prisma.TransactionClient;
@@ -179,7 +179,7 @@ async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: R
  * answer.  The idempotency key is the protection against replays, rather than
  * a daily cap that could silently stop XP partway through a long lesson.
  */
-async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, exerciseId: string, difficulty: number, streakBonus = 0, speedExperience?: number) {
+async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, exerciseId: string, streakBonus = 0, speedExperience?: number) {
   const idempotencyKey = `exercise_correct:${userId}:${exerciseId}`;
   const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
   if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
@@ -187,11 +187,9 @@ async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, 
   const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
   if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
 
-  // The answer-speed band is calculated from a server-owned timer. Keep the
-  // author-selected difficulty as the fallback for legacy/non-timed clients.
-  const baseExperience = typeof speedExperience === "number"
-    ? Math.max(1, Math.min(3, Math.trunc(speedExperience)))
-    : experienceForExerciseDifficulty(difficulty);
+  // Every engine starts at 1 XP. A verified server timer may raise that
+  // exercise reward to 2–3 XP; authoring difficulty is never an XP shortcut.
+  const baseExperience = baseExperienceForExercise(speedExperience);
   const experienceAmount = baseExperience + streakBonus;
   const reward = await creditExperienceAndCoins(tx, {
     userId,
@@ -220,9 +218,7 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
   const rule = await tx.rewardRule.findUnique({ where: { eventType: "EXERCISE_CORRECT" } });
   if (!rule?.isActive) return { awarded: false, experience: 0, coins: 0, levelUp: false };
 
-  const baseExperience = typeof speedExperience === "number"
-    ? Math.max(1, Math.min(3, Math.trunc(speedExperience)))
-    : 1.5;
+  const baseExperience = baseExperienceForExercise(speedExperience);
   const amountMinor = Math.round(baseExperience * 100) + (streakBonus * 100);
   const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
   const nextMinorTotal = (current.lifetimeExperience * 100) + current.fractionalExperience + amountMinor;
@@ -624,7 +620,7 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
   const reward = qualifiesForStreak
     ? input.isSpacedReview
       ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId, streak?.bonusExperience, input.speedExperience)
-      : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, input.difficulty, streak?.bonusExperience, input.speedExperience)
+      : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, streak?.bonusExperience, input.speedExperience)
     : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
   return { ...reward, streak };

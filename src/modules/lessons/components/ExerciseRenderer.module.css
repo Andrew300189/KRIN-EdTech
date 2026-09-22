@@ -10,6 +10,7 @@
 }
 
 .card > * + * { margin-top: 1rem; }
+.xpBreakdown { max-width: 18rem; text-align: center; line-height: 1.4; }
 .heading { display: grid; gap: .7rem; }
 
 .instruction {
@@ -398,7 +399,7 @@
 .nextButton:disabled { background: #e2e8f0 !important; box-shadow: none; color: #64748b !important; cursor: not-allowed; opacity: 1; }
 
 .translationButton,
-:global(.lesson-exercise-hint-control) {
+.card :global(.lesson-exercise-hint-control) {
   min-height: 38px;
   border: 1px solid #c7d2fe;
   border-radius: 11px;
@@ -416,7 +417,7 @@
 .translationButton { min-height: 44px; }
 
 .translationButton::before,
-:global(.lesson-exercise-hint-control)::before {
+.card :global(.lesson-exercise-hint-control)::before {
   width: 7px;
   height: 7px;
   flex: 0 0 auto;
@@ -428,9 +429,9 @@
 
 .translationButton:hover:not(:disabled),
 .translationButton[aria-expanded="true"] { border-color: #a5b4fc; background: #e0e7ff; transform: translateY(-1px); }
-:global(.lesson-exercise-hint-trigger) { display: inline-flex; }
-:global(.lesson-exercise-hint-control) { border-color: #f9cf58; background: #fff8db; color: #9a5700; }
-:global(.lesson-exercise-hint-control)::before { background: #f59e0b; }
+.card :global(.lesson-exercise-hint-trigger) { display: inline-flex; }
+.card :global(.lesson-exercise-hint-control) { border-color: #f9cf58; background: #fff8db; color: #9a5700; }
+.card :global(.lesson-exercise-hint-control)::before { background: #f59e0b; }
 
 .inlineHint {
   display: flex;

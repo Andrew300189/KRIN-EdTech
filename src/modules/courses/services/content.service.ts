@@ -1777,11 +1777,14 @@ export async function startExerciseSpeedWindow(userId: string, exerciseId: strin
     select: {
       id: true,
       isGeneratedReview: true,
+      contentStatus: true,
       timeLimitSeconds: true,
-      lessonBlock: { select: { lessonId: true } },
+      lessonBlock: { select: { lessonId: true, contentStatus: true } },
     },
   });
-  if (!exercise) throw new Error("Exercise not found");
+  if (!exercise || exercise.contentStatus !== "PUBLISHED" || exercise.lessonBlock.contentStatus !== "PUBLISHED") {
+    throw new Error("Exercise is unavailable.");
+  }
   if (exercise.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) {
     throw new Error("This review question belongs to a different learner.");
   }
@@ -1808,9 +1811,11 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
   const value = submitExerciseSchema.parse(input);
   const exerciseForAccess = await prisma.exercise.findUnique({
     where: { id: exerciseId },
-    select: { isGeneratedReview: true, lessonBlock: { select: { lessonId: true } } },
+    select: { isGeneratedReview: true, contentStatus: true, lessonBlock: { select: { lessonId: true, contentStatus: true } } },
   });
-  if (!exerciseForAccess) throw new Error("Exercise not found");
+  if (!exerciseForAccess || exerciseForAccess.contentStatus !== "PUBLISHED" || exerciseForAccess.lessonBlock.contentStatus !== "PUBLISHED") {
+    throw new Error("Exercise is unavailable.");
+  }
   if (exerciseForAccess.isGeneratedReview && !await learnerOwnsSpacedReviewExercise(userId, exerciseId)) {
     throw new Error("This review question belongs to a different learner.");
   }

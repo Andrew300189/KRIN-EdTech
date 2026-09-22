@@ -1,10 +1,17 @@
 import {
+  baseExperienceForExercise,
   experienceForExerciseSpeed,
   exerciseSpeedWindowSeconds,
   remainingExerciseSpeedPercent,
 } from "@/modules/courses/utils/exercise-speed-reward";
 
 describe("exercise speed reward", () => {
+  it("uses one XP by default across engines and clamps verified speed XP", () => {
+    expect(baseExperienceForExercise()).toBe(1);
+    expect(baseExperienceForExercise(Number.NaN)).toBe(1);
+    expect(baseExperienceForExercise(2)).toBe(2);
+    expect(baseExperienceForExercise(99)).toBe(3);
+  });
   it("starts at three XP and never drops below one XP", () => {
     expect(experienceForExerciseSpeed(0, 45)).toBe(3);
     expect(experienceForExerciseSpeed(45, 45)).toBe(1);

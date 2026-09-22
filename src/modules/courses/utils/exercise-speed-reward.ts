@@ -7,6 +7,13 @@
 export const MIN_EXERCISE_SPEED_XP = 1;
 export const MAX_EXERCISE_SPEED_XP = 3;
 
+/** Safe base reward shared by exercise engines, including non-timed ones. */
+export function baseExperienceForExercise(speedExperience?: number) {
+  return typeof speedExperience === "number" && Number.isFinite(speedExperience)
+    ? Math.max(MIN_EXERCISE_SPEED_XP, Math.min(MAX_EXERCISE_SPEED_XP, Math.trunc(speedExperience)))
+    : MIN_EXERCISE_SPEED_XP;
+}
+
 // The authored limits were originally designed for internal timing.  The
 // learner-facing XP bar must be calmer and consistent across every card, so
 // even a short authored task receives at least 45 seconds.
