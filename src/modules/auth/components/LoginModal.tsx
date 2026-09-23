@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppModal } from "@/core/components/AppModal";
 import { LoginForm } from "./LoginForm";
 import { RegistrationForm } from "./RegistrationForm";
+import { getRememberedLoginEmail } from "@/modules/auth/utils/remembered-login-email";
 import styles from "./LoginModal.module.css";
 
 type LoginIntent = "learner" | "teacher";
@@ -40,7 +41,10 @@ export function LoginModal({
   const isTeacherLogin = intent === "teacher";
 
   useEffect(() => {
-    if (open) setView(initialView);
+    if (open) {
+      setView(initialView);
+      if (initialView === "login") setEmail((current) => getRememberedLoginEmail() || getEmailPrefill(current));
+    }
   }, [initialView, open]);
 
   const isRegistration = view === "register" && !isTeacherLogin;

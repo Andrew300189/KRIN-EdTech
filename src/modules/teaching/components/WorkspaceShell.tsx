@@ -14,6 +14,7 @@ import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStat
 import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { shopAvatarDetails } from "@/modules/motivation/utils/shop-avatar";
 import { useLocale } from "@/core/i18n/locale";
+import { rememberLoginEmail } from "@/modules/auth/utils/remembered-login-email";
 import type { NotificationBadgeSection } from "@/modules/communications/types/navigation-badges";
 import type { SearchContext } from "@/modules/search/types";
 import styles from "./WorkspaceShell.module.css";
@@ -36,6 +37,7 @@ type WorkspaceShellProps = {
   userAvatar?: string | null;
   avatarDisplayMode?: "PHOTO" | "SHOP";
   userInitials?: string;
+  userEmail?: string;
   shopAvatar?: string | null;
   leaderboardSummary?: LeaderboardHeaderSummary;
   /** Keeps compact student overview pages inside the desktop viewport. */
@@ -80,6 +82,7 @@ export function WorkspaceShell({
   userAvatar = null,
   avatarDisplayMode = "PHOTO",
   userInitials = "",
+  userEmail,
   shopAvatar = null,
   leaderboardSummary,
   lockDesktopViewport = false,
@@ -94,6 +97,8 @@ export function WorkspaceShell({
   const [profilePhotoFailed, setProfilePhotoFailed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => { rememberLoginEmail(userEmail); }, [userEmail]);
 
   const loadNavigationBadges = useCallback(async () => {
     try {

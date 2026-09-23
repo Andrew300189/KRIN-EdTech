@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { getSafeInternalPath } from "@/core/utils/safe-internal-path";
+import { rememberLoginEmail } from "@/modules/auth/utils/remembered-login-email";
 import styles from "./AuthForms.module.css";
 
 type LoginFormProps = {
@@ -119,6 +120,7 @@ export function LoginForm({
         );
         return;
       }
+      rememberLoginEmail(payload?.user?.email ?? identifierValue);
       onNavigate?.();
       router.replace(destination);
     } catch {
@@ -248,9 +250,10 @@ export function LoginForm({
         </label>
         <input
           id="login-identifier"
+          name="email"
           data-dialog-initial-focus
           type="email"
-          autoComplete="email"
+          autoComplete="username"
           value={identifierValue}
           onChange={(event) => updateIdentifier(event.target.value)}
           className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base"

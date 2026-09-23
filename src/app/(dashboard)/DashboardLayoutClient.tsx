@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { rememberLoginEmail } from "@/modules/auth/utils/remembered-login-email";
 import { VocabularyReviewPrompt } from "@/modules/vocabulary/components/VocabularyReviewPrompt";
 import { GlobalSearch } from "@/modules/search/components/GlobalSearch";
 import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
@@ -24,11 +26,15 @@ const navigation = [
 export function DashboardLayoutClient({
   children,
   showCmsLink,
+  userEmail,
 }: {
   children: React.ReactNode;
   showCmsLink: boolean;
+  userEmail: string;
 }) {
   const pathname = usePathname();
+
+  useEffect(() => { rememberLoginEmail(userEmail); }, [userEmail]);
 
   const navIdByHref: Record<string, string> = {
     "/dashboard/lessons": "tour-nav-lessons",

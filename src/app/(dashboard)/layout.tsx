@@ -15,6 +15,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardLayoutClient
+      userEmail={authenticated.user.email}
       showCmsLink={hasCmsAccess(
         authenticated.user.email,
         authenticated.user.role,

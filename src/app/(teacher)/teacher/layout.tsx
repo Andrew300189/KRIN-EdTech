@@ -36,6 +36,7 @@ export default async function TeacherLayout({
       navigation={navigation}
       searchContext="TEACHER"
       showCmsLink={showCmsLink}
+      userEmail={guard.user.email}
       userAvatar={guard.user.avatar}
       avatarDisplayMode={guard.user.avatarDisplayMode === "SHOP" ? "SHOP" : "PHOTO"}
       userInitials={`${guard.user.firstName?.[0] ?? ""}${guard.user.lastName?.[0] ?? ""}`.trim() || guard.user.name.slice(0, 1).toUpperCase()}

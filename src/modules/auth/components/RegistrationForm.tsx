@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { getSafeInternalPath } from "@/core/utils/safe-internal-path";
+import { rememberLoginEmail } from "@/modules/auth/utils/remembered-login-email";
 import styles from "./AuthForms.module.css";
 
 type RegistrationFormProps = {
@@ -60,6 +61,7 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
         setAccountExists(payload?.code === "ACCOUNT_EXISTS");
         return;
       }
+      rememberLoginEmail(payload?.user?.email ?? email);
       if (payload?.requiresEmailVerification === true) {
         setVerificationPending(true);
         return;
@@ -108,8 +110,8 @@ export function RegistrationForm({ nextPath = "", initialEmail = "", onSignIn, o
 
   return <form onSubmit={handleSubmit} className={styles.registrationForm} noValidate aria-busy={loading}>
     {error ? <div role="alert" className={styles.registrationNotice}><span className={styles.noticeIcon} aria-hidden="true">!</span><div><p className={styles.noticeTitle}>Registration is unavailable</p><p className={styles.noticeMessage}>{error}</p></div></div> : null}
-    <div className={styles.registrationField}><label htmlFor="register-username" className="text-sm font-semibold text-slate-900">Username</label><input id="register-username" name="username" data-dialog-initial-focus type="text" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base" placeholder="your_username" required disabled={loading} /></div>
-    <div className={styles.registrationField}><label htmlFor="register-email" className="text-sm font-semibold text-slate-900">Email</label><input id="register-email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base" placeholder="you@example.com" required disabled={loading} /></div>
+    <div className={styles.registrationField}><label htmlFor="register-username" className="text-sm font-semibold text-slate-900">Username</label><input id="register-username" name="nickname" data-dialog-initial-focus type="text" autoComplete="nickname" value={username} onChange={(event) => setUsername(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base" placeholder="your_username" required disabled={loading} /></div>
+    <div className={styles.registrationField}><label htmlFor="register-email" className="text-sm font-semibold text-slate-900">Email</label><input id="register-email" name="email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base" placeholder="you@example.com" required disabled={loading} /></div>
     <div className={styles.registrationField}><label htmlFor="register-password" className="text-sm font-semibold text-slate-900">Password</label><div className={styles.passwordField}><input id="register-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} className="form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 pr-12 text-base" placeholder="Choose a password" required disabled={loading} /><button type="button" onClick={() => setShowPassword((current) => !current)} className={styles.passwordToggle} aria-label={showPassword ? "Hide password" : "Show password"} disabled={loading}>{showPassword ? "Hide" : "Show"}</button></div></div>
     <div className={styles.registrationField}><label htmlFor="register-confirm-password" className="text-sm font-semibold text-slate-900">Confirm password</label><div className={styles.passwordField}><input id="register-confirm-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className={`form-control w-full rounded-md border border-slate-300 bg-slate-50 px-4 py-3 pr-12 text-base ${!passwordsMatch ? styles.passwordMismatch : ""}`} placeholder="Repeat your password" aria-invalid={!passwordsMatch} aria-describedby={!passwordsMatch ? "register-password-match" : undefined} required disabled={loading} /><button type="button" onClick={() => setShowPassword((current) => !current)} className={styles.passwordToggle} aria-label={showPassword ? "Hide passwords" : "Show passwords"} disabled={loading}>{showPassword ? "Hide" : "Show"}</button></div>{!passwordsMatch ? <p id="register-password-match" className={styles.passwordMatchHint}>Passwords do not match yet.</p> : null}</div>
     <label className={styles.rememberMe}><input id="register-remember-me" name="rememberMe" type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} disabled={loading} /><span><strong>Keep me signed in</strong><small>Use this only on a personal device.</small></span></label>
