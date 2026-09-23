@@ -52,6 +52,21 @@ const formsUk = [
   `<p><strong style="${green}">Перевірте себе:</strong> <em>I ___ ready</em> → <strong>am</strong>; <em>She ___ here</em> → <strong>is</strong>; <em>They ___ at home</em> → <strong>are</strong>. У наступному блоці потрібно вписувати лише одну відповідну форму.</p>`,
 ].join("\n");
 
+const formPrompts = [
+  ["I ___ ready.", "am"], ["He ___ a doctor.", "is"], ["We ___ classmates.", "are"],
+  ["She ___ a teacher.", "is"], ["They ___ students.", "are"], ["You ___ my friend.", "are"],
+  ["It ___ sunny today.", "is"], ["You ___ in the right place.", "are"], ["It ___ a good idea.", "is"],
+  ["I ___ a student.", "am"], ["They ___ at work.", "are"], ["She ___ at home.", "is"],
+  ["We ___ ready for class.", "are"], ["He ___ at school.", "is"], ["It ___ my book.", "is"],
+  ["I ___ at home.", "am"], ["He ___ happy today.", "is"], ["You ___ very kind.", "are"],
+  ["They ___ my friends.", "are"], ["She ___ very friendly.", "is"], ["We ___ in the same team.", "are"],
+  ["She ___ my sister.", "is"], ["We ___ at home.", "are"], ["You ___ a great student.", "are"],
+  ["It ___ cold outside.", "is"], ["I ___ happy today.", "am"], ["He ___ my brother.", "is"],
+  ["They ___ from Kyiv.", "are"], ["They ___ ready for class.", "are"], ["He ___ from Poland.", "is"],
+  ["I ___ from Ukraine.", "am"], ["It ___ five o'clock.", "is"], ["You ___ ready.", "are"],
+  ["She ___ ready for class.", "is"], ["We ___ friends.", "are"],
+];
+
 const contractionsRu = [
   `<h2 style="text-align: left; font-family: Georgia, serif"><span style="${violet}">I'm, you're, he's…</span> Как сокращать to be</h2>`,
   `<p>В разговоре и неформальном письме местоимение и форму <em style="${violet}">to be</em> часто соединяют. <strong style="${green}">I am → I'm</strong>: значение не меняется, меняется только запись и произношение.</p>`,
@@ -133,21 +148,34 @@ async function main() {
     // previous attempts and first-correct XP remain attached to those cards.
     const formsExercise = await tx.lessonBlock.findFirst({
       where: { lessonId: lesson.id, order: 3 },
-      select: { id: true, settings: true, exercises: { select: { id: true, order: true, contentStatus: true } } },
+      select: { id: true, settings: true, exercises: { select: { id: true, order: true, contentStatus: true, variantKey: true, question: true, correctAnswer: true, _count: { select: { attempts: true } } } } },
     });
     if (!formsExercise) throw new Error("The To Be am/is/are practice block is missing.");
     if (formsExercise.settings?.seedMarker !== "TO_BE_MODULE_1_LESSON_1_FORMS_V1") {
-      const originalIds = Array.from({ length: 35 }, (_, index) => `to-be-m1-l1-form-${String(index + 1).padStart(3, "0")}`);
-      if (!originalIds.every((id) => formsExercise.exercises.some((exercise) => exercise.id === id))) {
-        throw new Error("Cannot restore the 35 original am/is/are cards without their saved IDs.");
-      }
       const offset = Math.ceil((Math.max(0, ...formsExercise.exercises.map((exercise) => exercise.order)) + 1) / 1_000_000) * 1_000_000;
       await tx.exercise.updateMany({
         where: { lessonBlockId: formsExercise.id, contentStatus: "PUBLISHED" },
         data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: offset } },
       });
-      for (const [index, id] of originalIds.entries()) {
-        await tx.exercise.update({ where: { id }, data: { order: index + 1, contentStatus: "PUBLISHED", archivedAt: null } });
+      for (const [index, [question, answer]] of formPrompts.entries()) {
+        const historical = formsExercise.exercises
+          .filter((exercise) => exercise.variantKey === "TO_BE_FORM_INPUT"
+            && exercise.question === question
+            && exercise.correctAnswer === answer
+            && exercise.order % 1_000_000 === index + 1)
+          .sort((left, right) => right._count.attempts - left._count.attempts)[0];
+        if (historical) {
+          await tx.exercise.update({ where: { id: historical.id }, data: { order: index + 1, contentStatus: "PUBLISHED", archivedAt: null } });
+        } else {
+          await tx.exercise.create({ data: {
+            lessonBlockId: formsExercise.id, type: "TEXT_INPUT", engineKey: "text-input", variantKey: "TO_BE_FORM_INPUT",
+            instruction: "Впишите правильную форму: am, is или are.", question,
+            content: { acceptedAnswers: [answer], ignorePunctuation: true }, correctAnswer: answer, alternativeAnswers: [answer],
+            explanation: `Верно: ${question.replace("___", answer)}`, hint: "Сначала найдите подлежащее.", hintsEnabled: true,
+            difficulty: 1, basePoints: 1, timeLimitSeconds: 12, solutionCost: 0, allowInstantCheck: true,
+            allowExtraExercise: false, isGeneratedReview: false, contentStatus: "PUBLISHED", publishedAt: new Date(), order: index + 1,
+          } });
+        }
       }
       await tx.lessonBlock.update({
         where: { id: formsExercise.id },
