@@ -1006,7 +1006,7 @@ const getPublishedLessonBySlugCached = cachePublicContent(
 // was cached. Give just that lesson a new cache namespace so returning
 // learners see the restored steps immediately after deployment.
 const getToBeLessonOneWithTheory = cachePublicContent(
-  ["published-lesson-by-slug", "to-be-lesson-one-theory-v2"],
+  ["published-lesson-by-slug", "to-be-lesson-one-theory-v3"],
   getPublishedLessonBySlugUncached,
 );
 

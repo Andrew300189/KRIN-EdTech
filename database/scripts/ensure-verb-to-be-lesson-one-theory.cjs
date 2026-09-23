@@ -83,7 +83,7 @@ async function publishTranslation(tx, lessonBlockId, locale, title, text) {
 async function main() {
   const lesson = await prisma.lesson.findFirst({
     where: { order: 1, module: { order: 1, course: { slug: "verb-to-be-masterclass" } } },
-    select: { id: true, blocks: { orderBy: { order: "desc" }, select: { id: true, order: true, type: true, settings: true } } },
+    select: { id: true, blocks: { orderBy: { order: "desc" }, select: { id: true, order: true, type: true, settings: true, translations: { where: { locale: "uk" }, select: { title: true, content: true } } } } },
   });
   if (!lesson) {
     console.log("Verb to be module 1 lesson 1 is not installed; theory update skipped.");
@@ -93,7 +93,8 @@ async function main() {
   const firstTheory = lesson.blocks.find((block) => block.order === 1 && block.type === "THEORY");
   if (!firstTheory) throw new Error("The first To Be theory block is missing.");
   const existingFormsTheory = lesson.blocks.find((block) => block.settings?.seedMarker === FORMS_THEORY_MARKER);
-  const existingContractionsTheory = lesson.blocks.find((block) => block.settings?.seedMarker === THEORY_MARKER);
+  const existingContractionsTheory = lesson.blocks.find((block) => block.settings?.seedMarker === THEORY_MARKER
+    || block.translations.some((translation) => translation.title === "Скорочені форми to be" && translation.content?.text));
 
   await prisma.$transaction(async (tx) => {
     await publishTranslation(tx, firstTheory.id, "uk", "Як працює to be", firstTheoryUk);
@@ -127,8 +128,62 @@ async function main() {
     }
     await publishTranslation(tx, formsTheoryId, "uk", "Форми am, is, are", formsUk);
 
+    // A former order-based practice refresh could overwrite the original
+    // 35-card block after theory was inserted. Revive its stable card IDs so
+    // previous attempts and first-correct XP remain attached to those cards.
+    const formsExercise = await tx.lessonBlock.findFirst({
+      where: { lessonId: lesson.id, order: 3 },
+      select: { id: true, settings: true, exercises: { select: { id: true, order: true, contentStatus: true } } },
+    });
+    if (!formsExercise) throw new Error("The To Be am/is/are practice block is missing.");
+    if (formsExercise.settings?.seedMarker !== "TO_BE_MODULE_1_LESSON_1_FORMS_V1") {
+      const originalIds = Array.from({ length: 35 }, (_, index) => `to-be-m1-l1-form-${String(index + 1).padStart(3, "0")}`);
+      if (!originalIds.every((id) => formsExercise.exercises.some((exercise) => exercise.id === id))) {
+        throw new Error("Cannot restore the 35 original am/is/are cards without their saved IDs.");
+      }
+      const offset = Math.ceil((Math.max(0, ...formsExercise.exercises.map((exercise) => exercise.order)) + 1) / 1_000_000) * 1_000_000;
+      await tx.exercise.updateMany({
+        where: { lessonBlockId: formsExercise.id, contentStatus: "PUBLISHED" },
+        data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: offset } },
+      });
+      for (const [index, id] of originalIds.entries()) {
+        await tx.exercise.update({ where: { id }, data: { order: index + 1, contentStatus: "PUBLISHED", archivedAt: null } });
+      }
+      await tx.lessonBlock.update({
+        where: { id: formsExercise.id },
+        data: {
+          type: "EXERCISE", title: "Впишите правильную форму", content: null,
+          settings: {
+            seedMarker: "TO_BE_MODULE_1_LESSON_1_FORMS_V1",
+            lessonGoal: "Запоминаем формы am, is, are",
+            lessonGoalTranslations: { ru: "Запоминаем формы am, is, are", uk: "Запам’ятовуємо форми am, is, are" },
+          },
+          isRequired: true, contentStatus: "PUBLISHED", publishedAt: new Date(), archivedAt: null,
+        },
+      });
+    }
+
     let theoryId = existingContractionsTheory?.id;
-    if (!theoryId) {
+    if (theoryId && (existingContractionsTheory.type !== "THEORY" || existingContractionsTheory.settings?.seedMarker !== THEORY_MARKER)) {
+      const exercises = await tx.exercise.findMany({ where: { lessonBlockId: theoryId }, select: { order: true } });
+      const offset = Math.ceil((Math.max(0, ...exercises.map((exercise) => exercise.order)) + 1) / 1_000_000) * 1_000_000;
+      await tx.exercise.updateMany({
+        where: { lessonBlockId: theoryId, contentStatus: "PUBLISHED" },
+        data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: offset } },
+      });
+      await tx.lessonBlock.update({
+        where: { id: theoryId },
+        data: {
+          type: "THEORY", title: "Сокращённые формы to be", content: { text: contractionsRu },
+          settings: {
+            seedMarker: THEORY_MARKER,
+            lessonGoal: "Понять, как сокращаются формы am, is, are.",
+            lessonGoalTranslations: { ru: "Понять, как сокращаются формы am, is, are.", uk: "Зрозуміти, як скорочуються форми am, is, are." },
+          },
+          isRequired: true, contentStatus: "PUBLISHED", publishedAt: new Date(), archivedAt: null,
+        },
+      });
+    } else if (!theoryId) {
       const currentBlocks = await tx.lessonBlock.findMany({
         where: { lessonId: lesson.id },
         orderBy: { order: "desc" },

@@ -218,7 +218,8 @@ function exercise(blockId, definition, [question, answer], index) {
 
 function isCurrentBlock(block, definition) {
   const publishedExercises = block?.exercises.filter((item) => item.contentStatus === "PUBLISHED") ?? [];
-  return block?.settings
+  return block?.type === "EXERCISE"
+    && block?.settings
     && typeof block.settings === "object"
     && !Array.isArray(block.settings)
     && block.settings.seedMarker === definition.marker
@@ -237,8 +238,7 @@ async function main() {
     where: { module: { order: 1, course: { slug: COURSE_SLUG } }, order: 1 },
     include: {
       blocks: {
-        where: { order: { in: blocks.map((block) => block.order) } },
-        include: { exercises: { orderBy: { order: "asc" }, select: { id: true, order: true, instruction: true, question: true, correctAnswer: true, variantKey: true, contentStatus: true } } },
+        include: { exercises: { orderBy: { order: "asc" }, select: { id: true, order: true, instruction: true, question: true, correctAnswer: true, variantKey: true, contentStatus: true, _count: { select: { attempts: true } } } } },
       },
     },
   });
@@ -247,8 +247,12 @@ async function main() {
     return;
   }
 
+  // The additional am/is/are theory occupies step 2. Never refresh practice
+  // by the old absolute numbers: that used to turn theory into an exercise.
+  const hasFormsTheory = lesson.blocks.some((block) => block.settings?.seedMarker === "TO_BE_FORMS_THEORY_V1");
+  const definitions = blocks.map((block) => ({ ...block, order: block.order + (hasFormsTheory ? 1 : 0) }));
   const existingByOrder = new Map(lesson.blocks.map((block) => [block.order, block]));
-  const updates = blocks.filter((definition) => !isCurrentBlock(existingByOrder.get(definition.order), definition));
+  const updates = definitions.filter((definition) => !isCurrentBlock(existingByOrder.get(definition.order), definition));
   if (process.argv.includes("--check")) {
     console.log(JSON.stringify({ outOfDateBlockOrders: updates.map((definition) => definition.order) }));
     return;
@@ -263,15 +267,14 @@ async function main() {
       const existing = existingByOrder.get(definition.order);
       let blockId = existing?.id;
       if (blockId) {
+        if (existing.type === "THEORY") throw new Error(`Refusing to replace theory at step ${definition.order}.`);
         // Preserve every historic attempt by retiring the old cards before
         // their order slots are reused by the new exercise versions.
-        // Previous refreshes may already have archived a historical card at
-        // order 1001, 1002, etc.  Move the whole retired set far beyond the
-        // active slots so a second refresh can never collide with those
-        // unique (lessonBlockId, order) values.
+        // Move only published cards beyond the highest archived order.
+        const orderOffset = Math.ceil((Math.max(0, ...existing.exercises.map((item) => item.order)) + 1) / 1_000_000) * 1_000_000;
         await tx.exercise.updateMany({
-          where: { lessonBlockId: blockId },
-          data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: 1_000_000 } },
+          where: { lessonBlockId: blockId, contentStatus: "PUBLISHED" },
+          data: { contentStatus: "ARCHIVED", archivedAt: new Date(), order: { increment: orderOffset } },
         });
         await tx.lessonBlock.update({
           where: { id: blockId },
@@ -302,7 +305,20 @@ async function main() {
           },
         });
       }
-      await tx.exercise.createMany({ data: definition.prompts.map((prompt, index) => exercise(blockId, definition, prompt, index)) });
+      for (const [index, prompt] of definition.prompts.entries()) {
+        const historical = existing?.exercises
+          .filter((item) => item.contentStatus === "ARCHIVED"
+            && item.order % 1_000_000 === index + 1
+            && item.variantKey === definition.variantKey
+            && item.question === prompt[0]
+            && JSON.stringify(item.correctAnswer) === JSON.stringify(prompt[1]))
+          .sort((left, right) => right._count.attempts - left._count.attempts)[0];
+        if (historical) {
+          await tx.exercise.update({ where: { id: historical.id }, data: { order: index + 1, contentStatus: "PUBLISHED", archivedAt: null, instruction: definition.instruction } });
+        } else {
+          await tx.exercise.create({ data: exercise(blockId, definition, prompt, index) });
+        }
+      }
     }
   }, { maxWait: 30_000, timeout: 120_000 });
 
