@@ -1,5 +1,8 @@
 "use client";
 
+/* Profile photos and local shop art use the same compact avatar slot. */
+/* eslint-disable @next/next/no-img-element */
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -319,7 +322,7 @@ export function WorkspaceShell({
                 alt={userInitials ? `${userInitials} profile photo` : "Profile photo"}
                 className={styles.profileAvatar}
                 onError={() => setProfilePhotoFailed(true)}
-              /> : selectedShopAvatar ? <span className={styles.shopAvatar} role="img" aria-label={selectedShopAvatar.label}>{selectedShopAvatar.glyph}</span> : null}
+              /> : selectedShopAvatar ? <span className={styles.shopAvatar} role="img" aria-label={selectedShopAvatar.label}>{selectedShopAvatar.image ? <img src={selectedShopAvatar.image} alt="" /> : selectedShopAvatar.glyph}</span> : null}
               {showExperience ? <ExperienceStatus /> : null}
               {showCmsLink ? (
                 <Link href="/cms" className={styles.cmsLink}>

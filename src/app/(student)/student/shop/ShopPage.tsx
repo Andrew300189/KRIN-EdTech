@@ -1,5 +1,8 @@
 "use client";
 
+/* Generated avatar art is served from this app's public assets. */
+/* eslint-disable @next/next/no-img-element */
+
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -23,6 +26,7 @@ export function ShopPage() {
   const text = copy[locale];
   const [shop, setShop] = useState<ShopState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | ShopItem["kind"]>("all");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/profile/shop", { cache: "no-store" });
@@ -72,11 +76,16 @@ export function ShopPage() {
   return <section className={styles.page}>
     <header className={styles.hero}><div><p>{text.eyebrow}</p><h2>{text.title}</h2><span>{text.subtitle}</span></div><div className={styles.balance}><small>{text.balance}</small><strong>◉ {shop.balance.toFixed(2)}</strong></div></header>
     {shop.coupons.length ? <section className={styles.couponPanel}><div><span>✦</span><p>{text.coupon}</p></div>{shop.coupons.map((coupon) => <button key={coupon} type="button" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(coupon).then(() => toast.success(text.copied)).catch(() => undefined); }}>{coupon}</button>)}</section> : null}
-    <div className={styles.grid}>{shop.items.map((item) => {
+    <div className={styles.filters} role="group" aria-label={locale === "ru" ? "Категории магазина" : locale === "uk" ? "Категорії магазину" : "Shop categories"}>
+      {(["all", "avatar", "theme", "discount"] as const).map((kind) => <button key={kind} type="button" aria-pressed={filter === kind} onClick={() => setFilter(kind)}>{locale === "ru" ? { all: "Всё", avatar: "Аватары", theme: "Темы", discount: "Скидки" }[kind] : locale === "uk" ? { all: "Усе", avatar: "Аватари", theme: "Теми", discount: "Знижки" }[kind] : { all: "All", avatar: "Avatars", theme: "Themes", discount: "Discounts" }[kind]}</button>)}
+    </div>
+    <div className={styles.grid}>{shop.items.filter((item) => filter === "all" || item.kind === filter).map((item) => {
       const equipped = item.kind === "theme" ? shop.equippedTheme === item.id : item.kind === "avatar" ? shop.equippedAvatar === item.id : false;
+      const avatar = item.kind === "avatar" ? shopAvatarDetails(item.id) : null;
+      const localized = avatar?.localized?.[locale];
       return <article key={item.id} className={`${styles.item} ${equipped ? styles.itemEquipped : ""}`}>
-        <div className={`${styles.preview} ${styles[`preview${item.kind[0].toUpperCase()}${item.kind.slice(1)}`]}`}>{item.kind === "avatar" ? shopAvatarDetails(item.id)?.glyph ?? "✦" : item.kind === "discount" ? "%" : item.id === "theme-aurora" ? "✦" : "☀"}</div>
-        <div className={styles.itemCopy}><h3>{item.title}</h3><p>{item.description}</p></div>
+        <div className={`${styles.preview} ${styles[`preview${item.kind[0].toUpperCase()}${item.kind.slice(1)}`]}`}>{avatar?.image ? <img src={avatar.image} alt="" /> : avatar ? avatar.glyph : item.kind === "discount" ? "%" : item.id === "theme-aurora" ? "✦" : "☀"}</div>
+        <div className={styles.itemCopy}><h3>{localized?.label ?? item.title}</h3><p>{localized?.description ?? item.description}</p></div>
         <footer><strong>◉ {item.price}</strong>{!item.owned ? <button type="button" disabled={busy === item.id || shop.balance < item.price} onClick={() => void purchase(item)}>{busy === item.id ? "…" : text.buy}</button> : item.kind === "discount" ? <span className={styles.owned}>{text.owned}</span> : <button type="button" disabled={busy === item.id || equipped} onClick={() => void equip(item)}>{equipped ? text.equipped : text.equip}</button>}</footer>
       </article>;
     })}</div>

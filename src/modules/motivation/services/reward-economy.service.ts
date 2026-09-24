@@ -7,6 +7,7 @@ import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from
 import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
+import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -25,6 +26,13 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "theme-sunrise", kind: "theme", price: 4, title: "Sunrise theme", description: "A warm, high-contrast workspace theme." },
   { id: "avatar-fox", kind: "avatar", price: 3, title: "Fox avatar", description: "A curious fox for your learner profile." },
   { id: "avatar-owl", kind: "avatar", price: 3, title: "Owl avatar", description: "A focused night-owl learner avatar." },
+  ...PURCHASABLE_AVATARS.map((avatar) => ({
+    id: avatar.id,
+    kind: "avatar" as const,
+    price: 3,
+    title: avatar.label.en,
+    description: avatar.description.en,
+  })),
   { id: "premium-discount-10", kind: "discount", price: 12, title: "10% Premium or Pro discount", description: "One personal code for a future Premium or Pro checkout.", value: 10 },
 ] as const;
 

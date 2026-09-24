@@ -39,7 +39,7 @@ export default async function PublicLearnerProfilePage({ params }: { params: Par
     <section className={styles.hero} aria-labelledby="learner-profile-name">
       <div className={styles.avatar} aria-label={`${profile.learner.displayName} avatar`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- profile photos can be safe data URLs as well as HTTPS URLs. */}
-        {profile.learner.avatar ? <img src={profile.learner.avatar} alt="" /> : shopAvatar ? shopAvatar.glyph : initials(profile.learner.displayName)}
+        {profile.learner.avatar ? <img src={profile.learner.avatar} alt="" /> : shopAvatar?.image ? <img src={shopAvatar.image} alt="" /> : shopAvatar ? shopAvatar.glyph : initials(profile.learner.displayName)}
       </div>
       <div className={styles.identity}>
         <p>{text.eyebrow}</p>

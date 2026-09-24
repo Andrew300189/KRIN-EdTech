@@ -46,7 +46,7 @@ function initials(user: TeamUser) {
 function MemberAvatar({ user }: { user: TeamUser }) {
   const shopAvatar = user.avatarDisplayMode === "SHOP" ? shopAvatarDetails(user.equippedShopAvatar) : null;
   return <span className={styles.avatar} aria-label={`${user.name} avatar`}>
-    {user.avatarDisplayMode !== "SHOP" && user.avatar ? <img src={user.avatar} alt="" /> : shopAvatar ? shopAvatar.glyph : initials(user)}
+    {user.avatarDisplayMode !== "SHOP" && user.avatar ? <img src={user.avatar} alt="" /> : shopAvatar?.image ? <img src={shopAvatar.image} alt="" /> : shopAvatar ? shopAvatar.glyph : initials(user)}
   </span>;
 }
 

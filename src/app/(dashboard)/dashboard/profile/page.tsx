@@ -42,7 +42,7 @@ const COMMON_TIME_ZONES = [
 
 function shopAvatarLabel(avatar: string | null) {
   const details = shopAvatarDetails(avatar);
-  if (details) return `${details.glyph} ${details.label}`;
+  if (details) return `${details.glyph ? `${details.glyph} ` : ""}${details.label}`;
   return "Shop avatar";
 }
 
@@ -222,7 +222,7 @@ export default function ProfilePage() {
               className="flex h-24 w-24 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-5xl shadow-sm"
               role="img"
             >
-              {selectedShopAvatar.glyph}
+              {selectedShopAvatar.image ? <img src={selectedShopAvatar.image} alt="" className="h-full w-full rounded-full object-cover" /> : selectedShopAvatar.glyph}
             </div>
           ) : profile.avatar ? (
             <img

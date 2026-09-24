@@ -71,7 +71,8 @@ function userInitials(user: HeaderUser | null) {
 }
 
 function shopAvatar(user: HeaderUser) {
-  return user.avatarDisplayMode === "SHOP" ? shopAvatarDetails(user.equippedShopAvatar)?.glyph ?? null : null;
+  const selected = user.avatarDisplayMode === "SHOP" ? shopAvatarDetails(user.equippedShopAvatar) : null;
+  return selected?.image ? <img src={selected.image} alt="" className={styles.profileAvatar} /> : selected?.glyph ?? null;
 }
 
 function getSkillHref(skillSlug: CourseSkillSlug, level?: CefrLevel) {
