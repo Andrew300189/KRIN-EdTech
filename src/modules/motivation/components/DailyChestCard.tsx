@@ -32,6 +32,11 @@ function timeRemaining(nextAt: string | null) {
   return `${hours}h ${minutes}m`;
 }
 
+function chestEndpoint() {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `/api/profile/rewards/daily-chest?timeZone=${encodeURIComponent(timeZone)}`;
+}
+
 export function DailyChestCard() {
   const { locale } = useLocale();
   const text = copy[locale];
@@ -42,7 +47,7 @@ export function DailyChestCard() {
 
   const loadState = useCallback(async () => {
     try {
-      const response = await fetch("/api/profile/rewards/daily-chest", { cache: "no-store" });
+      const response = await fetch(chestEndpoint(), { cache: "no-store" });
       const payload = await response.json().catch(() => null) as { data?: ChestState } | null;
       if (response.ok && payload?.data) setState(payload.data);
     } catch {
@@ -68,7 +73,7 @@ export function DailyChestCard() {
     if (opening || !state?.available) return;
     setOpening(true);
     try {
-      const response = await fetch("/api/profile/rewards/daily-chest", { method: "POST" });
+      const response = await fetch(chestEndpoint(), { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to open the Daily Chest.");
       setState({ available: false, nextAt: payload.data.nextAt });

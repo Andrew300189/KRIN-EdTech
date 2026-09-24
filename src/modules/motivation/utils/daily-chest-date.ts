@@ -1,4 +1,20 @@
-import { userLocalDate } from "./local-date";
+import { safeTimeZone, userLocalDate } from "./local-date";
+
+export function browserChestTimeZone(value: string | null | undefined) {
+  if (!value || value.length > 100) return null;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value });
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+export function selectedChestTimeZone(profile: string | null | undefined, fixed: string | null | undefined, browser: string | null | undefined) {
+  if (fixed) return safeTimeZone(fixed);
+  const profileZone = safeTimeZone(profile);
+  return profileZone !== "UTC" ? profileZone : browserChestTimeZone(browser) ?? profileZone;
+}
 
 /** A chest refreshes when the learner's configured calendar day changes. */
 export function dailyChestAvailable(claimedAt: Date | null, timeZone: string | null | undefined, now = new Date()) {

@@ -6,7 +6,7 @@ import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
-import { dailyChestAvailable, nextDailyChestAt } from "@/modules/motivation/utils/daily-chest-date";
+import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -386,24 +386,32 @@ function ownedItemIds(transactions: Array<{ sourceId: string }>) {
   return new Set(transactions.map((transaction) => transaction.sourceId));
 }
 
-export async function getDailyChestState(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyChestClaimedAt: true, timeZone: true } });
+export async function getDailyChestState(userId: string, browserTimeZone?: string | null) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyChestClaimedAt: true, dailyChestTimeZone: true, timeZone: true } });
   if (!user) throw new Error("User not found");
+  let timeZone = selectedChestTimeZone(user.timeZone, user.dailyChestTimeZone, browserTimeZone);
+  if (!user.dailyChestTimeZone && (user.timeZone !== "UTC" || browserChestTimeZone(browserTimeZone))) {
+    await prisma.user.updateMany({ where: { id: userId, dailyChestTimeZone: null }, data: { dailyChestTimeZone: timeZone } });
+    const pinned = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestTimeZone: true } });
+    timeZone = pinned.dailyChestTimeZone ?? timeZone;
+  }
   const now = new Date();
-  const available = dailyChestAvailable(user.dailyChestClaimedAt, user.timeZone, now);
-  return { available, nextAt: available ? null : nextDailyChestAt(user.timeZone, now) };
+  const available = dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now);
+  return { available, nextAt: available ? null : nextDailyChestAt(timeZone, now) };
 }
 
 /** Claim state changes before reward creation inside one transaction. The
  * per-user transaction lock prevents two tabs from claiming the same local
- * calendar day, even when the learner's time zone changes. */
-export async function openDailyChest(userId: string) {
+ * calendar day. The chest time zone is pinned for later device changes. */
+export async function openDailyChest(userId: string, browserTimeZone?: string | null) {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`daily-chest:${userId}`}))`);
-    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true, timeZone: true } });
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true, dailyChestTimeZone: true, timeZone: true } });
+    const timeZone = selectedChestTimeZone(user.timeZone, user.dailyChestTimeZone, browserTimeZone);
+    if (!user.dailyChestTimeZone) await tx.user.update({ where: { id: userId }, data: { dailyChestTimeZone: timeZone } });
     const now = new Date();
-    const nextAt = nextDailyChestAt(user.timeZone, now);
-    if (!dailyChestAvailable(user.dailyChestClaimedAt, user.timeZone, now)) {
+    const nextAt = nextDailyChestAt(timeZone, now);
+    if (!dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now)) {
       return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt };
     }
     await tx.user.update({ where: { id: userId }, data: { dailyChestClaimedAt: now } });

@@ -6,7 +6,7 @@ import { getDailyChestState, openDailyChest } from "@/modules/motivation/service
 export async function GET(request: NextRequest) {
   const guard = await requireLearningUser(request);
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
-  return NextResponse.json({ data: await getDailyChestState(guard.user.id) });
+  return NextResponse.json({ data: await getDailyChestState(guard.user.id, request.nextUrl.searchParams.get("timeZone")) });
 }
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const limit = consumeRateLimit(`daily-chest:${guard.user.id}`, 8, 60_000);
   if (!limit.allowed) return NextResponse.json({ error: "Too many attempts. Please wait a moment." }, { status: 429 });
   try {
-    return NextResponse.json({ data: await openDailyChest(guard.user.id) });
+    return NextResponse.json({ data: await openDailyChest(guard.user.id, request.nextUrl.searchParams.get("timeZone")) });
   } catch {
     // Do not reveal database details or reward selection internals.
     return NextResponse.json({ error: "The Daily Chest is unavailable right now." }, { status: 400 });

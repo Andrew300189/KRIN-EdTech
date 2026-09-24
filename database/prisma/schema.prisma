@@ -28,8 +28,11 @@ model User {
   /// server-side Shop purchase. They contain an item id, never a user URL.
   equippedShopTheme             String?
   equippedShopAvatar            String?
-  /// Exact server timestamp used to enforce the 24-hour Daily Chest cooldown.
+  /// Last claim instant; eligibility is calculated by calendar day.
   dailyChestClaimedAt           DateTime?
+  /// Frozen on first chest visit from the profile or browser time zone so
+  /// subsequent device changes cannot repeatedly advance the reset.
+  dailyChestTimeZone            String?
   interfaceLanguage             String                       @default("en")
   timeZone                      String                       @default("UTC")
   country                       String?

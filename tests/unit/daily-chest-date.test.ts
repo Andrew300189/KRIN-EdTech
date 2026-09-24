@@ -1,4 +1,4 @@
-import { dailyChestAvailable, nextDailyChestAt } from "@/modules/motivation/utils/daily-chest-date";
+import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 
 describe("daily chest calendar reset", () => {
   it("refreshes at midnight rather than 24 hours after opening", () => {
@@ -14,5 +14,12 @@ describe("daily chest calendar reset", () => {
 
   it("respects daylight-saving changes", () => {
     expect(nextDailyChestAt("Europe/Kyiv", new Date("2026-10-25T12:00:00.000Z")).toISOString()).toBe("2026-10-25T22:00:00.000Z");
+  });
+
+  it("uses the browser's local zone only for an unset UTC profile and then freezes it", () => {
+    expect(selectedChestTimeZone("UTC", null, "Europe/Kyiv")).toBe("Europe/Kyiv");
+    expect(selectedChestTimeZone("UTC", "Europe/Kyiv", "Asia/Tokyo")).toBe("Europe/Kyiv");
+    expect(selectedChestTimeZone("Europe/Warsaw", null, "Asia/Tokyo")).toBe("Europe/Warsaw");
+    expect(browserChestTimeZone("not-a-zone")).toBeNull();
   });
 });
