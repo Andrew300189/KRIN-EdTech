@@ -33,8 +33,6 @@
 .reward.hint > span { background: #fff0b6; color: #a16207; }
 .reward.translation { border-color: #93d8fb; background: #edf9ff; }
 .reward.translation > span { background: #d8f2ff; color: #0284c7; }
-.reward.xpCoin { border-color: #a5b4fc; background: linear-gradient(135deg, #eef2ff, #f5f3ff); }
-.reward.xpCoin > span { background: #dbeafe; color: #4338ca; }
 .reward.coin { border-color: #f0c15f; background: linear-gradient(135deg, #fff9e8, #fff1c7); }
 .reward.coin > span { background: #ffebad; color: #9a5a00; }
 .reward.legendaryReward { border-color: #f4c96a; background: radial-gradient(circle at 15% 10%, #fffbe8, transparent 46%), linear-gradient(135deg, #fff9e8, #fffdf7); box-shadow: 0 .5rem 1.1rem rgb(161 98 7 / 14%); }

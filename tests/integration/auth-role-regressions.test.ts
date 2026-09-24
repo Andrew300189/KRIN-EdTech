@@ -46,6 +46,7 @@ describe("role-routing regressions", () => {
       name: role,
       role,
       passwordHash: hashPassword(password),
+      emailVerified: true,
       isBlocked: false,
       deletedAt: null,
     };

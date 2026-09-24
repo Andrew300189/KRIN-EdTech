@@ -59,13 +59,10 @@ export function DailyChestHeaderButton() {
 
   useEffect(() => {
     if (!state?.nextAt || state.available) return;
-    const timer = window.setInterval(() => {
-      setClock(Date.now());
-      if (new Date(state.nextAt!).getTime() <= Date.now()) {
-        void loadState();
-      }
-    }, 30_000);
-    return () => window.clearInterval(timer);
+    const untilReset = Math.max(0, new Date(state.nextAt).getTime() - Date.now() + 100);
+    const resetTimer = window.setTimeout(() => { setClock(Date.now()); void loadState(); }, Math.min(untilReset, 2_147_483_647));
+    const countdownTimer = window.setInterval(() => setClock(Date.now()), 30_000);
+    return () => { window.clearTimeout(resetTimer); window.clearInterval(countdownTimer); };
   }, [loadState, state?.available, state?.nextAt]);
 
   async function openChest() {

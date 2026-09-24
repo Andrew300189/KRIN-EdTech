@@ -1,4 +1,4 @@
-import { calculateUserLevel, leaderboardScoreMinor } from "@/modules/motivation/services/motivation.service";
+import { calculateUserLevel } from "@/modules/motivation/services/motivation.service";
 import { dateDistanceInDays, localWeekStart, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
 
 describe("motivation levels and local dates", () => {
@@ -17,11 +17,5 @@ describe("motivation levels and local dates", () => {
   it("uses a stable Monday key for a once-per-week learner reward", () => {
     expect(localWeekStart("2026-09-06")).toBe("2026-08-31");
     expect(localWeekStart("2026-09-07")).toBe("2026-09-07");
-  });
-  it("keeps the legacy XP-Coin score formula only for the migration snapshot", () => {
-    // The migration freezes each learner's old score with this formula. New
-    // rank points are stored independently, so later exchanges cannot change it.
-    expect(leaderboardScoreMinor(11_000 * 100, 0)).toBeGreaterThan(leaderboardScoreMinor(0, 10 * 100));
-    expect(leaderboardScoreMinor(10_000 * 100, 0)).toBe(leaderboardScoreMinor(0, 10 * 100));
   });
 });

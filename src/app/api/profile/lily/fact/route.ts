@@ -19,6 +19,18 @@ export async function GET(request: NextRequest) {
     const { context } = querySchema.parse({ context: request.nextUrl.searchParams.get("context") ?? undefined });
     return NextResponse.json({ data: await requestLilyFact(guard.user.id, context) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to find a Lily fact." }, { status: 400 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to find a fact." }, { status: 400 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const guard = await requireLearningUser(request);
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+  const limit = consumeRateLimit(`fact-click:${guard.user.id}`, 20, 60_000);
+  if (!limit.allowed) return NextResponse.json({ error: "Too many fact requests. Please try again in a moment." }, { status: 429 });
+  try {
+    return NextResponse.json({ data: await requestLilyFact(guard.user.id, "CLICK", true) }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to find a fact." }, { status: 400 });
   }
 }

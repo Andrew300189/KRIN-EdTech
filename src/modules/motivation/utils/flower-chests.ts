@@ -16,7 +16,7 @@ export type FlowerChestDefinition = {
   maximumExperience: number;
   hintCredits: number;
   translationCredits: number;
-  xpCoinMinor: number;
+  krinCoinMinor: number;
   questBookDenominator: number | null;
   weight: number;
 };
@@ -52,17 +52,17 @@ export const FLOWER_DROP_RATE_WEIGHTS = {
  * the flower and records it with the immutable reward ledger entry.
  */
 const CORE_FLOWER_CHESTS: readonly FlowerChestDefinition[] = [
-  { id: "chamomile", icon: "🌼", hue: 48, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Chamomile", ru: "Ромашка", uk: "Ромашка" }, minimumExperience: 10, maximumExperience: 45, hintCredits: 0, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 20, weight: FLOWER_DROP_RATE_WEIGHTS.chamomile },
-  { id: "poppy", icon: "🌺", hue: 4, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Poppy", ru: "Мак", uk: "Мак" }, minimumExperience: 20, maximumExperience: 60, hintCredits: 0, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 18, weight: FLOWER_DROP_RATE_WEIGHTS.poppy },
-  { id: "clover", icon: "☘️", hue: 142, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Clover", ru: "Клевер", uk: "Конюшина" }, minimumExperience: 30, maximumExperience: 75, hintCredits: 1, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 16, weight: FLOWER_DROP_RATE_WEIGHTS.clover },
-  { id: "forget-me-not", icon: "🩵", hue: 210, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Forget-me-not", ru: "Незабудка", uk: "Незабудка" }, minimumExperience: 40, maximumExperience: 90, hintCredits: 0, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 14, weight: FLOWER_DROP_RATE_WEIGHTS["forget-me-not"] },
-  { id: "lungwort", icon: "🪻", hue: 273, rarity: "UNCOMMON", naturalRarityRank: 2, names: { en: "Lungwort", ru: "Медуница", uk: "Медунка" }, minimumExperience: 90, maximumExperience: 150, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 10, weight: FLOWER_DROP_RATE_WEIGHTS.lungwort },
-  { id: "bellflower", icon: "🔔", hue: 244, rarity: "UNCOMMON", naturalRarityRank: 2, names: { en: "Bellflower", ru: "Колокольчик", uk: "Дзвіночок" }, minimumExperience: 150, maximumExperience: 220, hintCredits: 2, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 8, weight: FLOWER_DROP_RATE_WEIGHTS.bellflower },
-  { id: "lady-slipper", icon: "👠", hue: 42, rarity: "RARE", naturalRarityRank: 3, names: { en: "Lady's slipper orchid", ru: "Венерин башмачок", uk: "Зозулині черевички" }, minimumExperience: 230, maximumExperience: 350, hintCredits: 2, translationCredits: 2, xpCoinMinor: 10, questBookDenominator: 5, weight: FLOWER_DROP_RATE_WEIGHTS["lady-slipper"] },
-  { id: "pink-lily", icon: "🌸", hue: 322, rarity: "EPIC", naturalRarityRank: 4, names: { en: "Forest lily", ru: "Лесная лилия", uk: "Лісова лілія" }, minimumExperience: 360, maximumExperience: 500, hintCredits: 3, translationCredits: 3, xpCoinMinor: 25, questBookDenominator: 3, weight: FLOWER_DROP_RATE_WEIGHTS["pink-lily"] },
+  { id: "chamomile", icon: "🌼", hue: 48, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Chamomile", ru: "Ромашка", uk: "Ромашка" }, minimumExperience: 10, maximumExperience: 45, hintCredits: 0, translationCredits: 0, krinCoinMinor: 0, questBookDenominator: 20, weight: FLOWER_DROP_RATE_WEIGHTS.chamomile },
+  { id: "poppy", icon: "🌺", hue: 4, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Poppy", ru: "Мак", uk: "Мак" }, minimumExperience: 20, maximumExperience: 60, hintCredits: 0, translationCredits: 0, krinCoinMinor: 0, questBookDenominator: 18, weight: FLOWER_DROP_RATE_WEIGHTS.poppy },
+  { id: "clover", icon: "☘️", hue: 142, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Clover", ru: "Клевер", uk: "Конюшина" }, minimumExperience: 30, maximumExperience: 75, hintCredits: 1, translationCredits: 0, krinCoinMinor: 0, questBookDenominator: 16, weight: FLOWER_DROP_RATE_WEIGHTS.clover },
+  { id: "forget-me-not", icon: "🩵", hue: 210, rarity: "COMMON", naturalRarityRank: 1, names: { en: "Forget-me-not", ru: "Незабудка", uk: "Незабудка" }, minimumExperience: 40, maximumExperience: 90, hintCredits: 0, translationCredits: 1, krinCoinMinor: 0, questBookDenominator: 14, weight: FLOWER_DROP_RATE_WEIGHTS["forget-me-not"] },
+  { id: "lungwort", icon: "🪻", hue: 273, rarity: "UNCOMMON", naturalRarityRank: 2, names: { en: "Lungwort", ru: "Медуница", uk: "Медунка" }, minimumExperience: 90, maximumExperience: 150, hintCredits: 1, translationCredits: 1, krinCoinMinor: 0, questBookDenominator: 10, weight: FLOWER_DROP_RATE_WEIGHTS.lungwort },
+  { id: "bellflower", icon: "🔔", hue: 244, rarity: "UNCOMMON", naturalRarityRank: 2, names: { en: "Bellflower", ru: "Колокольчик", uk: "Дзвіночок" }, minimumExperience: 150, maximumExperience: 220, hintCredits: 2, translationCredits: 1, krinCoinMinor: 0, questBookDenominator: 8, weight: FLOWER_DROP_RATE_WEIGHTS.bellflower },
+  { id: "lady-slipper", icon: "👠", hue: 42, rarity: "RARE", naturalRarityRank: 3, names: { en: "Lady's slipper orchid", ru: "Венерин башмачок", uk: "Зозулині черевички" }, minimumExperience: 230, maximumExperience: 350, hintCredits: 2, translationCredits: 2, krinCoinMinor: 10, questBookDenominator: 5, weight: FLOWER_DROP_RATE_WEIGHTS["lady-slipper"] },
+  { id: "pink-lily", icon: "🌸", hue: 322, rarity: "EPIC", naturalRarityRank: 4, names: { en: "Forest lily", ru: "Лесная лилия", uk: "Лісова лілія" }, minimumExperience: 360, maximumExperience: 500, hintCredits: 3, translationCredits: 3, krinCoinMinor: 25, questBookDenominator: 3, weight: FLOWER_DROP_RATE_WEIGHTS["pink-lily"] },
   // The white lily has the smallest non-zero weight in the pool. Its exact
   // 1,000 XP reward is enforced on the server, not in this display record.
-  { id: "white-lily", icon: "⚜️", hue: 0, rarity: "LEGENDARY", naturalRarityRank: 5, names: { en: "White lily", ru: "Белая лилия", uk: "Біла лілія" }, minimumExperience: 1000, maximumExperience: 1000, hintCredits: 4, translationCredits: 4, xpCoinMinor: 100, questBookDenominator: 1, weight: FLOWER_DROP_RATE_WEIGHTS["white-lily"] },
+  { id: "white-lily", icon: "⚜️", hue: 0, rarity: "LEGENDARY", naturalRarityRank: 5, names: { en: "White lily", ru: "Белая лилия", uk: "Біла лілія" }, minimumExperience: 1000, maximumExperience: 1000, hintCredits: 4, translationCredits: 4, krinCoinMinor: 100, questBookDenominator: 1, weight: FLOWER_DROP_RATE_WEIGHTS["white-lily"] },
 ] as const;
 
 type SuppliedFlowerFrequency = "EXCEPTIONAL" | "PROTECTED" | "LOCAL" | "ORDINARY" | "UBIQUITOUS";
@@ -75,11 +75,11 @@ type SuppliedFlowerSeed = { id: string; ru: string; frequency: SuppliedFlowerFre
  * chest, rather than just a different illustration on the same reward.
  */
 const SUPPLIED_FREQUENCY_REWARDS: Record<SuppliedFlowerFrequency, Omit<FlowerChestDefinition, "id" | "names" | "icon" | "hue"> & { hue: number; icon: string }> = {
-  UBIQUITOUS: { hue: 102, icon: "🌿", rarity: "COMMON", naturalRarityRank: 1, minimumExperience: 10, maximumExperience: 35, hintCredits: 0, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 24, weight: 420 },
-  ORDINARY: { hue: 142, icon: "🌼", rarity: "COMMON", naturalRarityRank: 1, minimumExperience: 40, maximumExperience: 90, hintCredits: 1, translationCredits: 0, xpCoinMinor: 0, questBookDenominator: 16, weight: 200 },
-  LOCAL: { hue: 232, icon: "🪻", rarity: "UNCOMMON", naturalRarityRank: 2, minimumExperience: 95, maximumExperience: 200, hintCredits: 1, translationCredits: 1, xpCoinMinor: 0, questBookDenominator: 9, weight: 70 },
-  PROTECTED: { hue: 322, icon: "🌸", rarity: "EPIC", naturalRarityRank: 4, minimumExperience: 230, maximumExperience: 500, hintCredits: 2, translationCredits: 2, xpCoinMinor: 10, questBookDenominator: 4, weight: 7 },
-  EXCEPTIONAL: { hue: 278, icon: "👻", rarity: "EPIC", naturalRarityRank: 5, minimumExperience: 700, maximumExperience: 700, hintCredits: 4, translationCredits: 4, xpCoinMinor: 50, questBookDenominator: 1, weight: 2 },
+  UBIQUITOUS: { hue: 102, icon: "🌿", rarity: "COMMON", naturalRarityRank: 1, minimumExperience: 10, maximumExperience: 35, hintCredits: 0, translationCredits: 0, krinCoinMinor: 0, questBookDenominator: 24, weight: 420 },
+  ORDINARY: { hue: 142, icon: "🌼", rarity: "COMMON", naturalRarityRank: 1, minimumExperience: 40, maximumExperience: 90, hintCredits: 1, translationCredits: 0, krinCoinMinor: 0, questBookDenominator: 16, weight: 200 },
+  LOCAL: { hue: 232, icon: "🪻", rarity: "UNCOMMON", naturalRarityRank: 2, minimumExperience: 95, maximumExperience: 200, hintCredits: 1, translationCredits: 1, krinCoinMinor: 0, questBookDenominator: 9, weight: 70 },
+  PROTECTED: { hue: 322, icon: "🌸", rarity: "EPIC", naturalRarityRank: 4, minimumExperience: 230, maximumExperience: 500, hintCredits: 2, translationCredits: 2, krinCoinMinor: 10, questBookDenominator: 4, weight: 7 },
+  EXCEPTIONAL: { hue: 278, icon: "👻", rarity: "EPIC", naturalRarityRank: 5, minimumExperience: 700, maximumExperience: 700, hintCredits: 4, translationCredits: 4, krinCoinMinor: 50, questBookDenominator: 1, weight: 2 },
 };
 
 /**
@@ -201,7 +201,7 @@ function flowerFromSuppliedCatalogue(seed: SuppliedFlowerSeed): FlowerChestDefin
     maximumExperience: profile.maximumExperience,
     hintCredits: profile.hintCredits,
     translationCredits: profile.translationCredits,
-    xpCoinMinor: profile.xpCoinMinor,
+    krinCoinMinor: profile.krinCoinMinor,
     questBookDenominator: profile.questBookDenominator,
     weight: profile.weight,
   };

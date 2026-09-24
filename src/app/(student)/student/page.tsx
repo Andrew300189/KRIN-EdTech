@@ -116,7 +116,7 @@ export default async function StudentHomePage({
         </article>
         <article className={styles.statCard}><p><LocalizedText id="student.home.overallProgress" fallback="Overall progress" /></p><strong>{overallProgress}%</strong><span><LocalizedText id="student.home.lessonsOf" fallback={`${completedLessons} of ${totalLessons} lessons`} values={{ completed: completedLessons, total: totalLessons }} /></span></article>
         <article className={styles.statCard}><p><LocalizedText id="student.home.todayPace" fallback="Today's pace" /></p><strong><LocalizedText id="student.home.minutes" fallback={`${completedMinutes}/${dailyGoal} min`} values={{ completed: completedMinutes, goal: dailyGoal }} /></strong><span><LocalizedText id="student.home.goalProgress" fallback={`${dailyProgress}% of your goal`} values={{ progress: dailyProgress }} /></span></article>
-        <article className={`${styles.statCard} ${styles.coinCard}`}><p>XP Coins · KRIN Coins</p><strong>{(motivation.wallet.xpCoinBalanceMinor / 100).toFixed(2)} · {(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span>XP Coins count toward rank; KRIN Coins are for purchases.</span></article>
+        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span>Coins are for purchases and do not affect the XP ranking.</span></article>
       </section>
 
       <MilestoneChestsPanel />

@@ -94,6 +94,29 @@ async function creditCoins(tx: Tx, userId: string, amount: number, type: CoinTyp
   return { amount, balance: balanceAfter };
 }
 
+/** Flower rewards may include a fractional KRIN Coin. Coin ledger entries
+ * never change the permanent XP leaderboard counter. */
+async function creditKrinCoinMinor(tx: Tx, input: { userId: string; minor: number; sourceType: string; sourceId: string; idempotencyKey: string; localDate: string; description: string }) {
+  if (!input.minor) return 0;
+  const wallet = await tx.userWallet.upsert({ where: { userId: input.userId }, create: { userId: input.userId }, update: {} });
+  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "UserWallet" WHERE "id" = ${wallet.id} FOR UPDATE`);
+  const lockedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+  const beforeMinor = lockedWallet.balance * 100 + lockedWallet.fractionalBalance;
+  const afterMinor = beforeMinor + input.minor;
+  const updated = await tx.userWallet.update({ where: { id: wallet.id }, data: {
+    balance: Math.floor(afterMinor / 100), fractionalBalance: afterMinor % 100,
+    lifetimeEarned: { increment: Math.floor(afterMinor / 100) - lockedWallet.balance },
+  } });
+  await tx.coinTransaction.create({ data: {
+    userId: input.userId, walletId: wallet.id, amount: Math.floor(input.minor / 100), amountMinor: input.minor,
+    balanceBefore: lockedWallet.balance, balanceAfter: updated.balance,
+    balanceBeforeMinor: beforeMinor, balanceAfterMinor: afterMinor,
+    type: "STREAK_REWARD", sourceType: input.sourceType, sourceId: input.sourceId,
+    idempotencyKey: `fractional-krin:${input.idempotencyKey}`, localDate: input.localDate, description: input.description,
+  } });
+  return input.minor / 100;
+}
+
 async function creditExperienceAndCoins(tx: Tx, options: { userId: string; experienceAmount: number; coinAmount: number; experienceType: ExperienceType; coinType: CoinType; sourceType: string; sourceId: string; idempotencyKey: string; description?: string; date: string }) {
   const existing = await tx.experienceTransaction.findUnique({ where: { idempotencyKey: options.idempotencyKey }, select: { id: true } });
   if (existing) return { awarded: false, experience: 0, coins: 0, levelUp: false };
@@ -113,12 +136,12 @@ async function creditExperienceAndCoins(tx: Tx, options: { userId: string; exper
  */
 export async function grantEconomyReward(
   tx: Tx,
-  input: { userId: string; experience: number; xpCoinMinor?: number; krinCoins?: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
+  input: { userId: string; experience: number; krinCoinMinor?: number; krinCoins?: number; hintCredits?: number; translationCredits?: number; sourceType: string; sourceId: string; idempotencyKey: string; description: string },
 ) {
   const context = await userContext(tx, input.userId);
-  const xpCoinMinor = Math.max(0, Math.trunc(input.xpCoinMinor ?? 0));
+  const krinCoinMinor = Math.max(0, Math.trunc(input.krinCoinMinor ?? 0));
   const krinCoins = Math.max(0, Math.trunc(input.krinCoins ?? 0));
-  const description = xpCoinMinor ? `${input.description} | xp-coins:${xpCoinMinor}` : input.description;
+  const description = krinCoinMinor ? `${input.description} | krin-coin-minor:${krinCoinMinor}` : input.description;
   const reward = await creditExperienceAndCoins(tx, {
     userId: input.userId,
     experienceAmount: input.experience,
@@ -133,14 +156,11 @@ export async function grantEconomyReward(
     description,
     date: context.date,
   });
-  if (!reward.awarded) return { ...reward, xpCoins: 0, hintCredits: 0, translationCredits: 0, bonusBalance: null };
-  if (xpCoinMinor) {
-    const wallet = await tx.userWallet.upsert({ where: { userId: input.userId }, create: { userId: input.userId }, update: {} });
-    await tx.userWallet.update({
-      where: { id: wallet.id },
-      data: { xpCoinBalanceMinor: { increment: xpCoinMinor }, lifetimeXpCoinsEarnedMinor: { increment: xpCoinMinor } },
-    });
-  }
+  if (!reward.awarded) return { ...reward, hintCredits: 0, translationCredits: 0, bonusBalance: null };
+  const fractionalCoins = await creditKrinCoinMinor(tx, {
+    userId: input.userId, minor: krinCoinMinor, sourceType: input.sourceType, sourceId: input.sourceId,
+    idempotencyKey: input.idempotencyKey, localDate: context.date, description,
+  });
   const bonus = await grantLearningBonusCredits(tx, {
     userId: input.userId,
     hintCredits: input.hintCredits ?? 0,
@@ -154,7 +174,7 @@ export async function grantEconomyReward(
   // example, spinning a lesson wheel). Evaluate after its immutable ledger
   // entries have been recorded, so a retry can never grant a second reward.
   const achievements = await evaluateAchievements(tx, input.userId, context.date);
-  return { ...reward, xpCoins: xpCoinMinor / 100, hintCredits: bonus.hintCredits, translationCredits: bonus.translationCredits, bonusBalance: bonus.balance, achievements };
+  return { ...reward, coins: reward.coins + fractionalCoins, hintCredits: bonus.hintCredits, translationCredits: bonus.translationCredits, bonusBalance: bonus.balance, achievements };
 }
 
 async function rewardForEvent(tx: Tx, userId: string, date: string, eventType: RewardEvent, sourceId: string, description: string) {
@@ -737,7 +757,7 @@ export async function getMotivationOverview(userId: string) {
       dailyGoalMinutes: context.dailyGoalMinutes,
       daily,
       level,
-      wallet,
+      wallet: { balance: wallet.balance, fractionalBalance: wallet.fractionalBalance },
       streak,
       streakRecovery: {
         available: streak.recoverableStreak > 0,
@@ -751,9 +771,9 @@ export async function getMotivationOverview(userId: string) {
   });
 }
 
-/** One XP Coin represents the learning value of 1,000 XP. */
+/** Direct XP-to-KRIN exchange rate. Coin balances never contribute to rank. */
 export const XP_PER_KRIN_COIN = 1_000;
-const XP_COIN_MINOR_PER_COIN = 100;
+const COIN_MINOR_PER_COIN = 100;
 /** A freeze protects one missed calendar day in a qualified daily streak. */
 export const STREAK_FREEZE_PRICE_COINS = 1;
 export const WEEKLY_EASTER_EGG_XP = 500;
@@ -771,9 +791,9 @@ export function streakRestoreXpCost(streakLength: number) {
   return 30;
 }
 
-/** XP Coins and KRIN Coins use the established 1,000 XP = 1.00 coin ratio. */
+/** KRIN Coins use the established 1,000 XP = 1.00 coin ratio. */
 export function streakRestoreCoinCostMinor(experienceCost: number) {
-  return Math.max(1, Math.ceil((Math.max(0, experienceCost) / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN));
+  return Math.max(1, Math.ceil((Math.max(0, experienceCost) / XP_PER_KRIN_COIN) * COIN_MINOR_PER_COIN));
 }
 
 async function lockStreakRestore(tx: Tx, userId: string) {
@@ -782,7 +802,7 @@ async function lockStreakRestore(tx: Tx, userId: string) {
 
 /**
  * Restores the one server-recorded burned streak. Resource priority is fixed:
- * Water Lily -> XP -> XP Coins -> KRIN Coins. All balances and the restored
+ * Water Lily -> XP -> KRIN Coins. All balances and the restored
  * streak change inside a single transaction so neither an altered browser
  * request nor two tabs can spend/restore twice.
  */
@@ -798,7 +818,7 @@ export async function restoreLostStreak(userId: string) {
     const experienceCost = streakRestoreXpCost(streak.recoverableStreak);
     const coinCostMinor = streakRestoreCoinCostMinor(experienceCost);
     const restoreId = randomUUID();
-    let paidWith: "WATER_LILY" | "XP" | "XP_COINS" | "KRIN_COINS";
+    let paidWith: "WATER_LILY" | "XP" | "KRIN_COINS";
     let perfectSession: FirstTryLessonStreak | null = null;
 
     if (streak.waterLilyCount > 0) {
@@ -845,43 +865,17 @@ export async function restoreLostStreak(userId: string) {
           },
         });
         paidWith = "XP";
-      } else if (wallet.xpCoinBalanceMinor >= coinCostMinor) {
-        const deducted = await tx.userWallet.updateMany({
-          where: { id: wallet.id, xpCoinBalanceMinor: { gte: coinCostMinor } },
-          data: { xpCoinBalanceMinor: { decrement: coinCostMinor }, lifetimeXpCoinsSpentMinor: { increment: coinCostMinor } },
-        });
-        if (!deducted.count) throw new Error("Insufficient XP Coins to restore this streak.");
-        const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
-        await tx.coinTransaction.create({
-          data: {
-            userId,
-            walletId: wallet.id,
-            amount: 0,
-            amountMinor: -coinCostMinor,
-            balanceBefore: wallet.balance,
-            balanceAfter: updatedWallet.balance,
-            balanceBeforeMinor: wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance,
-            balanceAfterMinor: updatedWallet.balance * XP_COIN_MINOR_PER_COIN + updatedWallet.fractionalBalance,
-            type: "PURCHASE",
-            sourceType: "STREAK_RESTORE_XP_COIN",
-            sourceId: restoreId,
-            idempotencyKey: `streak-restore-xp-coin:${userId}:${restoreId}`,
-            localDate: context.date,
-            description: `Restored ${streak.recoverableStreak}-day streak for ${(coinCostMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins`,
-          },
-        });
-        paidWith = "XP_COINS";
       } else {
-        const currentMinor = wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance;
-        if (currentMinor < coinCostMinor) throw new Error("Insufficient XP, XP Coins, and KRIN Coins to restore this streak.");
+        const currentMinor = wallet.balance * COIN_MINOR_PER_COIN + wallet.fractionalBalance;
+        if (currentMinor < coinCostMinor) throw new Error("Insufficient XP and KRIN Coins to restore this streak.");
         const updatedMinor = currentMinor - coinCostMinor;
         const deducted = await tx.$executeRaw(Prisma.sql`
           UPDATE "UserWallet"
-          SET "balance" = ${Math.floor(updatedMinor / XP_COIN_MINOR_PER_COIN)},
-              "fractionalBalance" = ${updatedMinor % XP_COIN_MINOR_PER_COIN},
-              "lifetimeSpent" = "lifetimeSpent" + ${Math.floor(coinCostMinor / XP_COIN_MINOR_PER_COIN)}
+          SET "balance" = ${Math.floor(updatedMinor / COIN_MINOR_PER_COIN)},
+              "fractionalBalance" = ${updatedMinor % COIN_MINOR_PER_COIN},
+              "lifetimeSpent" = "lifetimeSpent" + ${Math.floor(coinCostMinor / COIN_MINOR_PER_COIN)}
           WHERE "id" = ${wallet.id}
-            AND ("balance" * ${XP_COIN_MINOR_PER_COIN} + "fractionalBalance") >= ${coinCostMinor}
+            AND ("balance" * ${COIN_MINOR_PER_COIN} + "fractionalBalance") >= ${coinCostMinor}
         `);
         if (!deducted) throw new Error("Insufficient KRIN Coins to restore this streak.");
         const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
@@ -900,7 +894,7 @@ export async function restoreLostStreak(userId: string) {
             sourceId: restoreId,
             idempotencyKey: `streak-restore-krin-coin:${userId}:${restoreId}`,
             localDate: context.date,
-            description: `Restored ${streak.recoverableStreak}-day streak for ${(coinCostMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} KRIN Coins`,
+            description: `Restored ${streak.recoverableStreak}-day streak for ${(coinCostMinor / COIN_MINOR_PER_COIN).toFixed(2)} KRIN Coins`,
           },
         });
         paidWith = "KRIN_COINS";
@@ -1017,159 +1011,55 @@ export async function claimWeeklyEasterEgg(userId: string) {
   });
 }
 
-/**
- * Converts earned XP into XP Coins. This is deliberately separate from KRIN
- * Coins. The permanent leaderboard score is not touched: earned XP keeps its
- * rank value after any later exchange, while KRIN Coins never add rank value.
- */
-export async function exchangeExperienceForXpCoins(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
+/** Direct exchange of spendable XP into KRIN Coins. The permanent rank XP is
+ * earned by the original positive reward ledger and never reduced by this
+ * exchange; neither purchased nor exchanged coins can add rank XP. */
+export async function exchangeExperienceForKrinCoins(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
-  if (!Number.isFinite(exchangedExperience) || exchangedExperience < 10) {
-    throw new Error("Enter at least 10 XP to receive 0.01 XP Coin.");
+  if (!Number.isSafeInteger(exchangedExperience) || exchangedExperience < 10) {
+    throw new Error("Enter at least 10 XP to receive 0.01 KRIN Coin.");
   }
-  const addedHundredths = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN);
-  const experienceIdempotencyKey = `xp-to-xp-coin:${userId}:${requestId}`;
-
-  try {
-    return await prisma.$transaction(async (tx) => {
+  const addedMinor = Math.round((exchangedExperience / XP_PER_KRIN_COIN) * COIN_MINOR_PER_COIN);
+  const idempotencyKey = `xp-to-krin:${userId}:${requestId}`;
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`xp-to-krin:${userId}`}))`);
     const context = await userContext(tx, userId);
-    // A network retry must return the result of the original exchange rather
-    // than deducting the same XP again. The immutable ledger is the source of
-    // truth, so this remains safe across serverless instances.
-    const existing = await tx.experienceTransaction.findUnique({
-      where: { idempotencyKey: experienceIdempotencyKey },
-      select: { amount: true },
-    });
-    if (existing) {
+    const previous = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } });
+    if (previous) {
       const [level, wallet] = await Promise.all([
-        tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
-        tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+        tx.userLevel.findUniqueOrThrow({ where: { userId } }),
+        tx.userWallet.findUniqueOrThrow({ where: { userId } }),
       ]);
-      return {
-        exchangedExperience: Math.abs(existing.amount),
-        xpCoinsAdded: Math.round((Math.abs(existing.amount) / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN) / XP_COIN_MINOR_PER_COIN,
-        level,
-        wallet,
-      };
+      return { exchangedExperience: -previous.amount, krinCoinsAdded: Math.round((-previous.amount / XP_PER_KRIN_COIN) * COIN_MINOR_PER_COIN) / COIN_MINOR_PER_COIN, level, wallet };
     }
     await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    const deducted = await tx.userLevel.updateMany({
-      where: { userId, lifetimeExperience: { gte: exchangedExperience } },
-      data: { lifetimeExperience: { decrement: exchangedExperience } },
-    });
+    const deducted = await tx.userLevel.updateMany({ where: { userId, lifetimeExperience: { gte: exchangedExperience } }, data: { lifetimeExperience: { decrement: exchangedExperience } } });
     if (!deducted.count) throw new Error("You do not have enough XP for this exchange.");
-
-    const reducedLevel = await tx.userLevel.findUniqueOrThrow({ where: { userId } });
-    const nextLevel = calculateUserLevel(reducedLevel.lifetimeExperience);
-    const level = await tx.userLevel.update({ where: { userId }, data: nextLevel });
-    await tx.experienceTransaction.create({
-      data: {
-        userId,
-        amount: -exchangedExperience,
-        type: "XP_EXCHANGE",
-        sourceType: "XP_EXCHANGE",
-        sourceId: requestId,
-        idempotencyKey: experienceIdempotencyKey,
-        localDate: context.date,
-        description: `${exchangedExperience} XP exchanged for ${(addedHundredths / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins`,
-      },
-    });
-
+    const reduced = await tx.userLevel.findUniqueOrThrow({ where: { userId } });
+    const level = await tx.userLevel.update({ where: { userId }, data: calculateUserLevel(reduced.lifetimeExperience) });
+    await tx.experienceTransaction.create({ data: {
+      userId, amount: -exchangedExperience, type: "XP_EXCHANGE", sourceType: "XP_EXCHANGE", sourceId: requestId,
+      idempotencyKey, localDate: context.date, description: `${exchangedExperience} XP exchanged for ${(addedMinor / 100).toFixed(2)} KRIN Coins`,
+    } });
     const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-    const updatedWallet = await tx.userWallet.update({
-      where: { id: wallet.id },
-      data: {
-        xpCoinBalanceMinor: { increment: addedHundredths },
-        lifetimeXpCoinsEarnedMinor: { increment: addedHundredths },
-      },
-    });
-    return { exchangedExperience, xpCoinsAdded: addedHundredths / XP_COIN_MINOR_PER_COIN, level, wallet: updatedWallet };
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const [existing, level, wallet] = await Promise.all([
-        prisma.experienceTransaction.findUnique({ where: { idempotencyKey: experienceIdempotencyKey }, select: { amount: true } }),
-        prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
-        prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
-      ]);
-      if (existing) {
-        const amount = Math.abs(existing.amount);
-        return { exchangedExperience: amount, xpCoinsAdded: Math.round((amount / XP_PER_KRIN_COIN) * XP_COIN_MINOR_PER_COIN) / XP_COIN_MINOR_PER_COIN, level, wallet };
-      }
-    }
-    throw error;
-  }
-}
-
-/** Converts earned XP Coins into spendable KRIN Coins without changing rank. */
-export async function exchangeXpCoinsForKrinCoins(userId: string, requestedXpCoins: number, requestId: string = randomUUID()) {
-  const requestedMinor = Math.round(requestedXpCoins * XP_COIN_MINOR_PER_COIN);
-  if (!Number.isFinite(requestedXpCoins) || requestedMinor < 1) {
-    throw new Error("Enter at least 0.01 XP Coin to receive KRIN Coins.");
-  }
-  const idempotencyKey = `xp-coin-to-krin:${userId}:${requestId}`;
-
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const context = await userContext(tx, userId);
-      const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amountMinor: true } });
-      if (existing) {
-        const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-        const amount = (existing.amountMinor ?? 0) / XP_COIN_MINOR_PER_COIN;
-        return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet };
-      }
-
-      const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-      const debited = await tx.userWallet.updateMany({
-        where: { id: wallet.id, xpCoinBalanceMinor: { gte: requestedMinor } },
-        data: { xpCoinBalanceMinor: { decrement: requestedMinor }, lifetimeXpCoinsSpentMinor: { increment: requestedMinor } },
-      });
-      if (!debited.count) throw new Error("You do not have enough XP Coins for this exchange.");
-
-      const regularBalanceBeforeMinor = wallet.balance * XP_COIN_MINOR_PER_COIN + wallet.fractionalBalance;
-      const regularBalanceAfterMinor = regularBalanceBeforeMinor + requestedMinor;
-      const updatedWallet = await tx.userWallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: Math.floor(regularBalanceAfterMinor / XP_COIN_MINOR_PER_COIN),
-          fractionalBalance: regularBalanceAfterMinor % XP_COIN_MINOR_PER_COIN,
-          lifetimeEarned: { increment: Math.floor(requestedMinor / XP_COIN_MINOR_PER_COIN) },
-        },
-      });
-      await tx.coinTransaction.create({
-        data: {
-          userId,
-          walletId: wallet.id,
-          amount: Math.floor(requestedMinor / XP_COIN_MINOR_PER_COIN),
-          amountMinor: requestedMinor,
-          balanceBefore: wallet.balance,
-          balanceAfter: updatedWallet.balance,
-          balanceBeforeMinor: regularBalanceBeforeMinor,
-          balanceAfterMinor: regularBalanceAfterMinor,
-          type: "XP_EXCHANGE",
-          sourceType: "XP_COIN_EXCHANGE",
-          sourceId: requestId,
-          idempotencyKey,
-          localDate: context.date,
-          description: `${(requestedMinor / XP_COIN_MINOR_PER_COIN).toFixed(2)} XP Coins exchanged for KRIN Coins`,
-        },
-      });
-      const amount = requestedMinor / XP_COIN_MINOR_PER_COIN;
-      return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet: updatedWallet };
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const [transaction, wallet] = await Promise.all([
-        prisma.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amountMinor: true } }),
-        prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
-      ]);
-      if (transaction) {
-        const amount = (transaction.amountMinor ?? 0) / XP_COIN_MINOR_PER_COIN;
-        return { convertedXpCoins: amount, krinCoinsAdded: amount, wallet };
-      }
-    }
-    throw error;
-  }
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "UserWallet" WHERE "id" = ${wallet.id} FOR UPDATE`);
+    const lockedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    const beforeMinor = lockedWallet.balance * 100 + lockedWallet.fractionalBalance;
+    const afterMinor = beforeMinor + addedMinor;
+    const updatedWallet = await tx.userWallet.update({ where: { id: wallet.id }, data: {
+      balance: Math.floor(afterMinor / 100), fractionalBalance: afterMinor % 100,
+      lifetimeEarned: { increment: Math.floor(afterMinor / 100) - lockedWallet.balance },
+    } });
+    await tx.coinTransaction.create({ data: {
+      userId, walletId: wallet.id, amount: Math.floor(addedMinor / 100), amountMinor: addedMinor,
+      balanceBefore: lockedWallet.balance, balanceAfter: updatedWallet.balance,
+      balanceBeforeMinor: beforeMinor, balanceAfterMinor: afterMinor,
+      type: "XP_EXCHANGE", sourceType: "XP_EXCHANGE", sourceId: requestId,
+      idempotencyKey: `xp-to-krin-coin:${userId}:${requestId}`, localDate: context.date,
+      description: `${exchangedExperience} XP exchanged for ${(addedMinor / 100).toFixed(2)} KRIN Coins`,
+    } });
+    return { exchangedExperience, krinCoinsAdded: addedMinor / 100, level, wallet: updatedWallet };
+  });
 }
 
 /**
@@ -1304,9 +1194,6 @@ type LeaderboardSource = {
     fractionalExperience: number;
     leaderboardExperienceMinor: number;
   } | null;
-  wallet: {
-    xpCoinBalanceMinor: number;
-  } | null;
 };
 
 export type LearnerLeaderboardEntry = {
@@ -1316,7 +1203,6 @@ export type LearnerLeaderboardEntry = {
   level: number;
   /** Balances and permanent rank score are kept in hundredths. */
   experienceMinor: number;
-  xpCoinsMinor: number;
   totalMinor: number;
   isCurrentUser: boolean;
   isProfileVisible: boolean;
@@ -1327,29 +1213,15 @@ function motivationMinor(whole: number, fraction: number | null | undefined) {
   return Math.max(0, whole) * 100 + Math.max(0, Math.min(99, fraction ?? 0));
 }
 
-/**
- * Legacy score formula used only to freeze the pre-permanent-score ranking in
- * the database migration. New ranking reads `leaderboardExperienceMinor` and
- * never recalculates KRIN Coins back into XP.
- */
-export function leaderboardScoreMinor(experienceMinor: number, xpCoinsMinor: number) {
-  return Math.max(0, experienceMinor) + Math.max(0, xpCoinsMinor) * XP_PER_KRIN_COIN;
-}
-
 function rankLearners(rows: LeaderboardSource[], currentUserId?: string): LearnerLeaderboardEntry[] {
   return rows
     .map((row) => {
       const experienceMinor = motivationMinor(row.level?.lifetimeExperience ?? 0, row.level?.fractionalExperience);
-      // This remains a balance for display only. It has no effect on rank
-      // after the one-time migration snapshot, so exchanging it for KRIN
-      // Coins cannot make a learner fall in the leaderboard.
-      const xpCoinsMinor = Math.max(0, row.wallet?.xpCoinBalanceMinor ?? 0);
       return {
         userId: row.id,
         displayName: row.firstName?.trim() || row.name.trim().split(/\s+/)[0] || "Learner",
         level: row.level?.level ?? 1,
         experienceMinor,
-        xpCoinsMinor,
         totalMinor: Math.max(0, row.level?.leaderboardExperienceMinor ?? 0),
         isProfileVisible: row.showInLeaderboard,
         publicProfileUsername: row.showInLeaderboard && row.showPublicProfile ? row.username : null,
@@ -1378,7 +1250,6 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
       showPublicProfile: true,
       createdAt: true,
       userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true, leaderboardExperienceMinor: true } },
-      wallet: { select: { xpCoinBalanceMinor: true } },
     },
   });
   return rows.map(({ userLevelProgress, ...row }) => ({ ...row, level: userLevelProgress }));
@@ -1422,7 +1293,6 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
       userId: entry.userId,
       displayName: canShowProfile ? entry.displayName : null,
       experienceMinor: canShowProfile ? entry.experienceMinor : null,
-      xpCoinsMinor: canShowProfile ? entry.xpCoinsMinor : null,
       totalMinor: canShowProfile ? entry.totalMinor : null,
       isCurrentUser: entry.isCurrentUser,
       isProfileVisible: entry.isProfileVisible,

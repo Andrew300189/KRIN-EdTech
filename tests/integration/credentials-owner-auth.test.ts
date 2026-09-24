@@ -44,6 +44,7 @@ describe("credentials owner authentication integration", () => {
       name: "Integration Owner",
       role: "STUDENT",
       passwordHash: hashPassword(TEST_OWNER_PASSWORD),
+      emailVerified: true,
       isBlocked: false,
       deletedAt: null,
     };

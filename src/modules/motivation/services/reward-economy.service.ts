@@ -6,6 +6,7 @@ import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
+import { dailyChestAvailable, nextDailyChestAt } from "@/modules/motivation/utils/daily-chest-date";
 
 type ShopItemKind = "theme" | "avatar" | "discount";
 
@@ -27,7 +28,6 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
   { id: "premium-discount-10", kind: "discount", price: 12, title: "10% Premium or Pro discount", description: "One personal code for a future Premium or Pro checkout.", value: 10 },
 ] as const;
 
-const DAILY_CHEST_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
 type EconomyBonusReward = {
   id: string;
   experience: number;
@@ -345,9 +345,10 @@ function streakChestResultFromExisting(existing: NonNullable<Awaited<ReturnType<
 }
 
 async function existingChestReward(tx: Prisma.TransactionClient, userId: string, idempotencyKey: string, sourceType: string, sourceId: string) {
-  const [existing, coin] = await Promise.all([
+  const [existing, coin, fractionalCoin] = await Promise.all([
     tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true, description: true } }),
     tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { amount: true } }),
+    tx.coinTransaction.findUnique({ where: { idempotencyKey: `fractional-krin:${idempotencyKey}` }, select: { amountMinor: true } }),
   ]);
   if (!existing) return null;
   const bonuses = await tx.learningBonusTransaction.findMany({
@@ -357,12 +358,10 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
   return {
     opened: false,
     alreadyOpened: true,
-    // Keep the original reward identifier intact even when a legacy reward
-    // description contains an XP Coin audit marker.
+    // Keep the original reward identifier intact for legacy audit entries.
     rewardId: existing.description?.split("|")[0]?.split(":").slice(1).join(":").trim() || null,
     experience: existing.amount,
-    coins: coin?.amount ?? 0,
-    xpCoins: Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
+    coins: (coin?.amount ?? 0) + (fractionalCoin?.amountMinor ?? 0) / 100 + Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
     flowerId: flowerIdFromDescription(existing.description),
     waterLily: Number(existing.description?.match(/water-lily:(\d+)/)?.[1] ?? 0),
     hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
@@ -372,10 +371,6 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
 
 function activeItem(itemId: string) {
   return SHOP_ITEMS.find((item) => item.id === itemId) ?? null;
-}
-
-function nextChestAt(claimedAt: Date | null) {
-  return claimedAt ? new Date(claimedAt.getTime() + DAILY_CHEST_COOLDOWN_MS) : null;
 }
 
 function discountCode() {
@@ -392,28 +387,26 @@ function ownedItemIds(transactions: Array<{ sourceId: string }>) {
 }
 
 export async function getDailyChestState(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyChestClaimedAt: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { dailyChestClaimedAt: true, timeZone: true } });
   if (!user) throw new Error("User not found");
-  const nextAt = nextChestAt(user.dailyChestClaimedAt);
-  return { available: !nextAt || nextAt.getTime() <= Date.now(), nextAt };
+  const now = new Date();
+  const available = dailyChestAvailable(user.dailyChestClaimedAt, user.timeZone, now);
+  return { available, nextAt: available ? null : nextDailyChestAt(user.timeZone, now) };
 }
 
 /** Claim state changes before reward creation inside one transaction. The
- * conditional UPDATE gives the exact 24-hour cooldown an atomic database
- * guard, including against two browser tabs being opened at once. */
+ * per-user transaction lock prevents two tabs from claiming the same local
+ * calendar day, even when the learner's time zone changes. */
 export async function openDailyChest(userId: string) {
-  const now = new Date();
-  const eligibleBefore = new Date(now.getTime() - DAILY_CHEST_COOLDOWN_MS);
-
   return prisma.$transaction(async (tx) => {
-    const claimed = await tx.user.updateMany({
-      where: { id: userId, OR: [{ dailyChestClaimedAt: null }, { dailyChestClaimedAt: { lte: eligibleBefore } }] },
-      data: { dailyChestClaimedAt: now },
-    });
-    if (!claimed.count) {
-      const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true } });
-      return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt: nextChestAt(user.dailyChestClaimedAt) };
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`daily-chest:${userId}`}))`);
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { dailyChestClaimedAt: true, timeZone: true } });
+    const now = new Date();
+    const nextAt = nextDailyChestAt(user.timeZone, now);
+    if (!dailyChestAvailable(user.dailyChestClaimedAt, user.timeZone, now)) {
+      return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt };
     }
+    await tx.user.update({ where: { id: userId }, data: { dailyChestClaimedAt: now } });
     const rewardChoice = scaledChestReward(
       DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)],
       await chestRewardContext(tx, userId, 1),
@@ -428,7 +421,7 @@ export async function openDailyChest(userId: string) {
       idempotencyKey: `daily-chest:${userId}:${now.getTime()}`,
       description: `Daily Mystery Box:${rewardChoice.id}`,
     });
-    return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt: new Date(now.getTime() + DAILY_CHEST_COOLDOWN_MS) };
+    return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt };
   });
 }
 
@@ -498,7 +491,7 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       experience: choice.experience,
       // A real, non-ranked KRIN Coin is awarded at each century checkpoint.
       krinCoins: streakChestKrinCoinReward(milestone),
-      xpCoinMinor: choice.flower.xpCoinMinor,
+      krinCoinMinor: choice.flower.krinCoinMinor,
       hintCredits: choice.hintCredits,
       translationCredits: choice.translationCredits,
       sourceType: "STREAK_CHEST",
@@ -537,7 +530,6 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       waterLily,
       experience: reward.experience,
       coins: reward.coins,
-      xpCoins: reward.xpCoins,
       hintCredits: reward.hintCredits,
       translationCredits: reward.translationCredits,
       questBook,
@@ -681,7 +673,7 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
         idempotencyKey,
         description: `Milestone chest:${kind}:${rewardChoice.id}`,
       });
-      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, xpCoins: reward.xpCoins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
+      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

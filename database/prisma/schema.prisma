@@ -1701,8 +1701,8 @@ model UserWallet {
   /// Legacy counter of KRIN Coins obtained by the former direct XP exchange.
   /// It is retained for audit history and is never used for ranking.
   exchangeBalanceMinor Int          @default(0)
-  /// Earned XP Coins, stored in hundredths. They may later be converted into
-  /// KRIN Coins. A separate permanent XP counter owns leaderboard scoring.
+  /// Retired XP Coin balance, kept at zero after the 1:1 KRIN Coin cutover.
+  /// Historical lifetime counters remain for audit; rank XP is separate.
   xpCoinBalanceMinor Int            @default(0)
   lifetimeXpCoinsEarnedMinor Int    @default(0)
   lifetimeXpCoinsSpentMinor Int     @default(0)

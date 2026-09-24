@@ -2,8 +2,7 @@
 .status { display: inline-flex; min-height: 2.4rem; align-items: stretch; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)); white-space: nowrap; }
 .xpButton { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; color: var(--primary); padding: .48rem .7rem; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
 .xpButton strong { color: var(--text-primary); font-size: .77rem; }
-.xpCoins, .coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .58rem; font-size: .75rem; font-weight: 900; }
-.xpCoins { color: var(--primary); background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .58rem; font-size: .75rem; font-weight: 900; }
 .coins { color: #8b5a00; }
 .status:has(.xpButton:hover) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, var(--surface-elevated)); }
 .xpButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; border-radius: 999px 0 0 999px; }

@@ -10,7 +10,6 @@ type Entry = {
   userId: string;
   displayName: string;
   experienceMinor: number;
-  xpCoinsMinor: number;
   totalMinor: number;
   isCurrentUser: boolean;
 };
@@ -35,7 +34,6 @@ const copy = {
     total: "rank XP",
     balances: "Available",
     xp: "XP",
-    coins: "XP Coins",
     refresh: "Refresh ranking",
   },
   uk: {
@@ -49,7 +47,6 @@ const copy = {
     total: "XP рейтингу",
     balances: "Доступно",
     xp: "XP",
-    coins: "XP Coins",
     refresh: "Оновити рейтинг",
   },
   ru: {
@@ -63,7 +60,6 @@ const copy = {
     total: "XP рейтинга",
     balances: "Доступно",
     xp: "XP",
-    coins: "XP Coins",
     refresh: "Обновить рейтинг",
   },
 } as const;
@@ -125,7 +121,7 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
               <span className={`${styles.leaderboardPlace} ${placeClass(entry.rank)}`}>{entry.rank}</span>
               <div className={styles.leaderboardLearner}>
                 <strong>{entry.isCurrentUser ? text.you : entry.displayName}</strong>
-                <span>{`${text.balances}: ${displayMinor(entry.experienceMinor, locale)} ${text.xp} · ${displayMinor(entry.xpCoinsMinor, locale)} ${text.coins}`}</span>
+                <span>{`${text.balances}: ${displayMinor(entry.experienceMinor, locale)} ${text.xp}`}</span>
               </div>
               <span className={styles.leaderboardScore}>{displayMinor(entry.totalMinor, locale)}<small>{text.total}</small></span>
             </li>
@@ -133,7 +129,7 @@ export function StudentLeaderboardPanel({ entries, current, participantCount }: 
         </ol>
       ) : <p className={styles.helperText}>{text.empty}</p>}
 
-      {current ? <p className={styles.ownRank}>{text.yourPlace}: <strong>{current.rank}</strong> · {participantText}<br />{text.balances}: {displayMinor(current.experienceMinor, locale)} {text.xp} · {displayMinor(current.xpCoinsMinor, locale)} {text.coins}<br />{displayMinor(current.totalMinor, locale)} {text.total}</p> : null}
+      {current ? <p className={styles.ownRank}>{text.yourPlace}: <strong>{current.rank}</strong> · {participantText}<br />{text.balances}: {displayMinor(current.experienceMinor, locale)} {text.xp}<br />{displayMinor(current.totalMinor, locale)} {text.total}</p> : null}
     </article>
   );
 }

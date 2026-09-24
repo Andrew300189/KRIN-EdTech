@@ -12,7 +12,6 @@ type LeaderboardEntry = {
   userId: string;
   displayName: string | null;
   experienceMinor: number | null;
-  xpCoinsMinor: number | null;
   totalMinor: number | null;
   isCurrentUser: boolean;
   isProfileVisible: boolean;
@@ -31,9 +30,9 @@ export type LeaderboardHeaderSummary = {
 };
 
 const copy = {
-  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "rank XP", balances: "Available", xp: "XP", coins: "XP Coins", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", refreshing: "Refreshing…", close: "Close leaderboard" },
-  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "XP рейтинга", balances: "Доступно", xp: "XP", coins: "XP Coins", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", refreshing: "Обновляем…", close: "Закрыть рейтинг" },
-  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "XP рейтингу", balances: "Доступно", xp: "XP", coins: "XP Coins", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", refreshing: "Оновлюємо…", close: "Закрити рейтинг" },
+  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "rank XP", balances: "Available", xp: "XP", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", refreshing: "Refreshing…", close: "Close leaderboard" },
+  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "XP рейтинга", balances: "Доступно", xp: "XP", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", refreshing: "Обновляем…", close: "Закрыть рейтинг" },
+  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "XP рейтингу", balances: "Доступно", xp: "XP", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", refreshing: "Оновлюємо…", close: "Закрити рейтинг" },
 } as const;
 
 function placeClass(rank: number) {
@@ -103,14 +102,14 @@ export function LeaderboardHeaderStatus({ summary }: { summary: LeaderboardHeade
       {!isLoading && !loadError && board?.entries.length === 0 ? <p className={styles.status}>{text.empty}</p> : null}
       {!isLoading && board?.entries.length ? <ol className={styles.entries}>
         {board.entries.map((entry) => {
-          const showStats = entry.experienceMinor !== null && entry.xpCoinsMinor !== null && entry.totalMinor !== null;
+          const showStats = entry.experienceMinor !== null && entry.totalMinor !== null;
           const displayName = entry.isCurrentUser ? (locale === "ru" ? "Вы" : locale === "uk" ? "Ви" : "You") : entry.displayName ?? text.anonymous;
           const profileHref = entry.publicProfileUsername ? `/u/${encodeURIComponent(entry.publicProfileUsername)}` : null;
           return <li key={entry.userId} className={entry.isCurrentUser ? styles.currentEntry : undefined}>
             <span className={`${styles.place} ${placeClass(entry.rank)}`}>{entry.rank}</span>
             <div className={styles.learner}>
               {profileHref ? <Link href={profileHref} className={styles.profileLink}>{displayName}</Link> : <strong>{displayName}</strong>}
-              <span>{showStats ? `${text.balances}: ${displayMinor(entry.experienceMinor!, locale)} ${text.xp} · ${displayMinor(entry.xpCoinsMinor!, locale)} ${text.coins}` : text.privateStats}</span>
+              <span>{showStats ? `${text.balances}: ${displayMinor(entry.experienceMinor!, locale)} ${text.xp}` : text.privateStats}</span>
             </div>
             {showStats ? <span className={styles.score}>{displayMinor(entry.totalMinor!, locale)}<small>{text.total}</small></span> : null}
           </li>;
