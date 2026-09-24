@@ -50,4 +50,22 @@ describe("logo fact XP", () => {
     expect(result.earnedXp).toBe(0);
     expect(grant).not.toHaveBeenCalled();
   });
+
+  it("does not issue a new fact or XP when clicked within seven seconds", async () => {
+    const tx = setup(0);
+    tx.philologyFactView.findMany.mockResolvedValue([{ factId: "previous-fact", createdAt: new Date(Date.now() - 2_000) }]);
+    const result = await requestLilyFact("learner", "CLICK", true);
+    expect(result.fact).toBeNull();
+    expect(result.retryAfterSeconds).toBeGreaterThanOrEqual(4);
+    expect(tx.philologyFactView.create).not.toHaveBeenCalled();
+    expect(grant).not.toHaveBeenCalled();
+  });
+
+  it("allows a new click after seven seconds", async () => {
+    const tx = setup(0);
+    tx.philologyFactView.findMany.mockResolvedValue([{ factId: "previous-fact", createdAt: new Date(Date.now() - 8_000) }]);
+    const result = await requestLilyFact("learner", "CLICK", true);
+    expect(result.fact?.id).toBe("fact-1");
+    expect(result.earnedXp).toBe(1);
+  });
 });

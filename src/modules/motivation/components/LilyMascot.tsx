@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import type { LilyFactContext } from "@/modules/motivation/services/lily-facts.service";
+import { FACT_CLICK_INTERVAL_MS } from "@/modules/motivation/utils/fact-click-cooldown";
 import styles from "./LilyMascot.module.css";
 
 type Fact = {
@@ -30,8 +31,8 @@ const copy = {
 } as const;
 
 /**
- * A calm, persistent guide. Every fresh mount and every intentional click
- * receives a different recently-unseen card from the server catalogue.
+ * A calm, persistent guide. Every fresh mount and eligible click receives a
+ * different recently-unseen card from the server catalogue.
  */
 export function LilyMascot({ context, placement = "fixed", className = "", active = true }: Props) {
   const { locale } = useLocale();
@@ -42,20 +43,28 @@ export function LilyMascot({ context, placement = "fixed", className = "", activ
   const [expanded, setExpanded] = useState(false);
   const loadedContextRef = useRef<string | null>(null);
   const requestInFlightRef = useRef(false);
+  const lastShownAtRef = useRef(0);
+  const pendingClickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const requestFact = useCallback(async (requestedContext: LilyFactContext) => {
+  const requestFact = useCallback(async function requestFact(requestedContext: LilyFactContext) {
     if (requestInFlightRef.current) return;
     requestInFlightRef.current = true;
     try {
       const response = await fetch(`/api/profile/lily/fact?context=${requestedContext}`, { cache: "no-store", method: requestedContext === "CLICK" ? "POST" : "GET" });
-      const payload = await response.json().catch(() => null) as { data?: { fact?: Fact | null; earnedXp?: number }; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { data?: { fact?: Fact | null; earnedXp?: number; retryAfterSeconds?: number }; error?: string } | null;
       if (!response.ok) return;
       if (payload?.data?.fact) {
+        lastShownAtRef.current = Date.now();
         setFact(payload.data.fact);
         setExpanded(false);
         setEarnedXp(payload.data.earnedXp ?? 0);
         setOpen(true);
         if (payload.data.earnedXp) notifyMotivationUpdated();
+      } else if (requestedContext === "CLICK" && payload?.data?.retryAfterSeconds && !pendingClickRef.current) {
+        pendingClickRef.current = setTimeout(() => {
+          pendingClickRef.current = null;
+          void requestFact("CLICK");
+        }, payload.data.retryAfterSeconds * 1_000);
       }
     } catch {
       // The mascot is decorative; it must never block learning or navigation.
@@ -64,11 +73,29 @@ export function LilyMascot({ context, placement = "fixed", className = "", activ
     }
   }, []);
 
+  useEffect(() => () => {
+    if (pendingClickRef.current) clearTimeout(pendingClickRef.current);
+    pendingClickRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!active || loadedContextRef.current === context) return;
     loadedContextRef.current = context;
     void requestFact(context);
   }, [active, context, requestFact]);
+
+  function onCharacterClick() {
+    if (pendingClickRef.current || requestInFlightRef.current) return;
+    const remaining = Math.max(0, lastShownAtRef.current + FACT_CLICK_INTERVAL_MS - Date.now());
+    if (remaining) {
+      pendingClickRef.current = setTimeout(() => {
+        pendingClickRef.current = null;
+        void requestFact("CLICK");
+      }, remaining);
+      return;
+    }
+    void requestFact("CLICK");
+  }
 
   if (!active && placement === "inline") return null;
   return <aside className={`${styles.root} ${placement === "fixed" ? styles.fixed : styles.inline} ${className}`} aria-label={text.name}>
@@ -76,7 +103,7 @@ export function LilyMascot({ context, placement = "fixed", className = "", activ
       <button type="button" className={styles.close} onClick={() => { setOpen(false); setFact(null); }} aria-label={text.close}>×</button>
       {fact ? <><span className={styles.category}>{text.categories[fact.category]}{earnedXp ? " · +1 XP" : ""}</span><p>{expanded ? fact.fullText ?? fact.text : fact.text}</p>{fact.fullText ? <button type="button" className={styles.more} onClick={() => setExpanded((current) => !current)}>{expanded ? text.less : text.more}</button> : null}</> : null}
     </section> : null}
-    <button type="button" className={styles.characterButton} onClick={() => void requestFact("CLICK")} aria-label={text.label} title={text.label}>
+    <button type="button" className={styles.characterButton} onClick={onCharacterClick} aria-label={text.label} title={text.label}>
       <Image src="/icons/a-detailed-flat-vector-illustration-of-a-single-wh.svg" alt="" aria-hidden="true" width={64} height={64} sizes="64px" />
     </button>
   </aside>;

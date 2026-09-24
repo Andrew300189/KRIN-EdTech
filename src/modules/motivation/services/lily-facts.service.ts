@@ -2,6 +2,7 @@ import { randomInt } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { safeTimeZone, userLocalDate } from "@/modules/motivation/utils/local-date";
+import { factClickRetryAfterSeconds } from "@/modules/motivation/utils/fact-click-cooldown";
 import { grantEconomyReward } from "./motivation.service";
 
 export const LILY_FACT_CONTEXTS = ["DASHBOARD", "LOADING", "LEAVING", "COMPLETION", "CLICK"] as const;
@@ -55,8 +56,10 @@ export async function requestLilyFact(userId: string, context: LilyFactContext, 
       where: { userId },
       orderBy: { createdAt: "desc" },
       take: RECENT_FACT_EXCLUSION_LIMIT,
-      select: { factId: true },
+      select: { factId: true, createdAt: true },
     });
+    const retryAfterSeconds = context === "CLICK" ? factClickRetryAfterSeconds(recentViews[0]?.createdAt) : 0;
+    if (retryAfterSeconds) return { fact: null, retryAfterSeconds, earnedXp: 0 };
     const recentFactIds = [...new Set(recentViews.map((view) => view.factId))];
     const where = { isActive: true, ...(recentFactIds.length ? { id: { notIn: recentFactIds } } : {}) };
     let total = await tx.philologyFact.count({ where });
