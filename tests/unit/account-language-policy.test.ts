@@ -1,7 +1,25 @@
 import { domainToASCII } from "node:url";
-import { hasDisallowedAccountLanguage } from "@/core/server/account-language-policy";
+import { EXTRA_FORBIDDEN_TERMS } from "@/core/server/account-language-extra";
+import { FORBIDDEN_STEMS, FORBIDDEN_WHOLE_WORDS, hasDisallowedAccountLanguage } from "@/core/server/account-language-policy";
 
 describe("account identity language policy", () => {
+  it.each(Object.entries(EXTRA_FORBIDDEN_TERMS))("adds exactly 100 distinct new %s terms and blocks each one", (_language, terms) => {
+    expect(terms).toHaveLength(100);
+    expect(new Set(terms)).toHaveProperty("size", 100);
+    const canonical = (term: string) => term.toLowerCase().normalize("NFD")
+      .replace(/и\u0306/gu, "й")
+      .replace(/[\u0300-\u036f]/gu, "")
+      .replace(/[іїё]/gu, (letter) => letter === "ё" ? "е" : "и");
+    expect(new Set(terms.map(canonical))).toHaveProperty("size", 100);
+    const previousTerms = new Set<string>([...FORBIDDEN_STEMS, ...FORBIDDEN_WHOLE_WORDS]);
+    for (const term of terms) {
+      expect(previousTerms.has(term)).toBe(false);
+      expect(hasDisallowedAccountLanguage(term, "username")).toBe(true);
+      expect(hasDisallowedAccountLanguage(`learner_${term}`, "name")).toBe(true);
+      expect(hasDisallowedAccountLanguage(`${term}@example.com`, "email")).toBe(true);
+    }
+  });
+
   it.each([
     ["fuck_you", "English profanity"],
     ["sh1t", "English leetspeak"],

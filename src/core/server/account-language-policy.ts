@@ -1,4 +1,5 @@
 import { domainToUnicode } from "node:url";
+import { EXTRA_FORBIDDEN_TERMS } from "./account-language-extra";
 
 /**
  * A deliberately conservative, editable identity filter. It covers common
@@ -7,7 +8,7 @@ import { domainToUnicode } from "node:url";
  * No finite word list can cover every expression; avoid broad three-letter
  * substring rules that would reject ordinary surnames and place names.
  */
-const FORBIDDEN_STEMS = [
+export const FORBIDDEN_STEMS = [
   // English and widely used internet spellings.
   "fuck", "fck", "shit", "bitch", "asshole", "dumbass", "motherfucker",
   "cocksuck", "dickhead", "whore", "slut", "wanker", "twat", "pussy",
@@ -34,7 +35,7 @@ const FORBIDDEN_STEMS = [
 ] as const;
 
 /** These terms must stand alone; substring checks would reject real names. */
-const FORBIDDEN_WHOLE_WORDS = new Set([
+export const FORBIDDEN_WHOLE_WORDS = new Set([
   "ass", "cock", "dick", "cunt", "cum", "sex", "sexy", "porn", "porno",
   "xxx", "piss", "crap", "nude", "penis", "vagina", "tits", "rape",
   "idiot", "moron", "loser", "stupid", "prick", "suka", "dupa", "ciota",
@@ -90,15 +91,21 @@ function variants(value: string) {
   return [base, latin, phonetic, cyrillic].filter(Boolean);
 }
 
+const EXTRA_FORBIDDEN_WHOLE_WORDS = new Set(
+  Object.values(EXTRA_FORBIDDEN_TERMS).flatMap((terms) =>
+    terms.flatMap((term) => variants(term).map((variant) => variant.replace(/[^\p{L}\p{N}]/gu, ""))),
+  ),
+);
+
 function containsForbiddenTerm(value: string) {
   for (const variant of variants(value)) {
     const words = variant.match(/[\p{L}\p{N}]+/gu) ?? [];
     const compact = words.join("");
     // Also catch deliberate letter stretching, without changing the stored id.
     const compactForms = [compact, compact.replace(/(.)\1{2,}/gu, "$1"), compact.replace(/(.)\1+/gu, "$1")];
-    if (words.some((word) => FORBIDDEN_WHOLE_WORDS.has(word))) return true;
+    if (words.some((word) => FORBIDDEN_WHOLE_WORDS.has(word) || EXTRA_FORBIDDEN_WHOLE_WORDS.has(word))) return true;
     for (const form of compactForms) {
-      if (FORBIDDEN_WHOLE_WORDS.has(form)) return true;
+      if (FORBIDDEN_WHOLE_WORDS.has(form) || EXTRA_FORBIDDEN_WHOLE_WORDS.has(form)) return true;
       if (FORBIDDEN_STEMS.some((stem) => form.includes(stem))) return true;
     }
   }
