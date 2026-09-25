@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import type { PrismaClient, User } from "@/generated/prisma-client-payments-runtime";
 import { hashPassword } from "@/core/server/password";
 import { normalizeEmail } from "@/core/server/platform-owner";
+import { hasDisallowedAccountLanguage } from "@/core/server/account-language-policy";
 import { prisma } from "@/core/server/prisma";
 
 export const GOOGLE_PROVIDER = "google";
@@ -94,10 +95,10 @@ function profileUpdateData(
   name: string | null | undefined,
   existing: Pick<User, "avatar" | "name" | "firstName" | "lastName">,
 ) {
-  const trimmedName = name?.trim();
+  const trimmedName = name?.trim() && !hasDisallowedAccountLanguage(name, "name") ? name.trim() : null;
   const [fallbackFirstName, fallbackLastName] = nameParts(trimmedName);
-  const firstName = identity.firstName ?? fallbackFirstName;
-  const lastName = identity.lastName ?? fallbackLastName;
+  const firstName = identity.firstName && !hasDisallowedAccountLanguage(identity.firstName, "name") ? identity.firstName : fallbackFirstName;
+  const lastName = identity.lastName && !hasDisallowedAccountLanguage(identity.lastName, "name") ? identity.lastName : fallbackLastName;
 
   return {
     provider: identity.provider,
@@ -194,6 +195,10 @@ export async function provisionGoogleUser(
       const [fallbackFirstName, fallbackLastName] = nameParts(name);
       const firstName = normalizedIdentity.firstName ?? fallbackFirstName ?? username;
       const lastName = normalizedIdentity.lastName ?? fallbackLastName;
+      if (hasDisallowedAccountLanguage(normalizedIdentity.email, "email") ||
+        hasDisallowedAccountLanguage(username, "username") ||
+        hasDisallowedAccountLanguage(name ?? "", "name") ||
+        hasDisallowedAccountLanguage(`${firstName} ${lastName ?? ""}`, "name")) return null;
       const newUser = await store.create({
         data: {
           email: normalizedIdentity.email,

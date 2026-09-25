@@ -1,3 +1,5 @@
+import { hasDisallowedAccountLanguage } from "@/core/server/account-language-policy";
+
 export const INTERFACE_LANGUAGES = ["en", "uk", "ru", "de", "es", "fr"] as const;
 
 export type InterfaceLanguage = (typeof INTERFACE_LANGUAGES)[number];
@@ -38,6 +40,10 @@ export function displayName(firstName: string, lastName: string | null) {
   return `${firstName} ${lastName ?? ""}`.trim();
 }
 
+export function hasDisallowedDisplayName(firstName: string, lastName: string | null) {
+  return hasDisallowedAccountLanguage(displayName(firstName, lastName), "name");
+}
+
 export function profileNameParts(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return {
@@ -63,6 +69,9 @@ export function validateUserProfilePatch(input: unknown): ValidationResult {
     if (!firstName) {
       return { success: false, error: "First name must contain up to 80 characters." };
     }
+    if (hasDisallowedAccountLanguage(firstName, "name")) {
+      return { success: false, error: "Choose a first name without offensive or vulgar language." };
+    }
     data.firstName = firstName;
   }
 
@@ -73,6 +82,9 @@ export function validateUserProfilePatch(input: unknown): ValidationResult {
       const lastName = asTrimmedString(body.lastName, 80);
       if (!lastName) {
         return { success: false, error: "Last name must contain up to 80 characters." };
+      }
+      if (hasDisallowedAccountLanguage(lastName, "name")) {
+        return { success: false, error: "Choose a last name without offensive or vulgar language." };
       }
       data.lastName = lastName;
     }

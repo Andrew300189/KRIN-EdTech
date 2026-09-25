@@ -131,6 +131,13 @@ describe("Google user provisioning", () => {
     expect(records[0].lastLoginAt).toBeInstanceOf(Date);
   });
 
+  it("refuses to create a Google account with an offensive email or display name", async () => {
+    const store = createStore([]);
+    expect(await provisionGoogleUser({ ...identity, email: "fuck@example.com" }, "Student Name", store as never)).toBeNull();
+    expect(await provisionGoogleUser(identity, "Student Scheiße", store as never)).toBeNull();
+    expect(store.create).not.toHaveBeenCalled();
+  });
+
   it("signs in an existing Google user without creating a duplicate", async () => {
     const records = [
       user({
@@ -153,6 +160,14 @@ describe("Google user provisioning", () => {
       emailVerified: true,
     });
     expect(records[0].lastLoginAt).toBeInstanceOf(Date);
+  });
+
+  it("keeps existing Google sign-in usable without importing a newly offensive provider name", async () => {
+    const records = [user({ provider: "google", providerAccountId: "google-sub-123", firstName: null })];
+    const store = createStore(records);
+    const result = await provisionGoogleUser({ ...identity, firstName: "shit" }, "Student", store as never);
+    expect(result?.isNewUser).toBe(false);
+    expect(records[0].firstName).toBe("Student");
   });
 
   it("links a pre-existing email/password user without replacing their password or profile", async () => {

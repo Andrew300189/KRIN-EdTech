@@ -1,5 +1,6 @@
 import {
   displayName,
+  hasDisallowedDisplayName,
   profileNameParts,
   validateUserProfilePatch,
 } from "@/core/server/profile";
@@ -45,6 +46,13 @@ describe("profile validation", () => {
     expect(validateUserProfilePatch({ avatarDisplayMode: "OTHER" })).toMatchObject({
       success: false,
     });
+  });
+
+  it("rejects offensive display names during profile editing", () => {
+    expect(validateUserProfilePatch({ firstName: "Anna shit" })).toMatchObject({ success: false });
+    expect(validateUserProfilePatch({ lastName: "Scheiße" })).toMatchObject({ success: false });
+    expect(validateUserProfilePatch({ firstName: "Anna", lastName: "Kowalska" })).toMatchObject({ success: true });
+    expect(hasDisallowedDisplayName("fu", "ck")).toBe(true);
   });
 
   it("accepts an explicit choice between a photo and a shop avatar", () => {

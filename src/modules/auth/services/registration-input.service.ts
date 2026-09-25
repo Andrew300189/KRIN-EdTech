@@ -1,4 +1,5 @@
 import { normalizeEmail } from "@/core/server/platform-owner";
+import { hasDisallowedAccountLanguage } from "@/core/server/account-language-policy";
 
 export type RegistrationInput = {
   username: string;
@@ -33,8 +34,16 @@ export function validateRegistrationInput(
     return { ok: false, error: "Username must be between 3 and 50 characters" };
   }
 
-  if (!EMAIL_PATTERN.test(email)) {
+  if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
     return { ok: false, error: "Enter a valid email address" };
+  }
+
+  if (hasDisallowedAccountLanguage(username, "username")) {
+    return { ok: false, error: "Choose a username without offensive or vulgar language." };
+  }
+
+  if (hasDisallowedAccountLanguage(email, "email")) {
+    return { ok: false, error: "Use an email address without offensive or vulgar language." };
   }
 
   if (password.length < 6) {

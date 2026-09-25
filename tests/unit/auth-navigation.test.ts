@@ -201,6 +201,14 @@ describe("authentication navigation", () => {
       ok: false,
       error: "Enter a valid email address",
     });
+    expect(validateRegistrationInput({ username: "sh1t_name", email: "new@example.com", password: "123456" })).toEqual({
+      ok: false,
+      error: "Choose a username without offensive or vulgar language.",
+    });
+    expect(validateRegistrationInput({ username: "new", email: "f.u.c.k@example.com", password: "123456" })).toEqual({
+      ok: false,
+      error: "Use an email address without offensive or vulgar language.",
+    });
   });
 
   it("recognizes database uniqueness races without exposing a server error", () => {

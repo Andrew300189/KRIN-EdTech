@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   displayName,
+  hasDisallowedDisplayName,
   profileNameParts,
   validateUserProfilePatch,
 } from "@/core/server/profile";
@@ -71,6 +72,11 @@ export async function PATCH(request: Request) {
       validation.data.lastName !== undefined
         ? validation.data.lastName
         : existing.lastName ?? fallback.lastName;
+
+    if ((validation.data.firstName !== undefined || validation.data.lastName !== undefined) &&
+      hasDisallowedDisplayName(firstName, lastName)) {
+      return NextResponse.json({ error: "Choose a name without offensive or vulgar language." }, { status: 400 });
+    }
 
     const updated = await prisma.user.update({
       where: { id: existing.id },
