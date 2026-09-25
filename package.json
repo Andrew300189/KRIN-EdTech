@@ -40,6 +40,8 @@
     "content:import:a-bag-of": "node database/scripts/import-a-bag-of-vocabulary.cjs --publish",
     "content:validate:a-bottle-of": "node database/scripts/import-a-bottle-of-vocabulary.cjs --validate",
     "content:import:a-bottle-of": "node database/scripts/import-a-bottle-of-vocabulary.cjs --publish",
+    "content:validate:a-can-of": "node database/scripts/import-a-can-of-vocabulary.cjs --validate",
+    "content:import:a-can-of": "node database/scripts/import-a-can-of-vocabulary.cjs --publish",
     "admin:grant": "node database/scripts/grant-admin.cjs",
     "billing:reconcile": "node database/scripts/reconcile-billing.cjs",
     "search:analytics:cleanup": "node database/scripts/cleanup-search-analytics.cjs --days=180",

@@ -38,6 +38,7 @@ const FUTURE_SIMPLE_COURSE_SCRIPT = "database/scripts/import-future-simple-full-
 const DENTAL_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-dental-english-vocabulary-mastery.cjs";
 const A_BAG_OF_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-a-bag-of-vocabulary.cjs";
 const A_BOTTLE_OF_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-a-bottle-of-vocabulary.cjs";
+const A_CAN_OF_VOCABULARY_COURSE_SCRIPT = "database/scripts/import-a-can-of-vocabulary.cjs";
 const TO_BE_TRANSLATION_BLOCKS_SCRIPT = "database/scripts/refresh-verb-to-be-lesson-1-translation-blocks.cjs";
 const TO_BE_THEORY_SCRIPT = "database/scripts/ensure-verb-to-be-lesson-one-theory.cjs";
 const SYSTEM_AUTHOR_EMAIL = "content@seed.krin.local";
@@ -99,6 +100,8 @@ function ensureAuthoredMasteryCourses() {
   runSeedScript(A_BAG_OF_VOCABULARY_COURSE_SCRIPT, ["--publish"]);
   console.log("Ensuring the authored A bottle of vocabulary course is available…");
   runSeedScript(A_BOTTLE_OF_VOCABULARY_COURSE_SCRIPT, ["--publish"]);
+  console.log("Ensuring the authored A can of vocabulary course is available…");
+  runSeedScript(A_CAN_OF_VOCABULARY_COURSE_SCRIPT, ["--publish"]);
 }
 
 async function hasRealPlatformData() {
