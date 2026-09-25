@@ -39,6 +39,9 @@
 .primaryAction, .secondaryAction { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); padding: 0.58rem 0.82rem; font-size: 0.88rem; font-weight: 750; text-decoration: none; }
 .primaryAction { background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-sm); }
 .primaryAction:hover { background: var(--primary-hover); }
+.restoreAction { min-height: 2.5rem; border: 1px solid #f59e0b; border-radius: var(--radius-md); background: #fff7ed; color: #9a3412; padding: .58rem .82rem; cursor: pointer; font: inherit; font-size: .88rem; font-weight: 850; box-shadow: 0 .3rem .8rem rgb(245 158 11 / 16%); }
+.restoreAction:hover { background: #ffedd5; }
+.restoreAction:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .secondaryAction { border-color: var(--border); color: var(--text-secondary); }
 .secondaryAction:hover { border-color: var(--border-strong); background: var(--surface-secondary); color: var(--text-primary); }
 .overviewGrid { display: grid; gap: 0.65rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }

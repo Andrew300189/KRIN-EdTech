@@ -4,7 +4,7 @@ import { consumeRateLimit } from "@/core/server/rate-limit";
 import { requireLearningUser } from "@/modules/courses/server/content-access";
 import { purchaseShopItem } from "@/modules/motivation/services/reward-economy.service";
 
-const purchaseSchema = z.object({ itemId: z.string().trim().min(1).max(80) });
+const purchaseSchema = z.object({ itemId: z.string().trim().min(1).max(80), purchaseId: z.string().uuid().optional() });
 
 export async function POST(request: NextRequest) {
   const guard = await requireLearningUser(request);
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const parsed = purchaseSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid shop item." }, { status: 400 });
   try {
-    return NextResponse.json({ data: await purchaseShopItem(guard.user.id, parsed.data.itemId) });
+    return NextResponse.json({ data: await purchaseShopItem(guard.user.id, parsed.data.itemId, parsed.data.purchaseId) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to complete this purchase." }, { status: 400 });
   }

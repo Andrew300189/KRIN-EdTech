@@ -2563,6 +2563,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         userId,
         OR: [
           { type: "LESSON_COMPLETED", sourceId: lessonId },
+          { sourceType: "SHOP_XP_BOOST", sourceId: lessonId },
           ...(correctExerciseIds.length ? [{ type: "EXERCISE_CORRECT" as const, sourceId: { in: correctExerciseIds } }] : []),
         ],
       },

@@ -5,6 +5,8 @@ import { excludeSystemAccounts } from "@/core/server/system-accounts";
 import { MOTIVATION_CONFIG } from "@/modules/motivation/constants/motivation-config";
 import { achievementSchema, adminRewardAdjustmentSchema, createLearningSessionSchema, heartbeatSchema, motivationSettingsSchema, rewardRuleSchema } from "@/modules/motivation/schemas/motivation.schemas";
 import { dateDistanceInDays, localWeekStart, safeTimeZone, subtractLocalDays, userLocalDate, userLocalHour } from "@/modules/motivation/utils/local-date";
+import { hasBurnedDailyStreak, localDayStartUtc, restoredDailyStreakLength, waterLilyEligibilityStart } from "@/modules/motivation/utils/streak-recovery";
+import { nextXpBooster, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
 import { baseExperienceForExercise } from "@/modules/courses/utils/exercise-speed-reward";
@@ -276,7 +278,7 @@ async function rewardSpacedReviewAnswer(tx: Tx, userId: string, date: string, ex
   return { awarded: true, experience: amountMinor / 100, coins: 0, levelUp: updated.level > current.level, level: updated.level, baseExperience, streakBonus };
 }
 
-async function updateStreakForDate(tx: Tx, userId: string, date: string) {
+async function updateStreakForDate(tx: Tx, userId: string, date: string, timeZone: string) {
   const streak = await tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} });
   if (streak.lastQualifiedDate === date) return streak;
   const previous = streak.currentStreak;
@@ -287,19 +289,39 @@ async function updateStreakForDate(tx: Tx, userId: string, date: string) {
   let type: "STARTED" | "CONTINUED" | "RESET" | "FREEZE_USED" = streak.lastQualifiedDate ? "RESET" : "STARTED";
   if (streak.lastQualifiedDate) {
     const gap = dateDistanceInDays(streak.lastQualifiedDate, date);
-    if (gap === 1) { currentStreak = streak.currentStreak + 1; type = "CONTINUED"; }
+    const restoredToday = gap > 1 && await tx.streakEvent.findFirst({ where: { userId, date, type: "RESTORED" }, select: { id: true } });
+    if (gap === 1 || restoredToday) { currentStreak = streak.currentStreak + 1; type = "CONTINUED"; }
     else if (gap === 2 && streak.freezeCount > 0) { currentStreak = streak.currentStreak + 1; freezeCount -= 1; type = "FREEZE_USED"; }
     else if (previous > 0) {
       // Keep the just-lost run as a single server-owned recovery candidate.
       // A newer lapse replaces an older one; a client cannot choose a larger
       // historic value when it asks to restore a streak.
       recoverableStreak = previous;
-      streakLostAt = new Date();
+      streakLostAt = localDayStartUtc(date, timeZone);
     }
   }
   const updated = await tx.userStreak.update({ where: { userId }, data: { currentStreak, longestStreak: Math.max(streak.longestStreak, currentStreak), lastQualifiedDate: date, freezeCount, recoverableStreak, streakLostAt, streakStartedAt: currentStreak === 1 ? new Date() : streak.streakStartedAt } });
   await tx.streakEvent.create({ data: { userId, type, date, previousStreak: previous, nextStreak: currentStreak, metadata: type === "FREEZE_USED" ? json({ remainingFreezes: freezeCount }) : undefined } });
   return updated;
+}
+
+/** Make a missed series visible before the learner completes another lesson.
+ * No learning day is awarded here; only a recoverable loss is recorded. */
+async function reconcileBurnedStreak(tx: Tx, userId: string, date: string, timeZone: string, current?: Awaited<ReturnType<Tx["userStreak"]["upsert"]>>) {
+  const streak = current ?? await tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} });
+  if (!hasBurnedDailyStreak(streak, date)) return streak;
+  // A restoration earlier today bridges the gap only if the learner also
+  // completes today's lesson. It must not immediately be marked lost again.
+  const restoredToday = await tx.streakEvent.findFirst({ where: { userId, date, type: "RESTORED" }, select: { id: true } });
+  if (restoredToday) return streak;
+  const marked = await tx.userStreak.updateMany({
+    where: { id: streak.id, currentStreak: streak.currentStreak, lastQualifiedDate: streak.lastQualifiedDate },
+    data: { currentStreak: 0, recoverableStreak: streak.currentStreak, streakLostAt: localDayStartUtc(date, timeZone) },
+  });
+  if (marked.count) await tx.streakEvent.create({
+    data: { userId, date, type: "RESET", previousStreak: streak.currentStreak, nextStreak: 0, metadata: json({ reason: "missed_daily_goal" }) },
+  });
+  return tx.userStreak.findUniqueOrThrow({ where: { userId } });
 }
 
 const coreQuestDefinitions = [
@@ -474,7 +496,7 @@ async function checkDailyGoalCompletionInTransaction(tx: Tx, userId: string, dat
   await tx.userDailyActivity.update({ where: { userId_date: { userId, date } }, data: { dailyGoalCompleted: true } });
   await tx.learningActivity.create({ data: { userId, type: "DAILY_GOAL_COMPLETED", metadata: json({ date, goalMinutes: user.dailyGoalMinutes }) } });
   const reward = await rewardForEvent(tx, userId, date, "DAILY_GOAL", date, "Daily learning goal completed");
-  const streak = await updateStreakForDate(tx, userId, date);
+  const streak = await updateStreakForDate(tx, userId, date, user.timeZone);
   await evaluateAchievements(tx, userId, date);
   return { completed: true, streak, rewards: reward };
 }
@@ -666,6 +688,36 @@ export async function recordMistakeReviewRunCompletion(tx: Tx, input: { userId: 
   return { ...reward, achievements };
 }
 
+/** One server-owned inventory booster is spent on a genuinely new lesson
+ * completion. Both consumption and XP credit share the completion transaction. */
+async function applyPurchasedXpBooster(tx: Tx, userId: string, lessonId: string, date: string) {
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`shop-xp-booster:${userId}`}))`);
+  const idempotencyKey = `shop-xp-boost:${userId}:${lessonId}`;
+  if (await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } })) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  const inventory = await tx.coinTransaction.findMany({
+    where: { userId, sourceId: { in: XP_BOOSTERS.map((item) => item.id) }, sourceType: { in: ["SHOP_ITEM", "SHOP_ITEM_USE"] } },
+    select: { sourceType: true, sourceId: true },
+  });
+  const booster = nextXpBooster(inventory);
+  if (!booster) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
+  await tx.coinTransaction.create({ data: {
+    userId, walletId: wallet.id, amount: 0, amountMinor: 0,
+    balanceBefore: wallet.balance, balanceAfter: wallet.balance,
+    balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
+    balanceAfterMinor: wallet.balance * 100 + wallet.fractionalBalance,
+    type: "PURCHASE", sourceType: "SHOP_ITEM_USE", sourceId: booster.id,
+    idempotencyKey: `shop-item-use:${userId}:${lessonId}`, localDate: date,
+    description: `Applied ${booster.id} to completed lesson ${lessonId}`,
+  } });
+  return creditExperienceAndCoins(tx, {
+    userId, experienceAmount: booster.experience, coinAmount: 0,
+    experienceType: "ACHIEVEMENT_REWARD", coinType: "ACHIEVEMENT_REWARD",
+    sourceType: "SHOP_XP_BOOST", sourceId: lessonId, idempotencyKey,
+    description: `${booster.id} on completed lesson`, date,
+  });
+}
+
 export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: string, courseId: string, firstCompletion: boolean) {
   if (!firstCompletion) return { awarded: false, experience: 0, coins: 0, levelUp: false };
   const context = await userContext(tx, userId);
@@ -673,6 +725,7 @@ export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: s
   await tx.userDailyActivity.update({ where: { userId_date: { userId, date: context.date } }, data: { lessonsCompleted: { increment: 1 } } });
   await tx.learningActivity.create({ data: { userId, type: "LESSON_COMPLETED", courseId, lessonId } });
   const reward = await rewardForEvent(tx, userId, context.date, "LESSON_COMPLETED", lessonId, "Lesson completed");
+  const boost = await applyPurchasedXpBooster(tx, userId, lessonId, context.date);
   const [totalLessons, completedLessons] = await Promise.all([
     tx.lesson.count({ where: { module: { courseId, isPublished: true }, isPublished: true } }),
     tx.lessonProgress.count({ where: { userId, status: "COMPLETED", lesson: { module: { courseId } } } }),
@@ -685,7 +738,7 @@ export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: s
     ? await awardSpecialBadge(tx, userId, "NIGHT_WATCH")
     : null;
   await evaluateAchievements(tx, userId, context.date);
-  return { ...reward, achievements: nightWatch ? [nightWatch.title] : [] };
+  return { ...reward, experience: reward.experience + boost.experience, levelUp: reward.levelUp || boost.levelUp, boosterExperience: boost.experience, achievements: nightWatch ? [nightWatch.title] : [] };
 }
 
 /**
@@ -744,13 +797,20 @@ export async function recordWordAdded(userId: string, wordId: string) {
 export async function getMotivationOverview(userId: string) {
   return prisma.$transaction(async (tx) => {
     const context = await userContext(tx, userId);
-    const [daily, level, wallet, streak, learningBonuses] = await Promise.all([
+    const [daily, level, wallet, savedStreak, learningBonuses] = await Promise.all([
       ensureDailyActivity(tx, userId, context.date),
       tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userLearningBonusBalance.upsert({ where: { userId }, create: { userId }, update: {} }),
     ]);
+    const streak = await reconcileBurnedStreak(tx, userId, context.date, context.timeZone, savedStreak);
+    const waterLilyReady = streak.recoverableStreak > 0 && streak.waterLilyCount > 0
+      ? ((await tx.lessonSessionPerfectStreak.aggregate({
+        where: { userId, finalizedAt: { gte: waterLilyEligibilityStart(streak.streakLostAt ?? new Date(), context.timeZone) } },
+        _sum: { firstTryCorrectTotal: true },
+      }))._sum.firstTryCorrectTotal ?? 0) > 0
+      : false;
     return {
       date: context.date,
       timeZone: context.timeZone,
@@ -765,6 +825,8 @@ export async function getMotivationOverview(userId: string) {
         experienceCost: streak.recoverableStreak > 0 ? streakRestoreXpCost(streak.recoverableStreak) : 0,
         coinCostMinor: streak.recoverableStreak > 0 ? streakRestoreCoinCostMinor(streakRestoreXpCost(streak.recoverableStreak)) : 0,
         waterLilyCount: streak.waterLilyCount,
+        waterLilyReady,
+        lostAt: streak.streakLostAt?.toISOString() ?? null,
       },
       learningBonuses: { hintCredits: learningBonuses.hintCredits, translationCredits: learningBonuses.translationCredits },
     };
@@ -810,11 +872,11 @@ export async function restoreLostStreak(userId: string) {
   return prisma.$transaction(async (tx) => {
     await lockStreakRestore(tx, userId);
     const context = await userContext(tx, userId);
-    const streak = await tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} });
+    const streak = await reconcileBurnedStreak(tx, userId, context.date, context.timeZone);
     if (streak.recoverableStreak < 1 || !streak.streakLostAt) throw new Error("There is no burned streak to restore.");
 
     const previousStreak = streak.currentStreak;
-    const restoredStreak = streak.recoverableStreak + Math.max(1, streak.currentStreak);
+    const restoredStreak = restoredDailyStreakLength(streak.recoverableStreak, streak.currentStreak);
     const experienceCost = streakRestoreXpCost(streak.recoverableStreak);
     const coinCostMinor = streakRestoreCoinCostMinor(experienceCost);
     const restoreId = randomUUID();
@@ -826,7 +888,7 @@ export async function restoreLostStreak(userId: string) {
       // saved result is calculated from authoritative attempts, never from a
       // client-side consecutive-answer counter.
       const perfectSessions = await tx.lessonSessionPerfectStreak.aggregate({
-        where: { userId, finalizedAt: { gte: streak.streakLostAt } },
+        where: { userId, finalizedAt: { gte: waterLilyEligibilityStart(streak.streakLostAt, context.timeZone) } },
         _sum: { firstTryCorrectTotal: true },
         _max: { longestFirstTryRun: true },
       });

@@ -51,6 +51,7 @@
 }
 
 .status strong { font-weight: 850; }
+.statusNeedsRecovery { border-color: #f59e0b; background: #fff7ed; color: #9a3412; box-shadow: 0 0 0 2px rgb(245 158 11 / 14%); }
 .status:hover { border-color: #fb9c75; background: #fff0e7; box-shadow: 0 4px 12px rgb(234 88 12 / 14%); transform: translateY(-1px); }
 .status:focus-visible { outline: 3px solid rgb(251 146 60 / 42%); outline-offset: 2px; }
 
@@ -69,6 +70,12 @@
 .restoreButton small { color: #0e7490; font-size: .72rem; font-weight: 800; }
 .restoreButton:hover:not(:disabled) { border-color: #0ea5e9; background: #e3f8ff; }
 .restoreButton:disabled { cursor: wait; opacity: .62; box-shadow: none; }
+.recoveryChoices { display: grid; gap: .55rem; }
+.recoveryNote { margin: 0; border-radius: .7rem; background: #fff7ed; color: #92400e; padding: .65rem .75rem; font-size: .8rem; line-height: 1.4; }
+.recoveryNote a { color: #075985; font-weight: 850; }
+.lilyButton { min-height: 2.7rem; border: 1px solid #8bd3e8; border-radius: .8rem; background: #eafaff; color: #075985; cursor: pointer; font: inherit; font-size: .83rem; font-weight: 850; }
+.lilyButton:disabled { cursor: not-allowed; opacity: .55; }
+.shopLink { justify-self: start; color: #075985; font-size: .78rem; font-weight: 800; }
 .purchaseButton small { font-size: 0.72rem; font-weight: 800; }
 .purchaseButton:hover:not(:disabled) { background: #d94608; }
 .purchaseButton:disabled { cursor: not-allowed; opacity: .5; box-shadow: none; }

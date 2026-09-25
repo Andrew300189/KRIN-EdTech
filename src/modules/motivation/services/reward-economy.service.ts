@@ -8,8 +8,9 @@ import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerCh
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
+import { consumableQuantity, WATER_LILY_PRICE_COINS, WATER_LILY_SHOP_ID, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 
-type ShopItemKind = "theme" | "avatar" | "discount";
+type ShopItemKind = "theme" | "avatar" | "discount" | "recovery" | "booster";
 
 export type ShopItem = {
   id: string;
@@ -22,6 +23,15 @@ export type ShopItem = {
 
 /** All prices and effects live on the server. Never accept them from a form. */
 export const SHOP_ITEMS: readonly ShopItem[] = [
+  { id: WATER_LILY_SHOP_ID, kind: "recovery", price: WATER_LILY_PRICE_COINS, title: "Water Lily", description: "An inventory flower for one lost-streak restoration after a completed lesson with a first-try correct answer." },
+  ...XP_BOOSTERS.map((booster) => ({
+    id: booster.id,
+    kind: "booster" as const,
+    price: booster.price,
+    title: `Learning boost · +${booster.experience} XP`,
+    description: `Automatically awards ${booster.experience} extra XP on your next newly completed lesson. One booster per lesson.`,
+    value: booster.experience,
+  })),
   { id: "theme-aurora", kind: "theme", price: 4, title: "Aurora theme", description: "A calm violet-and-mint workspace theme." },
   { id: "theme-sunrise", kind: "theme", price: 4, title: "Sunrise theme", description: "A warm, high-contrast workspace theme." },
   { id: "avatar-fox", kind: "avatar", price: 3, title: "Fox avatar", description: "A curious fox for your learner profile." },
@@ -703,9 +713,10 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
 }
 
 export async function getShopState(userId: string) {
-  const [user, wallet, purchases] = await Promise.all([
+  const [user, wallet, streak, purchases] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { equippedShopTheme: true, equippedShopAvatar: true } }),
     prisma.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
+    prisma.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
     // Store purchases and achievement unlocks use the same ownership surface.
     // An unlock has a zero ledger amount and therefore cannot be mistaken for
     // spendable KRIN Coins or a transaction that should affect ranking.
@@ -713,11 +724,12 @@ export async function getShopState(userId: string) {
       where: {
         userId,
         OR: [
-          { sourceType: "SHOP_ITEM", amount: { lt: 0 } },
+          { sourceType: "SHOP_ITEM" },
           { sourceType: "ACHIEVEMENT_UNLOCK", amount: 0 },
+          { sourceType: "SHOP_ITEM_USE", amount: 0 },
         ],
       },
-      select: { sourceId: true, description: true },
+      select: { sourceType: true, sourceId: true, description: true },
     }),
   ]);
   const owned = ownedItemIds(purchases);
@@ -727,33 +739,46 @@ export async function getShopState(userId: string) {
     .filter((code): code is string => Boolean(code));
   return {
     balance: wallet.balance + wallet.fractionalBalance / 100,
-    items: SHOP_ITEMS.map((item) => ({ ...item, owned: owned.has(item.id) })),
+    items: SHOP_ITEMS.map((item) => {
+      const quantity = item.kind === "recovery"
+        ? streak.waterLilyCount
+        : item.kind === "booster" ? consumableQuantity(purchases, item.id) : 0;
+      return { ...item, owned: item.kind === "recovery" || item.kind === "booster" ? quantity > 0 : owned.has(item.id), quantity };
+    }),
     equippedTheme: user.equippedShopTheme,
     equippedAvatar: user.equippedShopAvatar,
     coupons,
   };
 }
 
-export async function purchaseShopItem(userId: string, itemId: string) {
+export async function purchaseShopItem(userId: string, itemId: string, purchaseId?: string) {
   const item = activeItem(itemId);
   if (!item) throw new Error("This shop item is unavailable.");
+  const consumable = item.kind === "recovery" || item.kind === "booster";
 
   return prisma.$transaction(async (tx) => {
-    const idempotencyKey = `shop-item:${userId}:${item.id}`;
+    const idempotencyKey = consumable ? `shop-item:${userId}:${item.id}:${purchaseId ?? randomUUID()}` : `shop-item:${userId}:${item.id}`;
     const existing = await tx.coinTransaction.findUnique({ where: { idempotencyKey }, select: { description: true } });
     if (existing) return { purchased: false, alreadyOwned: true, coupon: couponFromDescription(existing.description), item: item.id };
-    const unlocked = await tx.coinTransaction.findFirst({
-      where: { userId, sourceType: "ACHIEVEMENT_UNLOCK", sourceId: item.id, amount: 0 },
-      select: { id: true },
-    });
-    if (unlocked) return { purchased: false, alreadyOwned: true, coupon: null, item: item.id };
+    if (!consumable) {
+      const unlocked = await tx.coinTransaction.findFirst({
+        where: { userId, sourceType: "ACHIEVEMENT_UNLOCK", sourceId: item.id, amount: 0 },
+        select: { id: true },
+      });
+      if (unlocked) return { purchased: false, alreadyOwned: true, coupon: null, item: item.id };
+    }
 
     const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
-    const debited = await tx.userWallet.updateMany({
-      where: { id: wallet.id, balance: { gte: item.price } },
-      data: { balance: { decrement: item.price }, lifetimeSpent: { increment: item.price } },
-    });
-    if (!debited.count) throw new Error("Not enough KRIN Coins for this item.");
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "UserWallet" WHERE "id" = ${wallet.id} FOR UPDATE`);
+    const lockedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    const priceMinor = Math.round(item.price * 100);
+    const beforeMinor = lockedWallet.balance * 100 + lockedWallet.fractionalBalance;
+    if (beforeMinor < priceMinor) throw new Error("Not enough KRIN Coins for this item.");
+    const afterMinor = beforeMinor - priceMinor;
+    await tx.userWallet.update({ where: { id: wallet.id }, data: {
+      balance: Math.floor(afterMinor / 100), fractionalBalance: afterMinor % 100,
+      lifetimeSpent: { increment: Math.floor(priceMinor / 100) },
+    } });
     const updatedWallet = await tx.userWallet.findUniqueOrThrow({ where: { id: wallet.id }, select: { balance: true, fractionalBalance: true } });
 
     let coupon: string | null = null;
@@ -770,16 +795,22 @@ export async function purchaseShopItem(userId: string, itemId: string) {
         },
       });
     }
+    if (item.kind === "recovery") {
+      await tx.userStreak.upsert({
+        where: { userId }, create: { userId, waterLilyCount: 1 }, update: { waterLilyCount: { increment: 1 } },
+      });
+    }
 
     await tx.coinTransaction.create({
       data: {
         userId,
         walletId: wallet.id,
-        amount: -item.price,
-        balanceBefore: wallet.balance,
+        amount: -Math.floor(priceMinor / 100),
+        amountMinor: -priceMinor,
+        balanceBefore: lockedWallet.balance,
         balanceAfter: updatedWallet.balance,
-        balanceBeforeMinor: wallet.balance * 100 + wallet.fractionalBalance,
-        balanceAfterMinor: updatedWallet.balance * 100 + updatedWallet.fractionalBalance,
+        balanceBeforeMinor: beforeMinor,
+        balanceAfterMinor: afterMinor,
         type: "PURCHASE",
         sourceType: "SHOP_ITEM",
         sourceId: item.id,
@@ -834,9 +865,13 @@ async function lessonExperienceBeforeMultiplier(tx: Prisma.TransactionClient, us
   // Keep this calculation in the immutable ledger rather than trusting a
   // reward configured in the lesson editor. The multiplier is intentionally
   // not part of the queried types, so it can never multiply itself.
-  const [completionCredits, correctAttempts] = await Promise.all([
+  const [completionCredits, boosterCredits, correctAttempts] = await Promise.all([
     tx.experienceTransaction.findMany({
       where: { userId, type: "LESSON_COMPLETED", sourceId: lessonId },
+      select: { amount: true },
+    }),
+    tx.experienceTransaction.findMany({
+      where: { userId, sourceType: "SHOP_XP_BOOST", sourceId: lessonId },
       select: { amount: true },
     }),
     tx.exerciseAttempt.findMany({
@@ -845,13 +880,13 @@ async function lessonExperienceBeforeMultiplier(tx: Prisma.TransactionClient, us
     }),
   ]);
   const exerciseIds = [...new Set(correctAttempts.map((attempt) => attempt.exerciseId))];
-  if (!exerciseIds.length) return completionCredits.reduce((total, transaction) => total + transaction.amount, 0);
+  if (!exerciseIds.length) return [...completionCredits, ...boosterCredits].reduce((total, transaction) => total + transaction.amount, 0);
 
   const exerciseCredits = await tx.experienceTransaction.findMany({
     where: { userId, type: "EXERCISE_CORRECT", sourceId: { in: exerciseIds } },
     select: { amount: true },
   });
-  return [...completionCredits, ...exerciseCredits].reduce((total, transaction) => total + transaction.amount, 0);
+  return [...completionCredits, ...boosterCredits, ...exerciseCredits].reduce((total, transaction) => total + transaction.amount, 0);
 }
 
 async function assertCompletedLessonAndGetBaseExperience(tx: Prisma.TransactionClient, userId: string, lessonId: string) {

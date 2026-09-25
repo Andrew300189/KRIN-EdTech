@@ -110,6 +110,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         <div className={styles.kinds} aria-label={text.kinds}>
           <span className={styles.regular}>✦ XP</span><span className={styles.hint}>☀ XP</span><span className={styles.translation}>✧ XP</span>
           <span className={styles.bookKind}>📖 {text.questBook}</span>
+          <span className={styles.waterLilyKind}>🪷 {text.waterLily}</span>
           {earnsKrinCoin ? <span className={styles.coinKind}>● +1 {text.coin}</span> : null}
         </div>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}

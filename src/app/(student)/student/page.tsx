@@ -13,6 +13,7 @@ import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
+import { StreakRecoveryOpenButton } from "@/modules/motivation/components/StreakRecoveryOpenButton";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -88,6 +89,7 @@ export default async function StudentHomePage({
           <p><LocalizedText id="student.home.hero" fallback="One focused lesson is enough for today. Your next step is ready below." /></p>
         </div>
         <div className={styles.heroActions}>
+          {motivation.streakRecovery.available ? <StreakRecoveryOpenButton className={styles.restoreAction} /> : null}
           <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link>
           <Link href="/profile/support" className={styles.secondaryAction}><LocalizedText id="student.home.help" fallback="Help" /></Link>
         </div>
