@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
 import { AddCustomWordForm } from "@/modules/vocabulary/components/AddCustomWordForm";
+import { VocabularyCourseCard } from "@/modules/vocabulary/components/VocabularyCourseCard";
 import { WordCard } from "@/modules/vocabulary/components/WordCard";
 import { listPublishedVocabularyCourses } from "@/modules/vocabulary/services/vocabulary-course-catalog.service";
 import { getUserVocabulary, getVocabularyStatistics } from "@/modules/vocabulary/services/vocabulary.service";
@@ -13,11 +14,76 @@ export default async function ProfileVocabularyPage({ searchParams }: { searchPa
   const authenticated = await requireAuth();
   if (!authenticated) redirect("/login?next=/profile/vocabulary");
   const params = await searchParams;
-  const query = { q: first(params.q), status: first(params.status) ?? "ALL", cefrLevel: first(params.level), partOfSpeech: first(params.partOfSpeech), courseSlug: first(params.course), sort: first(params.sort) ?? "next_review", page: first(params.page) ?? "1" };
+  const query = {
+    q: first(params.q),
+    status: first(params.status) ?? "ALL",
+    cefrLevel: first(params.level),
+    partOfSpeech: first(params.partOfSpeech),
+    courseSlug: first(params.course),
+    sort: first(params.sort) ?? "next_review",
+    page: first(params.page) ?? "1",
+  };
   const [vocabulary, statistics, courses] = await Promise.all([
     getUserVocabulary(authenticated.user.id, query),
     getVocabularyStatistics(authenticated.user.id),
     listPublishedVocabularyCourses(),
   ]);
-  return <main className="mx-auto max-w-7xl px-6 py-12"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Personal dictionary</p><h1 className="mt-2 text-4xl font-bold text-slate-900">My vocabulary</h1><p className="mt-3 text-slate-600">Words are stored in your account and scheduled for review.</p></div><div className="flex gap-3"><Link href="/profile/vocabulary/training" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">Start training</Link><Link href="/profile/settings/vocabulary" className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Settings</Link></div></header>{courses.length ? <section className="mt-8 rounded-2xl border border-violet-200 bg-violet-50 p-5"><p className="text-sm font-semibold uppercase tracking-wide text-violet-700">Vocabulary courses</p><h2 className="mt-1 text-2xl font-bold text-slate-900">Learn vocabulary step by step</h2><div className="mt-4 grid gap-3 md:grid-cols-2">{courses.map((course) => <article key={course.id} className="rounded-xl border border-violet-100 bg-white p-4"><p className="text-sm font-semibold text-violet-700">{course.level.code} · {course.difficulty ?? "Vocabulary"}</p><h3 className="mt-1 text-lg font-bold text-slate-900">{course.title}</h3><p className="mt-1 text-sm text-slate-600">{course.shortDescription}</p>{course.firstLessonSlug ? <Link className="mt-3 inline-flex rounded-lg bg-violet-700 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-800" href={`/courses/${course.slug}/lessons/${course.firstLessonSlug}`}>Open course</Link> : null}</article>)}</div></section> : null}<section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">All words</p><p className="text-2xl font-bold">{statistics.total}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Due today</p><p className="text-2xl font-bold">{statistics.due}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Mastered</p><p className="text-2xl font-bold">{statistics.mastered}</p></div><div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Weekly accuracy</p><p className="text-2xl font-bold">{statistics.weeklyAccuracy}%</p></div></section><form method="get" className="mt-8 grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 md:grid-cols-5"><input name="q" defaultValue={query.q} placeholder="Search words" className="rounded-lg border border-slate-300 px-3 py-2" /><select name="status" defaultValue={query.status} className="rounded-lg border border-slate-300 px-3 py-2">{[["ALL", "All words"], ["NEW", "New"], ["LEARNING", "Learning"], ["REVIEW", "Review"], ["MASTERED", "Mastered"], ["ARCHIVED", "Archive"], ["CUSTOM", "My words"], ["DIFFICULT", "Difficult"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><select name="level" defaultValue={query.cefrLevel ?? ""} className="rounded-lg border border-slate-300 px-3 py-2"><option value="">All levels</option>{["A1", "A2", "B1", "B2", "C1", "C2"].map((level) => <option key={level}>{level}</option>)}</select><select name="partOfSpeech" defaultValue={query.partOfSpeech ?? ""} className="rounded-lg border border-slate-300 px-3 py-2"><option value="">All parts of speech</option>{["NOUN", "VERB", "ADJECTIVE", "ADVERB", "PHRASE", "PHRASAL_VERB", "IDIOM", "OTHER"].map((value) => <option key={value}>{value}</option>)}</select><button className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700">Filter</button></form><AddCustomWordForm />{vocabulary.items.length === 0 ? <p className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-slate-600">Your dictionary is empty. Add a word from a lesson or create a private entry above.</p> : <section className="mt-8 grid gap-5 lg:grid-cols-2">{vocabulary.items.map((item) => <WordCard key={`${item.kind}-${item.id}`} item={item} />)}</section>}<section className="mt-10 rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-xl font-bold">Reviews this week</h2><div className="mt-4 flex h-28 items-end gap-2">{statistics.daily.map((day) => <div key={day.date} className="flex flex-1 flex-col items-center gap-1"><div className="w-full rounded-t bg-blue-600" style={{ height: `${Math.max(4, day.reviews * 12)}px` }} title={`${day.reviews} reviews`} /><span className="text-xs text-slate-500">{day.date.slice(5)}</span></div>)}</div></section></main>;
+
+  return <main className="mx-auto max-w-7xl px-6 py-12">
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Personal dictionary</p>
+        <h1 className="mt-2 text-4xl font-bold text-slate-900">My vocabulary</h1>
+        <p className="mt-3 text-slate-600">Words are stored in your account and scheduled for review.</p>
+      </div>
+      <div className="flex gap-3">
+        <Link href="/profile/vocabulary/training" className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800">Start training</Link>
+        <Link href="/profile/settings/vocabulary" className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Settings</Link>
+      </div>
+    </header>
+
+    {courses.length ? <section className="mt-8 rounded-2xl border border-violet-200 bg-violet-50 p-5">
+      <p className="text-sm font-semibold uppercase tracking-wide text-violet-700">Vocabulary courses</p>
+      <h2 className="mt-1 text-2xl font-bold text-slate-900">Learn vocabulary step by step</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {courses.map((course) => <VocabularyCourseCard key={course.id} course={course} variant="profile" />)}
+      </div>
+    </section> : null}
+
+    <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">All words</p><p className="text-2xl font-bold">{statistics.total}</p></div>
+      <div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Due today</p><p className="text-2xl font-bold">{statistics.due}</p></div>
+      <div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Mastered</p><p className="text-2xl font-bold">{statistics.mastered}</p></div>
+      <div className="rounded-xl border bg-white p-4"><p className="text-sm text-slate-600">Weekly accuracy</p><p className="text-2xl font-bold">{statistics.weeklyAccuracy}%</p></div>
+    </section>
+
+    <form method="get" className="mt-8 grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 md:grid-cols-5">
+      <input name="q" defaultValue={query.q} placeholder="Search words" className="rounded-lg border border-slate-300 px-3 py-2" />
+      <select name="status" defaultValue={query.status} className="rounded-lg border border-slate-300 px-3 py-2">
+        {[["ALL", "All words"], ["NEW", "New"], ["LEARNING", "Learning"], ["REVIEW", "Review"], ["MASTERED", "Mastered"], ["ARCHIVED", "Archive"], ["CUSTOM", "My words"], ["DIFFICULT", "Difficult"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+      <select name="level" defaultValue={query.cefrLevel ?? ""} className="rounded-lg border border-slate-300 px-3 py-2">
+        <option value="">All levels</option>{["A1", "A2", "B1", "B2", "C1", "C2"].map((level) => <option key={level} value={level}>{level}</option>)}
+      </select>
+      <select name="partOfSpeech" defaultValue={query.partOfSpeech ?? ""} className="rounded-lg border border-slate-300 px-3 py-2">
+        <option value="">All parts of speech</option>{["NOUN", "VERB", "ADJECTIVE", "ADVERB", "PRONOUN", "PREPOSITION", "CONJUNCTION", "DETERMINER", "NUMERAL", "INTERJECTION", "PHRASE", "PHRASAL_VERB", "IDIOM", "OTHER"].map((value) => <option key={value} value={value}>{value}</option>)}
+      </select>
+      <button className="rounded-lg bg-slate-900 px-3 py-2 font-semibold text-white hover:bg-slate-700">Filter</button>
+    </form>
+
+    <AddCustomWordForm />
+    {vocabulary.items.length === 0
+      ? <p className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-slate-600">Your dictionary is empty. Add a word from a lesson or create a private entry above.</p>
+      : <section className="mt-8 grid gap-5 lg:grid-cols-2">{vocabulary.items.map((item) => <WordCard key={`${item.kind}-${item.id}`} item={item} />)}</section>}
+
+    <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-5">
+      <h2 className="text-xl font-bold">Reviews this week</h2>
+      <div className="mt-4 flex h-28 items-end gap-2">
+        {statistics.daily.map((day) => <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
+          <div className="w-full rounded-t bg-blue-600" style={{ height: `${Math.max(4, day.reviews * 12)}px` }} title={`${day.reviews} reviews`} />
+          <span className="text-xs text-slate-500">{day.date.slice(5)}</span>
+        </div>)}
+      </div>
+    </section>
+  </main>;
 }

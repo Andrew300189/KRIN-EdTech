@@ -16,8 +16,13 @@ export async function listPublishedVocabularyCourses() {
     select: {
       id: true,
       slug: true,
+      language: true,
       title: true,
       shortDescription: true,
+      translations: {
+        where: { locale: { in: ["uk", "ru"] }, contentStatus: "PUBLISHED" },
+        select: { locale: true, title: true, shortDescription: true },
+      },
       difficulty: true,
       estimatedDuration: true,
       level: { select: { code: true } },
@@ -40,3 +45,5 @@ export async function listPublishedVocabularyCourses() {
     firstLessonSlug: course.modules.flatMap((module) => module.lessons)[0]?.slug ?? null,
   }));
 }
+
+export type PublishedVocabularyCourse = Awaited<ReturnType<typeof listPublishedVocabularyCourses>>[number];
