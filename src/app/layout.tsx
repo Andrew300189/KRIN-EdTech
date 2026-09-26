@@ -6,7 +6,7 @@ import { SkipToMainContent } from "@/core/components/SkipToMainContent";
 import { ToastProvider } from "@/core/components/ToastProvider";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
-import { StreakRecoveryRoutePrompt } from "@/modules/motivation/components/StreakRecoveryRoutePrompt";
+import { COLOR_THEMES } from "@/core/color-themes";
 
 const themeBootstrap = `(() => {
   try {
@@ -22,7 +22,10 @@ const themeBootstrap = `(() => {
 const colorThemeBootstrap = `(() => {
   try {
     const stored = window.localStorage.getItem("krin-color-theme");
-    document.documentElement.dataset.colorTheme = stored === "ocean" || stored === "sunset" ? stored : "violet";
+    const palettes = ${JSON.stringify(COLOR_THEMES.map(({ id, swatch }) => ({ id, swatch })))};
+    const selected = palettes.find((palette) => palette.id === stored) || palettes[0];
+    document.documentElement.dataset.colorTheme = selected.id;
+    document.documentElement.style.setProperty("--palette-primary", selected.swatch);
   } catch {
     document.documentElement.dataset.colorTheme = "violet";
   }
@@ -110,7 +113,6 @@ export default function RootLayout({
           <SkipToMainContent />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
           <div id="main-content" tabIndex={-1}>{children}</div>
-          <StreakRecoveryRoutePrompt />
           <WebVitalsReporter />
           <ScrollToTopButton />
           <ToastProvider />

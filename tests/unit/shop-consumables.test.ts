@@ -1,12 +1,13 @@
-import { consumableQuantity, nextXpBooster, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, nextXpBooster, WATER_LILY_CAPACITIES, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { SHOP_ITEMS } from "@/modules/motivation/services/reward-economy.service";
 
 describe("purchased XP booster inventory", () => {
-  it("offers the Water Lily and both server-priced boosters in the shop", () => {
-    expect(SHOP_ITEMS.filter((item) => item.kind === "recovery" || item.kind === "booster").map((item) => [item.id, item.price])).toEqual([
-      ["water-lily", 0.1],
-      ["xp-boost-40", 0.1],
-      ["xp-boost-15", 0.05],
+  it("offers all 30 Water Lily capacities and both server-priced boosters", () => {
+    const lilies = SHOP_ITEMS.filter((item) => item.kind === "recovery");
+    expect(lilies).toHaveLength(WATER_LILY_CAPACITIES.length);
+    expect(lilies.map((item) => [item.id, item.price])).toEqual(WATER_LILY_TIERS.map((tier) => [tier.id, tier.price]));
+    expect(SHOP_ITEMS.filter((item) => item.kind === "booster").map((item) => [item.id, item.price])).toEqual([
+      ["xp-boost-40", 0.1], ["xp-boost-15", 0.05],
     ]);
   });
 

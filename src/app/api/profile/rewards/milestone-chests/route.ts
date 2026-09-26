@@ -3,7 +3,7 @@ import { consumeRateLimit } from "@/core/server/rate-limit";
 import { requireLearningUser } from "@/modules/courses/server/content-access";
 import { getMilestoneChestState, openMilestoneChest, type MilestoneChestKind } from "@/modules/motivation/services/reward-economy.service";
 
-const chestKinds = new Set<MilestoneChestKind>(["LESSON_3", "EVERY_7_LESSONS", "MODULE", "COURSE"]);
+const chestKinds = new Set<MilestoneChestKind>(["FIRST_STEPS", "LESSON_3", "LESSON_7", "LESSON_9", "EVERY_3_LESSONS", "EVERY_7_LESSONS", "EVERY_9_LESSONS", "EVERY_12_LESSONS", "MODULE", "COURSE"]);
 
 export async function GET(request: NextRequest) {
   const guard = await requireLearningUser(request);

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Curated local botanical photos have individual credits in the flower album. */
+
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { AppModal } from "@/core/components/AppModal";
@@ -7,6 +9,7 @@ import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { flowerChestById } from "@/modules/motivation/utils/flower-chests";
+import { flowerPhotoById } from "@/modules/motivation/utils/flower-photo";
 import type { StreakQuestBookSummary } from "@/modules/motivation/services/streak-quest-book.service";
 import styles from "./StreakChestReward.module.css";
 
@@ -17,6 +20,7 @@ type Reward = {
   experience: number;
   coins: number;
   flowerId?: string | null;
+  firstDiscovery?: boolean;
   waterLily?: number;
   hintCredits: number;
   translationCredits: number;
@@ -24,9 +28,9 @@ type Reward = {
 };
 
 const copy = {
-  en: { title: "Flower streak chest", streak: "Streak", flowerChest: "Flower chest", ready: "A flower is ready to bloom!", description: "Open the bud to reveal its own learning reward — and sometimes a quest book.", open: "Let it bloom", opening: "Blooming…", continue: "Continue", hint: "Hint XP", translation: "Translation XP", regular: "XP reward", coin: "KRIN Coin", waterLily: "Water Lily", waterLilyNote: "Keep it to restore a lost daily streak after a completed lesson with first-try answers.", questBook: "Quest book", kinds: "Possible rewards", already: "This flower was already opened.", error: "Could not open the flower. Try again.", close: "Close flower reward", bookFound: "Quest book found!", bookDescription: "Unlock it for {coins} KRIN Coins, then learn {words} words to collect every reward.", openBook: "View quest book", rarities: { COMMON: "Common", UNCOMMON: "Uncommon", RARE: "Rare", EPIC: "Epic", LEGENDARY: "Legendary" } },
-  ru: { title: "Цветок за стрик", streak: "Стрик", flowerChest: "Цветочный бутон", ready: "Цветок готов распуститься!", description: "Откройте бутон: у каждого цветка свой набор учебных наград, а иногда — книга-квест.", open: "Раскрыть цветок", opening: "Раскрываем…", continue: "Продолжить", hint: "XP для подсказки", translation: "XP для перевода", regular: "XP-награда", coin: "KRIN Coin", waterLily: "Кувшинка", waterLilyNote: "Сохраните её: она бесплатно восстановит сгоревшую серию после завершённого урока с ответами с первой попытки.", questBook: "Книга-квест", kinds: "Возможные награды", already: "Этот цветок уже был открыт.", error: "Не удалось открыть цветок. Попробуйте ещё раз.", close: "Закрыть награду-цветок", bookFound: "Выпала книга-квест!", bookDescription: "Разблокируйте её за {coins} KRIN Coins и правильно выучите {words} слов, чтобы забрать все награды.", openBook: "Открыть книгу-квест", rarities: { COMMON: "Обычный", UNCOMMON: "Необычный", RARE: "Редкий", EPIC: "Эпический", LEGENDARY: "Легендарный" } },
-  uk: { title: "Квітка за стрік", streak: "Стрік", flowerChest: "Квітковий бутон", ready: "Квітка готова розквітнути!", description: "Відкрийте бутон: кожна квітка має власний набір навчальних нагород, а інколи — книгу-квест.", open: "Розкрити квітку", opening: "Розкриваємо…", continue: "Продовжити", hint: "XP для підказки", translation: "XP для перекладу", regular: "XP-нагорода", coin: "KRIN Coin", waterLily: "Латаття", waterLilyNote: "Збережіть його: воно безкоштовно відновить згорілу серію після завершеного уроку з відповідями з першої спроби.", questBook: "Книга-квест", kinds: "Можливі нагороди", already: "Цю квітку вже відкрито.", error: "Не вдалося відкрити квітку. Спробуйте ще раз.", close: "Закрити нагороду-квітку", bookFound: "Випала книга-квест!", bookDescription: "Розблокуйте її за {coins} KRIN Coins і правильно вивчіть {words} слів, щоб забрати всі нагороди.", openBook: "Відкрити книгу-квест", rarities: { COMMON: "Звичайна", UNCOMMON: "Незвичайна", RARE: "Рідкісна", EPIC: "Епічна", LEGENDARY: "Легендарна" } },
+  en: { title: "Flower streak chest", streak: "Streak", flowerChest: "Flower chest", ready: "A flower is ready to bloom!", description: "Open the bud to reveal its own learning reward — and sometimes a quest book.", open: "Let it bloom", opening: "Blooming…", continue: "Continue", album: "Open flower album", discovery: "New flower discovered! Added to your album.", hint: "Hint XP", translation: "Translation XP", regular: "XP reward", coin: "KRIN Coin", waterLily: "Water Lily", waterLilyNote: "Keep it to restore your lesson answer streak after a mistake.", questBook: "Quest book", kinds: "Possible rewards", already: "This flower was already opened.", error: "Could not open the flower. Try again.", close: "Close flower reward", bookFound: "Quest book found!", bookDescription: "Unlock it for {coins} KRIN Coins, then learn {words} words to collect every reward.", openBook: "View quest book", rarities: { COMMON: "Common", UNCOMMON: "Uncommon", RARE: "Rare", EPIC: "Epic", LEGENDARY: "Legendary" } },
+  ru: { title: "Цветок за стрик", streak: "Стрик", flowerChest: "Цветочный бутон", ready: "Цветок готов распуститься!", description: "Откройте бутон: у каждого цветка свой набор учебных наград, а иногда — книга-квест.", open: "Раскрыть цветок", opening: "Раскрываем…", continue: "Продолжить", album: "Открыть альбом цветов", discovery: "Новый вид найден! Он добавлен в альбом.", hint: "XP для подсказки", translation: "XP для перевода", regular: "XP-награда", coin: "KRIN Coin", waterLily: "Кувшинка", waterLilyNote: "Сохраните её, чтобы восстановить серию ответов в уроке после ошибки.", questBook: "Книга-квест", kinds: "Возможные награды", already: "Этот цветок уже был открыт.", error: "Не удалось открыть цветок. Попробуйте ещё раз.", close: "Закрыть награду-цветок", bookFound: "Выпала книга-квест!", bookDescription: "Разблокируйте её за {coins} KRIN Coins и правильно выучите {words} слов, чтобы забрать все награды.", openBook: "Открыть книгу-квест", rarities: { COMMON: "Обычный", UNCOMMON: "Необычный", RARE: "Редкий", EPIC: "Эпический", LEGENDARY: "Легендарный" } },
+  uk: { title: "Квітка за стрік", streak: "Стрік", flowerChest: "Квітковий бутон", ready: "Квітка готова розквітнути!", description: "Відкрийте бутон: кожна квітка має власний набір навчальних нагород, а інколи — книгу-квест.", open: "Розкрити квітку", opening: "Розкриваємо…", continue: "Продовжити", album: "Відкрити альбом квітів", discovery: "Знайдено новий вид! Його додано до альбому.", hint: "XP для підказки", translation: "XP для перекладу", regular: "XP-нагорода", coin: "KRIN Coin", waterLily: "Латаття", waterLilyNote: "Збережіть його, щоб відновити серію відповідей в уроці після помилки.", questBook: "Книга-квест", kinds: "Можливі нагороди", already: "Цю квітку вже відкрито.", error: "Не вдалося відкрити квітку. Спробуйте ще раз.", close: "Закрити нагороду-квітку", bookFound: "Випала книга-квест!", bookDescription: "Розблокуйте її за {coins} KRIN Coins і правильно вивчіть {words} слів, щоб забрати всі нагороди.", openBook: "Відкрити книгу-квест", rarities: { COMMON: "Звичайна", UNCOMMON: "Незвичайна", RARE: "Рідкісна", EPIC: "Епічна", LEGENDARY: "Легендарна" } },
 } as const;
 
 function rewardKind(reward: Reward) {
@@ -76,6 +80,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
   if (!milestone) return null;
   const chestLevel = streakChestLevel(milestone);
   const flower = flowerChestById(reward?.flowerId);
+  const flowerPhoto = flowerPhotoById(flower?.id);
   const chestStyle = { "--chest-hue": String(flower?.hue ?? 142) } as CSSProperties;
   const earnsKrinCoin = streakChestKrinCoinReward(milestone) > 0;
   const kind = reward ? rewardKind(reward) : null;
@@ -99,7 +104,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
     <section className={styles.card} style={chestStyle} aria-live="polite">
       <p className={styles.streak}>{text.streak} ×{milestone}</p>
       <button type="button" className={`${styles.chest} ${opening ? styles.opening : ""} ${reward ? styles.opened : ""}`} onClick={() => void openChest()} disabled={opening || Boolean(reward)} aria-label={text.open}>
-        <span aria-hidden="true">{flower?.icon ?? "🌱"}</span>
+        <img src={reward && flowerPhoto ? flowerPhoto.src : "/flower-chests/mystery-bud.png"} alt="" />
       </button>
       <span className={`${styles.tierName} ${flower?.rarity === "LEGENDARY" ? styles.legendary : ""}`}>{flower ? `${flowerName} · ${text.rarities[flower.rarity]} · ${text.streak} ×${milestone}` : `${text.flowerChest} · ${text.streak} ×${milestone}`}</span>
       {!reward ? <>
@@ -114,8 +119,9 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
         <button type="button" className={styles.openButton} onClick={() => void openChest()} disabled={opening}>{opening ? text.opening : text.open}</button>
       </> : <>
+        {reward.firstDiscovery ? <p className={styles.discovery} role="status">✦ {text.discovery}</p> : null}
         <section className={`${styles.reward} ${styles[kind!] ?? ""} ${flower?.rarity === "LEGENDARY" ? styles.legendaryReward : ""}`}>
-          <span aria-hidden="true">{flower?.icon ?? (kind === "coin" ? "●" : "✦")}</span>
+          <span aria-hidden="true">{flowerPhoto ? <img src={flowerPhoto.src} alt="" /> : "✦"}</span>
           <div><strong>{flowerName ? `${flowerName} · ${text.rarities[flower!.rarity]}` : kindLabel}</strong><p>+{reward.experience} XP{reward.coins ? ` · +${reward.coins} KRIN Coin` : ""}</p></div>
         </section>
         {reward.waterLily ? <section className={styles.waterLily}><span aria-hidden="true">🪷</span><div><strong>+{reward.waterLily} {text.waterLily}</strong><p>{text.waterLilyNote}</p></div></section> : null}
@@ -124,6 +130,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
           <span aria-hidden="true">📖</span>
           <div><strong>{text.bookFound} · {text.streak} ×{reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p><Link href="/student/achievements#quest-books" onClick={onDismiss}>{text.openBook}</Link></div>
         </section> : null}
+        <Link href="/student/flowers" className={styles.albumLink} onClick={onDismiss}>{text.album} →</Link>
         <button type="button" className={styles.continueButton} onClick={onDismiss}>{text.continue}</button>
       </>}
     </section>

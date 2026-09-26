@@ -1,0 +1,3 @@
+ALTER TABLE "MistakeReviewRun" ADD COLUMN "correctStreak" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "MistakeReviewRun" ADD COLUMN "bestCorrectStreak" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "MistakeReviewRunItem" ADD COLUMN "hadWrongAttempt" BOOLEAN NOT NULL DEFAULT false;

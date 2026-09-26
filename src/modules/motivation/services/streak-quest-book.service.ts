@@ -29,8 +29,11 @@ export function streakQuestBookRewardFloor(milestone: number) {
     target: 10 + Math.floor((chestTier - 1) / 10),
     experience: 100 + (chestTier - 1) * 5,
     coins: 2 + Math.floor((chestTier - 1) / 18),
-    hintCredits: 1 + Math.floor((chestTier - 1) / 100),
-    translationCredits: 1 + Math.floor((chestTier - 1) / 100),
+    // Learning helpers are no longer reward items. Keep the legacy fields at
+    // zero so old book records stay type-compatible while new books never
+    // promise a separate hint/translation balance.
+    hintCredits: 0,
+    translationCredits: 0,
   };
 }
 

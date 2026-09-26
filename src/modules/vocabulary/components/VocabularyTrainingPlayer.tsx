@@ -62,7 +62,7 @@ export function VocabularyTrainingPlayer({ sessionId, compact = false, onComplet
       const questBookEvents = payload.data.questBookRewards?.map((questReward) => ({
         type: "ACHIEVEMENT_UNLOCKED" as const,
         title: "Книга-квест пройдена!",
-        detail: `+${questReward.experience} XP · +${questReward.coins} KRIN Coins · +${questReward.hintCredits} подсказка · +${questReward.translationCredits} переклад`,
+        detail: `+${questReward.experience} XP · +${questReward.coins} KRIN Coins`,
       })) ?? [];
       const rewardEvents: RewardNotificationEvent[] = reward?.awarded
         ? [{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Новый уровень!" : answerFeedback.xpAwarded(reward.experience), detail: reward.coins ? `+${reward.coins} coins` : undefined }, ...questBookEvents]

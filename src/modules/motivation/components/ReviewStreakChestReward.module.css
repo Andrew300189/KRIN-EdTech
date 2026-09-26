@@ -1,0 +1,8 @@
+.reveal { display: grid; justify-items: center; gap: .65rem; text-align: center; }
+.reveal img { width: min(100%, 13rem); aspect-ratio: 1; border-radius: 1rem; object-fit: cover; box-shadow: 0 .5rem 1.4rem rgb(15 23 42 / 18%); animation: bloom 550ms ease-out both; }
+.reveal strong { font-size: 1.1rem; color: var(--text-primary); }
+.reveal p { margin: 0; font-weight: 800; color: var(--text-secondary); }
+.reveal a { color: var(--primary); font-weight: 750; }
+.reveal button { border-radius: .75rem; padding: .65rem 1.1rem; background: var(--primary); color: #fff; font-weight: 850; }
+@keyframes bloom { from { opacity: .2; transform: scale(.84) rotate(-5deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .reveal img { animation: none; } }

@@ -6,6 +6,8 @@ import { type LessonBlock } from "../lesson-content";
 import placementStyles from "@/modules/courses/components/PlacementTest.module.css";
 import styles from "./ExerciseBlock.module.css";
 
+type ReviewReward = { correctedExperience: number; currentStreak: number; bestStreak: number; chest: { flowerId: string; experience: number; waterLily: number; milestone: number } | null } | null;
+
 type ExerciseBlockProps = {
   block: LessonBlock;
   contentLocale?: "ru" | "uk";
@@ -36,11 +38,12 @@ type ExerciseBlockProps = {
   onGuestLimitReached?: (resumeExerciseIndex: number) => void;
   onActiveExerciseChange?: (questionNumber: number) => void;
   reviewRunId?: string;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null }) => void;
+  restoredAnswer?: { exerciseId: string; answer: unknown; nonce: number } | null;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null; lessonAnswerStreak?: { current: number; recoverable: number }; reviewReward?: ReviewReward }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
 };
 
-export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, hidePlayerHeader = false, guestExerciseLimit, guestResumeExerciseIndex, guestCompletedExerciseCount = 0, onGuestLimitReached, onActiveExerciseChange, reviewRunId, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
+export function ExerciseBlock({ block, contentLocale, persistentStreakTone = null, previewMode = false, playerStyle = false, hideContext = false, hideContextText = false, focusExerciseId, individualExerciseStep = false, mistakeExerciseIds = [], attemptedExerciseIds = [], progressHydrated = false, requireCorrectForNext = false, sequentialOnly = false, hidePlayerHeader = false, guestExerciseLimit, guestResumeExerciseIndex, guestCompletedExerciseCount = 0, onGuestLimitReached, onActiveExerciseChange, reviewRunId, restoredAnswer, onAttemptResolved, onAttemptDeferred }: ExerciseBlockProps) {
   const exercises = block.exercises;
   const allowedExerciseCount = Math.max(1, Math.min(exercises.length, guestExerciseLimit ?? exercises.length));
   const guestLimitApplies = allowedExerciseCount < exercises.length;
@@ -93,6 +96,15 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
   }, [activeIndex, onActiveExerciseChange]);
 
   useEffect(() => {
+    if (!restoredAnswer) return;
+    const index = exercises.findIndex((exercise) => exercise.id === restoredAnswer.exerciseId);
+    if (index < 0) return;
+    if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
+    setActiveIndex(index);
+    setAnsweredIndexes((current) => current.includes(index) ? current : [...current, index]);
+  }, [exercises, restoredAnswer]);
+
+  useEffect(() => {
     if (!showAllExercises) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -127,7 +139,7 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
     setActiveIndex(firstMistakeIndex);
   }
 
-  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null, streakMilestone?: number | null) {
+  function resolveAttempt(index: number, exerciseId: string, isCorrect: boolean, streakTone?: string | null, streakMilestone?: number | null, lessonAnswerStreak?: { current: number; recoverable: number }, reviewReward?: ReviewReward) {
     // A block is ready to advance only after every card has received an
     // answer. Previously this used the *position* of the final card, so a
     // learner could reach the last question from “Show all tasks”, see 100%
@@ -142,6 +154,8 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
       difficulty: exercises[index]?.difficulty,
       streakTone,
       streakMilestone,
+      lessonAnswerStreak,
+      reviewReward,
     });
 
     // A block is a completed learning path once every prompt has received an
@@ -212,7 +226,12 @@ export function ExerciseBlock({ block, contentLocale, persistentStreakTone = nul
         hideContext={hideContext}
         hideContextText={hideContextText}
         reviewRunId={reviewRunId}
-        onAttemptResolved={({ exerciseId, isCorrect, streakTone, streakMilestone }) => resolveAttempt(index, exerciseId, isCorrect, streakTone, streakMilestone)}
+        restoredAnswer={restoredAnswer?.exerciseId === exercise.id ? restoredAnswer : null}
+        onRecoveredContinue={() => {
+          if (index < allowedExerciseCount - 1) openNextExercise(index);
+          else onAttemptDeferred?.({ exerciseId: exercise.id, isFinalExercise: true });
+        }}
+        onAttemptResolved={({ exerciseId, isCorrect, streakTone, streakMilestone, lessonAnswerStreak, reviewReward }) => resolveAttempt(index, exerciseId, isCorrect, streakTone, streakMilestone, lessonAnswerStreak, reviewReward)}
         onDefer={requireCorrectForNext ? undefined : () => deferExercise(index, exercise.id)}
       />
     </div>

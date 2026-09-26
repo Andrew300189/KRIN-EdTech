@@ -12,6 +12,7 @@ import { LessonAnswerStreakStatus } from "@/modules/motivation/components/Lesson
 import { LessonStreakRecoveryCard } from "@/modules/motivation/components/LessonStreakRecoveryCard";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
+import { ReviewStreakChestReward, type ReviewChest } from "@/modules/motivation/components/ReviewStreakChestReward";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
 import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
@@ -29,6 +30,7 @@ import { buildGuestLessonPreviewPlan } from "@/modules/lessons/utils/guest-lesso
 import { shouldBurstLessonConfetti } from "@/modules/lessons/utils/lesson-celebration";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
 import { useLocale } from "@/core/i18n/locale";
+import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import styles from "./FocusLessonPlayer.module.css";
 
 type StoredProgress = {
@@ -106,7 +108,7 @@ type Props = {
   /** A secure, user-owned error review opened from My mistakes. */
   reviewMistake?: { exerciseId: string; returnHref: string };
   /** A server-owned sequence of outstanding mistakes. */
-  reviewSession?: { runId: string; exerciseIds: string[]; initialMistakeCount: number; initialExerciseId?: string };
+  reviewSession?: { runId: string; exerciseIds: string[]; initialMistakeCount: number; initialExerciseId?: string; correctStreak?: number };
 };
 
 function guestRegistrationCopy(locale: string) {
@@ -208,13 +210,12 @@ function getBlockAttemptVisual(
 function getBlockProgressFraction(
   block: LessonBlock,
   completedBlockIds: readonly string[],
-  correctExerciseIds: ReadonlySet<string>,
+  attemptedExerciseIds: ReadonlySet<string>,
 ) {
-  // Exercise steps advance the visual finish line only through correct
-  // answers. A learner may leave a wrong answer for review and still move on,
-  // but that must not make the dopamine progress bar jump ahead.
+  // The lesson timeline measures work completed, including an answered card
+  // that needs later review. Accuracy remains visible in the coloured segment.
   if (block.exercises.length > 0) {
-    return block.exercises.filter((exercise) => correctExerciseIds.has(exercise.id)).length / block.exercises.length;
+    return block.exercises.filter((exercise) => attemptedExerciseIds.has(exercise.id)).length / block.exercises.length;
   }
   return completedBlockIds.includes(block.id) ? 1 : 0;
 }
@@ -382,6 +383,13 @@ export function LessonPlayer({
   // the learner is making right now, not a historic course statistic.
   const [correctAnswersInRow, setCorrectAnswersInRow] = useState(0);
   const [brokenAnswerStreak, setBrokenAnswerStreak] = useState(0);
+  const [streakFrozen, setStreakFrozen] = useState(false);
+  const [streakThawing, setStreakThawing] = useState(false);
+  const [waterLilies, setWaterLilies] = useState<Array<{ id: string; capacity: number; quantity: number }>>([]);
+  const [restoredAnswer, setRestoredAnswer] = useState<{ exerciseId: string; answer: unknown; nonce: number } | null>(null);
+  const [reviewAnswerStreak, setReviewAnswerStreak] = useState(reviewSession?.correctStreak ?? 0);
+  const [reviewChest, setReviewChest] = useState<ReviewChest | null>(null);
+  const [reviewAdvanceAfterChest, setReviewAdvanceAfterChest] = useState(false);
   const [visitExerciseIds, setVisitExerciseIds] = useState<string[]>([]);
   const [autoAdvanceRequested, setAutoAdvanceRequested] = useState(false);
   const [reviewReturnPending, setReviewReturnPending] = useState(false);
@@ -399,6 +407,7 @@ export function LessonPlayer({
   const isPracticeRunRef = useRef(false);
   const previewCompleteReported = useRef(false);
   const progressMutationRef = useRef(false);
+  const streakMutationRef = useRef(false);
   const learningSessionId = useRef<string | null>(null);
   const interactionCount = useRef(0);
   const autoAdvanceTimerRef = useRef<number | null>(null);
@@ -424,6 +433,41 @@ export function LessonPlayer({
       return 0;
     });
   }
+
+  function thawStreak() {
+    if (streakFrozen) {
+      setStreakThawing(true);
+      window.setTimeout(() => setStreakThawing(false), 700);
+    }
+    setStreakFrozen(false);
+  }
+
+  useEffect(() => {
+    if (previewMode || !canSaveProgress || reviewSession) return;
+    let live = true;
+    void fetch(`/api/learning/lessons/${lessonId}/answer-streak`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload: { data?: { current: number; recoverable: number; lilies: Array<{ id: string; capacity: number; quantity: number }> } } | null) => {
+        if (!live || !payload?.data) return;
+        setWaterLilies(payload.data.lilies);
+        if (streakMutationRef.current) return;
+        setCorrectAnswersInRow(payload.data.current);
+        setBrokenAnswerStreak(payload.data.recoverable);
+        setStreakFrozen(payload.data.current > 0);
+      }).catch(() => undefined);
+    return () => { live = false; };
+  }, [canSaveProgress, lessonId, previewMode, reviewSession]);
+
+  useEffect(() => {
+    if (brokenAnswerStreak < 1 || previewMode || !canSaveProgress || reviewSession) return;
+    let live = true;
+    void fetch(`/api/learning/lessons/${lessonId}/answer-streak`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload: { data?: { lilies: Array<{ id: string; capacity: number; quantity: number }> } } | null) => {
+        if (live && payload?.data) setWaterLilies(payload.data.lilies);
+      }).catch(() => undefined);
+    return () => { live = false; };
+  }, [brokenAnswerStreak, canSaveProgress, lessonId, previewMode, reviewSession]);
 
   useEffect(() => { if (saveError) toast.error(saveError); }, [saveError]);
   useEffect(() => { if (reviewError) toast.error(reviewError); }, [reviewError]);
@@ -470,8 +514,8 @@ export function LessonPlayer({
   );
   const lessonIsCompleted = isLessonProgressComplete(storedProgress);
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
-  const correctExerciseIds = useMemo(
-    () => new Set(Object.entries(exerciseResults).filter(([, isCorrect]) => isCorrect).map(([exerciseId]) => exerciseId)),
+  const attemptedExerciseIds = useMemo(
+    () => new Set(Object.keys(exerciseResults)),
     [exerciseResults],
   );
   const progressPercent = useMemo(() => {
@@ -481,15 +525,15 @@ export function LessonPlayer({
     // lesson fills each large step according to its individual answers.
     if (lessonIsCompleted && !isPracticeRunRef.current) return 100;
     const visitedBlocks = isPracticeRunRef.current ? practiceBlockIds : completedBlocks;
-    const answeredCorrectlyThisVisit = isPracticeRunRef.current
-      ? new Set(visitExerciseIds.filter((exerciseId) => correctExerciseIds.has(exerciseId)))
-      : correctExerciseIds;
+    const answeredThisVisit = isPracticeRunRef.current
+      ? new Set(visitExerciseIds.filter((exerciseId) => attemptedExerciseIds.has(exerciseId)))
+      : attemptedExerciseIds;
     const completedFraction = blocks.reduce(
-      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, answeredCorrectlyThisVisit),
+      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, answeredThisVisit),
       0,
     );
     return Math.round((completedFraction / blocks.length) * 100);
-  }, [blocks, completedBlocks, correctExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds]);
+  }, [blocks, completedBlocks, attemptedExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds]);
   const progressLabel = lessonIsCompleted
     ? locale === "uk" ? `Практика · ${progressPercent}% повторено` : locale === "ru" ? `Практика · ${progressPercent}% повторено` : `Practice · ${progressPercent}% revisited`
     : locale === "uk" ? `${progressPercent}% завершено` : locale === "ru" ? `${progressPercent}% пройдено` : `${progressPercent}% complete`;
@@ -498,7 +542,7 @@ export function LessonPlayer({
     [blocks, completedBlocks],
   );
   const guestPreviewKey = `krin:lesson-preview:${lessonId}`;
-  const destination = reviewSession ? "/student/mistakes" : (returnHref ?? `/courses/${courseSlug}`);
+  const destination = reviewSession ? "/student/mistakes" : previewMode ? (returnHref ?? `/courses/${courseSlug}`) : "/student";
 
   // Keep a synchronous copy as well as React state. `pagehide` has no render
   // cycle to wait for, so this guarantees that a tab/window close sends the
@@ -1089,6 +1133,10 @@ export function LessonPlayer({
       {!previewMode && canSaveProgress ? <LeaderboardRiseNotifier /> : null}
       <LessonSuccessEffects effect={successEffect} />
       <StreakChestReward milestone={streakChestMilestone} onDismiss={() => setStreakChestMilestone(null)} />
+      <ReviewStreakChestReward chest={reviewChest} onClose={() => {
+        setReviewChest(null);
+        if (reviewAdvanceAfterChest) { setReviewAdvanceAfterChest(false); void advanceReviewRun(); }
+      }} />
       {!progressHydrated && canSaveProgress && !previewMode ? <LilyMascot context="LOADING" placement="inline" /> : null}
       {leavingLesson ? <LilyMascot context="LEAVING" /> : null}
       <div className={styles.frame}>
@@ -1102,6 +1150,7 @@ export function LessonPlayer({
               <span className={styles.headerActionIcon} aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14" /></svg></span>
               <span>{chromeCopy.courseContents}</span>
             </button> : null}
+            <ColorThemePicker />
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
@@ -1153,7 +1202,8 @@ export function LessonPlayer({
             </nav>
           </div>
           <div className={styles.stepArea}>
-            <LessonAnswerStreakStatus correctAnswersInRow={correctAnswersInRow} />
+            {!reviewSession ? <LessonAnswerStreakStatus correctAnswersInRow={correctAnswersInRow} frozen={streakFrozen} thawing={streakThawing} waterLilies={waterLilies} /> : null}
+            {reviewSession ? <span className={styles.reviewStreak} aria-label={`Correction streak: ${reviewAnswerStreak}`}>✓ {reviewAnswerStreak}</span> : null}
             <ExperienceStatus />
           </div>
         </header>
@@ -1161,7 +1211,21 @@ export function LessonPlayer({
         <section className={styles.lessonContext} aria-labelledby="lesson-title">
           <h1 id="lesson-title">{title}</h1>
         </section>
-        {!previewMode ? <LessonStreakRecoveryCard brokenStreak={brokenAnswerStreak} onRestore={() => { setCorrectAnswersInRow(brokenAnswerStreak); setBrokenAnswerStreak(0); }} onContinue={() => setBrokenAnswerStreak(0)} /> : null}
+        {!previewMode && canSaveProgress && !reviewSession ? <LessonStreakRecoveryCard lessonId={lessonId} brokenStreak={brokenAnswerStreak} lilies={waterLilies} onResolved={(result) => {
+          streakMutationRef.current = true;
+          setCorrectAnswersInRow(result.current);
+          setBrokenAnswerStreak(result.recoverable);
+          if (result.restored) thawStreak();
+          else setStreakFrozen(false);
+          if (result.restored && result.exerciseId) {
+            const restoredBlock = blocks.find((block) => block.exercises.some((exercise) => exercise.id === result.exerciseId));
+            if (restoredBlock) setCurrentBlockId(restoredBlock.id);
+            setRestoredAnswer({ exerciseId: result.exerciseId, answer: result.correctAnswer, nonce: Date.now() });
+            setExerciseResults((current) => ({ ...current, [result.exerciseId!]: true }));
+            if (result.streakMilestone) setStreakChestMilestone(result.streakMilestone);
+          }
+          void fetch(`/api/learning/lessons/${lessonId}/answer-streak`, { cache: "no-store" }).then(async (response) => response.ok ? response.json() : null).then((payload: { data?: { lilies: Array<{ id: string; capacity: number; quantity: number }> } } | null) => { if (payload?.data) setWaterLilies(payload.data.lilies); }).catch(() => undefined);
+        }} /> : null}
 
         {reviewSession && reviewIntroOpen ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-intro-title">
           <p className={styles.taskType}>Mistake review</p>
@@ -1297,7 +1361,8 @@ export function LessonPlayer({
                     .filter((exercise) => exerciseResults[exercise.id] === false)
                     .map((exercise) => exercise.id)}
                    requireCorrectForNext={isReviewSession || Boolean(reviewMistake)}
-                   reviewRunId={reviewSession?.runId}
+                  reviewRunId={reviewSession?.runId}
+                  restoredAnswer={restoredAnswer}
                    guestActionLimit={isGuestPreview ? activeGuestActionLimit : undefined}
                    guestResumeExerciseIndex={activeBlock.id === guestExerciseResume?.blockId ? guestExerciseResume.nextExerciseIndex : undefined}
                    guestCompletedExerciseCount={activeBlock.id === guestExerciseResume?.blockId ? guestExerciseResume.nextExerciseIndex : undefined}
@@ -1308,17 +1373,31 @@ export function LessonPlayer({
                      setAutoAdvanceRequested(false);
                      setGuestRegistrationRequired(true);
                    }}
-                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone }) => {
+                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone, lessonAnswerStreak, reviewReward }) => {
                     progressMutationRef.current = true;
-                    if (!isCorrect) {
-                      setPersistentStreakTone(null);
-                      breakAnswerStreak();
+                    if (!reviewSession) {
+                      streakMutationRef.current = true;
+                      if (isCorrect) thawStreak();
+                      if (lessonAnswerStreak) {
+                        setCorrectAnswersInRow(lessonAnswerStreak.current);
+                        setBrokenAnswerStreak(lessonAnswerStreak.recoverable);
+                        if (!isCorrect) setPersistentStreakTone(null);
+                      } else if (!isCorrect) {
+                        setPersistentStreakTone(null);
+                        breakAnswerStreak();
+                      } else {
+                        setCorrectAnswersInRow((current) => current + 1);
+                      }
                     }
-                    else {
-                      setCorrectAnswersInRow((current) => current + 1);
+                    if (isCorrect) {
                       if (streakTone) setPersistentStreakTone(streakTone);
                       if (streakMilestone) setStreakChestMilestone(streakMilestone);
                       triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect, difficulty }));
+                    }
+                    if (reviewReward) {
+                      setReviewAnswerStreak(reviewReward.currentStreak);
+                      if (reviewReward.correctedExperience) toast.success(`+${reviewReward.correctedExperience} XP`);
+                      if (reviewReward.chest) setReviewChest(reviewReward.chest);
                     }
                     const nextResults = { ...exerciseResults, [exerciseId]: isCorrect };
                     setExerciseResults(nextResults);
@@ -1327,6 +1406,7 @@ export function LessonPlayer({
                       if (!isCorrect) return;
                       const allLessonReviewExercisesResolved = reviewSession.exerciseIds.every((reviewExerciseId) => nextResults[reviewExerciseId] === true);
                       if (allLessonReviewExercisesResolved) {
+                        if (reviewReward?.chest) { setReviewAdvanceAfterChest(true); return; }
                         void advanceReviewRun();
                         return;
                       }
@@ -1370,6 +1450,7 @@ export function LessonPlayer({
                     setAutoAdvanceRequested(true);
                   }}
                   onSpacedReviewCorrect={(difficulty) => {
+                    thawStreak();
                     setCorrectAnswersInRow((current) => current + 1);
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
@@ -1381,6 +1462,7 @@ export function LessonPlayer({
                   }}
                   onVocabularyMasteryStageComplete={({ exerciseId, streakTone, streakMilestone }) => {
                     progressMutationRef.current = true;
+                    thawStreak();
                     setCorrectAnswersInRow((current) => current + 1);
                     if (streakTone) setPersistentStreakTone(streakTone);
                     if (streakMilestone) setStreakChestMilestone(streakMilestone);

@@ -8,7 +8,7 @@ import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerCh
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
-import { consumableQuantity, WATER_LILY_PRICE_COINS, WATER_LILY_SHOP_ID, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, WATER_LILY_SHOP_ID, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 
 type ShopItemKind = "theme" | "avatar" | "discount" | "recovery" | "booster";
 
@@ -23,7 +23,7 @@ export type ShopItem = {
 
 /** All prices and effects live on the server. Never accept them from a form. */
 export const SHOP_ITEMS: readonly ShopItem[] = [
-  { id: WATER_LILY_SHOP_ID, kind: "recovery", price: WATER_LILY_PRICE_COINS, title: "Water Lily", description: "An inventory flower for one lost-streak restoration after a completed lesson with a first-try correct answer." },
+  ...WATER_LILY_TIERS.map((lily) => ({ id: lily.id, kind: "recovery" as const, price: lily.price, title: `Water Lily · ×${lily.capacity}`, description: `Restores an interrupted lesson answer streak of up to ${lily.capacity} verified correct answers.`, value: lily.capacity })),
   ...XP_BOOSTERS.map((booster) => ({
     id: booster.id,
     kind: "booster" as const,
@@ -52,14 +52,6 @@ type EconomyBonusReward = {
   hintCredits: number;
   translationCredits: number;
 };
-
-const DAILY_CHEST_REWARDS: readonly EconomyBonusReward[] = [
-  { id: "xp-20", experience: 20, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-40", experience: 40, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-60", experience: 60, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-80", experience: 80, hintCredits: 0, translationCredits: 0 },
-  { id: "xp-100", experience: 100, hintCredits: 0, translationCredits: 0 },
-] as const;
 
 type StreakChestRewardBand = "LOW" | "MID" | "UPPER" | "JACKPOT";
 type StreakChestDailyCounts = Record<StreakChestRewardBand, number>;
@@ -102,12 +94,13 @@ export function isCenturyStreakChest(milestone: number) {
 
 /** The level, streak and verified task difficulty set a moving ceiling within
  * the requested 10–500 XP range. Higher values are still chance-based. */
-export function streakChestExperienceCeiling(input: { milestone: number; chestLevel: number; difficulty: number; dailyStreak: number }) {
+export function streakChestExperienceCeiling(input: { milestone: number; chestLevel: number; difficulty: number; dailyStreak: number; userLevel?: number }) {
   const raw = 10
     + Math.sqrt(Math.max(0, input.milestone)) * 4.15
     + Math.max(1, input.chestLevel) * 0.18
     + Math.max(0, input.difficulty - 1) * 8
-    + Math.min(100, Math.max(0, input.dailyStreak)) * 0.4;
+    + Math.min(100, Math.max(0, input.dailyStreak)) * 0.4
+    + Math.min(80, Math.max(0, (input.userLevel ?? 1) - 1) * 0.8);
   return Math.max(STREAK_CHEST_XP_MINIMUM, Math.min(STREAK_CHEST_XP_MAXIMUM, Math.round(raw)));
 }
 
@@ -148,7 +141,7 @@ export function selectStreakChestExperience(input: { ceiling: number; previous: 
   return randomAmount(STREAK_CHEST_XP_MINIMUM, Math.min(100, ceiling), input.previous);
 }
 
-export type MilestoneChestKind = "LESSON_3" | "EVERY_7_LESSONS" | "MODULE" | "COURSE";
+export type MilestoneChestKind = "FIRST_STEPS" | "LESSON_3" | "LESSON_7" | "LESSON_9" | "EVERY_3_LESSONS" | "EVERY_7_LESSONS" | "EVERY_9_LESSONS" | "EVERY_12_LESSONS" | "MODULE" | "COURSE";
 
 type MilestoneChest = {
   kind: MilestoneChestKind;
@@ -165,35 +158,54 @@ export type MilestoneChestState = {
   chests: MilestoneChest[];
 };
 
-const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, readonly EconomyBonusReward[]> = {
-  LESSON_3: [
-    { id: "xp-25", experience: 25, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-35", experience: 35, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-45", experience: 45, hintCredits: 1, translationCredits: 0 },
-  ],
-  EVERY_7_LESSONS: [
-    { id: "xp-50", experience: 50, hintCredits: 0, translationCredits: 0 },
-    { id: "xp-65", experience: 65, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-80", experience: 80, hintCredits: 0, translationCredits: 1 },
-  ],
-  MODULE: [
-    { id: "xp-90", experience: 90, hintCredits: 1, translationCredits: 0 },
-    { id: "xp-120", experience: 120, hintCredits: 0, translationCredits: 1 },
-    { id: "xp-150", experience: 150, hintCredits: 1, translationCredits: 1 },
-  ],
-  COURSE: [
-    { id: "xp-180", experience: 180, hintCredits: 1, translationCredits: 1 },
-    { id: "xp-220", experience: 220, hintCredits: 2, translationCredits: 1 },
-    { id: "xp-270", experience: 270, hintCredits: 1, translationCredits: 2 },
-  ],
+export type OpenedMilestoneChest = {
+  kind: MilestoneChestKind;
+  sourceId: string;
+  experience: number;
+  waterLilies: number;
+  openedAt: Date;
+};
+
+export const MILESTONE_CHEST_REWARDS: Record<MilestoneChestKind, { experience: number; waterLilies: number }> = {
+  FIRST_STEPS: { experience: 300, waterLilies: 1 },
+  LESSON_3: { experience: 500, waterLilies: 2 },
+  LESSON_7: { experience: 1500, waterLilies: 5 },
+  LESSON_9: { experience: 2000, waterLilies: 7 },
+  EVERY_3_LESSONS: { experience: 500, waterLilies: 2 },
+  EVERY_7_LESSONS: { experience: 1500, waterLilies: 5 },
+  EVERY_9_LESSONS: { experience: 2000, waterLilies: 7 },
+  EVERY_12_LESSONS: { experience: 3000, waterLilies: 12 },
+  MODULE: { experience: 3000, waterLilies: 12 },
+  COURSE: { experience: 3000, waterLilies: 12 },
 };
 
 const MILESTONE_CHEST_SOURCE_TYPE: Record<MilestoneChestKind, string> = {
+  FIRST_STEPS: "MILESTONE_CHEST_FIRST_STEPS",
   LESSON_3: "MILESTONE_CHEST_3_LESSONS",
+  LESSON_7: "MILESTONE_CHEST_FIRST_7_LESSONS",
+  LESSON_9: "MILESTONE_CHEST_FIRST_9_LESSONS",
+  EVERY_3_LESSONS: "MILESTONE_CHEST_EVERY_3_LESSONS",
   EVERY_7_LESSONS: "MILESTONE_CHEST_7_LESSONS",
+  EVERY_9_LESSONS: "MILESTONE_CHEST_EVERY_9_LESSONS",
+  EVERY_12_LESSONS: "MILESTONE_CHEST_EVERY_12_LESSONS",
   MODULE: "MILESTONE_CHEST_MODULE",
   COURSE: "MILESTONE_CHEST_COURSE",
 };
+
+/** Already opened chests live in achievements, not in the upcoming-rewards rail. */
+export async function listOpenedMilestoneChests(userId: string): Promise<OpenedMilestoneChest[]> {
+  const sourceToKind = new Map(Object.entries(MILESTONE_CHEST_SOURCE_TYPE).map(([kind, sourceType]) => [sourceType, kind as MilestoneChestKind]));
+  const claims = await prisma.experienceTransaction.findMany({
+    where: { userId, sourceType: { in: [...sourceToKind.keys()] } },
+    select: { sourceType: true, sourceId: true, amount: true, description: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+  return claims.flatMap((claim) => {
+    const kind = sourceToKind.get(claim.sourceType);
+    if (!kind) return [];
+    return [{ kind, sourceId: claim.sourceId, experience: claim.amount, waterLilies: Number(claim.description?.match(/water-lily:(\d+)/)?.[1] ?? 0), openedAt: claim.createdAt }];
+  });
+}
 /** The multiplier wheel deliberately contains every tenth between 1.0 and
  * 3.0 exactly once. There are no hidden weights or "near miss" values. */
 export const LESSON_XP_MULTIPLIER_MIN_STEP = 10;
@@ -243,7 +255,7 @@ function multiplierWheelResultFromTransaction(transaction: LessonXpMultiplierTra
   };
 }
 
-type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number; localDate: string };
+type ChestRewardContext = { difficulty: number; currentStreak: number; chestLevel: number; userLevel: number; localDate: string };
 
 /**
  * Chest XP is calculated server-side from the latest completed task's
@@ -252,7 +264,7 @@ type ChestRewardContext = { difficulty: number; currentStreak: number; chestLeve
  * of XP to appear from a client-side animation.
  */
 async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, chestLevel: number): Promise<ChestRewardContext> {
-  const [streak, attempts, user] = await Promise.all([
+  const [streak, attempts, user, level] = await Promise.all([
     tx.userStreak.findUnique({ where: { userId }, select: { currentStreak: true } }),
     tx.exerciseAttempt.findMany({
       where: { userId, isCorrect: true },
@@ -261,6 +273,7 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
       select: { exercise: { select: { difficulty: true } } },
     }),
     tx.user.findUnique({ where: { id: userId }, select: { timeZone: true } }),
+    tx.userLevel.findUnique({ where: { userId }, select: { level: true } }),
   ]);
   const meanDifficulty = attempts.length
     ? attempts.reduce((sum, attempt) => sum + attempt.exercise.difficulty, 0) / attempts.length
@@ -269,15 +282,9 @@ async function chestRewardContext(tx: Prisma.TransactionClient, userId: string, 
     difficulty: Math.max(1, Math.min(5, Math.round(meanDifficulty))),
     currentStreak: Math.max(0, streak?.currentStreak ?? 0),
     chestLevel: Math.max(1, Math.min(403, chestLevel)),
+    userLevel: Math.max(1, level?.level ?? 1),
     localDate: userLocalDate(user?.timeZone),
   };
-}
-
-function scaledChestReward(reward: EconomyBonusReward, context: ChestRewardContext) {
-  const difficultyBonus = (context.difficulty - 1) * 0.08;
-  const chestBonus = Math.log2(context.chestLevel) * 0.1;
-  const streakBonus = Math.min(context.currentStreak, 30) * 0.01;
-  return { ...reward, experience: Math.max(1, Math.round(reward.experience * (1 + difficultyBonus + chestBonus + streakBonus))) };
 }
 
 type FlowerChestRewardChoice = EconomyBonusReward & {
@@ -302,7 +309,7 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
       select: { amount: true },
     }),
     tx.experienceTransaction.findFirst({
-      where: { userId, sourceType: "STREAK_CHEST", description: { contains: "flower:" } },
+      where: { userId, sourceType: { in: ["STREAK_CHEST", "MISTAKE_REVIEW_CHEST", "MISTAKE_ACHIEVEMENT"] }, description: { contains: "flower:" } },
       orderBy: { createdAt: "desc" },
       select: { description: true },
     }),
@@ -316,6 +323,7 @@ async function randomStreakChestReward(tx: Prisma.TransactionClient, userId: str
       chestLevel: context.chestLevel,
       difficulty: context.difficulty,
       dailyStreak: context.currentStreak,
+      userLevel: context.userLevel,
     }),
     previous: recentRewards[0]?.amount ?? null,
     previousJackpot: previousJackpot?.amount ?? null,
@@ -381,6 +389,7 @@ async function existingChestReward(tx: Prisma.TransactionClient, userId: string,
     experience: existing.amount,
     coins: (coin?.amount ?? 0) + (fractionalCoin?.amountMinor ?? 0) / 100 + Number(existing.description?.match(/xp-coins:(\d+)/)?.[1] ?? 0) / 100,
     flowerId: flowerIdFromDescription(existing.description),
+    firstDiscovery: false,
     waterLily: Number(existing.description?.match(/water-lily:(\d+)/)?.[1] ?? 0),
     hintCredits: bonuses.filter((bonus) => bonus.kind === "HINT").reduce((sum, bonus) => sum + bonus.amount, 0),
     translationCredits: bonuses.filter((bonus) => bonus.kind === "TRANSLATION").reduce((sum, bonus) => sum + bonus.amount, 0),
@@ -414,8 +423,10 @@ export async function getDailyChestState(userId: string, browserTimeZone?: strin
     timeZone = pinned.dailyChestTimeZone ?? timeZone;
   }
   const now = new Date();
-  const available = dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now);
-  return { available, nextAt: available ? null : nextDailyChestAt(timeZone, now) };
+  const lessonToday = await prisma.userDailyActivity.findUnique({ where: { userId_date: { userId, date: userLocalDate(timeZone, now) } }, select: { lessonsCompleted: true } });
+  const lessonRequired = !lessonToday?.lessonsCompleted;
+  const available = !lessonRequired && dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now);
+  return { available, lessonRequired, nextAt: dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now) ? null : nextDailyChestAt(timeZone, now) };
 }
 
 /** Claim state changes before reward creation inside one transaction. The
@@ -430,24 +441,21 @@ export async function openDailyChest(userId: string, browserTimeZone?: string | 
     const now = new Date();
     const nextAt = nextDailyChestAt(timeZone, now);
     if (!dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now)) {
-      return { opened: false, experience: 0, coins: 0, hintCredits: 0, translationCredits: 0, nextAt };
+      return { opened: false, experience: 0, coins: 0, waterLily: 0, hintCredits: 0, translationCredits: 0, nextAt };
     }
+    const activity = await tx.userDailyActivity.findUnique({ where: { userId_date: { userId, date: userLocalDate(timeZone, now) } }, select: { lessonsCompleted: true } });
+    if (!activity?.lessonsCompleted) throw new Error("Complete one lesson today to open the daily chest.");
     await tx.user.update({ where: { id: userId }, data: { dailyChestClaimedAt: now } });
-    const rewardChoice = scaledChestReward(
-      DAILY_CHEST_REWARDS[randomInt(DAILY_CHEST_REWARDS.length)],
-      await chestRewardContext(tx, userId, 1),
-    );
     const reward = await grantEconomyReward(tx, {
       userId,
-      experience: rewardChoice.experience,
-      hintCredits: rewardChoice.hintCredits,
-      translationCredits: rewardChoice.translationCredits,
+      experience: 500,
       sourceType: "DAILY_CHEST",
       sourceId: now.toISOString(),
       idempotencyKey: `daily-chest:${userId}:${now.getTime()}`,
-      description: `Daily Mystery Box:${rewardChoice.id}`,
+      description: "Daily lesson chest | water-lily:3",
     });
-    return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits, nextAt };
+    if (reward.awarded) await tx.userStreak.upsert({ where: { userId }, create: { userId, waterLilyCount: 3 }, update: { waterLilyCount: { increment: 3 } } });
+    return { opened: reward.awarded, experience: reward.experience, coins: reward.coins, waterLily: reward.awarded ? 3 : 0, hintCredits: 0, translationCredits: 0, nextAt };
   });
 }
 
@@ -495,6 +503,10 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
     };
 
     const choice = await randomStreakChestReward(tx, userId, milestone, context);
+    const previouslyOwnedFlower = await tx.experienceTransaction.findFirst({
+      where: { userId, sourceType: { in: ["STREAK_CHEST", "MISTAKE_REVIEW_CHEST", "MISTAKE_ACHIEVEMENT"] }, description: { contains: `flower:${choice.flower.id}` } },
+      select: { id: true },
+    });
     const allowsLegendaryExperience = isWhiteLily(choice.flower);
     if (!Number.isSafeInteger(choice.experience) || choice.experience < STREAK_CHEST_XP_MINIMUM || (!allowsLegendaryExperience && choice.experience > STREAK_CHEST_XP_MAXIMUM) || (allowsLegendaryExperience && choice.experience !== 1_000)) {
       throw new Error("Invalid streak chest reward.");
@@ -553,6 +565,7 @@ export async function openStreakChest(userId: string, rawMilestone: number) {
       alreadyOpened: false,
       rewardId: choice.id,
       flowerId: choice.flower.id,
+      firstDiscovery: !previouslyOwnedFlower,
       waterLily,
       experience: reward.experience,
       coins: reward.coins,
@@ -606,10 +619,17 @@ export async function getMilestoneChestState(userId: string): Promise<MilestoneC
   const claimed = new Set(claims.map((claim) => `${claim.sourceType}:${claim.sourceId}`));
   const hasClaim = (kind: MilestoneChestKind, sourceId: string) => claimed.has(milestoneChestKey(kind, sourceId));
 
-  const starterClaimed = hasClaim("LESSON_3", "3");
-  const sevenThresholds = Array.from({ length: Math.floor(completedLessons / 7) }, (_, index) => (index + 1) * 7);
-  const unclaimedSevenThresholds = sevenThresholds.filter((threshold) => !hasClaim("EVERY_7_LESSONS", String(threshold)));
-  const nextSevenThreshold = unclaimedSevenThresholds[0] ?? (sevenThresholds.at(-1) ?? 0) + 7;
+  const firstChest = (kind: MilestoneChestKind, target: number): MilestoneChest => {
+    const claimedOnce = hasClaim(kind, String(target));
+    const available = completedLessons >= target && !claimedOnce;
+    return { kind, available, availableCount: available ? 1 : 0, nextSourceId: available ? String(target) : null, progress: Math.min(completedLessons, target), target, claimed: claimedOnce };
+  };
+  const repeatingChest = (kind: MilestoneChestKind, interval: number): MilestoneChest => {
+    const thresholds = Array.from({ length: Math.floor(completedLessons / interval) }, (_, index) => (index + 1) * interval).filter((number) => number > 9);
+    const unclaimed = thresholds.filter((number) => !hasClaim(kind, String(number)));
+    const next = unclaimed[0] ?? Math.ceil(Math.max(10, completedLessons + 1) / interval) * interval;
+    return { kind, available: unclaimed.length > 0, availableCount: unclaimed.length, nextSourceId: unclaimed.length ? String(unclaimed[0]) : null, progress: Math.min(completedLessons, next), target: next, claimed: false };
+  };
 
   const unclaimedModules = completedModules.filter((module) => !hasClaim("MODULE", module.id));
   const completedCourseIds = [...new Set(completedModules.map((module) => module.courseId))].filter((courseId) => {
@@ -640,10 +660,16 @@ export async function getMilestoneChestState(userId: string): Promise<MilestoneC
   return {
     completedLessons,
     chests: [
-      { kind: "LESSON_3", available: completedLessons >= 3 && !starterClaimed, availableCount: completedLessons >= 3 && !starterClaimed ? 1 : 0, nextSourceId: completedLessons >= 3 && !starterClaimed ? "3" : null, progress: Math.min(completedLessons, 3), target: 3, claimed: starterClaimed },
-      { kind: "EVERY_7_LESSONS", available: unclaimedSevenThresholds.length > 0, availableCount: unclaimedSevenThresholds.length, nextSourceId: unclaimedSevenThresholds.length ? String(unclaimedSevenThresholds[0]) : null, progress: Math.min(completedLessons, nextSevenThreshold), target: nextSevenThreshold, claimed: false },
+      firstChest("FIRST_STEPS", 1),
+      firstChest("LESSON_3", 3),
+      firstChest("LESSON_7", 7),
+      firstChest("LESSON_9", 9),
       { kind: "MODULE", available: unclaimedModules.length > 0, availableCount: unclaimedModules.length, nextSourceId: unclaimedModules[0]?.id ?? null, progress: completedModules.length, target: completedModules.length + (unclaimedModules.length ? 0 : 1), claimed: false },
       { kind: "COURSE", available: unclaimedCourses.length > 0, availableCount: unclaimedCourses.length, nextSourceId: unclaimedCourses[0]?.id ?? null, progress: completedCourses.length, target: completedCourses.length + (unclaimedCourses.length ? 0 : 1), claimed: false },
+      repeatingChest("EVERY_3_LESSONS", 3),
+      repeatingChest("EVERY_7_LESSONS", 7),
+      repeatingChest("EVERY_9_LESSONS", 9),
+      repeatingChest("EVERY_12_LESSONS", 12),
     ],
   };
 }
@@ -653,10 +679,15 @@ async function milestoneIsEligible(tx: Prisma.TransactionClient, userId: string,
     where: { userId, status: "COMPLETED", lesson: { isPublished: true, module: { isPublished: true, course: { isPublished: true, isTemplate: false } } } },
   });
 
-  if (kind === "LESSON_3") return sourceId === "3" && await completedLessons() >= 3;
-  if (kind === "EVERY_7_LESSONS") {
+  const firstMilestone = { FIRST_STEPS: 1, LESSON_3: 3, LESSON_7: 7, LESSON_9: 9 } as const;
+  if (kind in firstMilestone) {
+    const target = firstMilestone[kind as keyof typeof firstMilestone];
+    return sourceId === String(target) && await completedLessons() >= target;
+  }
+  const repeatingInterval = { EVERY_3_LESSONS: 3, EVERY_7_LESSONS: 7, EVERY_9_LESSONS: 9, EVERY_12_LESSONS: 12 } as const;
+  if (kind in repeatingInterval) {
     const threshold = Number(sourceId);
-    return Number.isSafeInteger(threshold) && threshold >= 7 && threshold % 7 === 0 && await completedLessons() >= threshold;
+    return Number.isSafeInteger(threshold) && threshold > 9 && threshold % repeatingInterval[kind as keyof typeof repeatingInterval] === 0 && await completedLessons() >= threshold;
   }
   if (kind === "MODULE") {
     const courseModule = await tx.courseModule.findFirst({
@@ -684,22 +715,17 @@ export async function openMilestoneChest(userId: string, kind: MilestoneChestKin
       const existing = await existingChestReward(tx, userId, idempotencyKey, MILESTONE_CHEST_SOURCE_TYPE[kind], sourceId);
       if (existing) return existing;
       if (!await milestoneIsEligible(tx, userId, kind, sourceId)) throw new Error("This chest has not been unlocked yet.");
-      const tier: Record<MilestoneChestKind, number> = { LESSON_3: 1, EVERY_7_LESSONS: 2, MODULE: 3, COURSE: 4 };
-      const rewardChoice = scaledChestReward(
-        MILESTONE_CHEST_REWARDS[kind][randomInt(MILESTONE_CHEST_REWARDS[kind].length)],
-        await chestRewardContext(tx, userId, tier[kind]),
-      );
+      const rewardChoice = MILESTONE_CHEST_REWARDS[kind];
       const reward = await grantEconomyReward(tx, {
         userId,
         experience: rewardChoice.experience,
-        hintCredits: rewardChoice.hintCredits,
-        translationCredits: rewardChoice.translationCredits,
         sourceType: MILESTONE_CHEST_SOURCE_TYPE[kind],
         sourceId,
         idempotencyKey,
-        description: `Milestone chest:${kind}:${rewardChoice.id}`,
+        description: `Milestone chest:${kind}:${sourceId} | water-lily:${rewardChoice.waterLilies}`,
       });
-      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, hintCredits: reward.hintCredits, translationCredits: reward.translationCredits };
+      if (reward.awarded) await tx.userStreak.upsert({ where: { userId }, create: { userId, waterLilyCount: rewardChoice.waterLilies }, update: { waterLilyCount: { increment: rewardChoice.waterLilies } } });
+      return { opened: reward.awarded, alreadyOpened: false, experience: reward.experience, coins: reward.coins, waterLily: reward.awarded ? rewardChoice.waterLilies : 0, hintCredits: 0, translationCredits: 0 };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -741,7 +767,7 @@ export async function getShopState(userId: string) {
     balance: wallet.balance + wallet.fractionalBalance / 100,
     items: SHOP_ITEMS.map((item) => {
       const quantity = item.kind === "recovery"
-        ? streak.waterLilyCount
+        ? item.id === WATER_LILY_SHOP_ID ? streak.waterLilyCount : consumableQuantity(purchases, item.id)
         : item.kind === "booster" ? consumableQuantity(purchases, item.id) : 0;
       return { ...item, owned: item.kind === "recovery" || item.kind === "booster" ? quantity > 0 : owned.has(item.id), quantity };
     }),
@@ -795,7 +821,7 @@ export async function purchaseShopItem(userId: string, itemId: string, purchaseI
         },
       });
     }
-    if (item.kind === "recovery") {
+    if (item.kind === "recovery" && item.id === WATER_LILY_SHOP_ID) {
       await tx.userStreak.upsert({
         where: { userId }, create: { userId, waterLilyCount: 1 }, update: { waterLilyCount: { increment: 1 } },
       });

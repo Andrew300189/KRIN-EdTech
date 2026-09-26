@@ -142,6 +142,7 @@
   justify-content: flex-end;
   gap: .42rem;
 }
+.reviewStreak { display: inline-flex; align-items: center; justify-content: center; min-width: 2.8rem; min-height: 2rem; border: 1px solid #86c8ae; border-radius: 999px; background: #e9fbf1; color: #17664b; font-size: .8rem; font-weight: 900; }
 
 .lessonReward {
   margin: 1rem 0 0;

@@ -195,6 +195,7 @@ export async function getMistakeReviewLesson(userId: string, runId: string, cour
     select: {
       id: true,
       initialMistakeCount: true,
+      correctStreak: true,
       items: {
         where: { mistake: { resolvedAt: null, lesson: { slug: lessonSlug, module: { course: { slug: courseSlug } } } } },
         select: { mistakeId: true, mistake: { select: { exerciseId: true, lessonId: true } } },
@@ -207,6 +208,7 @@ export async function getMistakeReviewLesson(userId: string, runId: string, cour
   return {
     runId: run.id,
     initialMistakeCount: run.initialMistakeCount,
+    correctStreak: run.correctStreak,
     exerciseIds: [...new Set(items.map((item) => item.mistake.exerciseId))],
     mistakeIds: items.map((item) => item.mistakeId),
   };

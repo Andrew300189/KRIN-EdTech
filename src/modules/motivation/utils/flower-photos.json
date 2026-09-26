@@ -1,0 +1,735 @@
+{
+  "chamomile": {
+    "src": "/flower-chests/chamomile.webp",
+    "artist": "Swallowtail Garden Seeds from Santa Rosa, California, United States",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Chamomile_Flowers_-_Flickr_-_Swallowtail_Garden_Seeds.jpg"
+  },
+  "poppy": {
+    "src": "/flower-chests/poppy.webp",
+    "artist": "David Perez",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Papaver_somniferum_02_by-dpc.jpg"
+  },
+  "clover": {
+    "src": "/flower-chests/clover.webp",
+    "artist": "Darkone (talk · contribs)",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Rotklee_Trifolium_pratense.jpg"
+  },
+  "forget-me-not": {
+    "src": "/flower-chests/forget-me-not.webp",
+    "artist": "Jörg Hempel",
+    "license": "CC BY-SA 2.0 de",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/de/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Myosotis_scorpioides_LC0184.jpg"
+  },
+  "lungwort": {
+    "src": "/flower-chests/lungwort.webp",
+    "artist": "Bff",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Pulmonaria_obscura_20090512_017.jpg"
+  },
+  "bellflower": {
+    "src": "/flower-chests/bellflower.webp",
+    "artist": "BotBln",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Campanula_latifolia_BotGardBln_20170610_G.jpg"
+  },
+  "lady-slipper": {
+    "src": "/flower-chests/lady-slipper.webp",
+    "artist": "Mg-K ((GFDL))",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Cypripedium_calceolus_wiki_mg-k01.jpg"
+  },
+  "pink-lily": {
+    "src": "/flower-chests/pink-lily.webp",
+    "artist": "böhringer friedrich",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:T%C3%BCrkenbund_Lilie,_Lilium_martagon_2.JPG"
+  },
+  "white-lily": {
+    "src": "/flower-chests/white-lily.webp",
+    "artist": "Stan Shebs",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Lilium_candidum_1.jpg"
+  },
+  "ghost-orchid": {
+    "src": "/flower-chests/ghost-orchid.webp",
+    "artist": "BerndH",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Epipogium_aphyllum_plants.jpg"
+  },
+  "red-helleborine": {
+    "src": "/flower-chests/red-helleborine.webp",
+    "artist": "Orchi",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Cephalanthera_rubra_02_Luxemburg.jpg"
+  },
+  "monkey-orchid": {
+    "src": "/flower-chests/monkey-orchid.webp",
+    "artist": "Hüseyin Cahid Doğan",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Orchis_simia_flower.jpg"
+  },
+  "alpine-edelweiss": {
+    "src": "/flower-chests/alpine-edelweiss.webp",
+    "artist": "Bernd Haynold",
+    "license": "CC BY 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Leontopodium_alpinum_070707.jpg"
+  },
+  "bieberstein-tulip": {
+    "src": "/flower-chests/bieberstein-tulip.webp",
+    "artist": "Vadyum Manyuk",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%A2%D1%8E%D0%BB%D1%8C%D0%BF%D0%B0%D0%BD_%D0%B4%D1%96%D0%B1%D1%80%D0%BE%D0%B2%D0%BD%D0%B8%D0%B9_%D1%83_%D0%B1%D0%B0%D0%B9%D1%80%D0%B0%D1%86%D1%96._%D0%9B%D0%B0%D0%BD%D0%B4%D1%88%D0%B0%D1%84%D1%82%D0%BD%D0%B8%D0%B9_%D0%B7%D0%B0%D0%BA%D0%B0%D0%B7%D0%BD%D0%B8%D0%BA_%22%D0%A1%D1%82%D0%B0%D1%80%D0%BE%D0%B2%D0%B8%D1%88%D0%BD%D0%B5%D0%B2%D0%B5%D1%86%D1%8C%D0%BA%D0%B8%D0%B9%22.jpg"
+  },
+  "broadleaf-gladys": {
+    "src": "/flower-chests/broadleaf-gladys.webp",
+    "artist": "Meneerke bloem",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Laserpitium_latifolium000.JPG"
+  },
+  "water-chestnut": {
+    "src": "/flower-chests/water-chestnut.webp",
+    "artist": "Agnieszka Kwiecień, Nova",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Trapa_natans_Kotewka_orzech_wodny_2015-05-04_04.jpg"
+  },
+  "fine-leaved-peony": {
+    "src": "/flower-chests/fine-leaved-peony.webp",
+    "artist": "Loquita desita",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%97%D0%B0%D1%89%D0%B8%D1%82%D0%B5%D0%BD%D0%B0_%D0%BC%D0%B5%D1%81%D1%82%D0%BD%D0%BE%D1%81%D1%82_%D0%A2%D0%B5%D1%81%D0%BD%D0%BE%D0%BB%D0%B8%D1%81%D1%82%D0%B5%D0%BD_%D0%B1%D0%BE%D0%B6%D1%83%D1%80.jpg"
+  },
+  "bessers-aconite": {
+    "src": "/flower-chests/bessers-aconite.webp",
+    "artist": "Lumaca",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Aconitum_lycoctonum_(flower).jpg",
+    "note": {
+      "en": "Photo of a related plant from the Aconitum lycoctonum complex; exact A. besserianum identification is not verified.",
+      "ru": "На фото близкий вид из группы Aconitum lycoctonum; точное определение аконита Бессера не подтверждено.",
+      "uk": "На фото споріднений вид із групи Aconitum lycoctonum; точне визначення аконіту Бессера не підтверджено."
+    }
+  },
+  "meadow-pasqueflower": {
+    "src": "/flower-chests/meadow-pasqueflower.webp",
+    "artist": "Otro13",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%A1%D0%BE%D0%BD-%D1%82%D1%80%D0%B0%D0%B2%D0%B0.JPG"
+  },
+  "chequered-fritillary": {
+    "src": "/flower-chests/chequered-fritillary.webp",
+    "artist": "Yerpo",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Fritillaria_meleagris_LJ_barje.jpg"
+  },
+  "reticulated-crocus": {
+    "src": "/flower-chests/reticulated-crocus.webp",
+    "artist": "Anna Kuzemko",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%9A%D1%80%D0%BE%D0%BA%D1%83%D1%81_%D1%81%D1%96%D1%82%D1%87%D0%B0%D1%81%D1%82%D0%B8%D0%B9.JPG"
+  },
+  "spring-adonis": {
+    "src": "/flower-chests/spring-adonis.webp",
+    "artist": "Myrabella",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Adonis_vernalis_Lozere.jpg"
+  },
+  "white-water-lily": {
+    "src": "/flower-chests/white-water-lily.webp",
+    "artist": "DerHexer",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Nymphaea_alba_in_Duisburg.jpg"
+  },
+  "yellow-water-lily": {
+    "src": "/flower-chests/yellow-water-lily.webp",
+    "artist": "Петроченко Віктор Іванович",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Nuphar_lutea_08(05)._Khortytsya.jpg"
+  },
+  "siberian-iris": {
+    "src": "/flower-chests/siberian-iris.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Iris_sibirica_180605.jpg"
+  },
+  "common-saw-sedge": {
+    "src": "/flower-chests/common-saw-sedge.webp",
+    "artist": "Przykuta",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:ZPK_Cladium_mariscus_siedlisko_04.07.10_p.jpg"
+  },
+  "great-masterwort": {
+    "src": "/flower-chests/great-masterwort.webp",
+    "artist": "Meneerke bloem",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Astrantia_major02.jpg"
+  },
+  "ramsons": {
+    "src": "/flower-chests/ramsons.webp",
+    "artist": "Thomas Pusch",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Ursa_ajlo_6.jpg"
+  },
+  "northern-firmoss": {
+    "src": "/flower-chests/northern-firmoss.webp",
+    "artist": "Ghislain118 (AD) https://www.fleurs-des-montagnes.net",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Lycopodium_selago.jpg"
+  },
+  "sand-pink": {
+    "src": "/flower-chests/sand-pink.webp",
+    "artist": "Geonarva",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Nommenelk.jpg"
+  },
+  "wood-anemone": {
+    "src": "/flower-chests/wood-anemone.webp",
+    "artist": "Pierre-Jacques DESPA",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Anemone_nemorosa_close_up.jpg"
+  },
+  "common-snowdrop": {
+    "src": "/flower-chests/common-snowdrop.webp",
+    "artist": "Tocekas",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Galanthus_nivalis_1.jpg"
+  },
+  "three-lobed-fern": {
+    "src": "/flower-chests/three-lobed-fern.webp",
+    "artist": "Walter Siegmund (talk)",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Gymnocarpium_dryopteris_0318.JPG"
+  },
+  "greater-butterfly-orchid": {
+    "src": "/flower-chests/greater-butterfly-orchid.webp",
+    "artist": "Bff",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Platanthera_bifolia20090612_006-0.jpg"
+  },
+  "solomons-seal": {
+    "src": "/flower-chests/solomons-seal.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Kokoryczka_wielokwiatowa_Polygonatum_multiflorum.jpg"
+  },
+  "cowslip": {
+    "src": "/flower-chests/cowslip.webp",
+    "artist": "H. Zell",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Primula_veris_001.JPG"
+  },
+  "marsh-marigold": {
+    "src": "/flower-chests/marsh-marigold.webp",
+    "artist": "Pernak",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Blatouch_bahen%C3%AD.JPG"
+  },
+  "broad-leaved-bellflower": {
+    "src": "/flower-chests/broad-leaved-bellflower.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Campanula_latifolia2.jpg"
+  },
+  "pipsissewa": {
+    "src": "/flower-chests/pipsissewa.webp",
+    "artist": "Christian Fischer",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Chimaphila2.jpg"
+  },
+  "columbine-meadow-rue": {
+    "src": "/flower-chests/columbine-meadow-rue.webp",
+    "artist": "Alpsdake",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Thalictrum_aquilegiifolium_var._intermedium_(Mount_Kisokama).JPG"
+  },
+  "purple-goatsbeard": {
+    "src": "/flower-chests/purple-goatsbeard.webp",
+    "artist": "HermannSchachner",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Scorzonera_purpurea_(Purpurlila-Schwarzwurzel)_IMG_8105.JPG"
+  },
+  "marsh-gentian": {
+    "src": "/flower-chests/marsh-gentian.webp",
+    "artist": "Bernd Haynold",
+    "license": "CC BY 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Gentiana_pneumonanthe_110807.jpg"
+  },
+  "dyers-greenweed": {
+    "src": "/flower-chests/dyers-greenweed.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Genista_tinctoria1.jpg"
+  },
+  "soapwort": {
+    "src": "/flower-chests/soapwort.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Saponaria-officinalis-plant.jpg"
+  },
+  "wood-geranium": {
+    "src": "/flower-chests/wood-geranium.webp",
+    "artist": "Algirdas at Lithuanian Wikipedia",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Miskinis_snaputis2a.jpg"
+  },
+  "meadowsweet": {
+    "src": "/flower-chests/meadowsweet.webp",
+    "artist": "Sten Porse",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Filipendula-ulmaria.JPG"
+  },
+  "mezereon": {
+    "src": "/flower-chests/mezereon.webp",
+    "artist": "Ivar Leidus",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Daphne_mezereum_flowers_-_Keila.jpg"
+  },
+  "three-lobed-beggarticks": {
+    "src": "/flower-chests/three-lobed-beggarticks.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Bidens_tripartita1_eF.jpg"
+  },
+  "umbrella-hawkweed": {
+    "src": "/flower-chests/umbrella-hawkweed.webp",
+    "artist": "Anneli Salo",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Hieracium_umbellatum_Sarjakeltano_H8005.jpg"
+  },
+  "meadow-buttercup": {
+    "src": "/flower-chests/meadow-buttercup.webp",
+    "artist": "Michael Kurz",
+    "license": "CC BY-SA 3.0 at",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/at/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Ranunculus_acris_acris-Salzburg,_Flachgau,_Henndorf-bE-HdN-1649a.jpg"
+  },
+  "meadow-sage": {
+    "src": "/flower-chests/meadow-sage.webp",
+    "artist": "Harald Süpfle",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Wiesensalbei_(Salvia_pratensis)_03.jpg"
+  },
+  "water-avens": {
+    "src": "/flower-chests/water-avens.webp",
+    "artist": "Jörg Hempel",
+    "license": "CC BY-SA 3.0 de",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:Geum_rivale_LC0328.jpg"
+  },
+  "lily-of-the-valley": {
+    "src": "/flower-chests/lily-of-the-valley.webp",
+    "artist": "user:Olegivvit",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Convallaria-oliv-r2.jpg"
+  },
+  "siberian-squill": {
+    "src": "/flower-chests/siberian-squill.webp",
+    "artist": "Dominicus Johannes Bergsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Scilla_siberica..JPG"
+  },
+  "dense-fumewort": {
+    "src": "/flower-chests/dense-fumewort.webp",
+    "artist": "Christian Fischer",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:CorydalisSolida1.jpg"
+  },
+  "lesser-celandine": {
+    "src": "/flower-chests/lesser-celandine.webp",
+    "artist": "H. Zell",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Ficaria_verna_002.JPG"
+  },
+  "st-johns-wort": {
+    "src": "/flower-chests/st-johns-wort.webp",
+    "artist": "Sten Porse",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Hypericon-perforatum.JPG"
+  },
+  "common-yarrow": {
+    "src": "/flower-chests/common-yarrow.webp",
+    "artist": "Dvortygirl",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Achillea_millefolium_(yarrow).jpg"
+  },
+  "cornflower": {
+    "src": "/flower-chests/cornflower.webp",
+    "artist": "Albert H.",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Centaurea_cyanus_20060624120109wp.jpg"
+  },
+  "oxeye-daisy": {
+    "src": "/flower-chests/oxeye-daisy.webp",
+    "artist": "Prazak",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Leucanthemum_vulgare1.jpg"
+  },
+  "fireweed": {
+    "src": "/flower-chests/fireweed.webp",
+    "artist": "George Chernilevsky",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:Chamerion_angustifolium_2012_G2.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Chamerion_angustifolium_2012_G2.jpg"
+  },
+  "spreading-bellflower": {
+    "src": "/flower-chests/spreading-bellflower.webp",
+    "artist": "T. Kebert",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Campanula_patula_TK_2021-06-05_4.jpg"
+  },
+  "white-clover": {
+    "src": "/flower-chests/white-clover.webp",
+    "artist": "Ludwik Polak",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Atlas_roslin_pl_Koniczyna_bia%C5%82a_9172_8113.jpg"
+  },
+  "common-chicory": {
+    "src": "/flower-chests/common-chicory.webp",
+    "artist": "Agnieszka Kwiecień (Nova)",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Cykoria_podroznik_pokroj.jpg"
+  },
+  "common-tansy": {
+    "src": "/flower-chests/common-tansy.webp",
+    "artist": "The original uploader was Rasbak at Dutch Wikipedia.",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Boerenwormkruid_in_berm.jpg"
+  },
+  "thorn-apple": {
+    "src": "/flower-chests/thorn-apple.webp",
+    "artist": "Skäpperöd",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Dat_str_tat7.JPG"
+  },
+  "wood-sorrel": {
+    "src": "/flower-chests/wood-sorrel.webp",
+    "artist": "Hanna Zelenko",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Oxalis_acetosella-1.jpg"
+  },
+  "germander-speedwell": {
+    "src": "/flower-chests/germander-speedwell.webp",
+    "artist": "Didier Descouens",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:(MHNT)_Veronica_chamaedrys_-_Plant_Habit.jpg"
+  },
+  "yellow-sweetclover": {
+    "src": "/flower-chests/yellow-sweetclover.webp",
+    "artist": "AnRo0002",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "source": "https://commons.wikimedia.org/wiki/File:20140613Melilotus_officinalis.jpg"
+  },
+  "alfalfa": {
+    "src": "/flower-chests/alfalfa.webp",
+    "artist": "daryl_mitchell from Saskatoon, Saskatchewan, Canada",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Alfalfa_in_a_Field_(2646191862).jpg"
+  },
+  "ladys-bedstraw": {
+    "src": "/flower-chests/ladys-bedstraw.webp",
+    "artist": "Marianne Casamance",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Galium_verum_-_Mt_Ventoux_-_flore_2.jpg"
+  },
+  "lanceolate-starwort": {
+    "src": "/flower-chests/lanceolate-starwort.webp",
+    "artist": "Agnieszka Kwiecień (Nova)",
+    "license": "CC BY 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Stellaria_holostea001.jpg"
+  },
+  "meadow-geranium": {
+    "src": "/flower-chests/meadow-geranium.webp",
+    "artist": "Magnus Manske",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Geranium_pratense_%27Meadow_Cranesbill%27_(Geraniaceae)_plant.JPG"
+  },
+  "bird-cherry": {
+    "src": "/flower-chests/bird-cherry.webp",
+    "artist": "Udo Schröter",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Baum_M%C3%A4lardalen.jpg"
+  },
+  "great-mullein": {
+    "src": "/flower-chests/great-mullein.webp",
+    "artist": "Magnus Manske",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Verbascum_densiflorum_%27dense-flowered_mullein%27_2007-06-02_(plant).jpg"
+  },
+  "toadflax": {
+    "src": "/flower-chests/toadflax.webp",
+    "artist": "Tony Atkin",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Common_Toadflax_-_Linaria_vulgaris_-_geograph.org.uk_-_215978.jpg"
+  },
+  "field-bindweed": {
+    "src": "/flower-chests/field-bindweed.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Convolvulus_arvensis.jpg"
+  },
+  "charlock": {
+    "src": "/flower-chests/charlock.webp",
+    "artist": "Krzysztof Ziarnek, Kenraiz",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Barbarea_vulgaris_kz07.jpg"
+  },
+  "cuckooflower": {
+    "src": "/flower-chests/cuckooflower.webp",
+    "artist": "Andreas Eichler",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:2014.03.29.-08-Mannheim_Neckarau_Waldpark-Wiesen-Schaumkraut.jpg"
+  },
+  "dandelion": {
+    "src": "/flower-chests/dandelion.webp",
+    "artist": "DidierFy",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Taraxacum_officinale_04.2026_(5).jpg"
+  },
+  "broadleaf-plantain": {
+    "src": "/flower-chests/broadleaf-plantain.webp",
+    "artist": "Alepistoia",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Llanten02.jpg"
+  },
+  "coltsfoot": {
+    "src": "/flower-chests/coltsfoot.webp",
+    "artist": "Uoaei1",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Tussilago_farfara_20160403_03.JPG"
+  },
+  "stinging-nettle": {
+    "src": "/flower-chests/stinging-nettle.webp",
+    "artist": "Frank Vincentz",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Urtica_dioica10_ies.jpg"
+  },
+  "greater-burdock": {
+    "src": "/flower-chests/greater-burdock.webp",
+    "artist": "Christian Fischer",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:ArctiumLappa1.jpg"
+  },
+  "creeping-thistle": {
+    "src": "/flower-chests/creeping-thistle.webp",
+    "artist": "Ivar Leidus",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Cirsium_arvense_-_p%C3%B5ldohakas.jpg"
+  },
+  "shepherds-purse": {
+    "src": "/flower-chests/shepherds-purse.webp",
+    "artist": "ИринаЯ",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%9F%D0%B0%D1%81%D1%82%D1%83%D1%88%D1%8C%D1%8F_%D1%81%D1%83%D0%BC%D0%BA%D0%B0_%D1%83_%D0%B4%D0%BE%D1%80%D0%BE%D0%B3%D0%B8_%D0%A1%D0%B0%D1%80%D0%B0%D1%82%D0%BE%D0%B2.jpg"
+  },
+  "white-dead-nettle": {
+    "src": "/flower-chests/white-dead-nettle.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Lamium_album(01).jpg"
+  },
+  "pharmacy-chamomile": {
+    "src": "/flower-chests/pharmacy-chamomile.webp",
+    "artist": "Matricaria_recutita_001.JPG: H. Zell\nderivative work: Bff",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Matricaria_recutita_001_cropped.jpg"
+  },
+  "knotgrass": {
+    "src": "/flower-chests/knotgrass.webp",
+    "artist": "Dalgial",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Polygonum_aviculare_4.JPG"
+  },
+  "orache": {
+    "src": "/flower-chests/orache.webp",
+    "artist": "Stefan.lefnaer",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Atriplex_patula_sl20.jpg"
+  },
+  "white-goosefoot": {
+    "src": "/flower-chests/white-goosefoot.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Chenopodium_album01.jpg"
+  },
+  "couch-grass": {
+    "src": "/flower-chests/couch-grass.webp",
+    "artist": "Matt Lavin from Bozeman, Montana, USA",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Elymus_repens_(3900638448).jpg"
+  },
+  "oriental-bunias": {
+    "src": "/flower-chests/oriental-bunias.webp",
+    "artist": "Stefan.lefnaer",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Bunias_orientalis_sl6.jpg"
+  },
+  "spear-thistle": {
+    "src": "/flower-chests/spear-thistle.webp",
+    "artist": "Hugo.arg",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Dagys001.JPG"
+  },
+  "common-fumitory": {
+    "src": "/flower-chests/common-fumitory.webp",
+    "artist": "Didier Descouens",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:(MHNT)_Fumaria_officinalis_-_Habit.jpg"
+  },
+  "common-chickweed": {
+    "src": "/flower-chests/common-chickweed.webp",
+    "artist": "Lazaregagnidze",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Stellaria_media_Common_Chickweed_%E1%83%9F%E1%83%A3%E1%83%9C%E1%83%9F%E1%83%A0%E1%83%A3%E1%83%99%E1%83%98.JPG"
+  },
+  "white-sweetclover": {
+    "src": "/flower-chests/white-sweetclover.webp",
+    "artist": "No machine-readable author provided. Bogdan assumed (based on copyright claims).",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Melilotus_alba_bgiu.jpg"
+  },
+  "greater-celandine": {
+    "src": "/flower-chests/greater-celandine.webp",
+    "artist": "Opioła Jerzy (Poland)",
+    "license": "CC BY 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Chelidonium_majus_a1.jpg"
+  },
+  "poison-hemlock": {
+    "src": "/flower-chests/poison-hemlock.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:Conium_maculatum.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Conium_maculatum.jpg"
+  },
+  "sosnovsky-hogweed": {
+    "src": "/flower-chests/sosnovsky-hogweed.webp",
+    "artist": "Popadius",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:%D0%91%D0%BE%D1%80%D1%89%D0%B5%D0%B2%D0%B8%D0%BA_%D0%A1%D0%BE%D1%81%D0%BD%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:%D0%91%D0%BE%D1%80%D1%89%D0%B5%D0%B2%D0%B8%D0%BA_%D0%A1%D0%BE%D1%81%D0%BD%D0%BE%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE.jpg"
+  },
+  "canadian-fleabane": {
+    "src": "/flower-chests/canadian-fleabane.webp",
+    "artist": "H. Zell",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Erigeron_canadensis_002.jpg"
+  },
+  "gallant-soldier": {
+    "src": "/flower-chests/gallant-soldier.webp",
+    "artist": "Dinesh Valke from Thane, India",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Galinsoga_(2560334943).jpg"
+  },
+  "black-nightshade": {
+    "src": "/flower-chests/black-nightshade.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Solanum_nigrum.jpeg"
+  },
+  "field-pennycress": {
+    "src": "/flower-chests/field-pennycress.webp",
+    "artist": "Wikimedia Commons contributor",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://commons.wikimedia.org/wiki/File:Thlaspi_arvense1_eF.jpg"
+  }
+}

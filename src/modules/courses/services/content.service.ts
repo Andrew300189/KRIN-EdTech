@@ -28,6 +28,7 @@ import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { calculateUserLevel, grantEconomyReward, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
+import { recordMistakeReviewAnswer } from "@/modules/motivation/services/mistake-review-rewards.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { recordGrammarSkillAttempt } from "@/modules/grammar/services/grammar-skill-progress.service";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
@@ -1851,8 +1852,15 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       select: { id: true },
     }));
   if (!access.allowed && !reviewCanBypassSequence) throw new Error(access.reason === "PREMIUM_REQUIRED" ? "Premium access is required for this lesson" : "You cannot access this lesson");
+  if (reviewRunId && !await prisma.mistakeReviewRunItem.findFirst({
+    where: { runId: reviewRunId, resolvedAt: null, run: { userId, status: "ACTIVE" }, mistake: { userId, exerciseId, lessonId: exerciseForAccess.lessonBlock.lessonId, resolvedAt: null } },
+    select: { id: true },
+  })) throw new Error("This mistake is no longer in your active review.");
 
   return prisma.$transaction(async (tx) => {
+    // Serialize submissions with Water Lily restoration before any attempt is
+    // inserted. Otherwise two tabs could replace the interrupted answer.
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`lesson-answer-streak:${userId}:${exerciseForAccess.lessonBlock.lessonId}`}))`);
     const exercise = await tx.exercise.findUnique({
       where: { id: exerciseId },
       include: {
@@ -2080,8 +2088,12 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
         score: scoreAwarded,
         difficulty: exercise.difficulty,
         isSpacedReview: exercise.isGeneratedReview,
+        isMistakeReview: Boolean(reviewRunId),
         speedExperience,
       });
+    const reviewReward = reviewRunId
+      ? await recordMistakeReviewAnswer(tx, { userId, runId: reviewRunId, lessonId: exercise.lessonBlock.lessonId, exerciseId, isCorrect })
+      : null;
 
     return {
       attempt,
@@ -2096,6 +2108,7 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       solution: { available: !isCorrect, cost: EXERCISE_SOLUTION_XP_COST, opened: openedEarlierSolution },
       grammarSkillProgress,
       motivationReward,
+      reviewReward,
       openMistakeCount: await tx.userMistake.count({ where: { userId, resolvedAt: null } }),
     };
   });

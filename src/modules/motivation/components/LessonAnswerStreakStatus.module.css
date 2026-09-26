@@ -7,6 +7,7 @@
 }
 
 .streak {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: .32rem;
@@ -31,7 +32,17 @@
   font-size: 1rem;
   font-weight: 900;
 }
+.frozen { border-radius: .55rem; background: #eaf6ff; box-shadow: 0 0 0 1px #b9e2fa; padding: .28rem .35rem; }
+.frozen .streakIcon { stroke: #68a5c4; }
+.ice { color: #3486ae; font-size: .9rem; }
+.thawing { animation: thaw 650ms ease-out both; }
+.shards { position: absolute; right: -.2rem; top: -.5rem; color: #75b6d8; font-size: 1.2rem; pointer-events: none; animation: scatter 650ms ease-out both; }
+.lilies { display: flex; align-items: center; gap: .25rem; max-width: 11rem; margin-left: .45rem; overflow-x: auto; color: #476d9a; font-size: .68rem; font-weight: 850; white-space: nowrap; scrollbar-width: thin; }
+.lilies > span { flex: 0 0 auto; border: 1px solid #c9e3eb; border-radius: 999px; background: #f1fbff; padding: .24rem .35rem; }
 
 @media (prefers-reduced-motion: no-preference) {
   .streak { transition: color 160ms ease, transform 160ms ease; }
 }
+@keyframes thaw { 0% { filter: drop-shadow(0 0 .4rem #9ad9f6); transform: scale(1); } 35% { transform: scale(1.13) rotate(-4deg); } 100% { filter: none; transform: scale(1); } }
+@keyframes scatter { 0% { opacity: 1; transform: scale(.4) rotate(0); } 100% { opacity: 0; transform: translate(1.5rem, -1.2rem) scale(2.2) rotate(90deg); } }
+@media (prefers-reduced-motion: reduce) { .thawing, .shards { animation: none; } }

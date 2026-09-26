@@ -107,6 +107,7 @@ model User {
   entitlements                  Entitlement[]
   promotionRedemptions          PromotionRedemption[]
   lessonProgress                LessonProgress[]
+  lessonAnswerStreaks           LessonAnswerStreak[]
   exerciseAttempts              ExerciseAttempt[]
   retiredExerciseAttempts       RetiredExerciseAttempt[]
   dynamicMatchingPairProgress   DynamicMatchingPairProgress[]
@@ -538,6 +539,7 @@ model Lesson {
   isFree             Boolean                     @default(false)
   blocks             LessonBlock[]
   progress           LessonProgress[]
+  answerStreaks      LessonAnswerStreak[]
   exerciseAttempts   ExerciseAttempt[]
   retiredExerciseAttempts RetiredExerciseAttempt[]
   mistakes           UserMistake[]
@@ -1089,6 +1091,23 @@ model LessonProgress {
   @@index([userId, lastSeenAt])
 }
 
+/// The answer streak shown inside one lesson. It survives Save & exit and is
+/// updated in the same transaction as each verified exercise attempt.
+model LessonAnswerStreak {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId          String
+  lesson            Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  current           Int      @default(0)
+  best              Int      @default(0)
+  recoverable       Int      @default(0)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId, updatedAt])
+}
+
 model ExerciseAttempt {
   id               String   @id @default(cuid())
   userId           String
@@ -1248,6 +1267,8 @@ model MistakeReviewRun {
   completedAt         DateTime?
   awardedExperience   Int                     @default(0)
   awardedCoins        Int                     @default(0)
+  correctStreak        Int                     @default(0)
+  bestCorrectStreak    Int                     @default(0)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   items               MistakeReviewRunItem[]
@@ -1263,6 +1284,7 @@ model MistakeReviewRunItem {
   mistakeId String
   mistake   UserMistake      @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
   resolvedAt DateTime?
+  hadWrongAttempt Boolean @default(false)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 

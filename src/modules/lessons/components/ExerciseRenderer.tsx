@@ -34,7 +34,9 @@ type AttemptResult = {
     baseExperience?: number;
     streakBonus?: number;
     streak?: { current: number; modeStart: number | null; bonusExperience: number; tone: string | null; activated: boolean } | null;
+    lessonAnswerStreak?: { current: number; recoverable: number };
   };
+  reviewReward?: { correctedExperience: number; currentStreak: number; bestStreak: number; chest: { flowerId: string; experience: number; waterLily: number; milestone: number } | null } | null;
 };
 type TranslationResult = { translation: string; alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number };
 type HintPurchaseResult = { alreadyPurchased: boolean; cost: number; balance: number; bonusUsed?: boolean; remainingCredits?: number; freeFallback?: boolean };
@@ -80,11 +82,13 @@ type ExerciseRendererProps = {
   previewMode?: boolean;
   hideContext?: boolean;
   hideContextText?: boolean;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; streakTone?: string | null; streakMilestone?: number | null }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; streakTone?: string | null; streakMilestone?: number | null; lessonAnswerStreak?: { current: number; recoverable: number }; reviewReward?: AttemptResult["reviewReward"] }) => void;
   /** Keep an incorrect answer in the review queue and continue without retrying it now. */
   onDefer?: (exerciseId: string) => void;
   /** Server-validated review queue; never trusted as a general access bypass. */
   reviewRunId?: string;
+  restoredAnswer?: { exerciseId: string; answer: unknown; nonce: number } | null;
+  onRecoveredContinue?: () => void;
 };
 
 type ExerciseAnswer = string | string[] | JsonObject;
@@ -258,7 +262,7 @@ function AnswerReveal({ answer }: { answer: unknown }) {
   return <strong className="lesson-exercise-answer-reveal-value">{displayAnswer(answer)}</strong>;
 }
 
-export function ExerciseRenderer({ exercise, active = true, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId }: ExerciseRendererProps) {
+export function ExerciseRenderer({ exercise, active = true, contentLocale, persistentStreakTone = null, previewMode = false, hideContext = false, hideContextText = false, onAttemptResolved, onDefer, reviewRunId, restoredAnswer, onRecoveredContinue }: ExerciseRendererProps) {
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
@@ -288,6 +292,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const initialAnswer = useMemo<ExerciseAnswer>(() => multiple || ordered ? [] : matching || classification ? {} : "", [classification, matching, multiple, ordered]);
   const [answer, setAnswer] = useState<ExerciseAnswer>(initialAnswer);
   const [result, setResult] = useState<AttemptResult | null>(null);
+  const [restored, setRestored] = useState(false);
   const [extraExercise, setExtraExercise] = useState<LessonExercise | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -312,6 +317,16 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const submissionInFlightRef = useRef(false);
   const translationRequestRef = useRef(0);
   const dynamicFinalizingRef = useRef(false);
+  useEffect(() => {
+    if (!restoredAnswer || restoredAnswer.exerciseId !== exercise.id) return;
+    const corrected = restoredAnswer.answer;
+    if (typeof corrected === "string" || Array.isArray(corrected) || (corrected && typeof corrected === "object")) setAnswer(corrected as ExerciseAnswer);
+    setResult({ isCorrect: true, scoreAwarded: exercise.basePoints, score: exercise.basePoints, attemptNumber: 1,
+      explanation: null, correctAnswer: corrected, hint: null });
+    setRestored(true);
+    setHintOpen(false);
+    setError(null);
+  }, [exercise.basePoints, exercise.id, restoredAnswer]);
   const answerEvaluationContent = useMemo(
     () => contentWithOrderSensitiveAnswerValidation(content, exercise.engineKey),
     [content, exercise.engineKey],
@@ -489,6 +504,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     translationRequestRef.current += 1;
     setAnswer(initialAnswer);
     setResult(null);
+    setRestored(false);
     setError(null);
     setHintOpen(false);
     setHintUsed(false);
@@ -528,16 +544,18 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
         exerciseId: exercise.id,
         isCorrect: payload.data.isCorrect,
         streakTone: payload.data.motivationReward?.streak?.tone ?? null,
+        lessonAnswerStreak: payload.data.motivationReward?.lessonAnswerStreak,
         streakMilestone: payload.data.isCorrect
           && payload.data.motivationReward?.awarded
           && payload.data.motivationReward.streak?.activated
           ? payload.data.motivationReward.streak.modeStart
           : null,
+        reviewReward: payload.data.reviewReward,
       });
       if (typeof payload.data.openMistakeCount === "number") {
         window.dispatchEvent(new CustomEvent("mistakes:changed", { detail: { count: payload.data.openMistakeCount } }));
       }
-      if (payload.data.motivationReward?.awarded) {
+      if (payload.data.motivationReward?.awarded || payload.data.reviewReward?.correctedExperience || payload.data.reviewReward?.chest) {
         notifyMotivationUpdated();
       }
     } catch { setError("Unable to check the answer. Please try again."); }
@@ -955,6 +973,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}
     {error ? <p role="alert" className="mt-3 text-sm text-red-700">{error}</p> : null}
+    {restored ? <div className={styles.restoredAnswer} role="status"><span>{locale === "uk" ? "Відповідь відновлено лататтям" : locale === "ru" ? "Ответ восстановлен кувшинкой" : "Answer restored with a Water Lily"}</span><button type="button" onClick={onRecoveredContinue} className={styles.nextButton}>{locale === "uk" ? "Далі →" : locale === "ru" ? "Далее →" : "Next →"}</button></div> : null}
     {result && !result.isCorrect ? <section className="lesson-exercise-result lesson-exercise-result-error"><div className="lesson-exercise-result-copy"><strong className="lesson-exercise-result-title">{incorrectCopy.title}</strong><p className="lesson-exercise-result-meta">{incorrectCopy.description}</p></div><div className="lesson-exercise-result-actions">{onDefer ? <button type="button" onClick={() => onDefer(exercise.id)} className="lesson-exercise-action lesson-exercise-action-later" aria-label="Continue later and keep this task in your mistakes">{solutionCopy.later}</button> : null}{grammarReviewDue && exercise.allowExtraExercise && !extraExercise ? <button type="button" onClick={loadExtraPractice} disabled={extraSending} className="lesson-exercise-action lesson-exercise-action-primary">{extraSending ? "Preparing focused practice…" : "Practise this rule again"}</button> : null}</div></section> : null}
     {visibleFeedback ? <section className="lesson-exercise-feedback">{visibleFeedback.correctAnswer !== null && !result?.isCorrect && !explanationAlreadyStatesAnswer(visibleFeedback.explanation, visibleFeedback.correctAnswer) ? <div className="lesson-exercise-answer-reveal"><span>{answerFeedback.correctAnswer}</span><AnswerReveal answer={visibleFeedback.correctAnswer} /></div> : null}{visibleFeedback.explanation ? <div className="lesson-exercise-explanation"><strong>{explanationLabel}</strong><p>{visibleFeedback.explanation}</p></div> : null}{visibleFeedback.feedback?.example ? <p className="lesson-exercise-feedback-example">{solutionCopy.example} {visibleFeedback.feedback.example}</p> : null}{visibleFeedback.feedback?.theoryHref ? <Link href={visibleFeedback.feedback.theoryHref} className="lesson-exercise-feedback-rule">{solutionCopy.reviewRule}</Link> : null}{visibleFeedback.feedback?.errorDetails.length ? <details className="lesson-exercise-feedback-details"><summary>{solutionCopy.allErrors}</summary><ul>{visibleFeedback.feedback.errorDetails.map((detail, index) => <li key={`${detail.incorrect}-${index}`}><s>{detail.incorrect}</s> → <strong>{detail.correction}</strong>{detail.explanation ? ` — ${detail.explanation}` : ""}</li>)}</ul></details> : null}</section> : null}
     {result && !result.isCorrect ? <button type="button" onClick={restartExercise} className="lesson-exercise-retry-button">{retryLabel}</button> : null}

@@ -77,4 +77,23 @@ describe("StreakChestReward", () => {
       window.removeEventListener(MOTIVATION_UPDATED_EVENT, onMotivationUpdated);
     }
   });
+
+  it("reveals a photographed flower and links the new discovery to the album", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: {
+        opened: true, alreadyOpened: false, rewardId: "flower-white-lily",
+        flowerId: "white-lily", firstDiscovery: true, experience: 1000,
+        coins: 0, hintCredits: 0, translationCredits: 0,
+      } }),
+    }) as unknown as typeof fetch;
+
+    render(createElement(LocaleProvider, null, createElement(StreakChestReward, { milestone: 7, onDismiss: jest.fn() })));
+    expect(screen.getAllByRole("button", { name: "Let it bloom" })[0].querySelector("img")).toHaveAttribute("src", "/flower-chests/mystery-bud.png");
+    fireEvent.click(screen.getAllByRole("button", { name: "Let it bloom" })[0]);
+
+    await waitFor(() => expect(screen.getByText(/New flower discovered/)).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /Open flower album/ })).toHaveAttribute("href", "/student/flowers");
+    expect(screen.getByRole("dialog").querySelector('img[src="/flower-chests/white-lily.webp"]')).toBeInTheDocument();
+  });
 });

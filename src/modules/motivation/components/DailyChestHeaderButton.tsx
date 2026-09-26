@@ -6,19 +6,20 @@ import { useLocale } from "@/core/i18n/locale";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
 import styles from "./DailyChestHeaderButton.module.css";
 
-type ChestState = { available: boolean; nextAt: string | null };
-type ChestReward = { opened: boolean; experience: number; coins: number; hintCredits: number; translationCredits: number; nextAt: string | null };
+type ChestState = { available: boolean; lessonRequired?: boolean; nextAt: string | null };
+type ChestReward = { opened: boolean; experience: number; coins: number; waterLily?: number; nextAt: string | null };
 
 const copy = {
-  en: { ready: "Open daily chest", opening: "Opening daily chest", next: "Next daily chest", hint: "hint credit", translation: "translation credit" },
-  ru: { ready: "Открыть ежедневный сундук", opening: "Открываем ежедневный сундук", next: "Следующий ежедневный сундук", hint: "бонус подсказки", translation: "бонус перевода" },
-  uk: { ready: "Відкрити щоденну скриню", opening: "Відкриваємо щоденну скриню", next: "Наступна щоденна скриня", hint: "бонус підказки", translation: "бонус перекладу" },
+  en: { ready: "Open daily chest", opening: "Opening daily chest", next: "Next daily chest", lesson: "Complete one lesson to unlock today's chest" },
+  ru: { ready: "Открыть ежедневный сундук", opening: "Открываем ежедневный сундук", next: "Следующий ежедневный сундук", lesson: "Пройдите урок, чтобы открыть сегодняшний сундук" },
+  uk: { ready: "Відкрити щоденну скриню", opening: "Відкриваємо щоденну скриню", next: "Наступна щоденна скриня", lesson: "Пройдіть урок, щоб відкрити сьогоднішню скриню" },
 } as const;
 
-function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "hintCredits" | "translationCredits">, text: Pick<(typeof copy)[keyof typeof copy], "hint" | "translation">) {
+function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "waterLily">) {
   const parts: string[] = [];
   if (reward.experience) parts.push(`+${reward.experience} XP`);
   if (reward.coins) parts.push(`+${reward.coins} ◉`);
+  if (reward.waterLily) parts.push(`+${reward.waterLily} 🪷`);
   return parts.join(" · ") || "✦";
 }
 
@@ -75,9 +76,9 @@ export function DailyChestHeaderButton() {
       const response = await fetch(chestEndpoint(), { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.ready);
-      setState({ available: false, nextAt: payload.data.nextAt });
+      setState({ available: false, lessonRequired: false, nextAt: payload.data.nextAt });
       if (payload.data.opened) {
-        toast.success(rewardText(payload.data, text));
+        toast.success(rewardText(payload.data));
         notifyMotivationUpdated();
       }
     } catch (error) {
@@ -90,7 +91,7 @@ export function DailyChestHeaderButton() {
   // Do not reserve header space for signed-out visitors or while the account
   // check is still in flight.
   if (!state) return null;
-  const label = state.available ? text.ready : `${text.next}: ${timeRemaining(state.nextAt)}`;
+  const label = state.lessonRequired ? text.lesson : state.available ? text.ready : `${text.next}: ${timeRemaining(state.nextAt)}`;
   void clock;
 
   return <button

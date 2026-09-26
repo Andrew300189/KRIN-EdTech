@@ -161,6 +161,24 @@ html {
   --surface-subtle: #24150d;
 }
 
+/* All twenty learner palettes use the same semantic tokens. The selected
+   swatch is injected before first paint and updated by ColorThemePicker. */
+:root[data-color-theme] {
+  --primary: var(--palette-primary, #5c51de);
+  --primary-hover: color-mix(in srgb, var(--palette-primary, #5c51de) 80%, #172033);
+  --focus-ring: color-mix(in srgb, var(--palette-primary, #5c51de) 58%, white);
+  --background: color-mix(in srgb, var(--palette-primary, #5c51de) 4%, white);
+  --surface-subtle: color-mix(in srgb, var(--palette-primary, #5c51de) 3%, white);
+}
+
+:root[data-theme="dark"][data-color-theme] {
+  --primary: color-mix(in srgb, var(--palette-primary, #5c51de) 62%, white);
+  --primary-hover: color-mix(in srgb, var(--palette-primary, #5c51de) 46%, white);
+  --focus-ring: color-mix(in srgb, var(--palette-primary, #5c51de) 36%, white);
+  --background: color-mix(in srgb, var(--palette-primary, #5c51de) 8%, #0b1020);
+  --surface-subtle: color-mix(in srgb, var(--palette-primary, #5c51de) 10%, #0f1729);
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",

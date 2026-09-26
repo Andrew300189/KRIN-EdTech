@@ -6,19 +6,20 @@ import { useLocale } from "@/core/i18n/locale";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
 import styles from "./DailyChestCard.module.css";
 
-type ChestState = { available: boolean; nextAt: string | null };
-type ChestReward = { opened: boolean; experience: number; coins: number; hintCredits: number; translationCredits: number; nextAt: string | null };
+type ChestState = { available: boolean; lessonRequired?: boolean; nextAt: string | null };
+type ChestReward = { opened: boolean; experience: number; coins: number; waterLily?: number; nextAt: string | null };
 
 const copy = {
-  en: { eyebrow: "Daily chest", title: "A surprise is waiting", ready: "Open free chest", opening: "Opening…", wait: "Next chest", available: "20–100 XP", hint: "+1 hint credit", translation: "+1 translation credit" },
-  ru: { eyebrow: "Ежедневный сундук", title: "Вас ждёт сюрприз", ready: "Открыть бесплатно", opening: "Открываем…", wait: "Следующий сундук", available: "20–100 XP", hint: "+1 бонус подсказки", translation: "+1 бонус перевода" },
-  uk: { eyebrow: "Щоденна скриня", title: "На вас чекає сюрприз", ready: "Відкрити безкоштовно", opening: "Відкриваємо…", wait: "Наступна скриня", available: "20–100 XP", hint: "+1 бонус підказки", translation: "+1 бонус перекладу" },
+  en: { eyebrow: "Daily chest", title: "A lesson reward is waiting", ready: "Open chest", opening: "Opening…", wait: "Next chest", available: "500 XP · 3 Water Lilies", lesson: "Complete one lesson today" },
+  ru: { eyebrow: "Ежедневный сундук", title: "Награда за урок", ready: "Открыть сундук", opening: "Открываем…", wait: "Следующий сундук", available: "500 XP · 3 кувшинки", lesson: "Пройдите один урок сегодня" },
+  uk: { eyebrow: "Щоденна скриня", title: "Нагорода за урок", ready: "Відкрити скриню", opening: "Відкриваємо…", wait: "Наступна скриня", available: "500 XP · 3 латаття", lesson: "Пройдіть один урок сьогодні" },
 } as const;
 
-function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "hintCredits" | "translationCredits">, text: Pick<(typeof copy)[keyof typeof copy], "hint" | "translation">) {
+function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "waterLily">) {
   const parts = [];
   if (reward.experience) parts.push(`+${reward.experience} XP`);
   if (reward.coins) parts.push(`+${reward.coins} ◉`);
+  if (reward.waterLily) parts.push(`+${reward.waterLily} 🪷`);
   return parts.join(" · ") || "✦";
 }
 
@@ -74,11 +75,11 @@ export function DailyChestCard() {
       const response = await fetch(chestEndpoint(), { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to open the Daily Chest.");
-      setState({ available: false, nextAt: payload.data.nextAt });
+      setState({ available: false, lessonRequired: false, nextAt: payload.data.nextAt });
       if (payload.data.opened) {
         setReward(payload.data);
         notifyMotivationUpdated();
-        toast.success(rewardText(payload.data, text));
+        toast.success(rewardText(payload.data));
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to open the Daily Chest.");
@@ -93,7 +94,7 @@ export function DailyChestCard() {
   return <article className={`${styles.card} ${reward ? styles.opened : ""}`}>
     <div className={styles.sparkles} aria-hidden="true">✦ ✧</div>
     <p>{text.eyebrow}</p>
-    <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward, text) : text.title}</h3><small>{state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>
+    <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward) : text.title}</h3><small>{state?.lessonRequired ? text.lesson : state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>
     <button type="button" onClick={() => void openChest()} disabled={!state?.available || opening}>{opening ? text.opening : state?.available ? text.ready : text.wait}</button>
   </article>;
 }

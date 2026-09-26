@@ -10,7 +10,6 @@ import { nextXpBooster, XP_BOOSTERS } from "@/modules/motivation/utils/shop-cons
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
 import { baseExperienceForExercise } from "@/modules/courses/utils/exercise-speed-reward";
-import { grantLearningBonusCredits } from "@/modules/motivation/services/learning-bonus.service";
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
@@ -163,15 +162,11 @@ export async function grantEconomyReward(
     userId: input.userId, minor: krinCoinMinor, sourceType: input.sourceType, sourceId: input.sourceId,
     idempotencyKey: input.idempotencyKey, localDate: context.date, description,
   });
-  const bonus = await grantLearningBonusCredits(tx, {
-    userId: input.userId,
-    hintCredits: input.hintCredits ?? 0,
-    translationCredits: input.translationCredits ?? 0,
-    sourceType: input.sourceType,
-    sourceId: input.sourceId,
-    idempotencyKey: input.idempotencyKey,
-    description,
-  });
+  // Hint and translation credits were an abandoned reward format. Keep the
+  // optional fields in this compatibility boundary so old callers and old
+  // ledger rows remain readable, but never mint a new credit. Hints and
+  // translations are purchased with XP by the content service.
+  const bonus = { hintCredits: 0, translationCredits: 0, balance: null };
   // Economy rewards can be the event that completes an active quest (for
   // example, spinning a lesson wheel). Evaluate after its immutable ledger
   // entries have been recorded, so a retry can never grant a second reward.
@@ -228,6 +223,15 @@ async function rewardFirstCorrectExercise(tx: Tx, userId: string, date: string, 
     date,
   });
   return { ...reward, baseExperience, streakBonus };
+}
+
+/** A consumed Water Lily turns the interrupted first attempt into a verified
+ * correct answer. The same immutable exercise key prevents any duplicate XP. */
+export async function rewardRestoredExerciseAnswer(tx: Tx, input: { userId: string; date: string; exerciseId: string; currentStreak: number; speedExperience: number; isSpacedReview: boolean }) {
+  const bonus = correctAnswerStreak(input.currentStreak).bonusExperience;
+  return input.isSpacedReview
+    ? rewardSpacedReviewAnswer(tx, input.userId, input.date, input.exerciseId, bonus, input.speedExperience)
+    : rewardFirstCorrectExercise(tx, input.userId, input.date, input.exerciseId, bonus, input.speedExperience);
 }
 
 /** Spaced retrieval preserves its legacy 1.5 XP reward when no speed window
@@ -641,7 +645,34 @@ export async function finalizeLessonSessionPerfectStreak(userId: string, lessonI
   });
 }
 
-export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstAttemptCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean; speedExperience?: number }) {
+export async function recordExerciseResult(tx: Tx, input: { userId: string; exerciseId: string; lessonId: string; courseId?: string; attemptId: string; isCorrect: boolean; isFirstAttemptCorrect: boolean; score: number; difficulty: number; isSpacedReview?: boolean; isMistakeReview?: boolean; speedExperience?: number }) {
+  // An exercise attempt and the lesson's visible streak commit together. A
+  // per-lesson lock keeps concurrent tabs from overwriting one another.
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`lesson-answer-streak:${input.userId}:${input.lessonId}`}))`);
+  if (input.isMistakeReview) {
+    // My Mistakes has its own run and 2-XP correction economy. It must not
+    // spend, break, restore or double-credit the normal lesson answer streak.
+    const context = await userContext(tx, input.userId);
+    await ensureDailyActivity(tx, input.userId, context.date);
+    await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
+    await tx.learningActivity.create({ data: { userId: input.userId, type: input.isCorrect ? "EXERCISE_CORRECT" : "EXERCISE_INCORRECT", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
+    await tx.userDailyActivity.update({ where: { userId_date: { userId: input.userId, date: context.date } }, data: { exercisesCompleted: { increment: 1 }, correctAnswers: { increment: input.isCorrect ? 1 : 0 }, incorrectAnswers: { increment: input.isCorrect ? 0 : 1 } } });
+    return { awarded: false, experience: 0, coins: 0, levelUp: false, streak: null };
+  }
+  const previousLessonStreak = await tx.lessonAnswerStreak.findUnique({ where: { userId_lessonId: { userId: input.userId, lessonId: input.lessonId } } });
+  const nextLessonStreak = input.isCorrect && input.isFirstAttemptCorrect
+    ? (previousLessonStreak?.current ?? 0) + 1
+    : input.isCorrect ? (previousLessonStreak?.current ?? 0) : 0;
+  // Recovery belongs only to the attempt that actually broke this run.
+  // A later submission forfeits that offer instead of restoring stale XP.
+  const recoverable = !input.isCorrect && (previousLessonStreak?.current ?? 0) > 0
+    ? previousLessonStreak!.current
+    : 0;
+  const lessonAnswerStreak = await tx.lessonAnswerStreak.upsert({
+    where: { userId_lessonId: { userId: input.userId, lessonId: input.lessonId } },
+    create: { userId: input.userId, lessonId: input.lessonId, current: nextLessonStreak, best: nextLessonStreak, recoverable },
+    update: { current: nextLessonStreak, best: Math.max(previousLessonStreak?.best ?? 0, nextLessonStreak), recoverable },
+  });
   const context = await userContext(tx, input.userId);
   await ensureDailyActivity(tx, input.userId, context.date);
   await tx.learningActivity.create({ data: { userId: input.userId, type: "EXERCISE_SUBMITTED", courseId: input.courseId, lessonId: input.lessonId, exerciseId: input.exerciseId, score: input.score } });
@@ -655,17 +686,18 @@ export async function recordExerciseResult(tx: Tx, input: { userId: string; exer
     create: { userId: input.userId, currentCorrectStreak: qualifiesForStreak ? 1 : 0, bestCorrectStreak: qualifiesForStreak ? 1 : 0 },
     update: qualifiesForStreak ? { currentCorrectStreak: { increment: 1 } } : { currentCorrectStreak: 0 },
   });
-  if (qualifiesForStreak && level.currentCorrectStreak > level.bestCorrectStreak) {
-    await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: level.currentCorrectStreak } });
+  const verifiedBestStreak = Math.max(level.currentCorrectStreak, lessonAnswerStreak.best);
+  if (qualifiesForStreak && verifiedBestStreak > level.bestCorrectStreak) {
+    await tx.userLevel.update({ where: { userId: input.userId }, data: { bestCorrectStreak: verifiedBestStreak } });
   }
-  const streak = qualifiesForStreak ? correctAnswerStreak(level.currentCorrectStreak) : null;
+  const streak = qualifiesForStreak ? correctAnswerStreak(lessonAnswerStreak.current) : null;
   const reward = qualifiesForStreak
     ? input.isSpacedReview
       ? await rewardSpacedReviewAnswer(tx, input.userId, context.date, input.exerciseId, streak?.bonusExperience, input.speedExperience)
       : await rewardFirstCorrectExercise(tx, input.userId, context.date, input.exerciseId, streak?.bonusExperience, input.speedExperience)
     : { awarded: false, experience: 0, coins: 0, levelUp: false };
   await evaluateAchievements(tx, input.userId, context.date);
-  return { ...reward, streak };
+  return { ...reward, streak, lessonAnswerStreak: { current: lessonAnswerStreak.current, recoverable: lessonAnswerStreak.recoverable } };
 }
 
 /** Awards a focused-review completion exactly once per persisted review run.

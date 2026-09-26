@@ -4,6 +4,9 @@ import { Award, Flame, Medal, ShieldCheck, Sparkles, Star, Trophy } from "lucide
 import { requireAuth } from "@/core/server/session";
 import { listUserAchievements } from "@/modules/motivation/services/motivation.service";
 import { listStreakQuestBooks } from "@/modules/motivation/services/streak-quest-book.service";
+import { listOpenedMilestoneChests } from "@/modules/motivation/services/reward-economy.service";
+import { OpenedMilestoneChests } from "@/modules/motivation/components/OpenedMilestoneChests";
+import { MistakeCorrectionAchievements } from "@/modules/motivation/components/MistakeCorrectionAchievements";
 import { StreakQuestBooksPanel } from "@/modules/motivation/components/StreakQuestBooksPanel";
 import { QuestActivationButton } from "./QuestActivationButton";
 import styles from "./Achievements.module.css";
@@ -57,9 +60,10 @@ export async function AchievementsPageContent({
   if (!authenticated) redirect(`/login?next=${encodeURIComponent(basePath)}`);
   const requestedFilter = (await searchParams).filter;
   const filter = filters.some((item) => item.value === requestedFilter) ? requestedFilter as AchievementFilter : "ALL";
-  const [achievements, questBooks] = await Promise.all([
+  const [achievements, questBooks, openedChests] = await Promise.all([
     listUserAchievements(authenticated.user.id, filter),
     listStreakQuestBooks(authenticated.user.id),
+    listOpenedMilestoneChests(authenticated.user.id),
   ]);
   const completedCount = achievements.filter((achievement) => achievement.completed).length;
   const activeCount = achievements.filter((achievement) => achievement.activatedAt && !achievement.completed).length;
@@ -84,6 +88,8 @@ export async function AchievementsPageContent({
     </nav>
 
     <StreakQuestBooksPanel initialBooks={questBooks} />
+    <OpenedMilestoneChests chests={openedChests.map((chest) => ({ ...chest, openedAt: chest.openedAt.toISOString() }))} />
+    <MistakeCorrectionAchievements />
 
     {achievements.length ? <section className={styles.grid} aria-label="Quest collection">
       {achievements.map((achievement) => {
