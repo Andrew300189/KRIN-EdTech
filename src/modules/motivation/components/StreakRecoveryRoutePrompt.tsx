@@ -9,5 +9,5 @@ import { DailyStreakHeaderStatus } from "./DailyStreakHeaderStatus";
 export function StreakRecoveryRoutePrompt() {
   const pathname = usePathname();
   if (!pathname || !/^\/(?:uk\/|ru\/)?courses(?:\/|$)/.test(pathname)) return null;
-  return <DailyStreakHeaderStatus showBadge={false} />;
+  return <DailyStreakHeaderStatus showBadge={false} continueInCurrentLesson={/(?:^|\/)courses\/[^/]+\/lessons\/[^/]+(?:\/|$)/.test(pathname)} />;
 }

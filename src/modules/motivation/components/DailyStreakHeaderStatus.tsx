@@ -19,6 +19,11 @@ const restoreUnavailable = {
   ru: "Не удалось восстановить серию. Попробуйте ещё раз.",
   uk: "Не вдалося відновити серію. Спробуйте ще раз.",
 } as const;
+const returnToCurrentLesson = {
+  en: "Back to this lesson",
+  ru: "Вернуться к уроку",
+  uk: "Повернутися до уроку",
+} as const;
 
 const copy = {
   en: { title: "Daily streak", profileLevel: "Profile level", description: "Keep your learning rhythm going.", day: "days in a row", freezes: "Days off ready", waterLilies: "Water Lilies", purchase: "Buy a day off", buying: "Buying…", restore: "Restore lost streak", restoreShort: "Restore", restoring: "Restoring…", restoreFree: "Restore with Water Lily", restoreXp: "Restore for {cost} XP", restoreCoins: "Restore for {cost} KRIN Coin", restored: "Your streak has been restored.", lost: "Your {count}-day streak ended. You can restore it here.", needLesson: "Your Water Lily is ready, but it can be used after you finish a lesson with a correct first-try answer.", startLesson: "Continue lesson", buyLily: "Buy Water Lily · {cost} KRIN Coin", buyingLily: "Buying Water Lily…", lilyBought: "Water Lily added. Finish a lesson to use it.", noFunds: "Not enough XP or KRIN Coins. You can continue learning to earn XP.", shop: "Open reward shop", balance: "Balance", cost: "1 KRIN Coin", purchased: "Your day off is ready. It will protect one missed day.", insufficient: "You need 1 KRIN Coin to buy a day off.", unavailable: "Unable to buy a day off right now.", close: "Close streak details" },
@@ -27,7 +32,7 @@ const copy = {
 } as const;
 
 /** Compact streak badge; clicking it opens the only place to buy a day-off freeze. */
-export function DailyStreakHeaderStatus({ showBadge = true }: { showBadge?: boolean } = {}) {
+export function DailyStreakHeaderStatus({ showBadge = true, continueInCurrentLesson = false }: { showBadge?: boolean; continueInCurrentLesson?: boolean } = {}) {
   const { locale } = useLocale();
   const text = copy[locale];
   const [motivation, setMotivation] = useState<Motivation | null>(null);
@@ -167,7 +172,10 @@ export function DailyStreakHeaderStatus({ showBadge = true }: { showBadge?: bool
         <span>{text.balance}: {new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(balance)}</span>
       </div>
       {recovery?.available ? <section className={styles.recoveryChoices}>
-        {recovery.waterLilyCount > 0 && !recovery.waterLilyReady ? <><p className={styles.recoveryNote}>{text.needLesson}</p><button type="button" className={styles.continueButton} onClick={() => handleOpenChange(false)}>{text.startLesson}</button></> : null}
+        {recovery.waterLilyCount > 0 && !recovery.waterLilyReady ? <><p className={styles.recoveryNote}>{text.needLesson}</p>{continueInCurrentLesson
+          ? <button type="button" className={styles.continueButton} onClick={() => handleOpenChange(false)}>{returnToCurrentLesson[locale]}</button>
+          : <Link className={styles.continueButton} href="/continue-learning" onClick={() => handleOpenChange(false)}>{text.startLesson}</Link>}
+        </> : null}
         {!recovery.waterLilyCount && !canPay ? <p className={styles.recoveryNote}>{text.noFunds}</p> : null}
         {(recovery.waterLilyCount > 0 ? recovery.waterLilyReady : canPay) ? <button type="button" className={styles.restoreButton} disabled={restoring} onClick={() => void restoreBurnedStreak()}>
           {restoring ? text.restoring : recovery.waterLilyCount > 0 ? text.restoreFree : (level?.lifetimeExperience ?? 0) >= recovery.experienceCost ? text.restoreXp.replace("{cost}", String(recovery.experienceCost)) : text.restoreCoins.replace("{cost}", (recovery.coinCostMinor / 100).toFixed(2))}

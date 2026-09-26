@@ -12,3 +12,12 @@ export function learnerCourseContinueHref(course: LearnerCoursePathInput) {
   if (!course.nextLesson) return `/courses/${courseSlug}`;
   return `/courses/${courseSlug}/lessons/${encodeURIComponent(course.nextLesson.slug)}`;
 }
+
+/** Match the dashboard's Continue choice: prefer actual recent learning,
+ * then a course with an unfinished lesson, then the first available course. */
+export function learnerCourseToContinue<T extends LearnerCoursePathInput & { lastActivityAt: string | null }>(courses: readonly T[]) {
+  return courses.find((course) => course.lastActivityAt)
+    ?? courses.find((course) => course.nextLesson)
+    ?? courses[0]
+    ?? null;
+}

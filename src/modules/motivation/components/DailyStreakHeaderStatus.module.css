@@ -72,7 +72,7 @@
 .recoveryChoices { display: grid; gap: .55rem; }
 .recoveryNote { margin: 0; border-radius: .7rem; background: #fff7ed; color: #92400e; padding: .65rem .75rem; font-size: .8rem; line-height: 1.4; }
 .recoveryNote a { color: #075985; font-weight: 850; }
-.continueButton { min-height: 2.75rem; border: 0; border-radius: .8rem; background: #075985; color: #fff; cursor: pointer; font: inherit; font-size: .86rem; font-weight: 850; }
+.continueButton { display: grid; min-height: 2.75rem; place-items: center; border: 0; border-radius: .8rem; background: #075985; color: #fff; cursor: pointer; font: inherit; font-size: .86rem; font-weight: 850; text-align: center; text-decoration: none; }
 .continueButton:hover { background: #0369a1; }
 .lilyButton { min-height: 2.7rem; border: 1px solid #8bd3e8; border-radius: .8rem; background: #eafaff; color: #075985; cursor: pointer; font: inherit; font-size: .83rem; font-weight: 850; }
 .lilyButton:disabled { cursor: not-allowed; opacity: .55; }
