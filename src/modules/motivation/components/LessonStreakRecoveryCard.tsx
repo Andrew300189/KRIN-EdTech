@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
+import { planWaterLilyRestore } from "@/modules/motivation/utils/shop-consumables";
 import styles from "./LessonStreakRecoveryCard.module.css";
 
 const copy = {
-  en: { title: "Answer streak paused", description: "Restore the verified lesson streak with a Water Lily, or start a new run.", restore: "Restore streak", continue: "Continue new run", shop: "Get a Water Lily", available: "Available lilies" },
-  ru: { title: "Серия ответов прервана", description: "Восстановите подтверждённую серию урока кувшинкой или начните новую.", restore: "Восстановить серию", continue: "Начать новую серию", shop: "Купить кувшинку", available: "Доступные кувшинки" },
-  uk: { title: "Серію відповідей перервано", description: "Відновіть підтверджену серію уроку лататтям або почніть нову.", restore: "Відновити серію", continue: "Почати нову серію", shop: "Купити латаття", available: "Доступне латаття" },
+  en: { title: "Answer streak paused", description: "Restore the verified lesson streak with Water Lilies, or start a new run.", restore: "Restore streak", continue: "Continue new run", shop: "Get a Water Lily", available: "Available lilies", cost: "Will use" },
+  ru: { title: "Серия ответов прервана", description: "Восстановите подтверждённую серию урока кувшинками или начните новую.", restore: "Восстановить серию", continue: "Начать новую серию", shop: "Купить кувшинку", available: "Доступные кувшинки", cost: "Будет списано" },
+  uk: { title: "Серію відповідей перервано", description: "Відновіть підтверджену серію уроку лататтям або почніть нову.", restore: "Відновити серію", continue: "Почати нову серію", shop: "Купити латаття", available: "Доступне латаття", cost: "Буде списано" },
 } as const;
 
 type Lily = { id: string; capacity: number; quantity: number };
@@ -23,7 +24,7 @@ export function LessonStreakRecoveryCard({ lessonId, brokenStreak, lilies, onRes
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (brokenStreak < 1) return null;
-  const usable = lilies.filter((lily) => lily.quantity > 0 && lily.capacity >= brokenStreak);
+  const plan = planWaterLilyRestore(lilies, brokenStreak);
 
   async function resolve(action: "RESTORE" | "CONTINUE") {
     if (busy) return;
@@ -49,10 +50,11 @@ export function LessonStreakRecoveryCard({ lessonId, brokenStreak, lilies, onRes
       <strong>{text.title} · {brokenStreak}</strong>
       <span>{text.description}</span>
       {lilies.some((lily) => lily.quantity > 0) ? <span>{text.available}: {lilies.filter((lily) => lily.quantity > 0).map((lily) => `×${lily.capacity} (${lily.quantity})`).join(", ")}</span> : null}
+      {plan ? <span className={styles.cost}>{text.cost}: {plan.lilies.map((lily) => `${lily.quantity} × ${lily.capacity}`).join(" + ")}</span> : null}
       {error ? <span role="alert">{error}</span> : null}
     </div>
     <div className={styles.actions}>
-      {usable.length ? <button type="button" className={styles.primary} disabled={busy} onClick={() => void resolve("RESTORE")}>{text.restore}</button> : <Link className={styles.secondary} href="/student/shop">{text.shop}</Link>}
+      {plan ? <button type="button" className={styles.primary} disabled={busy} onClick={() => void resolve("RESTORE")}>{text.restore}</button> : <Link className={styles.secondary} href="/student/shop">{text.shop}</Link>}
       <button type="button" className={styles.secondary} disabled={busy} onClick={() => void resolve("CONTINUE")}>{text.continue}</button>
     </div>
   </section></div>;

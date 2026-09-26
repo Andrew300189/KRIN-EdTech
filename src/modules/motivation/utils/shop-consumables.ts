@@ -7,6 +7,50 @@ export const WATER_LILY_TIERS = WATER_LILY_CAPACITIES.map((capacity) => ({
   price: Number((WATER_LILY_PRICE_COINS * Math.max(1, capacity / 10)).toFixed(2)),
 }));
 
+export type WaterLilyInventoryEntry = { id: string; capacity: number; quantity: number };
+
+/** Spend the least total restoration capacity, then the fewest flowers.
+ * Multiple lower-tier lilies can cover a longer interrupted answer streak. */
+export function planWaterLilyRestore(inventory: readonly WaterLilyInventoryEntry[], required: number) {
+  if (!Number.isSafeInteger(required) || required < 1) return null;
+  const available = inventory.filter((item) => Number.isSafeInteger(item.capacity) && item.capacity > 0
+    && Number.isSafeInteger(item.quantity) && item.quantity > 0);
+  if (!available.length || available.reduce((sum, item) => sum + item.capacity * item.quantity, 0) < required) return null;
+
+  const limit = required + Math.max(...available.map((item) => item.capacity)) - 1;
+  type PlanNode = { id: string; capacity: number; quantity: number; previous: PlanNode | null };
+  const states: Array<{ units: number; node: PlanNode | null } | null> = Array(limit + 1).fill(null);
+  states[0] = { units: 0, node: null };
+  for (const item of available) {
+    // Binary decomposition keeps large inventories cheap while retaining the
+    // exact bounded-knapsack result for every possible total capacity.
+    let remaining = Math.min(item.quantity, Math.ceil(limit / item.capacity));
+    let batch = 1;
+    while (remaining > 0) {
+      const quantity = Math.min(batch, remaining);
+      const capacity = quantity * item.capacity;
+      for (let total = limit; total >= capacity; total -= 1) {
+        const previous = states[total - capacity];
+        if (!previous) continue;
+        const units = previous.units + quantity;
+        if (!states[total] || units < states[total]!.units) {
+          states[total] = { units, node: { id: item.id, capacity: item.capacity, quantity, previous: previous.node } };
+        }
+      }
+      remaining -= quantity;
+      batch *= 2;
+    }
+  }
+  const total = states.findIndex((state, capacity) => capacity >= required && state !== null);
+  if (total < 0) return null;
+  const grouped = new Map<string, { id: string; capacity: number; quantity: number }>();
+  for (let node = states[total]!.node; node; node = node.previous) {
+    const prior = grouped.get(node.id);
+    grouped.set(node.id, { id: node.id, capacity: node.capacity, quantity: (prior?.quantity ?? 0) + node.quantity });
+  }
+  return { totalCapacity: total, lilies: [...grouped.values()] };
+}
+
 /** A purchased booster is consumed on one newly completed lesson. */
 export const XP_BOOSTERS = [
   { id: "xp-boost-40", experience: 40, price: 0.1 },

@@ -1,4 +1,4 @@
-import { consumableQuantity, nextXpBooster, WATER_LILY_CAPACITIES, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, nextXpBooster, planWaterLilyRestore, WATER_LILY_CAPACITIES, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { SHOP_ITEMS } from "@/modules/motivation/services/reward-economy.service";
 
 describe("purchased XP booster inventory", () => {
@@ -30,5 +30,21 @@ describe("purchased XP booster inventory", () => {
     ];
     expect(nextXpBooster(entries)).toEqual(XP_BOOSTERS[0]);
     expect(consumableQuantity([{ sourceType: "SHOP_ITEM_USE", sourceId: "xp-boost-15" }], "xp-boost-15")).toBe(0);
+  });
+
+  it("combines two 10-answer lilies to restore a 12-answer streak", () => {
+    expect(planWaterLilyRestore([{ id: "water-lily", capacity: 10, quantity: 21 }], 12)).toEqual({
+      totalCapacity: 20,
+      lilies: [{ id: "water-lily", capacity: 10, quantity: 2 }],
+    });
+    expect(planWaterLilyRestore([{ id: "water-lily", capacity: 10, quantity: 1 }], 12)).toBeNull();
+  });
+
+  it("preserves valuable high-tier lilies when a smaller combination suffices", () => {
+    expect(planWaterLilyRestore([
+      { id: "water-lily-100", capacity: 100, quantity: 1 },
+      { id: "water-lily-12", capacity: 12, quantity: 1 },
+      { id: "water-lily", capacity: 10, quantity: 2 },
+    ], 12)).toEqual({ totalCapacity: 12, lilies: [{ id: "water-lily-12", capacity: 12, quantity: 1 }] });
   });
 });

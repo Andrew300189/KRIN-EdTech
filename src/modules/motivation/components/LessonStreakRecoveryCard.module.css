@@ -4,6 +4,7 @@
 .copy { display: grid; gap: .5rem; min-width: 0; }
 .copy strong { color: #075985; font-size: 1.2rem; font-weight: 900; }
 .copy span { color: #475569; font-size: .86rem; line-height: 1.5; }
+.copy .cost { width: fit-content; border-radius: .55rem; background: #e0f2fe; padding: .3rem .55rem; color: #075985; font-weight: 800; }
 .actions { display: flex; flex-wrap: wrap; gap: .55rem; }
 .primary, .secondary { min-height: 2.65rem; border-radius: .75rem; padding: .5rem .85rem; font: inherit; font-size: .8rem; font-weight: 850; cursor: pointer; }
 .primary { border: 1px solid #0284c7; background: #0284c7; color: #fff; }

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
-import { consumableQuantity, WATER_LILY_SHOP_ID, WATER_LILY_TIERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, planWaterLilyRestore, WATER_LILY_SHOP_ID, WATER_LILY_TIERS } from "@/modules/motivation/utils/shop-consumables";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { experienceForExerciseSpeed } from "@/modules/courses/utils/exercise-speed-reward";
 import { correctAnswerStreak } from "@/modules/motivation/utils/correct-answer-streak";
@@ -53,22 +53,30 @@ export async function resolveLessonAnswerStreak(userId: string, lessonId: string
     if (!interruptedAttempt || interruptedAttempt.isCorrect) throw new Error("The interrupted answer is no longer available for restoration.");
 
     const lilies = await inventory(tx, userId);
-    const lily = lilies.find((entry) => entry.quantity > 0 && entry.capacity >= streak.recoverable);
-    if (!lily) throw new Error("A Water Lily of sufficient level is required to restore this answer streak.");
-    if (lily.id === WATER_LILY_SHOP_ID) {
-      const spent = await tx.userStreak.updateMany({ where: { userId, waterLilyCount: { gte: 1 } }, data: { waterLilyCount: { decrement: 1 } } });
-      if (spent.count !== 1) throw new Error("This Water Lily has already been used.");
-    } else {
+    const plan = planWaterLilyRestore(lilies, streak.recoverable);
+    if (!plan) throw new Error("Not enough Water Lilies are available to restore this answer streak.");
+    const basic = plan.lilies.find((entry) => entry.id === WATER_LILY_SHOP_ID);
+    if (basic) {
+      const spent = await tx.userStreak.updateMany({
+        where: { userId, waterLilyCount: { gte: basic.quantity } },
+        data: { waterLilyCount: { decrement: basic.quantity } },
+      });
+      if (spent.count !== 1) throw new Error("These Water Lilies have already been used.");
+    }
+    const purchased = plan.lilies.filter((entry) => entry.id !== WATER_LILY_SHOP_ID);
+    if (purchased.length) {
       const wallet = await tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} });
       const balanceMinor = wallet.balance * 100 + wallet.fractionalBalance;
-      await tx.coinTransaction.create({ data: {
-        userId, walletId: wallet.id, amount: 0, amountMinor: 0,
-        balanceBefore: wallet.balance, balanceAfter: wallet.balance,
-        balanceBeforeMinor: balanceMinor, balanceAfterMinor: balanceMinor,
-        type: "PURCHASE", sourceType: "SHOP_ITEM_USE", sourceId: lily.id,
-        idempotencyKey: `lesson-water-lily:${userId}:${lessonId}:${randomUUID()}`,
-        localDate: userLocalDate("UTC"), description: `Restored lesson answer streak with ${lily.id}`,
-      } });
+      for (const lily of purchased) for (let index = 0; index < lily.quantity; index += 1) {
+        await tx.coinTransaction.create({ data: {
+          userId, walletId: wallet.id, amount: 0, amountMinor: 0,
+          balanceBefore: wallet.balance, balanceAfter: wallet.balance,
+          balanceBeforeMinor: balanceMinor, balanceAfterMinor: balanceMinor,
+          type: "PURCHASE", sourceType: "SHOP_ITEM_USE", sourceId: lily.id,
+          idempotencyKey: `lesson-water-lily:${userId}:${lessonId}:${randomUUID()}`,
+          localDate: userLocalDate("UTC"), description: `Restored lesson answer streak with ${lily.id}`,
+        } });
+      }
     }
     const current = streak.recoverable + 1;
     const best = Math.max(streak.best, current);
@@ -106,7 +114,7 @@ export async function resolveLessonAnswerStreak(userId: string, lessonId: string
     const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
     await tx.userLevel.update({ where: { id: level.id }, data: { currentCorrectStreak: current, bestCorrectStreak: Math.max(level.bestCorrectStreak, best) } });
     const streakReward = correctAnswerStreak(current);
-    return { current: updated.current, best: updated.best, recoverable: 0, restored: true, lilyCapacity: lily.capacity,
+    return { current: updated.current, best: updated.best, recoverable: 0, restored: true, lilyCapacity: plan.totalCapacity, liliesUsed: plan.lilies,
       exerciseId: interruptedAttempt.exerciseId, correctAnswer: interruptedAttempt.exercise.correctAnswer,
       experience: reward.experience, streakMilestone: streakReward.activated ? streakReward.modeStart : null,
     };
