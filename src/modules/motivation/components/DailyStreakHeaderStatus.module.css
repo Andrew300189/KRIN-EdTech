@@ -66,13 +66,14 @@
 .modalStreak > span:last-child { color: var(--text-secondary); font-size: 0.84rem; font-weight: 700; }
 .modalMeta { display: flex; justify-content: space-between; gap: 0.65rem; color: var(--text-secondary); font-size: 0.77rem; font-weight: 700; }
 .purchaseButton { display: flex; min-height: 3.1rem; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.64rem 0.85rem; border: 0; border-radius: 0.85rem; background: #f4510b; color: #fff; cursor: pointer; font: inherit; font-weight: 850; box-shadow: 0 8px 18px rgb(234 88 12 / 22%); }
-.restoreButton { display: flex; min-height: 3.1rem; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.64rem 0.85rem; border: 1px solid #67c6ea; border-radius: .85rem; background: linear-gradient(135deg, #edfbff, #f3f7ff); color: #075985; cursor: pointer; font: inherit; font-weight: 850; box-shadow: 0 8px 18px rgb(14 116 144 / 12%); }
-.restoreButton small { color: #0e7490; font-size: .72rem; font-weight: 800; }
+.restoreButton { display: block; width: 100%; min-height: 3.1rem; padding: 0.64rem 0.85rem; border: 1px solid #67c6ea; border-radius: .85rem; background: linear-gradient(135deg, #edfbff, #f3f7ff); color: #075985; cursor: pointer; font: inherit; font-weight: 850; text-align: center; box-shadow: 0 8px 18px rgb(14 116 144 / 12%); }
 .restoreButton:hover:not(:disabled) { border-color: #0ea5e9; background: #e3f8ff; }
-.restoreButton:disabled { cursor: wait; opacity: .62; box-shadow: none; }
+.restoreButton:disabled { cursor: progress; opacity: .7; box-shadow: none; }
 .recoveryChoices { display: grid; gap: .55rem; }
 .recoveryNote { margin: 0; border-radius: .7rem; background: #fff7ed; color: #92400e; padding: .65rem .75rem; font-size: .8rem; line-height: 1.4; }
 .recoveryNote a { color: #075985; font-weight: 850; }
+.continueButton { min-height: 2.75rem; border: 0; border-radius: .8rem; background: #075985; color: #fff; cursor: pointer; font: inherit; font-size: .86rem; font-weight: 850; }
+.continueButton:hover { background: #0369a1; }
 .lilyButton { min-height: 2.7rem; border: 1px solid #8bd3e8; border-radius: .8rem; background: #eafaff; color: #075985; cursor: pointer; font: inherit; font-size: .83rem; font-weight: 850; }
 .lilyButton:disabled { cursor: not-allowed; opacity: .55; }
 .shopLink { justify-self: start; color: #075985; font-size: .78rem; font-weight: 800; }
