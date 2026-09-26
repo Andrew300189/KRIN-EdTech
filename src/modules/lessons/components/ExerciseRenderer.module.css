@@ -91,6 +91,15 @@
   line-height: 1.45;
 }
 
+.wordGap {
+  display: inline-block;
+  width: 2.5em;
+  height: .82em;
+  vertical-align: baseline;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0;
+}
+
 .answerList { display: grid; gap: .8rem; margin-top: 1.1rem !important; }
 .textAnswer { display: grid; gap: .5rem; }
 

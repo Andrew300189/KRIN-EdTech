@@ -44,6 +44,15 @@ function mediaUrl(value: unknown) {
   return typeof value === "string" && /^(https?:)?\/\//.test(value) ? value : null;
 }
 
+/** Show authored blanks as one clear underline without changing answer keys. */
+export function renderAnswerGaps(value: string, locale: "en" | "ru" | "uk", legacyMiddleDot = false) {
+  const text = legacyMiddleDot ? value.replace(/(\s)[·•](?=\s)/gu, "$1___") : value;
+  const gapLabel = locale === "uk" ? "пропущене слово" : locale === "ru" ? "пропущенное слово" : "missing word";
+  return text.split(/(_{2,})/gu).map((part, index) => /^_{2,}$/u.test(part)
+    ? <span key={index} className={styles.wordGap} role="img" aria-label={gapLabel} />
+    : part);
+}
+
 function stepContext(value: unknown) {
   const context = asObject(asObject(value).authoringContext);
   return {
@@ -851,7 +860,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
-    {!compactToBeMatching && !dynamicToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{visibleQuestion}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
+    {!compactToBeMatching && !dynamicToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{renderAnswerGaps(visibleQuestion, locale)}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {hintOpen && !result?.isCorrect && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className={`${styles.answerList} lesson-exercise-answer-list mt-4 space-y-2`}>
@@ -896,11 +905,11 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
         const current = String((answer as JsonObject)[leftItem] ?? "");
         const answerLabel = locale === "uk" ? "Впишіть слово" : locale === "ru" ? "Впишите слово" : "Type the word";
         const placeholder = locale === "uk" ? "am, is або are" : locale === "ru" ? "am, is или are" : "am, is, or are";
-        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{leftItem}</span><span className="lesson-exercise-answer-label">{answerLabel}</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={placeholder} autoComplete="off" /></label>;
+        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{renderAnswerGaps(leftItem, locale, true)}</span><span className="lesson-exercise-answer-label">{answerLabel}</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={placeholder} autoComplete="off" /></label>;
       })}
       {matching && !compactToBeMatching && matchingLeft.map((leftItem) => {
         const storedValue = String((answer as JsonObject)[leftItem] ?? "");
-        return <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{leftItem}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={storedValue} onChange={(event) => {
+        return <label key={leftItem} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{renderAnswerGaps(leftItem, locale, true)}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={storedValue} onChange={(event) => {
           const next = { ...(answer as JsonObject), [leftItem]: event.target.value };
           changeAnswer(next);
         }} onKeyDown={(event) => submitAssignedSelectOnEnter(event, leftItem, true)} aria-keyshortcuts="Enter"><option value="">Choose a match</option>{matchingOptions.map((rightItem, optionIndex) => <option key={`${rightItem}-${optionIndex}`} value={rightItem}>{rightItem}</option>)}</select></label>;
