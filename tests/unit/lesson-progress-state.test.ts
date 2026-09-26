@@ -1,8 +1,16 @@
-import { hasReachedLessonCompletion, isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
+import { hasReachedLessonCompletion, isLessonProgressComplete, lessonEntryBlockId, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 
 describe("lesson completion state", () => {
   it("keeps a completed lesson completed during a later practice visit", () => {
     expect(resolveLessonProgressStatus("COMPLETED", false, false)).toBe("COMPLETED");
+  });
+
+  it("opens a completed lesson at its first block instead of the saved ending", () => {
+    const blocks = ["intro", "theory", "exercise"];
+
+    expect(lessonEntryBlockId({ status: "COMPLETED", completionPercent: 100 }, blocks, "exercise")).toBe("intro");
+    expect(lessonEntryBlockId({ status: "STARTED", completionPercent: 100 }, blocks, "exercise")).toBe("intro");
+    expect(lessonEntryBlockId({ status: "STARTED", completionPercent: 50 }, blocks, "exercise")).toBe("exercise");
   });
 
   it("completes a new lesson only after the learner finishes required blocks", () => {

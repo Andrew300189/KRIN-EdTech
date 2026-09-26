@@ -15,6 +15,16 @@ export function isLessonProgressComplete(progress: LessonProgressSnapshot | null
   return progress?.status === "COMPLETED" || (progress?.completionPercent ?? 0) >= 100;
 }
 
+/** Reopening a finished lesson is a review visit, not a resume at its saved
+ * final position. In-progress lessons still resume where the learner left off. */
+export function lessonEntryBlockId(
+  progress: LessonProgressSnapshot | null | undefined,
+  blockIds: readonly string[],
+  savedCurrentBlockId: string | null,
+) {
+  return isLessonProgressComplete(progress) ? blockIds[0] ?? null : savedCurrentBlockId;
+}
+
 /** A prerequisite can deliberately open before 100% when CMS sets a lower threshold. */
 export function hasReachedLessonCompletion(progress: LessonProgressSnapshot | null | undefined, requiredPercent: number) {
   if (!progress) return false;

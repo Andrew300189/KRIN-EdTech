@@ -17,6 +17,7 @@ import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events"
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
+import { isLessonProgressComplete, lessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonRewardWheel, type LessonXpMultiplierWheelResult } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
@@ -458,7 +459,7 @@ export function LessonPlayer({
     || (activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings))
     || (!previewMode && isSpacedReviewBlock(activeBlock)),
   );
-  const lessonIsCompleted = storedProgress?.status === "COMPLETED";
+  const lessonIsCompleted = isLessonProgressComplete(storedProgress);
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
   const correctExerciseIds = useMemo(
     () => new Set(Object.entries(exerciseResults).filter(([, isCorrect]) => isCorrect).map(([exerciseId]) => exerciseId)),
@@ -471,12 +472,15 @@ export function LessonPlayer({
     // lesson fills each large step according to its individual answers.
     if (lessonIsCompleted && !isPracticeRunRef.current) return 100;
     const visitedBlocks = isPracticeRunRef.current ? practiceBlockIds : completedBlocks;
+    const answeredCorrectlyThisVisit = isPracticeRunRef.current
+      ? new Set(visitExerciseIds.filter((exerciseId) => correctExerciseIds.has(exerciseId)))
+      : correctExerciseIds;
     const completedFraction = blocks.reduce(
-      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, correctExerciseIds),
+      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, answeredCorrectlyThisVisit),
       0,
     );
     return Math.round((completedFraction / blocks.length) * 100);
-  }, [blocks, completedBlocks, correctExerciseIds, lessonIsCompleted, practiceBlockIds]);
+  }, [blocks, completedBlocks, correctExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds]);
   const progressLabel = lessonIsCompleted
     ? locale === "uk" ? `Практика · ${progressPercent}% повторено` : locale === "ru" ? `Практика · ${progressPercent}% повторено` : `Practice · ${progressPercent}% revisited`
     : locale === "uk" ? `${progressPercent}% завершено` : locale === "ru" ? `${progressPercent}% пройдено` : `${progressPercent}% complete`;
@@ -583,7 +587,10 @@ export function LessonPlayer({
     void fetch(`/api/learning/lessons/${lessonId}/progress`)
       .then(async (response) => response.ok ? response.json() : null)
       .then((payload: { data?: StoredProgress | null } | null) => {
-        if (!live || !payload?.data || hasGuestPreviewRef.current || progressMutationRef.current) return;
+        if (!live || !payload?.data || progressMutationRef.current) return;
+        // An old guest preview must not override a lesson subsequently
+        // completed by this account. Only unfinished progress resumes it.
+        if (hasGuestPreviewRef.current && !isLessonProgressComplete(payload.data)) return;
         const saved = payload.data;
         const restoredBlocks = validCompletedBlockIds(saved.completedBlocks, blocks);
         const restoredCurrentBlock = validCurrentBlockId(saved.currentBlockId, blocks);
@@ -601,15 +608,21 @@ export function LessonPlayer({
           setPracticeBlockIds([]);
           setCompletedBlocks(restoredBlocks);
           setCurrentBlockId(reviewBlockId);
-        } else if (saved.status === "COMPLETED") {
-          // Returning to a completed lesson must show its saved completion
-          // state. Practice remains available from the timeline, but never
-          // silently restarts the first task in the first exercise block.
-          isPracticeRunRef.current = false;
+        } else if (isLessonProgressComplete(saved)) {
+          // The course contents are also a way to revisit a finished lesson.
+          // Start at its first block, while retaining the completed record and
+          // its one-time rewards on the server.
+          isPracticeRunRef.current = true;
           setPracticeBlockIds([]);
+          setVisitExerciseIds([]);
+          setGuestExerciseResume(null);
+          if (hasGuestPreviewRef.current) {
+            hasGuestPreviewRef.current = false;
+            try { window.localStorage.removeItem(guestPreviewKey); } catch { /* Storage is optional. */ }
+          }
           setCompletedBlocks(restoredBlocks);
-          setCurrentBlockId(restoredCurrentBlock);
-          setFinished(true);
+          setCurrentBlockId(lessonEntryBlockId(saved, blocks.map((block) => block.id), restoredCurrentBlock));
+          setFinished(false);
         } else {
           isPracticeRunRef.current = false;
           setPracticeBlockIds([]);
@@ -628,7 +641,7 @@ export function LessonPlayer({
         if (live) setProgressHydrated(true);
       });
     return () => { live = false; };
-  }, [blocks, canSaveProgress, isReviewSession, lessonId, previewMode, reviewBlockId]);
+  }, [blocks, canSaveProgress, guestPreviewKey, isReviewSession, lessonId, previewMode, reviewBlockId]);
 
   useEffect(() => {
     if (previewMode || !canSaveProgress || isReviewSession) return;
@@ -1033,7 +1046,9 @@ export function LessonPlayer({
   }, [activeIndex, blocks.length, canAdvance, completedBlocks, currentBlockId, canSaveProgress, guestRegistrationRequired, isReviewSession, previewMode, streakChestMilestone]);
 
   const formattedTime = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
-  const showWarmUp = !previewMode && Boolean(warmUpSessionId && !warmUpDone);
+  // A review visit should open the lesson itself, not a newly generated
+  // prerequisite warm-up. Wait for progress hydration before deciding.
+  const showWarmUp = !previewMode && progressHydrated && !lessonIsCompleted && Boolean(warmUpSessionId && !warmUpDone);
   const feedbackCopy = lessonFeedbackCopy[locale] ?? lessonFeedbackCopy.en;
   // This is the actual total for the lesson, not the fixed completion rule
   // (which may currently happen to be 50 XP).
@@ -1271,7 +1286,7 @@ export function LessonPlayer({
                   hideExerciseTheoryText={Boolean(activeTheory)}
                   focusExerciseId={reviewMistake?.exerciseId ?? reviewSession?.initialExerciseId}
                   individualExerciseStep={activeBlock.type === "EXERCISE"}
-                  attemptedExerciseIds={activeAttemptedExerciseIds}
+                  attemptedExerciseIds={isPracticeRunRef.current ? [] : activeAttemptedExerciseIds}
                   progressHydrated={progressHydrated}
                   mistakeExerciseIds={activeBlock.exercises
                     .filter((exercise) => exerciseResults[exercise.id] === false)
