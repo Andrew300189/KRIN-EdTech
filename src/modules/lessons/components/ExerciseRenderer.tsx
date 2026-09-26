@@ -288,7 +288,6 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const [translationSending, setTranslationSending] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
-  const [attemptStartedAt, setAttemptStartedAt] = useState(() => Date.now());
   const [speedWindowId, setSpeedWindowId] = useState<string | null>(null);
   const [speedWindowStartedAt, setSpeedWindowStartedAt] = useState(() => Date.now());
   const [speedWindowSeconds, setSpeedWindowSeconds] = useState(() => exerciseSpeedWindowSeconds(exercise.timeLimitSeconds));
@@ -414,7 +413,6 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     setSpeedWindowStartedAt(localStartedAt);
     setSpeedWindowSeconds(defaultWindowSeconds);
     setSpeedClock(localStartedAt);
-    setAttemptStartedAt(localStartedAt);
 
     if (previewMode) return () => controller.abort();
     void (async () => {
@@ -430,7 +428,6 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
         setSpeedWindowId(payload.data.id);
         setSpeedWindowStartedAt(serverStartedAt);
         setSpeedWindowSeconds(exerciseSpeedWindowSeconds(payload.data.windowSeconds));
-        setAttemptStartedAt(serverStartedAt);
         setSpeedClock(Date.now());
       } catch {
         // Guest cards stay usable and signed-in learners still receive the
@@ -489,7 +486,6 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     setTranslation(null);
     setTranslationError(null);
     setTranslationSending(false);
-    setAttemptStartedAt(Date.now());
     setSpeedWindowRun((run) => run + 1);
   }
 
@@ -513,7 +509,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     }
     const idempotencyKey = crypto.randomUUID();
     try {
-      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json", ...(contentLocale ? { "x-krin-content-locale": contentLocale } : {}) }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, timeSpentSeconds: Math.max(0, Math.round((Date.now() - attemptStartedAt) / 1000)), ...(speedWindowId ? { speedWindowId } : {}), ...(reviewRunId ? { reviewRunId } : {}) }) });
+      const response = await fetch(`/api/learning/exercises/${exercise.id}/attempts`, { method: "POST", headers: { "Content-Type": "application/json", ...(contentLocale ? { "x-krin-content-locale": contentLocale } : {}) }, body: JSON.stringify({ answer: answerToCheck, idempotencyKey, hintUsed, ...(speedWindowId ? { speedWindowId } : {}), ...(reviewRunId ? { reviewRunId } : {}) }) });
       const payload = await response.json() as { data?: AttemptResult; error?: string };
       if (!response.ok || !payload.data) { setError(payload.error ?? "Unable to check the answer. Please sign in and try again."); return; }
       setResult(payload.data);

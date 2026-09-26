@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppModal } from "@/core/components/AppModal";
 import { useLocale } from "@/core/i18n/locale";
@@ -22,7 +22,7 @@ const copy = {
 } as const;
 
 /** Compact streak badge; clicking it opens the only place to buy a day-off freeze. */
-export function DailyStreakHeaderStatus() {
+export function DailyStreakHeaderStatus({ showBadge = true }: { showBadge?: boolean } = {}) {
   const { locale } = useLocale();
   const text = copy[locale];
   const [motivation, setMotivation] = useState<Motivation | null>(null);
@@ -30,6 +30,7 @@ export function DailyStreakHeaderStatus() {
   const [buying, setBuying] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [buyingLily, setBuyingLily] = useState(false);
+  const shownLossRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -38,14 +39,12 @@ export function DailyStreakHeaderStatus() {
       if (response.ok && payload?.data?.streak) {
         setMotivation(payload.data);
         const recovery = payload.data.streakRecovery;
-        if (recovery?.available && recovery.lostAt) {
-          const key = `krin-streak-recovery-shown:${recovery.lostAt}`;
-          try {
-            if (!window.sessionStorage.getItem(key)) {
-              window.sessionStorage.setItem(key, "1");
-              setOpen(true);
-            }
-          } catch { setOpen(true); }
+        if (recovery?.available) {
+          const lossKey = `${recovery.lostAt ?? "legacy"}:${recovery.streakLength}`;
+          if (shownLossRef.current !== lossKey) {
+            shownLossRef.current = lossKey;
+            setOpen(true);
+          }
         }
       }
     } catch {
@@ -134,13 +133,13 @@ export function DailyStreakHeaderStatus() {
   }
 
   return <>
-    {level ? <span className={styles.levelBadge} title={`${text.profileLevel}: ${level.level}`} aria-label={`${text.profileLevel}: ${level.level}`}>
+    {showBadge && level ? <span className={styles.levelBadge} title={`${text.profileLevel}: ${level.level}`} aria-label={`${text.profileLevel}: ${level.level}`}>
       <span>Lv.</span><strong>{level.level}</strong>
     </span> : null}
-    <button type="button" className={`${styles.status} ${recovery?.available ? styles.statusNeedsRecovery : ""}`} title={label} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+    {showBadge ? <button type="button" className={`${styles.status} ${recovery?.available ? styles.statusNeedsRecovery : ""}`} title={label} aria-label={label} aria-haspopup="dialog" onClick={() => setOpen(true)}>
       <span className={styles.fire} aria-hidden="true">🔥</span>
       <strong>{recovery?.available ? text.restoreShort : streak.currentStreak}</strong>
-    </button>
+    </button> : null}
     <AppModal open={open} onOpenChange={setOpen} title={recovery?.available ? text.restore : text.title} description={recovery?.available ? text.lost.replace("{count}", String(recovery.streakLength)) : text.description} size="small" closeLabel={text.close} bodyClassName={styles.modalBody}>
       <div className={styles.modalStreak}>
         <span aria-hidden="true">🔥</span>

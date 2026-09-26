@@ -6,6 +6,7 @@ import { SkipToMainContent } from "@/core/components/SkipToMainContent";
 import { ToastProvider } from "@/core/components/ToastProvider";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
+import { StreakRecoveryRoutePrompt } from "@/modules/motivation/components/StreakRecoveryRoutePrompt";
 
 const themeBootstrap = `(() => {
   try {
@@ -109,6 +110,7 @@ export default function RootLayout({
           <SkipToMainContent />
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} />
           <div id="main-content" tabIndex={-1}>{children}</div>
+          <StreakRecoveryRoutePrompt />
           <WebVitalsReporter />
           <ScrollToTopButton />
           <ToastProvider />
