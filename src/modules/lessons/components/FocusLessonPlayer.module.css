@@ -1601,7 +1601,11 @@
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control) {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
+  justify-content: center;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  aspect-ratio: 1;
+  min-height: 38px;
   border: 0;
   border-radius: inherit;
   background: transparent;
@@ -1610,16 +1614,19 @@
   font: inherit;
   font-size: .78rem;
   font-weight: 800;
-  padding: 8px 11px;
+  padding: .55rem;
 }
 
-.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control::before) {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #f59e0b;
-  content: "";
-  margin-right: 7px;
+.exerciseTaskCard .focusContent :global(.lesson-exercise-hint-control svg),
+.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger svg) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger[data-open]) { display: block; padding: 0 11px 10px; }
 .exerciseTaskCard .focusContent :global(.lesson-exercise-hint-trigger p) { color: #78350f; font-size: .84rem; font-weight: 600; line-height: 1.45; }
@@ -1631,6 +1638,10 @@
 .exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger) {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  aspect-ratio: 1;
   min-height: 34px;
   border: 1px solid #c7d2fe;
   border-radius: 12px;
@@ -1639,17 +1650,8 @@
   font-size: .78rem;
   font-weight: 800;
   line-height: 1;
-  padding: 8px 11px;
+  padding: .55rem;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
-}
-
-.exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger::before) {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #6366f1;
-  content: "";
-  margin-right: 7px;
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:hover:not(:disabled)),
