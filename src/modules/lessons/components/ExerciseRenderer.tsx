@@ -801,6 +801,10 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     ? correctionPrompt(exercise.question, content)
     : exercise.question
   ).replace(/^(?:[\p{L}]+\s+)?(?:пример|приклад):\s*/iu, "");
+  // This legacy sentence-builder prompt repeats the instruction above the
+  // actual word tiles. Hide it for existing database records without changing
+  // the question or answer data used by validation and CMS editing.
+  const showQuestion = !(ordered && /^put every word in the right place\.?$/iu.test(visibleQuestion.trim()));
   const answerFeedback = learnerAnswerFeedback(locale);
   const hintInlineLabel = locale === "uk" ? "Підказка:" : locale === "ru" ? "Подсказка:" : "Hint:";
   const translationOpeningLabel = locale === "uk" ? "Готуємо…" : locale === "ru" ? "Готовим…" : "Preparing…";
@@ -878,7 +882,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}
     {video ? <video className="mt-3 w-full rounded-lg" controls preload="metadata" src={video}>Your browser does not support video playback.</video> : null}
-    {!compactToBeMatching && !dynamicToBeMatching ? <div className={`${styles.questionRow} lesson-exercise-question-row`}><p className={`${styles.question} lesson-exercise-question text-slate-700`}>{renderAnswerGaps(visibleQuestion, locale)}</p>{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
+    {!compactToBeMatching && !dynamicToBeMatching && (showQuestion || translation) ? <div className={`${styles.questionRow} lesson-exercise-question-row`}>{showQuestion ? <p className={`${styles.question} lesson-exercise-question text-slate-700`}>{renderAnswerGaps(visibleQuestion, locale)}</p> : null}{translation ? <div className="lesson-exercise-translation-result" role="status">{translation}</div> : null}</div> : null}
     {compactToBeMatching && translation ? <div className="lesson-exercise-translation-result mt-3" role="status">{translation}</div> : null}
     {hintOpen && !result?.isCorrect && feedbackHint ? <p className={`${styles.inlineHint} lesson-exercise-inline-hint`} role="status"><strong>{hintInlineLabel}</strong> {feedbackHint}</p> : null}
     <div className={`${styles.answerList} lesson-exercise-answer-list mt-4 space-y-2`}>
