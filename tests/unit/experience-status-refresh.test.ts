@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { jest } from "@jest/globals";
 import "@testing-library/jest-dom";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { MOTIVATION_UPDATED_EVENT } from "@/modules/motivation/motivation-events";
@@ -12,7 +12,7 @@ type OverviewResponse = {
   ok: boolean;
   json: () => Promise<{
     data: {
-      level: { level: number; lifetimeExperience: number };
+      level: { level: number; lifetimeExperience: number; leaderboardExperienceMinor?: number };
       wallet: { balance: number };
     };
   }>;
@@ -26,6 +26,29 @@ function overview(experience: number) {
 }
 
 describe("ExperienceStatus reward refresh", () => {
+  it("shows permanent earned XP above spendable XP in the exchange dialog", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: {
+          level: { level: 2, lifetimeExperience: 4475, leaderboardExperienceMinor: 625000 },
+          wallet: { balance: 0 },
+        },
+      }),
+    })) as unknown as typeof fetch;
+
+    render(createElement(LocaleProvider, null, createElement(ExperienceStatus)));
+    const exchangeButton = await screen.findByRole("button", { name: /4475 XP/ });
+    fireEvent.click(exchangeButton);
+
+    const dialog = screen.getByRole("dialog");
+    const earned = within(dialog).getByText(/Total earned:/);
+    const available = within(dialog).getByText(/Available:/);
+    expect(earned).toHaveTextContent("6250 XP");
+    expect(available).toHaveTextContent("4475 XP");
+    expect(earned.compareDocumentPosition(available) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("keeps the newest server balance when a pre-reward request resolves last", async () => {
     const pending: Array<(response: OverviewResponse) => void> = [];
     const fetchMock = jest.fn(() => new Promise<OverviewResponse>((resolve) => pending.push(resolve)));

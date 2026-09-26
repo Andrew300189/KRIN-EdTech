@@ -17,7 +17,9 @@
 .popoverHeading strong { font-size: 1rem; }
 .popoverHeading span { color: var(--text-secondary); font-size: .75rem; }
 .popoverHeading button { width: 1.9rem; height: 1.9rem; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-primary); font-size: 1.15rem; cursor: pointer; }
-.available { margin: .8rem 0; color: var(--text-secondary); font-size: .78rem; }
+.earned { margin: .8rem 0 .2rem; color: var(--text-primary); font-size: .8rem; }
+.earned strong { font-variant-numeric: tabular-nums; }
+.available { margin: .2rem 0 .8rem; color: var(--text-secondary); font-size: .78rem; }
 .exchangeSection { display: grid; gap: .55rem; border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent); padding-top: .8rem; margin-top: .8rem; }
 .exchangeSection > strong { color: var(--text-primary); font-size: .82rem; }
 .popover form { display: grid; gap: .55rem; }

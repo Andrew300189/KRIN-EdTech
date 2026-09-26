@@ -6,7 +6,7 @@ import { useLocale } from "@/core/i18n/locale";
 import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
-  level: { level: number; lifetimeExperience: number; fractionalExperience?: number };
+  level: { level: number; lifetimeExperience: number; fractionalExperience?: number; leaderboardExperienceMinor?: number };
   wallet: { balance: number; fractionalBalance?: number };
 };
 
@@ -18,9 +18,9 @@ type ExchangeResult = {
 };
 
 const copy = {
-  en: { title: "XP exchange", available: "Available", xpToKrin: "XP → KRIN Coins", rate: "1,000 XP = 1 KRIN Coin · rank XP stays unchanged", xpAmount: "XP to exchange", all: "All", receive: "You receive", exchange: "Exchange", exchanging: "Exchanging…", close: "Close", krinCoin: "KRIN Coins", done: "{xp} XP exchanged for {coins} KRIN Coins.", error: "Unable to exchange right now." },
-  uk: { title: "Обмін XP", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтингу не змінюється", xpAmount: "XP для обміну", all: "Усі", receive: "Ви отримаєте", exchange: "Обміняти", exchanging: "Обмінюємо…", close: "Закрити", krinCoin: "KRIN Coins", done: "{xp} XP обміняно на {coins} KRIN Coins.", error: "Не вдалося виконати обмін." },
-  ru: { title: "Обмен XP", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтинга не меняется", xpAmount: "XP для обмена", all: "Все", receive: "Вы получите", exchange: "Обменять", exchanging: "Обмениваем…", close: "Закрыть", krinCoin: "KRIN Coins", done: "{xp} XP обменяно на {coins} KRIN Coins.", error: "Не удалось выполнить обмен." },
+  en: { title: "XP exchange", earned: "Total earned", available: "Available", xpToKrin: "XP → KRIN Coins", rate: "1,000 XP = 1 KRIN Coin · rank XP stays unchanged", xpAmount: "XP to exchange", all: "All", receive: "You receive", exchange: "Exchange", exchanging: "Exchanging…", close: "Close", krinCoin: "KRIN Coins", done: "{xp} XP exchanged for {coins} KRIN Coins.", error: "Unable to exchange right now." },
+  uk: { title: "Обмін XP", earned: "Усього зароблено", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтингу не змінюється", xpAmount: "XP для обміну", all: "Усі", receive: "Ви отримаєте", exchange: "Обміняти", exchanging: "Обмінюємо…", close: "Закрити", krinCoin: "KRIN Coins", done: "{xp} XP обміняно на {coins} KRIN Coins.", error: "Не вдалося виконати обмін." },
+  ru: { title: "Обмен XP", earned: "Всего заработано", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтинга не меняется", xpAmount: "XP для обмена", all: "Все", receive: "Вы получите", exchange: "Обменять", exchanging: "Обмениваем…", close: "Закрыть", krinCoin: "KRIN Coins", done: "{xp} XP обменяно на {coins} KRIN Coins.", error: "Не удалось выполнить обмен." },
 } as const;
 
 function regularCoinBalance(overview: MotivationOverview) {
@@ -30,6 +30,12 @@ function regularCoinBalance(overview: MotivationOverview) {
 function experienceLabel(level: MotivationOverview["level"]) {
   const hundredths = Math.max(0, Math.min(99, level.fractionalExperience ?? 0));
   return hundredths ? `${level.lifetimeExperience}.${String(hundredths).padStart(2, "0")}` : String(level.lifetimeExperience);
+}
+
+function earnedExperienceLabel(level: MotivationOverview["level"]) {
+  const minor = Math.max(0, level.leaderboardExperienceMinor ?? level.lifetimeExperience * 100 + (level.fractionalExperience ?? 0));
+  const whole = Math.floor(minor / 100);
+  return minor % 100 ? `${whole}.${String(minor % 100).padStart(2, "0")}` : String(whole);
 }
 
 function wholeNumber(value: string) {
@@ -128,6 +134,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
     </div>
     {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label={text.title}>
       <div className={styles.popoverHeading}><div><strong>{text.title}</strong><span>{text.rate}</span></div><button type="button" onClick={() => setOpen(false)} aria-label={text.close}>×</button></div>
+      <p className={styles.earned}>{text.earned}: <strong>{earnedExperienceLabel(overview.level)} XP</strong></p>
       <p className={styles.available}>{text.available}: <strong>{experienceText} XP</strong></p>
       <section className={styles.exchangeSection} aria-labelledby={`${popoverId}-krin`}>
         <strong id={`${popoverId}-krin`}>{text.xpToKrin}</strong>
