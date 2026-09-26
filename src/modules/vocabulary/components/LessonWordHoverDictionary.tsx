@@ -27,6 +27,7 @@ type Props = {
   children: ReactNode;
   sourceLessonId: string;
   words: Array<{ wordId: string; word: Omit<DictionaryWord, "id"> }>;
+  contentLocale: "en" | "ru" | "uk";
 };
 
 const dismissedTermsStorageKey = "krin:vocabulary-hover-dismissed";
@@ -71,7 +72,7 @@ function matchesLemma(term: string, lemma: string) {
  * the authored HTML. CMS authors can link vocabulary in the usual way; words
  * not yet linked fall back to an exact central-dictionary lookup.
  */
-export function LessonWordHoverDictionary({ children, sourceLessonId, words }: Props) {
+export function LessonWordHoverDictionary({ children, sourceLessonId, words, contentLocale }: Props) {
   const [hovered, setHovered] = useState<HoveredWord | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -95,6 +96,11 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
     }
     return entries;
   }, [words]);
+
+  useEffect(() => {
+    requestedTerm.current = null;
+    setHovered(null);
+  }, [contentLocale]);
 
   function cancelClose() {
     if (!closeTimer.current) return;
@@ -170,12 +176,14 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
 
   async function translatedTerm(term: string) {
     const normalizedTerm = normalize(term);
-    const cached = translationCache.current.get(normalizedTerm);
+    const cacheKey = `${contentLocale}:${normalizedTerm}`;
+    const cached = translationCache.current.get(cacheKey);
     if (cached !== undefined) return cached;
-    const response = await fetch(`/api/vocabulary/translate?q=${encodeURIComponent(term)}`, { cache: "no-store" });
+    const target = contentLocale === "ru" || contentLocale === "uk" ? `&target=${contentLocale}` : "";
+    const response = await fetch(`/api/vocabulary/translate?q=${encodeURIComponent(term)}${target}`, { cache: "no-store" });
     const payload = await response.json().catch(() => null) as { data?: { translation?: string } } | null;
     const translation = response.ok && typeof payload?.data?.translation === "string" ? payload.data.translation.trim() : "";
-    if (translation) translationCache.current.set(normalizedTerm, translation);
+    if (translation) translationCache.current.set(cacheKey, translation);
     return translation;
   }
 
@@ -217,6 +225,13 @@ export function LessonWordHoverDictionary({ children, sourceLessonId, words }: P
       return;
     }
     if (requestedTerm.current !== normalizedTerm) return;
+
+    // WordMeaning.translation has no language column. Never present it as a
+    // Russian/Ukrainian suggestion: translate to this course's locale instead.
+    if (contentLocale === "ru" || contentLocale === "uk") {
+      await showTranslation(term, rect);
+      return;
+    }
 
     const known = knownWords.get(normalizedTerm);
     if (known) {

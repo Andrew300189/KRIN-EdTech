@@ -1225,7 +1225,7 @@ export function LessonPlayer({
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>{chromeCopy.noStepsTitle}</h2><p>{chromeCopy.noStepsDescription}</p></section>
         ) : (
-          <LessonWordHoverDictionary sourceLessonId={lessonId} words={vocabulary}>
+          <LessonWordHoverDictionary sourceLessonId={lessonId} words={vocabulary} contentLocale={locale}>
           <section className={`${styles.workspace} ${reviewDialogOpen ? styles.workspacePaused : ""}`} aria-label="Current lesson step" aria-hidden={reviewDialogOpen}>
             {!previewMode && vocabulary.length > 0 && !activeVocabularyMastery ? <LessonVocabularyPanel lessonId={lessonId} words={vocabulary} /> : null}
             {activeTheory ? (
