@@ -528,15 +528,6 @@
   background: rgb(255 255 255 / 96%);
 }
 
-.programmeEyebrow {
-  margin: 0 0 .2rem;
-  color: #5148db;
-  font-size: .66rem;
-  font-weight: 850;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
 .dialogHeader h2 {
   margin: 0;
   color: #1e293b;

@@ -154,7 +154,7 @@ export async function CourseSalesPageContent({ params, searchParams, locale }: {
         </section>
 
         <dialog id="course-content-dialog" className={styles.courseContentDialog} aria-labelledby="outline-title">
-          <div className={styles.dialogHeader}><div><p className={styles.programmeEyebrow}>{text.programme}</p><h2 id="outline-title">{course.modules.length} {course.modules.length === 1 ? text.module : text.modules} · {lessons.length} {lessons.length === 1 ? text.lesson : text.lessons}</h2></div><form method="dialog"><button type="submit" className={styles.dialogCloseButton} aria-label={text.closeContent}>{text.close}</button></form></div>
+          <div className={styles.dialogHeader}><div><h2 id="outline-title">{course.modules.length} {course.modules.length === 1 ? text.module : text.modules} · {lessons.length} {lessons.length === 1 ? text.lesson : text.lessons}</h2></div><form method="dialog"><button type="submit" className={styles.dialogCloseButton} aria-label={text.closeContent}>{text.close}</button></form></div>
           <div className={styles.outline}>
             {course.modules.length ? <CourseLearningPath modules={course.modules} accessByLessonId={accessByLessonId} progressByLessonId={progressByLessonId} coursePath={coursePath} locale={interfaceLocale} /> : <p className={styles.empty}>{text.noModules}</p>}
           </div>

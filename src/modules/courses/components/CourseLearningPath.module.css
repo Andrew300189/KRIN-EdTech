@@ -1,12 +1,11 @@
 .path { min-width: 0; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .1rem .1rem .95rem; border-bottom: 1px solid #e6ebf8; }
-.heading p, .moduleHeading > span { margin: 0; color: #5148db; font-size: .65rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
-.heading h2 { margin: .3rem 0 0; color: #1e293b; font-size: clamp(1.18rem, 2.4vw, 1.5rem); font-weight: 900; letter-spacing: -.035em; }
+.heading h2 { margin: 0; color: #1e293b; font-size: clamp(1.18rem, 2.4vw, 1.5rem); font-weight: 900; letter-spacing: -.035em; }
 .compass { display: grid; width: 2.65rem; height: 2.65rem; flex: 0 0 auto; place-items: center; border: 1px solid #bfdbfe; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fef3c7, #dbeafe 55%, #e0e7ff); color: #4338ca; font-size: 1.2rem; box-shadow: 0 .5rem 1.1rem rgb(79 70 229 / 13%); }
 .map { display: grid; gap: 1.25rem; margin-top: 1.05rem; }
 .module { position: relative; display: grid; gap: .65rem; }
 .module:not(:last-child)::after { position: absolute; z-index: 0; bottom: -1.3rem; left: 1.65rem; width: 2px; height: 1.65rem; background: linear-gradient(#a5b4fc, #dbeafe); content: ""; }
-.moduleHeading { display: grid; gap: .16rem; padding: .66rem .78rem; border: 1px solid #d9e1f3; border-radius: .9rem; background: linear-gradient(110deg, #f7f7ff, #fbfdff); }
+.moduleHeading { display: grid; padding: .66rem .78rem; border: 1px solid #d9e1f3; border-radius: .9rem; background: linear-gradient(110deg, #f7f7ff, #fbfdff); }
 .moduleHeading strong { color: #293750; font-size: .86rem; font-weight: 900; }
 .nodes { display: grid; gap: .58rem; margin: 0; padding: 0 .1rem; list-style: none; }
 .node { position: relative; z-index: 1; }

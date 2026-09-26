@@ -60,7 +60,6 @@ export function CourseLearningPath({ modules, accessByLessonId, progressByLesson
     <section className={styles.path} aria-labelledby="learning-path-title">
       <header className={styles.heading}>
         <div>
-          <p>{text.subtitle}</p>
           <h2 id="learning-path-title">{text.title}</h2>
         </div>
         <span className={styles.compass} aria-hidden="true">✦</span>
@@ -68,7 +67,7 @@ export function CourseLearningPath({ modules, accessByLessonId, progressByLesson
       <div className={styles.map}>
         {modules.map((module) => (
           <section key={module.id} className={styles.module} aria-label={`${text.module} ${module.order}: ${module.title}`}>
-            <div className={styles.moduleHeading}><span>{text.module} {module.order}</span><strong>{module.title}</strong></div>
+            <div className={styles.moduleHeading}><strong>{module.title}</strong></div>
             <ol className={styles.nodes}>
               {module.lessons.map((lesson) => {
                 pathNumber += 1;
