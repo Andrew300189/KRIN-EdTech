@@ -1,65 +1,21 @@
-"use client";
-
-import { useCallback, useEffect, useState } from "react";
 import { useLocale } from "@/core/i18n/locale";
-import { MOTIVATION_UPDATED_EVENT } from "../motivation-events";
 import styles from "./LessonAnswerStreakStatus.module.css";
 
-type Balance = { hintCredits: number; translationCredits: number };
-
 const copy = {
-  en: { streak: "Correct answers in a row", hint: "Hint credits", translation: "Translation credits" },
-  ru: { streak: "Правильных ответов подряд", hint: "Бонусы подсказок", translation: "Бонусы перевода" },
-  uk: { streak: "Правильних відповідей поспіль", hint: "Бонуси підказок", translation: "Бонуси перекладу" },
+  en: "Correct answers in a row",
+  ru: "Правильных ответов подряд",
+  uk: "Правильних відповідей поспіль",
 } as const;
 
-/**
- * A lesson-local streak and the two spendable learning bonuses. The streak is
- * intentionally supplied by the player: it reflects this visit's answer
- * sequence, while the bonus balances always come from the server.
- */
 export function LessonAnswerStreakStatus({ correctAnswersInRow }: { correctAnswersInRow: number }) {
   const { locale } = useLocale();
-  const text = copy[locale];
-  const [balance, setBalance] = useState<Balance | null>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      const response = await fetch("/api/profile/rewards/learning-bonuses", { cache: "no-store" });
-      const payload = await response.json().catch(() => null) as { data?: Balance } | null;
-      if (response.ok && payload?.data) setBalance(payload.data);
-    } catch {
-      // The lesson flow remains usable when the small status request fails.
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    window.addEventListener(MOTIVATION_UPDATED_EVENT, refresh);
-    return () => window.removeEventListener(MOTIVATION_UPDATED_EVENT, refresh);
-  }, [refresh]);
-
-  const hintCredits = balance?.hintCredits;
-  const translationCredits = balance?.translationCredits;
-  const summary = `${text.streak}: ${correctAnswersInRow}. ${text.hint}: ${hintCredits ?? "…"}. ${text.translation}: ${translationCredits ?? "…"}.`;
+  const text = copy[locale] ?? copy.en;
 
   return (
-    <div className={styles.status} aria-label={summary}>
-      <span className={styles.streak} title={`${text.streak}: ${correctAnswersInRow}`}>
-        <span className={styles.streakIcon} aria-hidden="true">✓</span>
-        <strong>×{correctAnswersInRow}</strong>
-        <span className={styles.srOnly}>{text.streak}</span>
-      </span>
-      <span className={styles.separator} aria-hidden="true" />
-      <span className={`${styles.bonus} ${styles.hint}`} title={`${text.hint}: ${hintCredits ?? "…"}`}>
-        <span className={styles.icon} aria-hidden="true">✦</span>
-        <strong>{hintCredits ?? "…"}</strong>
-        <span className={styles.srOnly}>{text.hint}</span>
-      </span>
-      <span className={`${styles.bonus} ${styles.translation}`} title={`${text.translation}: ${translationCredits ?? "…"}`}>
-        <span className={styles.icon} aria-hidden="true">✧</span>
-        <strong>{translationCredits ?? "…"}</strong>
-        <span className={styles.srOnly}>{text.translation}</span>
+    <div className={styles.status} aria-label={`${text}: ${correctAnswersInRow}`}>
+      <span className={styles.streak} title={`${text}: ${correctAnswersInRow}`}>
+        <svg className={styles.streakIcon} viewBox="0 0 24 24" aria-hidden="true"><path d="M13.7 2.8c.4 3.1-.7 4.7-2.2 6.1-.8.8-1.3 1.6-1.3 2.8 0 1.1.8 2.1 2 2.1 1.7 0 2.7-1.5 2.6-3.2 2.1 1.6 3.2 3.7 3.2 6.1 0 4.1-3.1 6.6-7.1 6.6-4.4 0-7.2-2.9-7.2-6.7 0-2.7 1.3-5 3.8-7.2-.1 2.1.8 3.3 2 3.9-.1-2.8 1-5.3 4.2-7.8Z" /></svg>
+        <strong>{correctAnswersInRow}</strong>
       </span>
     </div>
   );

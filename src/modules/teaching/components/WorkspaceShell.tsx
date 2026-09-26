@@ -11,7 +11,6 @@ import { PresenceHeartbeat } from "@/core/components/PresenceHeartbeat";
 import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChestHeaderButton";
 import { DailyStreakHeaderStatus } from "@/modules/motivation/components/DailyStreakHeaderStatus";
-import { LearningBonusHeaderStatus } from "@/modules/motivation/components/LearningBonusHeaderStatus";
 import { LeaderboardHeaderStatus, type LeaderboardHeaderSummary } from "@/modules/motivation/components/LeaderboardHeaderStatus";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
@@ -315,7 +314,6 @@ export function WorkspaceShell({
               <ColorThemePicker />
               {leaderboardSummary ? <LeaderboardHeaderStatus summary={leaderboardSummary} /> : null}
               <DailyStreakHeaderStatus />
-              <LearningBonusHeaderStatus />
               <DailyChestHeaderButton />
               {shouldShowProfilePhoto ? <img
                 src={userAvatar ?? undefined}

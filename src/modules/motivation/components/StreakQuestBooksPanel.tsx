@@ -55,7 +55,7 @@ export function StreakQuestBooksPanel({ initialBooks }: { initialBooks: StreakQu
           <p className={styles.bookDescription}>Answer {book.target} vocabulary tasks correctly.</p>
           <div className={styles.bookProgressHeader}><span>{isLocked ? "Unlock to begin" : `${book.progress} / ${book.target} correct`}</span><strong>{isLocked ? "—" : `${percentage}%`}</strong></div>
           <div className={styles.bookProgress} role="progressbar" aria-label="Word explorer progress" aria-valuemin={0} aria-valuemax={book.target} aria-valuenow={book.progress}><span style={{ width: `${isLocked ? 0 : percentage}%` }} /></div>
-          <p className={styles.bookRewards}>Rewards: +{book.experienceReward} XP · +{book.coinReward} KRIN Coins · +{book.hintCredits} hint · +{book.translationCredits} translation</p>
+          <p className={styles.bookRewards}>Rewards: +{book.experienceReward} XP · +{book.coinReward} KRIN Coins</p>
           {isLocked ? <button type="button" className={styles.bookUnlockButton} disabled={unlockingId === book.id} onClick={() => void unlock(book)}>{unlockingId === book.id ? "Unlocking…" : `Unlock · ${book.unlockCost} KRIN Coins`}</button> : isActive ? <Link className={styles.bookTrainingLink} href="/profile/vocabulary/training">Open book & train words</Link> : <span className={styles.bookCompleted}>All rewards received</span>}
         </article>;
       })}

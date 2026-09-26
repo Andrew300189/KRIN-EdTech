@@ -121,10 +121,10 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
 
   return <div ref={rootRef} className={`${styles.root} ${className}`}>
     <div className={styles.status}>
-      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { if (!open) setXpAmount((current) => current || String(experience)); setOpen(!open); setMessage(null); }} title={text.title}>
-        <span>Lv. {overview.level.level}</span><strong>{experienceText} XP</strong>
+      <button type="button" className={styles.xpButton} aria-expanded={open} aria-controls={popoverId} onClick={() => { if (!open) setXpAmount((current) => current || String(experience)); setOpen(!open); setMessage(null); }} title={text.title} aria-label={`${experienceText} XP, ${text.title}`}>
+        <span>Lv. {overview.level.level}</span><strong><span aria-hidden="true">{experienceText}</span><span className={styles.xpUnit}>{experienceText} XP</span></strong>
       </button>
-      <span className={styles.coins} aria-label={`${regularCoinBalance(overview).toFixed(2)} ${text.krinCoin}`}><span aria-hidden="true">◉</span> {regularCoinBalance(overview).toFixed(2)}</span>
+      <span className={styles.coins} aria-label={`${regularCoinBalance(overview).toFixed(2)} ${text.krinCoin}`}><span className={styles.coinStack} aria-hidden="true"><i /><i /><i /></span>{regularCoinBalance(overview).toFixed(2)}</span>
     </div>
     {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label={text.title}>
       <div className={styles.popoverHeading}><div><strong>{text.title}</strong><span>{text.rate}</span></div><button type="button" onClick={() => setOpen(false)} aria-label={text.close}>×</button></div>

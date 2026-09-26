@@ -1,11 +1,16 @@
 .root { position: relative; z-index: 20; }
-.status { display: inline-flex; min-height: 2.4rem; align-items: stretch; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 7%, var(--surface-elevated)); white-space: nowrap; }
-.xpButton { display: inline-flex; align-items: center; gap: .35rem; border: 0; background: transparent; color: var(--primary); padding: .48rem .7rem; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
-.xpButton strong { color: var(--text-primary); font-size: .77rem; }
-.coins { display: inline-flex; align-items: center; gap: .25rem; border-left: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border)); padding: .48rem .58rem; font-size: .75rem; font-weight: 900; }
-.coins { color: #8b5a00; }
-.status:has(.xpButton:hover) { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, var(--surface-elevated)); }
-.xpButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; border-radius: 999px 0 0 999px; }
+.status { display: inline-flex; min-height: 2.4rem; align-items: center; gap: .72rem; white-space: nowrap; }
+.xpButton { display: inline-flex; align-items: baseline; gap: .35rem; border: 0; background: transparent; color: var(--text-secondary); padding: .35rem 0; font: inherit; font-size: .7rem; font-weight: 800; cursor: pointer; }
+.xpButton strong { color: var(--text-primary); font-size: .98rem; font-variant-numeric: tabular-nums; }
+.xpUnit { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.xpButton:hover strong { color: var(--primary); }
+.coins { display: inline-flex; align-items: center; gap: .3rem; color: #8b5a00; font-size: .88rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.xpButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; border-radius: .4rem; }
+.coinStack { position: relative; display: inline-block; width: 1.25rem; height: 1rem; }
+.coinStack i { position: absolute; left: .08rem; display: block; width: 1rem; height: .38rem; border: 1.5px solid #b7791f; border-radius: 50%; background: linear-gradient(#fcd34d, #f59e0b); box-shadow: inset 0 1px 0 rgb(255 255 255 / 65%); }
+.coinStack i:nth-child(1) { top: .05rem; }
+.coinStack i:nth-child(2) { top: .3rem; left: .15rem; }
+.coinStack i:nth-child(3) { top: .55rem; left: .08rem; }
 .popover { position: absolute; top: calc(100% + .6rem); right: 0; width: min(22rem, calc(100vw - 2rem)); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: var(--surface-elevated); box-shadow: 0 22px 55px rgba(28, 35, 70, .18); padding: 1rem; color: var(--text-primary); }
 .popoverHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .popoverHeading > div { display: grid; gap: .2rem; }

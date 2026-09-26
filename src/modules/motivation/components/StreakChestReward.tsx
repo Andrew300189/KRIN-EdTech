@@ -31,8 +31,6 @@ const copy = {
 
 function rewardKind(reward: Reward) {
   if (reward.coins > 0) return "coin" as const;
-  if (reward.hintCredits > 0) return "hint" as const;
-  if (reward.translationCredits > 0) return "translation" as const;
   return "regular" as const;
 }
 
@@ -81,7 +79,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
   const chestStyle = { "--chest-hue": String(flower?.hue ?? 142) } as CSSProperties;
   const earnsKrinCoin = streakChestKrinCoinReward(milestone) > 0;
   const kind = reward ? rewardKind(reward) : null;
-  const kindLabel = kind === "coin" ? text.coin : kind === "hint" ? text.hint : kind === "translation" ? text.translation : text.regular;
+  const kindLabel = kind === "coin" ? text.coin : text.regular;
   const flowerName = flower?.names[locale] ?? flower?.names.ru;
 
   return <AppModal
@@ -108,7 +106,7 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         <h3>{text.ready}</h3>
         <p>{text.description}</p>
         <div className={styles.kinds} aria-label={text.kinds}>
-          <span className={styles.regular}>✦ XP</span><span className={styles.hint}>☀ XP</span><span className={styles.translation}>✧ XP</span>
+          <span className={styles.regular}>✦ XP</span>
           <span className={styles.bookKind}>📖 {text.questBook}</span>
           <span className={styles.waterLilyKind}>🪷 {text.waterLily}</span>
           {earnsKrinCoin ? <span className={styles.coinKind}>● +1 {text.coin}</span> : null}
@@ -117,8 +115,8 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         <button type="button" className={styles.openButton} onClick={() => void openChest()} disabled={opening}>{opening ? text.opening : text.open}</button>
       </> : <>
         <section className={`${styles.reward} ${styles[kind!] ?? ""} ${flower?.rarity === "LEGENDARY" ? styles.legendaryReward : ""}`}>
-          <span aria-hidden="true">{flower?.icon ?? (kind === "coin" ? "●" : kind === "hint" ? "☀" : kind === "translation" ? "✧" : "✦")}</span>
-          <div><strong>{flowerName ? `${flowerName} · ${text.rarities[flower!.rarity]}` : kindLabel}</strong><p>+{reward.experience} XP{reward.coins ? ` · +${reward.coins} KRIN Coin` : ""}{reward.hintCredits ? ` · +${reward.hintCredits} ${text.hint}` : ""}{reward.translationCredits ? ` · +${reward.translationCredits} ${text.translation}` : ""}</p></div>
+          <span aria-hidden="true">{flower?.icon ?? (kind === "coin" ? "●" : "✦")}</span>
+          <div><strong>{flowerName ? `${flowerName} · ${text.rarities[flower!.rarity]}` : kindLabel}</strong><p>+{reward.experience} XP{reward.coins ? ` · +${reward.coins} KRIN Coin` : ""}</p></div>
         </section>
         {reward.waterLily ? <section className={styles.waterLily}><span aria-hidden="true">🪷</span><div><strong>+{reward.waterLily} {text.waterLily}</strong><p>{text.waterLilyNote}</p></div></section> : null}
         <p className={styles.rewardNote}>{reward.alreadyOpened ? text.already : text.description}</p>

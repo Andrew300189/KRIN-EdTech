@@ -28,7 +28,6 @@ import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { calculateUserLevel, grantEconomyReward, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
-import { consumeLearningBonusCredit } from "@/modules/motivation/services/learning-bonus.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
 import { recordGrammarSkillAttempt } from "@/modules/grammar/services/grammar-skill-progress.service";
 import { getDefaultExerciseSubtype, resolveExerciseEngineKey } from "@/modules/cms/exercise-engines/registry";
@@ -717,6 +716,12 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
       ? translateVerbToBeJsonToUkrainian(value)
       : usesVerbToBeEnglishCopy ? translateVerbToBeJsonToEnglish(value) : value
   );
+  // The legacy course predates CMS translation rows. Keep its public title
+  // localized even when an older database title does not match one of the
+  // authored replacement phrases.
+  const localizedCourseTitle = usesVerbToBeUkrainianCopy
+    ? "Дієслово to be: Present Simple для A1"
+    : localizeText(courseTranslation?.title ?? course.title) ?? course.title;
   return {
     ...course,
     // The legacy To Be course has read-time copy for its public locales. It
@@ -724,7 +729,7 @@ async function getPublishedCourseBySlugUncached(slug: string, localeInput?: stri
     // selected locale consistently to every public course component.
     contentLocale: courseTranslation || usesVerbToBeEnglishCopy || usesVerbToBeUkrainianCopy || usesVerbToBeRussianCopy ? locale : sourceContentLocale,
     localizedSlug: courseTranslation?.slug ?? course.slug,
-    title: localizeText(courseTranslation?.title ?? course.title) ?? course.title,
+    title: localizedCourseTitle,
     shortDescription: localizeText(courseTranslation?.shortDescription ?? course.shortDescription) ?? course.shortDescription,
     fullDescription: localizeText(courseTranslation?.fullDescription ?? course.fullDescription) ?? course.fullDescription,
     learningOutcomes: localizeJson(courseTranslation?.learningOutcomes ?? course.learningOutcomes),
@@ -2215,46 +2220,28 @@ export async function getExerciseTranslationSource(userId: string, exerciseId: s
 }
 
 /**
- * Unlocks a translation once per exercise. A translation credit is consumed
- * first; when none is available, the unique XP ledger debit is used instead.
- * Both ledger keys make duplicate clicks and network retries free.
+ * Unlocks a translation once per exercise for XP. The ledger key makes
+ * duplicate clicks and network retries free without restoring the removed
+ * bonus-credit economy.
  */
 export async function purchaseExerciseTranslation(userId: string, exerciseId: string) {
   await getExerciseTranslationSource(userId, exerciseId);
   const idempotencyKey = `exercise-translation-xp:${userId}:${exerciseId}`;
-  const bonusIdempotencyKey = `exercise-translation-credit:${userId}:${exerciseId}`;
-  const [previousCharge, previousBonusCharge] = await Promise.all([
-    prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-    prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-  ]);
-  if (previousCharge || previousBonusCharge) {
+  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (previousCharge) {
     const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(previousBonusCharge) };
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
   }
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const [existingCharge, existingBonusCharge] = await Promise.all([
-        tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-        tx.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-      ]);
-      if (existingCharge || existingBonusCharge) {
+      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (existingCharge) {
         const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(existingBonusCharge) };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
       }
 
       const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-      const bonus = await consumeLearningBonusCredit(tx, {
-        userId,
-        kind: "TRANSLATION",
-        sourceType: "EXERCISE_TRANSLATION",
-        sourceId: exerciseId,
-        idempotencyKey: bonusIdempotencyKey,
-        description: "Exercise translation credit",
-      });
-      if (bonus.consumed) {
-        return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: true, remainingCredits: bonus.balance.translationCredits };
-      }
       const debited = await tx.userLevel.updateMany({
         where: { id: level.id, lifetimeExperience: { gte: EXERCISE_TRANSLATION_XP_COST } },
         data: { lifetimeExperience: { decrement: EXERCISE_TRANSLATION_XP_COST } },
@@ -2280,13 +2267,10 @@ export async function purchaseExerciseTranslation(userId: string, exerciseId: st
   } catch (error) {
     // A concurrent request may create the ledger entry after the first check.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const [charge, bonusCharge] = await Promise.all([
-        prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-        prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-      ]);
-      if (charge || bonusCharge) {
+      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (charge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(bonusCharge) };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
       }
     }
     throw error;
@@ -2297,7 +2281,7 @@ export async function purchaseExerciseTranslation(userId: string, exerciseId: st
 export async function purchaseExerciseHint(
   userId: string,
   exerciseId: string,
-  options: { allowFreeFallback?: boolean } = {},
+  _options: { allowFreeFallback?: boolean } = {},
 ) {
   const exercise = await prisma.exercise.findUnique({
     where: { id: exerciseId },
@@ -2317,50 +2301,26 @@ export async function purchaseExerciseHint(
   if (!access.allowed) throw new Error("You cannot access this lesson.");
 
   const idempotencyKey = `exercise-hint-xp:${userId}:${exerciseId}`;
-  const bonusIdempotencyKey = `exercise-hint-credit:${userId}:${exerciseId}`;
-  const [previousCharge, previousBonusCharge] = await Promise.all([
-    prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-    prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-  ]);
-  if (previousCharge || previousBonusCharge) {
+  const previousCharge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+  if (previousCharge) {
     const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(previousBonusCharge) };
+    return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
   }
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const [existingCharge, existingBonusCharge] = await Promise.all([
-        tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-        tx.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-      ]);
-      if (existingCharge || existingBonusCharge) {
+      const existingCharge = await tx.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (existingCharge) {
         const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(existingBonusCharge) };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
       }
 
       const level = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-      const bonus = await consumeLearningBonusCredit(tx, {
-        userId,
-        kind: "HINT",
-        sourceType: "EXERCISE_HINT",
-        sourceId: exerciseId,
-        idempotencyKey: bonusIdempotencyKey,
-        description: "Exercise hint credit",
-      });
-      if (bonus.consumed) {
-        return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: true, remainingCredits: bonus.balance.hintCredits };
-      }
       const debited = await tx.userLevel.updateMany({
         where: { id: level.id, lifetimeExperience: { gte: EXERCISE_HINT_XP_COST } },
         data: { lifetimeExperience: { decrement: EXERCISE_HINT_XP_COST } },
       });
       if (!debited.count) {
-        // An automatic hint follows an incorrect answer. Never leave a learner
-        // without help just because their balance is empty; this fallback does
-        // not create a purchase record and therefore does not spend XP/credits.
-        if (options.allowFreeFallback) {
-          return { alreadyPurchased: false, cost: 0, balance: level.lifetimeExperience, bonusUsed: false, freeFallback: true };
-        }
         throw new Error("You need at least 1 XP to show this hint.");
       }
 
@@ -2382,13 +2342,10 @@ export async function purchaseExerciseHint(
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const [charge, bonusCharge] = await Promise.all([
-        prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } }),
-        prisma.learningBonusTransaction.findUnique({ where: { idempotencyKey: bonusIdempotencyKey }, select: { id: true } }),
-      ]);
-      if (charge || bonusCharge) {
+      const charge = await prisma.experienceTransaction.findUnique({ where: { idempotencyKey }, select: { id: true } });
+      if (charge) {
         const level = await prisma.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
-        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: Boolean(bonusCharge) };
+        return { alreadyPurchased: true, cost: 0, balance: level.lifetimeExperience, bonusUsed: false };
       }
     }
     throw error;

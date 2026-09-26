@@ -9,5 +9,9 @@ import { DailyStreakHeaderStatus } from "./DailyStreakHeaderStatus";
 export function StreakRecoveryRoutePrompt() {
   const pathname = usePathname();
   if (!pathname || !/^\/(?:uk\/|ru\/)?courses(?:\/|$)/.test(pathname)) return null;
-  return <DailyStreakHeaderStatus showBadge={false} continueInCurrentLesson={/(?:^|\/)courses\/[^/]+\/lessons\/[^/]+(?:\/|$)/.test(pathname)} />;
+  // LessonPlayer renders the recovery controls inside the lesson card. Keep
+  // the route-level prompt for course/catalogue pages only so it cannot race
+  // the card, reopen itself, or leave a second loading state on the lesson.
+  if (/(?:^|\/)courses\/[^/]+\/lessons\/[^/]+(?:\/|$)/.test(pathname)) return null;
+  return <DailyStreakHeaderStatus showBadge={false} />;
 }

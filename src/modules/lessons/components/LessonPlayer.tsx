@@ -9,6 +9,7 @@ import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/Vocabu
 import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LessonAnswerStreakStatus } from "@/modules/motivation/components/LessonAnswerStreakStatus";
+import { LessonStreakRecoveryCard } from "@/modules/motivation/components/LessonStreakRecoveryCard";
 import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
@@ -380,6 +381,7 @@ export function LessonPlayer({
   // This is deliberately session-local. It represents the sequence of answers
   // the learner is making right now, not a historic course statistic.
   const [correctAnswersInRow, setCorrectAnswersInRow] = useState(0);
+  const [brokenAnswerStreak, setBrokenAnswerStreak] = useState(0);
   const [visitExerciseIds, setVisitExerciseIds] = useState<string[]>([]);
   const [autoAdvanceRequested, setAutoAdvanceRequested] = useState(false);
   const [reviewReturnPending, setReviewReturnPending] = useState(false);
@@ -415,6 +417,13 @@ export function LessonPlayer({
     activeSeconds: 0,
   });
   const persistedProgressSignatureRef = useRef<string | null>(null);
+
+  function breakAnswerStreak() {
+    setCorrectAnswersInRow((current) => {
+      if (current > 0) setBrokenAnswerStreak(current);
+      return 0;
+    });
+  }
 
   useEffect(() => { if (saveError) toast.error(saveError); }, [saveError]);
   useEffect(() => { if (reviewError) toast.error(reviewError); }, [reviewError]);
@@ -1144,15 +1153,15 @@ export function LessonPlayer({
             </nav>
           </div>
           <div className={styles.stepArea}>
-            <ExperienceStatus />
             <LessonAnswerStreakStatus correctAnswersInRow={correctAnswersInRow} />
+            <ExperienceStatus />
           </div>
         </header>
 
         <section className={styles.lessonContext} aria-labelledby="lesson-title">
           <h1 id="lesson-title">{title}</h1>
-          <p>{moduleTitle} · {estimatedDuration ? `${estimatedDuration} ${chromeCopy.minutes}` : chromeCopy.selfPaced}{storedProgress ? ` · ${chromeCopy.score} ${storedProgress.score}` : ""}</p>
         </section>
+        {!previewMode ? <LessonStreakRecoveryCard brokenStreak={brokenAnswerStreak} onRestore={() => { setCorrectAnswersInRow(brokenAnswerStreak); setBrokenAnswerStreak(0); }} onContinue={() => setBrokenAnswerStreak(0)} /> : null}
 
         {reviewSession && reviewIntroOpen ? <section className={styles.reviewDialog} role="dialog" aria-modal="true" aria-labelledby="review-intro-title">
           <p className={styles.taskType}>Mistake review</p>
@@ -1213,7 +1222,7 @@ export function LessonPlayer({
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
             {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
-                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphPrimaryAction}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
+                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : `${styles.triumphPrimaryAction} ${styles.completionReadyButton}`}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
                 {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
                 {/* This must also be available after reopening a completed lesson.
                     The wheel never advances the route itself; this handler runs
@@ -1264,10 +1273,6 @@ export function LessonPlayer({
                 </nav>
               ) : null}
               <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
-              {activeBlock.type !== "EXERCISE" && activeBlock.type !== "INTRO" && !activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.taskTopline}>
-                <span className={styles.taskType}>{localizedBlockType(activeBlock.type, locale)}</span>
-                {activeBlock.isRequired ? <span className={styles.required}>{chromeCopy.requiredStep}</span> : null}
-              </div> : null}
               {!activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
                 <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock, locale) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
@@ -1307,7 +1312,7 @@ export function LessonPlayer({
                     progressMutationRef.current = true;
                     if (!isCorrect) {
                       setPersistentStreakTone(null);
-                      setCorrectAnswersInRow(0);
+                      breakAnswerStreak();
                     }
                     else {
                       setCorrectAnswersInRow((current) => current + 1);
@@ -1368,7 +1373,7 @@ export function LessonPlayer({
                     setCorrectAnswersInRow((current) => current + 1);
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
-                  onSpacedReviewIncorrect={() => setCorrectAnswersInRow(0)}
+                  onSpacedReviewIncorrect={breakAnswerStreak}
                   onStreakChestAvailable={setStreakChestMilestone}
                   onSpacedReviewComplete={() => {
                     setStepVerified(true);

@@ -417,13 +417,13 @@
   width: 5.7rem;
   height: 5.7rem;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border: 2px solid color-mix(in srgb, #f97316 66%, var(--border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-elevated) 74%, transparent);
   box-shadow: 0 .72rem 1.6rem color-mix(in srgb, var(--primary) 15%, transparent);
   color: var(--primary);
   cursor: pointer;
-  opacity: .38;
+  opacity: .72;
   pointer-events: auto;
   transform: translateY(-50%);
   transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
@@ -437,7 +437,7 @@
 .sideNavigationButton img { display: block; width: 3.1rem; height: 3.1rem; }
 .sideNavigationPrevious img { transform: rotate(180deg); }
 .sideNavigationFinish { color: var(--primary); font-size: .88rem; font-weight: 900; letter-spacing: .02em; }
-.sideNavigationButton:hover:not(:disabled) { border-color: color-mix(in srgb, var(--primary) 52%, var(--border)); background: color-mix(in srgb, var(--primary) 13%, var(--surface-elevated)); box-shadow: 0 1rem 2.1rem color-mix(in srgb, var(--primary) 24%, transparent); opacity: .92; transform: translateY(calc(-50% - .14rem)); }
+.sideNavigationButton:hover:not(:disabled) { border-color: #f97316; background: color-mix(in srgb, #fff7ed 78%, var(--surface-elevated)); box-shadow: 0 1rem 2.1rem rgb(249 115 22 / 24%); opacity: 1; transform: translateY(calc(-50% - .14rem)); }
 .sideNavigationButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; opacity: .92; }
 .sideNavigationButton:disabled { box-shadow: none; cursor: not-allowed; opacity: .12; }
 
@@ -526,6 +526,31 @@
   min-width: min(100%, 18rem);
   min-height: 3.25rem;
   font-size: .96rem;
+}
+
+.completionReadyButton { isolation: isolate; }
+.completionReadyButton::before,
+.completionReadyButton::after {
+  position: absolute;
+  inset: -.52rem;
+  right: auto;
+  bottom: auto;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  border: 2px solid rgb(249 115 22 / 48%);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .completionReadyButton::before { animation: completionRipple 2.4s ease-out infinite; }
+  .completionReadyButton::after { animation: completionRipple 2.4s ease-out 1.2s infinite; }
+  @keyframes completionRipple {
+    0% { opacity: .72; transform: scale(.88); }
+    70%, 100% { opacity: 0; transform: scale(1.28); }
+  }
 }
 
 .courseReview {

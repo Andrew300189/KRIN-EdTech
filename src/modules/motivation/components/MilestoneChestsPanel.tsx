@@ -50,8 +50,6 @@ function rewardText(reward: Reward, text: (typeof copy)[keyof typeof copy]) {
   const parts: string[] = [];
   if (reward.experience) parts.push(`+${reward.experience} XP`);
   if (reward.coins) parts.push(`+${reward.coins} ◉`);
-  if (reward.hintCredits) parts.push(text.hint);
-  if (reward.translationCredits) parts.push(text.translation);
   return parts.join(" · ") || "✦";
 }
 
