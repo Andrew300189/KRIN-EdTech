@@ -95,6 +95,9 @@ export function PronunciationCoach({
   britishAudioUrl = null,
   americanAudioUrl = null,
   compact = false,
+  concealWord = false,
+  largeTranscript = false,
+  allowListen = true,
   locale: interfaceLocale = "uk",
   onAssessment,
 }: {
@@ -102,6 +105,9 @@ export function PronunciationCoach({
   britishAudioUrl?: string | null;
   americanAudioUrl?: string | null;
   compact?: boolean;
+  concealWord?: boolean;
+  largeTranscript?: boolean;
+  allowListen?: boolean;
   locale?: InterfaceLocale;
   /** Lets a structured lesson record a server-validated spoken attempt. */
   onAssessment?: (assessment: { value: PronunciationAssessment; transcript: string }) => void;
@@ -224,19 +230,20 @@ export function PronunciationCoach({
     }
   }
 
-  return <section className={`${styles.coach} ${compact ? styles.compact : ""}`} aria-label={copy.aria(word)}>
+  return <section className={`${styles.coach} ${compact ? styles.compact : ""} ${largeTranscript ? styles.storySpeech : ""}`} aria-label={concealWord ? copy.title : copy.aria(word)}>
     <div className={styles.heading}>
-      <div><h3 className={styles.title}>{copy.title}</h3><p className={styles.hint}>{copy.hint(word)}</p></div>
+      <div><h3 className={styles.title}>{copy.title}</h3>{!concealWord ? <p className={styles.hint}>{copy.hint(word)}</p> : null}</div>
       <div className={styles.variants} aria-label={copy.variants}>
         <button type="button" className={`${styles.variant} ${variant === "BRITISH" ? styles.variantActive : ""}`} aria-pressed={variant === "BRITISH"} onClick={() => setVariant("BRITISH")}>UK</button>
         <button type="button" className={`${styles.variant} ${variant === "AMERICAN" ? styles.variantActive : ""}`} aria-pressed={variant === "AMERICAN"} onClick={() => setVariant("AMERICAN")}>US</button>
       </div>
     </div>
     <div className={styles.actions}>
-      <button type="button" className={`${styles.button} ${styles.listen}`} disabled={isPlaying} onClick={playSample} aria-label={copy.listen(variant, word)}>{isPlaying ? copy.playing : copy.play}</button>
+      {allowListen ? <button type="button" className={`${styles.button} ${styles.listen}`} disabled={isPlaying} onClick={playSample} aria-label={concealWord ? copy.play : copy.listen(variant, word)}>{isPlaying ? copy.playing : copy.play}</button> : null}
       {recognitionAvailable ? <button type="button" className={styles.button} onClick={startListening} aria-pressed={isListening}>{isListening ? copy.stop : copy.speak}</button> : null}
     </div>
-    {isListening && <p className={styles.live} role="status">{copy.listening}{liveTranscript ? ` «${liveTranscript}»` : ""}</p>}
+    {isListening && <p className={styles.live} role="status"><span className={styles.soundWave} aria-hidden="true"><i/><i/><i/><i/><i/></span>{copy.listening}{liveTranscript ? ` «${liveTranscript}»` : ""}</p>}
+    {largeTranscript && assessment?.transcript ? <strong className={styles.largeTranscript}>{assessment.transcript}</strong> : null}
     {assessment && <p className={`${styles.result} ${assessment.value.verdict === "MATCH" ? styles.resultMatch : assessment.value.verdict === "CLOSE" ? styles.resultClose : styles.resultRetry}`} role="status">{resultMessage(assessment.value, assessment.transcript, interfaceLocale)}</p>}
     {recognitionError && <p className={`${styles.result} ${styles.resultRetry}`} role="alert">{recognitionError}</p>}
     {recognitionAvailable === false && <p className={styles.unsupported}>{copy.unsupported}</p>}

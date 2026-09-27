@@ -26,6 +26,7 @@ import { LessonBlockRenderer } from "./LessonBlockRenderer";
 import { asObject, asStringArray, type LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 import { asVocabularyMasterySettings } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
+import { isBagStorySettings } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { buildGuestLessonPreviewPlan } from "@/modules/lessons/utils/guest-lesson-preview";
 import { shouldBurstLessonConfetti } from "@/modules/lessons/utils/lesson-celebration";
 import { reportFunnelEvent } from "@/modules/analytics/components/FunnelEventReporter";
@@ -401,7 +402,12 @@ export function LessonPlayer({
   const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const [persistentStreakTone, setPersistentStreakTone] = useState<string | null>(null);
-  const [streakChestMilestone, setStreakChestMilestone] = useState<number | null>(null);
+  const [bagStoryProgress, setBagStoryProgress] = useState<{ blockId: string; completedStages: number; totalStages: number } | null>(null);
+  const [streakChestQueue, setStreakChestQueue] = useState<number[]>([]);
+  const streakChestMilestone = streakChestQueue[0] ?? null;
+  const enqueueStreakChests = (milestones: number[]) => {
+    setStreakChestQueue((current) => [...current, ...milestones.filter((milestone) => !current.includes(milestone))]);
+  };
   const [successEffect, setSuccessEffect] = useState<LessonSuccessEffect | null>(null);
   const hasGuestPreviewRef = useRef(false);
   const isPracticeRunRef = useRef(false);
@@ -481,8 +487,8 @@ export function LessonPlayer({
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
-  const activeVocabularyMastery = Boolean(activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings));
-  const hasVocabularyMastery = blocks.some((block) => block.type === "VOCABULARY" && asVocabularyMasterySettings(block.settings));
+  const activeVocabularyMastery = Boolean(activeBlock?.type === "VOCABULARY" && (asVocabularyMasterySettings(activeBlock.settings) || isBagStorySettings(activeBlock.settings)));
+  const hasVocabularyMastery = blocks.some((block) => block.type === "VOCABULARY" && (asVocabularyMasterySettings(block.settings) || isBagStorySettings(block.settings)));
   const isGuestPreview = !canSaveProgress && !previewMode && !reviewSession;
   const fullGuestPreviewPlan = useMemo(() => buildGuestLessonPreviewPlan(blocks), [blocks]);
   const guestPreviewPlan = isGuestPreview ? fullGuestPreviewPlan : null;
@@ -499,7 +505,7 @@ export function LessonPlayer({
     .filter((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id))
     .map((exercise) => exercise.id) ?? [];
   const activeBlockAttemptsComplete = Boolean(
-    (activeBlock?.type === "EXERCISE" || (activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings)))
+    (activeBlock?.type === "EXERCISE" || (activeBlock?.type === "VOCABULARY" && (asVocabularyMasterySettings(activeBlock.settings) || isBagStorySettings(activeBlock.settings))))
     && activeBlock.exercises.length > 0
     && activeBlock.exercises.every((exercise) => Object.prototype.hasOwnProperty.call(exerciseResults, exercise.id)),
   );
@@ -509,7 +515,7 @@ export function LessonPlayer({
   const activeTheory = activeBlock?.type === "EXERCISE" ? exerciseTheory(activeBlock) : null;
   const isInteractiveStep = Boolean(
     (activeBlock?.type === "EXERCISE" && activeBlock.exercises.length)
-    || (activeBlock?.type === "VOCABULARY" && asVocabularyMasterySettings(activeBlock.settings))
+    || (activeBlock?.type === "VOCABULARY" && (asVocabularyMasterySettings(activeBlock.settings) || isBagStorySettings(activeBlock.settings)))
     || (!previewMode && isSpacedReviewBlock(activeBlock)),
   );
   const lessonIsCompleted = isLessonProgressComplete(storedProgress);
@@ -528,12 +534,15 @@ export function LessonPlayer({
     const answeredThisVisit = isPracticeRunRef.current
       ? new Set(visitExerciseIds.filter((exerciseId) => attemptedExerciseIds.has(exerciseId)))
       : attemptedExerciseIds;
-    const completedFraction = blocks.reduce(
-      (total, block) => total + getBlockProgressFraction(block, visitedBlocks, answeredThisVisit),
-      0,
-    );
+    const completedFraction = blocks.reduce((total, block) => {
+      if (isBagStorySettings(block.settings)) {
+        if (visitedBlocks.includes(block.id)) return total + 1;
+        if (bagStoryProgress?.blockId === block.id && bagStoryProgress.totalStages > 0) return total + Math.min(1, bagStoryProgress.completedStages / bagStoryProgress.totalStages);
+      }
+      return total + getBlockProgressFraction(block, visitedBlocks, answeredThisVisit);
+    }, 0);
     return Math.round((completedFraction / blocks.length) * 100);
-  }, [blocks, completedBlocks, attemptedExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds]);
+  }, [blocks, completedBlocks, attemptedExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds, bagStoryProgress]);
   const progressLabel = lessonIsCompleted
     ? locale === "uk" ? `Практика · ${progressPercent}% повторено` : locale === "ru" ? `Практика · ${progressPercent}% повторено` : `Practice · ${progressPercent}% revisited`
     : locale === "uk" ? `${progressPercent}% завершено` : locale === "ru" ? `${progressPercent}% пройдено` : `${progressPercent}% complete`;
@@ -1132,7 +1141,7 @@ export function LessonPlayer({
       <RewardNotification events={rewardEvents} />
       {!previewMode && canSaveProgress ? <LeaderboardRiseNotifier /> : null}
       <LessonSuccessEffects effect={successEffect} />
-      <StreakChestReward milestone={streakChestMilestone} onDismiss={() => setStreakChestMilestone(null)} />
+      <StreakChestReward key={streakChestMilestone ?? "none"} milestone={streakChestMilestone} hasMorePending={streakChestQueue.length > 1} onDismiss={() => setStreakChestQueue((current) => current.slice(1))} />
       <ReviewStreakChestReward chest={reviewChest} onClose={() => {
         setReviewChest(null);
         if (reviewAdvanceAfterChest) { setReviewAdvanceAfterChest(false); void advanceReviewRun(); }
@@ -1170,10 +1179,16 @@ export function LessonPlayer({
                 const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent || isAccessibleToBeTheory;
                 const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : isAccessibleToBeTheory ? "available" : "locked";
                 const label = block.title?.trim() || `${localizedBlockType(block.type, locale)} ${chromeCopy.step}`;
+                const bagProgress = isBagStorySettings(block.settings) && bagStoryProgress?.blockId === block.id ? bagStoryProgress : null;
+                const bagProgressPercent = bagProgress && bagProgress.totalStages > 0 ? Math.min(100, bagProgress.completedStages / bagProgress.totalStages * 100) : 0;
                 const attemptVisual = canOpenBlock
-                  ? getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
+                  ? bagProgress
+                    ? { correct: bagProgress.completedStages, incorrect: 0, style: { background: `linear-gradient(90deg, #22c55e 0 ${bagProgressPercent}%, #e5e7eb ${bagProgressPercent}% 100%)` } as CSSProperties }
+                    : getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
                   : null;
-                const performance = attemptVisual
+                const performance = bagProgress
+                  ? `${bagProgress.completedStages}/${bagProgress.totalStages} cards completed`
+                  : attemptVisual
                   ? `${attemptVisual.correct} correct, ${attemptVisual.incorrect} incorrect`
                   : "No checked exercise yet";
 
@@ -1222,7 +1237,7 @@ export function LessonPlayer({
             if (restoredBlock) setCurrentBlockId(restoredBlock.id);
             setRestoredAnswer({ exerciseId: result.exerciseId, answer: result.correctAnswer, nonce: Date.now() });
             setExerciseResults((current) => ({ ...current, [result.exerciseId!]: true }));
-            if (result.streakMilestone) setStreakChestMilestone(result.streakMilestone);
+            if (result.streakMilestone) enqueueStreakChests([result.streakMilestone]);
           }
           void fetch(`/api/learning/lessons/${lessonId}/answer-streak`, { cache: "no-store" }).then(async (response) => response.ok ? response.json() : null).then((payload: { data?: { lilies: Array<{ id: string; capacity: number; quantity: number }> } } | null) => { if (payload?.data) setWaterLilies(payload.data.lilies); }).catch(() => undefined);
         }} /> : null}
@@ -1373,7 +1388,7 @@ export function LessonPlayer({
                      setAutoAdvanceRequested(false);
                      setGuestRegistrationRequired(true);
                    }}
-                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone, lessonAnswerStreak, reviewReward }) => {
+                   onAttemptResolved={({ exerciseId, isCorrect, isFinalExercise, difficulty, streakTone, streakMilestone, streakMilestones, lessonAnswerStreak, reviewReward }) => {
                     progressMutationRef.current = true;
                     if (!reviewSession) {
                       streakMutationRef.current = true;
@@ -1391,7 +1406,8 @@ export function LessonPlayer({
                     }
                     if (isCorrect) {
                       if (streakTone) setPersistentStreakTone(streakTone);
-                      if (streakMilestone) setStreakChestMilestone(streakMilestone);
+                      if (streakMilestones?.length) enqueueStreakChests(streakMilestones);
+                      else if (streakMilestone) enqueueStreakChests([streakMilestone]);
                       triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect, difficulty }));
                     }
                     if (reviewReward) {
@@ -1455,7 +1471,7 @@ export function LessonPlayer({
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty }));
                   }}
                   onSpacedReviewIncorrect={breakAnswerStreak}
-                  onStreakChestAvailable={setStreakChestMilestone}
+                  onStreakChestAvailable={(milestone) => enqueueStreakChests([milestone])}
                   onSpacedReviewComplete={() => {
                     setStepVerified(true);
                     setAutoAdvanceRequested(true);
@@ -1465,10 +1481,13 @@ export function LessonPlayer({
                     thawStreak();
                     setCorrectAnswersInRow((current) => current + 1);
                     if (streakTone) setPersistentStreakTone(streakTone);
-                    if (streakMilestone) setStreakChestMilestone(streakMilestone);
+                    if (streakMilestone) enqueueStreakChests([streakMilestone]);
                     setExerciseResults((current) => ({ ...current, [exerciseId]: true }));
                     setVisitExerciseIds((current) => current.includes(exerciseId) ? current : [...current, exerciseId]);
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty: 2 }));
+                  }}
+                  onBagStoryProgress={({ completedStages, totalStages }) => {
+                    setBagStoryProgress((current) => current?.blockId === activeBlock.id && current.completedStages === completedStages && current.totalStages === totalStages ? current : { blockId: activeBlock.id, completedStages, totalStages });
                   }}
                   onVocabularyMasteryComplete={() => {
                     setStepVerified(true);
@@ -1481,7 +1500,7 @@ export function LessonPlayer({
 
             {reviewReturnPending ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Mistake fixed. Returning to your review list…</p></footer> : null}
             {!reviewReturnPending && isReviewSession ? <footer className={styles.footer}><p className={styles.footerNote} role="status">Correct every saved answer in this lesson to continue your review.</p></footer> : null}
-            {!reviewReturnPending && !isReviewSession && isInteractiveStep && !stepVerified ? <footer className={styles.footer}><p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p></footer> : null}
+            {!reviewReturnPending && !isReviewSession && isInteractiveStep && !activeVocabularyMastery && !stepVerified ? <footer className={styles.footer}><p className={styles.footerNote}>Answer every exercise in this block to unlock the next step.</p></footer> : null}
           </section>
           </LessonWordHoverDictionary>
         )}

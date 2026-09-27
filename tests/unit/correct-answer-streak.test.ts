@@ -1,4 +1,4 @@
-import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
+import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel, streakChestMilestonesCrossed } from "@/modules/motivation/utils/correct-answer-streak";
 
 describe("correct answer streak modes", () => {
   it("keeps the standard reward before the first three-answer mode", () => {
@@ -48,5 +48,11 @@ describe("correct answer streak modes", () => {
     expect(streakChestKrinCoinReward(200)).toBe(1);
     expect(streakChestKrinCoinReward(5_470)).toBe(0);
     expect(streakChestKrinCoinReward(5_500)).toBe(1);
+  });
+
+  it("keeps every crossed chest when one story completes several sentences", () => {
+    expect(streakChestMilestonesCrossed(2, 12)).toEqual([3, 7, 12]);
+    expect(streakChestMilestonesCrossed(98, 107)).toEqual([100, 103, 107]);
+    expect(streakChestMilestonesCrossed(12, 12)).toEqual([]);
   });
 });

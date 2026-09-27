@@ -19,6 +19,13 @@
 .resultMatch { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: color-mix(in srgb, var(--success) 80%, var(--text-primary)); }
 .resultClose { background: color-mix(in srgb, var(--warning) 15%, var(--surface)); color: color-mix(in srgb, var(--warning) 85%, var(--text-primary)); }
 .resultRetry { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: color-mix(in srgb, var(--danger) 80%, var(--text-primary)); }
+.largeTranscript { display: block; overflow-wrap: anywhere; color: var(--text-primary); font-size: clamp(1.35rem, 4vw, 2.25rem); font-weight: 900; line-height: 1.25; text-align: center; }
+.soundWave { display: inline-flex; align-items: center; gap: .18rem; height: 1.1rem; margin-right: .55rem; vertical-align: middle; }
+.soundWave i { width: .2rem; height: 25%; border-radius: 999px; background: var(--primary); animation: story-wave .68s ease-in-out infinite alternate; }
+.soundWave i:nth-child(2), .soundWave i:nth-child(4) { animation-delay: .18s; }
+.soundWave i:nth-child(3) { animation-delay: .34s; }
+@keyframes story-wave { to { height: 100%; } }
+@media (prefers-reduced-motion: reduce) { .soundWave i { animation: none; height: 65%; } }
 .unsupported { background: var(--surface-secondary); color: var(--text-secondary); }
 @media (max-width: 460px) { .heading { align-items: flex-start; flex-direction: column; } .actions { align-items: stretch; } .button { flex: 1; } }
 @media (prefers-reduced-motion: reduce) { .button, .variant { transition: none; } }

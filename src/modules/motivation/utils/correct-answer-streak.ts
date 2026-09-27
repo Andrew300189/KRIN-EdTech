@@ -80,3 +80,14 @@ export function correctAnswerStreak(streak: number): CorrectAnswerStreak {
     activated: current === modeStart,
   };
 }
+
+/** A multi-sentence answer may cross several chest checkpoints at once. */
+export function streakChestMilestonesCrossed(before: number, after: number) {
+  const start = Math.max(0, Math.trunc(before));
+  const end = Math.max(start, Math.trunc(after));
+  const milestones: number[] = [];
+  for (let value = start + 1; value <= end; value += 1) {
+    if (correctAnswerStreak(value).activated) milestones.push(value);
+  }
+  return milestones;
+}

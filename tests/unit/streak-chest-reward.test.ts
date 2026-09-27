@@ -96,4 +96,18 @@ describe("StreakChestReward", () => {
     expect(screen.getByRole("link", { name: /Open flower album/ })).toHaveAttribute("href", "/student/flowers");
     expect(screen.getByRole("dialog").querySelector('img[src="/flower-chests/white-lily.webp"]')).toBeInTheDocument();
   });
+
+  it("keeps the learner in the lesson until all crossed chest milestones are opened", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { opened: true, alreadyOpened: false, rewardId: "level-2-xp-30", experience: 30, coins: 0, hintCredits: 0, translationCredits: 0 } }),
+    }) as unknown as typeof fetch;
+    const onDismiss = jest.fn();
+    render(createElement(LocaleProvider, null, createElement(StreakChestReward, { milestone: 7, onDismiss, hasMorePending: true })));
+    fireEvent.click(screen.getAllByRole("button", { name: "Let it bloom" })[0]);
+    await waitFor(() => expect(screen.getByText("+30 XP")).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: /Open flower album/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });

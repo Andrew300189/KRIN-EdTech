@@ -7,9 +7,11 @@ import { TextBlock } from "./blocks/TextBlock";
 import { VocabularyBlock } from "./blocks/VocabularyBlock";
 import { SpacedReviewBlock } from "./blocks/SpacedReviewBlock";
 import { CourseVocabularyMasteryBlock } from "@/modules/vocabulary/components/CourseVocabularyMasteryBlock";
+import { BagStoryBlock } from "@/modules/vocabulary/components/BagStoryBlock";
 import type { LessonBlock } from "./lesson-content";
 import { isSpacedReviewSettings } from "@/modules/lessons/utils/spaced-review";
 import { asVocabularyMasterySettings } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
+import { isBagStorySettings } from "@/modules/vocabulary/utils/a-bag-story-plan";
 
 type LessonBlockRendererProps = {
   lessonId: string;
@@ -35,13 +37,14 @@ type LessonBlockRendererProps = {
   guestResumeExerciseIndex?: number;
   guestCompletedExerciseCount?: number;
   onGuestLimitReached?: (resumeStageIndex?: number) => void;
-  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null; lessonAnswerStreak?: { current: number; recoverable: number }; reviewReward?: { correctedExperience: number; currentStreak: number; bestStreak: number; chest: { flowerId: string; experience: number; waterLily: number; milestone: number } | null } | null }) => void;
+  onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null; streakMilestones?: number[]; lessonAnswerStreak?: { current: number; recoverable: number }; reviewReward?: { correctedExperience: number; currentStreak: number; bestStreak: number; chest: { flowerId: string; experience: number; waterLily: number; milestone: number } | null } | null }) => void;
   onAttemptDeferred?: (result: { exerciseId: string; isFinalExercise: boolean }) => void;
   onSpacedReviewCorrect?: (difficulty?: number) => void;
   onSpacedReviewIncorrect?: () => void;
   onSpacedReviewComplete?: () => void;
   onStreakChestAvailable?: (milestone: number) => void;
   onVocabularyMasteryStageComplete?: (result: { exerciseId: string; streakTone?: string | null; streakMilestone?: number | null }) => void;
+  onBagStoryProgress?: (progress: { completedStages: number; totalStages: number }) => void;
   onVocabularyMasteryComplete?: () => void;
 };
 
@@ -76,12 +79,14 @@ export function LessonBlockRenderer({
   onSpacedReviewComplete,
   onStreakChestAvailable,
   onVocabularyMasteryStageComplete,
+  onBagStoryProgress,
   onVocabularyMasteryComplete,
 }: LessonBlockRendererProps) {
   const isExercise = block.type === "EXERCISE";
   const isSpacedReview = block.type === "REVIEW" && isSpacedReviewSettings(block.settings);
   const isVocabulary = block.type === "VOCABULARY" || block.type === "PHRASE_OF_THE_DAY";
   const isVocabularyMastery = block.type === "VOCABULARY" && Boolean(asVocabularyMasterySettings(block.settings));
+  const isBagStory = block.type === "VOCABULARY" && isBagStorySettings(block.settings);
   const isMedia = block.type === "VIDEO" || block.type === "AUDIO" || block.type === "IMAGE" || block.type === "LISTENING";
 
   return (
@@ -100,6 +105,8 @@ export function LessonBlockRenderer({
         <SpacedReviewBlock lessonId={lessonId} block={block} contentLocale={contentLocale} previewMode={previewMode || !canSaveProgress} playerStyle={playerStyle} onCorrectAnswer={onSpacedReviewCorrect} onIncorrectAnswer={onSpacedReviewIncorrect} onStreakChestAvailable={onStreakChestAvailable} onReviewComplete={() => onSpacedReviewComplete?.()} />
       ) : isExercise ? (
         <ExerciseBlock block={block} contentLocale={contentLocale} persistentStreakTone={persistentStreakTone} previewMode={previewMode || !canSaveProgress} playerStyle={playerStyle} hidePlayerHeader={hideHeader} hideContext={hideExerciseContext} hideContextText={hideExerciseTheoryText} focusExerciseId={focusExerciseId} individualExerciseStep={individualExerciseStep} mistakeExerciseIds={mistakeExerciseIds} attemptedExerciseIds={attemptedExerciseIds} progressHydrated={progressHydrated} requireCorrectForNext={requireCorrectForNext} reviewRunId={reviewRunId} restoredAnswer={restoredAnswer} guestExerciseLimit={guestActionLimit} guestResumeExerciseIndex={guestResumeExerciseIndex} guestCompletedExerciseCount={guestCompletedExerciseCount} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onAttemptResolved={onAttemptResolved} onAttemptDeferred={onAttemptDeferred} />
+      ) : isBagStory ? (
+        <BagStoryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onAttemptResolved={onAttemptResolved} onProgress={onBagStoryProgress} onComplete={onVocabularyMasteryComplete} />
       ) : isVocabularyMastery ? (
         <CourseVocabularyMasteryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onStageComplete={onVocabularyMasteryStageComplete} onComplete={onVocabularyMasteryComplete} />
       ) : block.type === "HOMEWORK" ? (

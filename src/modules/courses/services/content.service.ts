@@ -27,6 +27,7 @@ import { calculateLessonResult } from "@/modules/lessons/utils/calculate-lesson-
 import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
+import { isBagStorySettings } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { calculateUserLevel, grantEconomyReward, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { recordMistakeReviewAnswer } from "@/modules/motivation/services/mistake-review-rewards.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
@@ -1879,6 +1880,9 @@ export async function submitExerciseAttempt(userId: string, exerciseId: string, 
       },
     });
     if (!exercise) throw new Error("Exercise not found");
+    if (exercise.content && typeof exercise.content === "object" && !Array.isArray(exercise.content) && ["bag-story", "vocabulary-mastery"].includes(String((exercise.content as Record<string, unknown>).engine ?? ""))) {
+      throw new Error("Vocabulary answers must be checked by their lesson engine.");
+    }
     const courseSlug = exercise.lessonBlock.lesson.module.course.slug;
     const localizedCorrectAnswer = localizeLegacyVerbToBeJson(exercise.correctAnswer, localeInput, courseSlug);
     const localizedAlternatives = localizeLegacyVerbToBeJson(exercise.alternativeAnswers, localeInput, courseSlug);
@@ -2420,6 +2424,11 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     if (value.completedBlockIds.some((blockId) => !allowed.has(blockId))) {
       throw new Error("A completed block does not belong to this lesson");
     }
+    const bagBlockIds = new Set(blocks.filter((block) => isBagStorySettings(block.settings)).map((block) => block.id));
+    const bagSessionComplete = bagBlockIds.size === 0 || Boolean(await tx.vocabularyTrainingSession.findFirst({
+      where: { userId, lessonId, status: "COMPLETED", source: "USER_SELECTED", items: { some: { answerKey: { path: ["engine"], equals: "bag-story" } } } },
+      select: { id: true },
+    }));
     if (value.currentBlockId && !allowed.has(value.currentBlockId)) {
       throw new Error("The current block does not belong to this lesson");
     }
@@ -2461,9 +2470,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       .filter((block) => block.exercises.length > 0 && block.exercises.every((exercise) => attemptedExerciseIds.has(exercise.id)))
       .map((block) => block.id);
     const completedBlockIds = new Set([
-      ...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId)),
-      ...value.completedBlockIds,
-      ...completedExerciseBlockIds,
+      ...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId) && (bagSessionComplete || !bagBlockIds.has(blockId))),
+      ...value.completedBlockIds.filter((blockId) => bagSessionComplete || !bagBlockIds.has(blockId)),
+      ...completedExerciseBlockIds.filter((blockId) => bagSessionComplete || !bagBlockIds.has(blockId)),
+      ...(bagSessionComplete ? [...bagBlockIds] : []),
     ]);
     const requiredBlocks = blocks.filter((block) => block.isRequired);
     const allRequiredBlocksComplete = requiredBlocks.every((block) => completedBlockIds.has(block.id))

@@ -1,7 +1,8 @@
 /*
- * Authored vocabulary course: 30 "a bag of" food phrases in three mastery
- * lessons. Safe to run at every production build; an existing course is left
- * under CMS control. --validate performs no database writes.
+ * Authored vocabulary course: 30 "a bag of" food phrases in six story lessons
+ * and one whole-course review lesson.
+ * --validate performs no database writes. A legacy three-lesson module is
+ * archived (including its progress history) when the new module is installed.
  *
  *   node database/scripts/import-a-bag-of-vocabulary.cjs --validate
  *   node database/scripts/import-a-bag-of-vocabulary.cjs --publish
@@ -53,30 +54,25 @@ const phrases = [
 ];
 
 const lessonCopy = [
-  {
-    uk: "1. Перші покупки: від рису до винограду",
-    ru: "1. Первые покупки: от риса до винограда",
-  },
-  {
-    uk: "2. Горіхи, крупи й зелень у пакеті",
-    ru: "2. Орехи, крупы и зелень в пакете",
-  },
-  {
-    uk: "3. Морозильник і пекарня: підсумкове повторення",
-    ru: "3. Морозилка и пекарня: итоговое повторение",
-  },
+  { uk: "1. Перші покупки", ru: "1. Первые покупки" },
+  { uk: "2. Смаколики та овочі", ru: "2. Сладости и овощи" },
+  { uk: "3. Фрукти й горіхи", ru: "3. Фрукты и орехи" },
+  { uk: "4. Сухофрукти й крупи", ru: "4. Сухофрукты и крупы" },
+  { uk: "5. Зелень і заморожені продукти", ru: "5. Зелень и замороженные продукты" },
+  { uk: "6. Пекарня і повторення", ru: "6. Пекарня и повторение" },
+  { uk: "7. Повторення всіх 30 фраз", ru: "7. Повторение всех 30 фраз" },
 ];
 
 const courseCopy = {
   uk: {
     title: "A bag of: 30 фраз про продукти",
     shortDescription: "Навчіться впевнено говорити про пакети та мішки з продуктами англійською: 30 фраз, вимова й повторення.",
-    fullDescription: "Окремий словниковий курс із трьох уроків. У кожному — вимова, переклад в обидва боки та накопичувальне повторення фраз із a bag of.",
+    fullDescription: "Шість уроків по п’ять фраз і підсумковий урок повторення. Вимова, переклад, прості розповіді та накопичувальне пригадування.",
   },
   ru: {
     title: "A bag of: 30 фраз о продуктах",
     shortDescription: "Научитесь говорить о пакетах и мешках с продуктами по-английски: 30 фраз, произношение и повторение.",
-    fullDescription: "Отдельный словарный курс из трёх уроков. В каждом — произношение, перевод в обе стороны и накопительное повторение фраз с a bag of.",
+    fullDescription: "Шесть уроков по пять фраз и итоговый урок повторения. Произношение, перевод, простые истории и накопительное припоминание.",
   },
 };
 
@@ -95,19 +91,7 @@ function localizedTranslations() {
   };
 }
 
-function stageCount(wordCount, cumulativeWordCount) {
-  const groups = Math.ceil(wordCount / 4);
-  let count = 0;
-  for (let groupIndex = 0; groupIndex < groups; groupIndex += 1) {
-    const size = Math.min(4, wordCount - groupIndex * 4);
-    count += size * 3; // pronunciation, EN→local and local→EN per phrase
-    count += Math.max(0, size - 1) * 2; // 2-, 3- and 4-phrase recall
-    if (groupIndex === 1) count += 2; // revisit the first two groups
-  }
-  count += 2; // whole-lesson recall in both directions
-  if (cumulativeWordCount > wordCount) count += 2; // previous lessons
-  return count;
-}
+function stageCount(wordCount) { return wordCount * 377; } // 68 phrase drills + 15 chunks × 9 drills and interleaves + 30 sentence cards + 9 recall cards
 
 function lifecycle() {
   return publishRequested
@@ -125,9 +109,9 @@ async function main() {
   assert(phrases.every((row) => row.length === 3 && row.every((value) => typeof value === "string" && value.trim())), "Every phrase needs English, Ukrainian and Russian text.");
   assert(new Set(phrases.map(([en]) => normalizeLemma(en))).size === phrases.length, "English phrases must be unique.");
 
-  const groups = [phrases.slice(0, 12), phrases.slice(12, 24), phrases.slice(24, 30)];
-  const stageCounts = groups.map((group, index) => stageCount(group.length, Math.min(30, (index + 1) * 12)));
-  const counts = { words: 30, lessons: 3, blocks: 3, exercises: stageCounts.reduce((sum, count) => sum + count, 0) };
+  const groups = [...Array.from({ length: 6 }, (_, index) => phrases.slice(index * 5, index * 5 + 5)), phrases];
+  const stageCounts = groups.map((group, index) => index === 6 ? 30 * 4 : stageCount(group.length));
+  const counts = { words: 30, lessons: 7, blocks: 7, exercises: stageCounts.reduce((sum, count) => sum + count, 0) };
   if (process.argv.includes("--validate")) {
     console.log(JSON.stringify({ status: "valid", course: COURSE_SLUG, ...counts, stageCounts, translations: { uk: 30, ru: 30 } }));
     return;
@@ -137,9 +121,9 @@ async function main() {
   if (!databaseUrl) throw new Error("DIRECT_DATABASE_URL or DATABASE_URL is required.");
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
   try {
-    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true, isPublished: true } });
-    if (existing) {
-      console.log(JSON.stringify({ status: "already-exists", courseId: existing.id, published: existing.isPublished, ...counts }));
+    const existing = await prisma.course.findUnique({ where: { slug: COURSE_SLUG }, select: { id: true, isPublished: true, modules: { select: { id: true, lessons: { select: { id: true, blocks: { select: { settings: true } } } } } } } });
+    if (existing?.modules.some((module) => module.lessons.some((lesson) => lesson.blocks.some((block) => block.settings?.engine === "bag-story" && block.settings?.reviewAll === true)))) {
+      console.log(JSON.stringify({ status: "already-current", courseId: existing.id, ...counts }));
       return;
     }
 
@@ -154,6 +138,15 @@ async function main() {
     assert(locales.length === 2, "Ukrainian and Russian content locales must exist before import.");
 
     const course = await prisma.$transaction(async (tx) => {
+      if (existing) {
+        const oldModules = await tx.courseModule.findMany({ where: { courseId: existing.id }, select: { id: true } });
+        for (const old of oldModules) {
+          await tx.exercise.updateMany({ where: { lessonBlock: { lesson: { moduleId: old.id } } }, data: { contentStatus: "ARCHIVED", archivedAt: new Date(), publishedAt: null } });
+          await tx.lessonBlock.updateMany({ where: { lesson: { moduleId: old.id } }, data: { contentStatus: "ARCHIVED", archivedAt: new Date(), publishedAt: null } });
+          await tx.lesson.updateMany({ where: { moduleId: old.id }, data: { isPublished: false, contentStatus: "ARCHIVED", archivedAt: new Date(), publishedAt: null } });
+          await tx.courseModule.update({ where: { id: old.id }, data: { order: 100 + oldModules.indexOf(old), isRequired: false, isPublished: false, contentStatus: "ARCHIVED", archivedAt: new Date(), publishedAt: null } });
+        }
+      }
       const words = new Map();
       for (const [en, uk] of phrases) {
         const word = await tx.word.upsert({
@@ -175,14 +168,14 @@ async function main() {
 
       const state = lifecycle();
       const publishedAt = state.publishedAt;
-      const course = await tx.course.create({
+      const course = existing ? await tx.course.update({ where: { id: existing.id }, data: { ...courseCopy.uk, lessonCount: groups.length, estimatedDuration: 450, firstFreeLessonCount: groups.length } }) : await tx.course.create({
         data: {
           levelId: level.id,
           categoryId: category.id,
           slug: COURSE_SLUG,
           ...courseCopy.uk,
           language: "uk",
-          estimatedDuration: 180,
+          estimatedDuration: 450,
           lessonCount: groups.length,
           difficulty: "A2",
           courseType: "SKILL",
@@ -208,19 +201,17 @@ async function main() {
         },
       });
       for (const locale of ["uk", "ru"]) {
-        await tx.courseTranslation.create({
-          data: { courseId: course.id, locale, slug: COURSE_SLUG, ...courseCopy[locale], contentStatus: state.contentStatus, publishedAt },
-        });
+        await tx.courseTranslation.upsert({ where: { courseId_locale: { courseId: course.id, locale } }, create: { courseId: course.id, locale, slug: COURSE_SLUG, ...courseCopy[locale], contentStatus: state.contentStatus, publishedAt }, update: { ...courseCopy[locale] } });
       }
 
       const courseModule = await tx.courseModule.create({
         data: {
           courseId: course.id,
           title: "A bag of: продукти й покупки",
-          description: "Три уроки для вимови, перекладу й накопичувального повторення 30 фраз.",
+          description: "Шість уроків по п’ять фраз і спільний урок повторення.",
           order: 1,
           isRequired: true,
-          requiresSequentialCompletion: false,
+          requiresSequentialCompletion: true,
           requiredCompletionPercent: 100,
           ...state,
         },
@@ -228,14 +219,14 @@ async function main() {
       });
       await tx.courseModuleTranslation.createMany({
         data: [
-          { moduleId: courseModule.id, locale: "uk", title: "A bag of: продукти й покупки", description: "Три уроки для вимови, перекладу й повторення 30 фраз.", contentStatus: state.contentStatus, publishedAt },
-          { moduleId: courseModule.id, locale: "ru", title: "A bag of: продукты и покупки", description: "Три урока для произношения, перевода и повторения 30 фраз.", contentStatus: state.contentStatus, publishedAt },
+          { moduleId: courseModule.id, locale: "uk", title: "A bag of: продукти й покупки", description: "Сім уроків для вимови, перекладу й розповідей із 30 фразами.", contentStatus: state.contentStatus, publishedAt },
+          { moduleId: courseModule.id, locale: "ru", title: "A bag of: продукты и покупки", description: "Семь уроков для произношения, перевода и историй с 30 фразами.", contentStatus: state.contentStatus, publishedAt },
         ],
       });
 
       let previousLessonId = null;
       for (const [index, group] of groups.entries()) {
-        const slug = `a-bag-of-food-${String(index + 1).padStart(2, "0")}`;
+        const slug = `a-bag-of-story-${String(index + 1).padStart(2, "0")}`;
         const lesson = await tx.lesson.create({
           data: {
             moduleId: courseModule.id,
@@ -244,11 +235,11 @@ async function main() {
             autoUnlockNextLesson: true,
             slug,
             title: lessonCopy[index].uk,
-            description: `${group.length} фраз із a bag of: вимова й переклад в обидва боки.`,
+            description: index === 6 ? "Повторення всіх 30 фраз: письмо, вимова й розповіді." : `${group.length} фраз із a bag of: вимова й переклад в обидва боки.`,
             type: "VOCABULARY",
             curriculumRole: index === 0 ? "OVERVIEW" : index === groups.length - 1 ? "FINAL" : "PRACTICE",
             order: index + 1,
-            estimatedDuration: group.length === 6 ? 40 : 70,
+            estimatedDuration: index === 6 ? 60 : 65,
             minimumCompletionScore: 0,
             learningObjectives: group.map(([en]) => en),
             previewText: `${group.length} нових фраз і повторення вивченого.`,
@@ -263,7 +254,7 @@ async function main() {
             locale,
             slug,
             title: lessonCopy[index][locale],
-            description: locale === "uk" ? `${group.length} фраз із a bag of: вимова й переклад в обидва боки.` : `${group.length} фраз с a bag of: произношение и перевод в обе стороны.`,
+            description: index === 6 ? (locale === "uk" ? "Повторення всіх 30 фраз." : "Повторение всех 30 фраз.") : locale === "uk" ? `${group.length} фраз із a bag of: вимова й переклад в обидва боки.` : `${group.length} фраз с a bag of: произношение и перевод в обе стороны.`,
             previewText: locale === "uk" ? `${group.length} нових фраз і повторення вивченого.` : `${group.length} новых фраз и повторение изученного.`,
             contentStatus: state.contentStatus,
             publishedAt,
@@ -276,8 +267,8 @@ async function main() {
             lessonId: lesson.id,
             type: "VOCABULARY",
             title: `A bag of · ${group.length} фраз`,
-            content: { text: "Послухайте й повторіть кожну фразу, потім перекладайте в обидва боки. Попередні уроки повертаються в змішаному повторенні.", engine: "vocabulary-mastery", newWordCount: group.length, cumulativeWordCount: Math.min(30, (index + 1) * 12) },
-            settings: { engine: "vocabulary-mastery", version: 1, source: "course-lesson-vocabulary", localizedTranslations: localizedTranslations(), localizationVersion: 1 },
+            content: { text: "Вимова, переклад і власна розповідь для кожної з п’яти фраз.", engine: "bag-story", newWordCount: group.length },
+            settings: { engine: "bag-story", version: 2, source: "course-lesson-vocabulary", localizedTranslations: localizedTranslations(), localizationVersion: 1, newWordCount: group.length, reviewAll: index === 6 },
             order: 1,
             isRequired: true,
             ...blockState,
@@ -291,19 +282,19 @@ async function main() {
           ],
         });
         await tx.lessonVocabulary.createMany({
-          data: group.map(([en], wordIndex) => ({ lessonId: lesson.id, wordId: words.get(en), role: "NEW", order: wordIndex + 1, isRequired: true })),
+          data: group.map(([en], wordIndex) => ({ lessonId: lesson.id, wordId: words.get(en), role: index === 6 ? "REVIEW" : "NEW", order: wordIndex + 1, isRequired: true })),
         });
         await tx.exercise.createMany({
           data: Array.from({ length: stageCounts[index] }, (_, stageIndex) => ({
             lessonBlockId: block.id,
             type: "TEXT_INPUT",
             engineKey: "text-input",
-            variantKey: "VOCABULARY_MASTERY_STAGE",
-            instruction: "Серверний етап засвоєння фрази.",
-            question: `Vocabulary mastery stage ${stageIndex + 1}`,
-            content: { engine: "vocabulary-mastery", stage: stageIndex + 1 },
+            variantKey: "BAG_STORY_STAGE",
+            instruction: "Серверний етап засвоєння фрази та розповіді.",
+            question: `Bag story stage ${stageIndex + 1}`,
+            content: { engine: "bag-story", stage: stageIndex + 1 },
             correctAnswer: "server-owned",
-            explanation: "This stage is evaluated by the vocabulary mastery engine.",
+            explanation: "This stage is evaluated by the bag story engine.",
             hintsEnabled: false,
             difficulty: 1,
             basePoints: 1,
@@ -316,8 +307,9 @@ async function main() {
         previousLessonId = lesson.id;
       }
 
+      const previousVersion = await tx.cmsContentVersion.findFirst({ where: { entityType: "COURSE", entityId: course.id }, orderBy: { version: "desc" }, select: { version: true } });
       await tx.cmsContentVersion.create({
-        data: { entityType: "COURSE", entityId: course.id, version: 1, action: "IMPORTED", snapshot: { importer: "a-bag-of-vocabulary", course: COURSE_SLUG, ...counts, status: state.contentStatus }, actorId: author.id },
+        data: { entityType: "COURSE", entityId: course.id, version: (previousVersion?.version ?? 0) + 1, action: "IMPORTED", snapshot: { importer: "a-bag-of-vocabulary", course: COURSE_SLUG, ...counts, status: state.contentStatus }, actorId: author.id },
       });
       await tx.contentAuditLog.create({
         data: { actorId: author.id, action: "CMS_A_BAG_OF_VOCABULARY_IMPORTED", entityType: "Course", entityId: course.id, metadata: { ...counts, status: state.contentStatus } },
@@ -331,8 +323,8 @@ async function main() {
       prisma.exercise.count({ where: { lessonBlock: { lesson: { module: { courseId: course.id } } } } }),
       prisma.lessonVocabulary.count({ where: { lesson: { module: { courseId: course.id } } } }),
     ]);
-    assert(lessons === counts.lessons && blocks === counts.blocks && exercises === counts.exercises && vocabulary === counts.words, "Stored course counts differ from the authored data.");
-    console.log(JSON.stringify({ status: publishRequested ? "published-imported" : "draft-imported", courseId: course.id, ...counts, stageCounts }));
+    assert(lessons >= counts.lessons && blocks >= counts.blocks && exercises >= counts.exercises && vocabulary >= counts.words, "Stored course counts differ from the authored data.");
+    console.log(JSON.stringify({ status: existing ? "upgraded" : publishRequested ? "published-imported" : "draft-imported", courseId: course.id, ...counts, stageCounts }));
   } finally {
     await prisma.$disconnect();
   }

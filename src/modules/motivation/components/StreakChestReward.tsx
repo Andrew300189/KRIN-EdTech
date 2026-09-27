@@ -39,7 +39,7 @@ function rewardKind(reward: Reward) {
 }
 
 /** A server-verified reward surface for a newly reached correct-answer streak. */
-export function StreakChestReward({ milestone, onDismiss }: { milestone: number | null; onDismiss: () => void }) {
+export function StreakChestReward({ milestone, onDismiss, hasMorePending = false }: { milestone: number | null; onDismiss: () => void; hasMorePending?: boolean }) {
   const { locale } = useLocale();
   const text = copy[locale];
   const [opening, setOpening] = useState(false);
@@ -128,9 +128,9 @@ export function StreakChestReward({ milestone, onDismiss }: { milestone: number 
         <p className={styles.rewardNote}>{reward.alreadyOpened ? text.already : text.description}</p>
         {reward.questBook ? <section className={styles.questBook}>
           <span aria-hidden="true">📖</span>
-          <div><strong>{text.bookFound} · {text.streak} ×{reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p><Link href="/student/achievements?section=COLLECTIONS#quest-books" onClick={onDismiss}>{text.openBook}</Link></div>
+          <div><strong>{text.bookFound} · {text.streak} ×{reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p>{!hasMorePending ? <Link href="/student/achievements?section=COLLECTIONS#quest-books" onClick={onDismiss}>{text.openBook}</Link> : null}</div>
         </section> : null}
-        <Link href="/student/flowers" className={styles.albumLink} onClick={onDismiss}>{text.album} →</Link>
+        {!hasMorePending ? <Link href="/student/flowers" className={styles.albumLink} onClick={onDismiss}>{text.album} →</Link> : null}
         <button type="button" className={styles.continueButton} onClick={onDismiss}>{text.continue}</button>
       </>}
     </section>
