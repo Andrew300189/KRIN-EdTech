@@ -11,8 +11,6 @@ import { LocalizedText } from "@/core/i18n/LocalizedText";
 import { FirstVisitQueryCleaner } from "./FirstVisitQueryCleaner";
 import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
-import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
-import { FlowerCollectionLink } from "@/modules/motivation/components/FlowerCollection";
 import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
 import styles from "./StudentHome.module.css";
@@ -121,9 +119,6 @@ export default async function StudentHomePage({
         <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span>Coins are for purchases and do not affect the XP ranking.</span></article>
       </section>
 
-      <MilestoneChestsPanel />
-      <FlowerCollectionLink />
-
       <section className={styles.dashboardGrid}>
         <article className={`${styles.panel} ${styles.focusPanel}`}>
           <div className={styles.cardHeading}>
@@ -152,6 +147,11 @@ export default async function StudentHomePage({
         </article>
 
         <div className={styles.sideStack}>
+          <article className={`${styles.panel} ${styles.achievementsPanel}`}>
+            <div className={styles.cardHeading}><h3><LocalizedText id="student.nav.achievements" fallback="Achievements" /></h3><span aria-hidden="true">🏆</span></div>
+            <p className={styles.helperText}><LocalizedText id="student.home.achievementsSummary" fallback="Chests, quests, books and your flower collection are all in one place." /></p>
+            <Link href="/student/achievements" className={styles.textLink}><LocalizedText id="student.home.openAchievements" fallback="Open achievements" /> →</Link>
+          </article>
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
             {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? <LocalizedText id="student.home.practiceItem" fallback="Practice item" />}</strong><span>{mistake.explanation ?? <LocalizedText id="student.home.reviewAfterAttempts" fallback={`Review after ${mistake.occurrenceCount} attempts.`} values={{ count: mistake.occurrenceCount }} />}</span></li>)}</ul> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}

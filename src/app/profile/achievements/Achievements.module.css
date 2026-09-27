@@ -1,4 +1,11 @@
 .page { display: grid; gap: 1rem; align-content: start; }
+.hubNav { display: flex; flex-wrap: wrap; gap: .45rem; }
+.hubNav a { display: inline-flex; min-height: 2.15rem; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface-elevated); padding: .4rem .75rem; color: var(--text-secondary); font-size: .76rem; font-weight: 800; text-decoration: none; }
+.hubNav a:hover { border-color: var(--primary); color: var(--primary); }
+.hubNav a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.flowerSection { min-width: 0; }
+.goalsSection { display: grid; gap: .7rem; scroll-margin-top: 1rem; }
+.goalsSection > h2 { margin: 0; color: var(--text-primary); font-size: 1.1rem; }
 .header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
 .eyebrow { margin: 0; color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
 .header h1 { margin: 0.25rem 0 0; color: var(--text-primary); font-size: clamp(1.65rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.12; }
@@ -71,7 +78,7 @@
 .emptyState a { display: inline-flex; min-height: 2.3rem; align-items: center; margin-top: 1rem; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; background: var(--primary); color: var(--primary-contrast); font-size: 0.8rem; font-weight: 800; text-decoration: none; }
 @media (max-width: 560px) { .header { align-items: stretch; } .summary { width: 100%; } .summary div { padding: 0.68rem; } .summary dt { overflow: hidden; text-overflow: ellipsis; } .grid { gap: 0.7rem; } .card { min-height: 16rem; } }
 @media (min-width: 1024px) {
-  .page { height: 100%; min-height: 0; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 0.65rem; overflow: hidden; }
+  .page { gap: 0.85rem; }
   .header { align-items: center; gap: 0.75rem; }
   .eyebrow { font-size: 0.62rem; }
   .header h1 { margin-top: 0.12rem; font-size: 1.42rem; }
@@ -82,8 +89,8 @@
   .summary dd { margin-top: 0.08rem; font-size: 0.95rem; }
   .filters { gap: 0.34rem; }
   .filter, .filterActive { min-height: 1.85rem; padding: 0.3rem 0.58rem; font-size: 0.68rem; }
-  .grid { min-height: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 0.62rem; overflow: hidden; }
-  .card { min-height: 0; height: 100%; border-radius: 1rem; padding: 0.7rem; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.62rem; }
+  .card { min-height: 12rem; border-radius: 1rem; padding: 0.7rem; }
   .cardTop { gap: 0.45rem; }
   .icon { width: 2.35rem; height: 2.35rem; border-radius: 0.76rem; font-size: 1.1rem; }
   .cardMeta { gap: 0.22rem; }

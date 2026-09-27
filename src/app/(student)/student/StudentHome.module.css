@@ -71,6 +71,8 @@
 .inlineAction { align-self: flex-start; margin-top: 1rem; }
 .sideStack { display: grid; gap: var(--space-3); }
 .sideStack .panel { display: flex; min-height: 0; flex-direction: column; }
+.achievementsPanel { border-color: color-mix(in srgb, #eab308 42%, var(--border)); background: linear-gradient(130deg, color-mix(in srgb, #fef9c3 38%, var(--surface-elevated)), var(--surface-elevated)); }
+.achievementsPanel .cardHeading > span { font-size: 1.15rem; }
 .leaderboardPanel { border-color: color-mix(in srgb, #f59e0b 36%, var(--border)); background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 11%, var(--surface-elevated)), var(--surface-elevated) 58%, color-mix(in srgb, var(--primary) 7%, var(--surface-elevated))); }
 .leaderboardHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
 .leaderboardHeading h3 { margin-top: 0.1rem; }
@@ -109,16 +111,16 @@
 @media (max-width: 679px) { .page { gap: 0.65rem; margin-bottom: -2.5rem; } .hero { gap: 0.65rem; padding: 0.9rem; } .hero h2 { font-size: 1.35rem; } .hero > div:first-child > p:not(.eyebrow) { font-size: 0.82rem; line-height: 1.38; } .resumeBanner { grid-template-columns: auto minmax(0, 1fr); gap: .6rem; padding: .72rem; }.resumeProgress, .resumeAction { grid-column: 1 / -1; }.resumeAction { width: 100%; }.resumeCopy h3, .resumeCopy span { white-space: normal; } .primaryAction, .secondaryAction { min-height: 2.35rem; padding: 0.5rem 0.72rem; font-size: 0.84rem; } .placementPanel { padding: 0.75rem; } .placementCourseList { grid-template-columns: 1fr; } .placementRecommendationsHeading { align-items: flex-start; flex-direction: column; } .overviewGrid .statCard:first-child, .overviewGrid .statCard:last-child { display: none; } .focusPanel { min-height: 12rem; } .focusPanel .cardText { margin-top: 0.5rem; } .focusPanel .inlineAction { margin-top: 0.7rem; } .sideStack .panel { min-width: 0; padding: 0.72rem; } .sideStack .panel h3 { font-size: 0.9rem; } .sideStack .helperText, .mistakeList { display: none; } .sideStack .leaderboardPanel .helperText { display: block; } .sideStack .textLink { margin-top: 0.4rem; font-size: 0.74rem; } .leaderboardRow { padding: 0.34rem 0.4rem; } .leaderboardLearner strong { font-size: 0.72rem; } .ownRank { display: block; } .mistakeCount { padding: 0.2rem 0.4rem; font-size: 0.66rem; } }
 @media (min-width: 680px) { .overviewGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (min-width: 1024px) {
-  .page { height: 100%; min-height: 0; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 0.7rem; overflow: hidden; }
+  .page { display: flex; height: 100%; min-height: 0; flex-direction: column; gap: 0.7rem; overflow: hidden; }
   .hero { min-height: 6.25rem; padding: 0.9rem 1.1rem; }
   .overviewGrid { gap: 0.55rem; }
   .statCard { padding: 0.72rem 0.8rem; }
   .statCard h3, .courseTitle { font-size: 0.86rem; }
   .statCard strong { min-height: 0; font-size: 1.28rem; }
-  .dashboardGrid { min-height: 0; grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); align-items: stretch; }
+  .dashboardGrid { min-height: 0; flex: 1 1 auto; grid-template-columns: minmax(0, 1.3fr) minmax(17rem, 0.7fr); align-items: stretch; }
   .panel, .focusPanel, .sideStack { min-height: 0; }
   .focusPanel { height: 100%; overflow: hidden; padding: 0.95rem 1rem; }
-  .sideStack { height: 100%; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .55fr); }
+  .sideStack { height: 100%; grid-template-rows: repeat(2, minmax(0, 1fr)); }
   .sideStack .panel { overflow: hidden; padding: 0.78rem 0.9rem; }
   .mistakeList { max-height: 3.8rem; overflow: hidden; }
   .mistakeList li { padding-block: 0.32rem; }

@@ -91,7 +91,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { t } = useLocale();
   const pathname = usePathname();
-  const shouldLockDesktopViewport = lockDesktopViewport && (pathname === "/student" || pathname === "/student/achievements");
+  const shouldLockDesktopViewport = lockDesktopViewport && pathname === "/student";
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [navigationBadges, setNavigationBadges] = useState<Partial<Record<NotificationBadgeSection, number>>>({});

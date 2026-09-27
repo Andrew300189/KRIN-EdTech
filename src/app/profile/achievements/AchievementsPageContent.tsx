@@ -2,23 +2,26 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Award, Flame, Medal, ShieldCheck, Sparkles, Star, Trophy } from "lucide-react";
 import { requireAuth } from "@/core/server/session";
+import { LocalizedText } from "@/core/i18n/LocalizedText";
 import { listUserAchievements } from "@/modules/motivation/services/motivation.service";
 import { listStreakQuestBooks } from "@/modules/motivation/services/streak-quest-book.service";
 import { listOpenedMilestoneChests } from "@/modules/motivation/services/reward-economy.service";
 import { OpenedMilestoneChests } from "@/modules/motivation/components/OpenedMilestoneChests";
 import { MistakeCorrectionAchievements } from "@/modules/motivation/components/MistakeCorrectionAchievements";
 import { StreakQuestBooksPanel } from "@/modules/motivation/components/StreakQuestBooksPanel";
+import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
+import { FlowerCollectionLink } from "@/modules/motivation/components/FlowerCollection";
 import { QuestActivationButton } from "./QuestActivationButton";
 import styles from "./Achievements.module.css";
 
 type AchievementFilter = "ALL" | "AVAILABLE" | "ACTIVE" | "COMPLETED";
 export type AchievementSearchParams = Promise<{ filter?: string }>;
 
-const filters: Array<{ value: AchievementFilter; label: string }> = [
-  { value: "ALL", label: "All" },
-  { value: "AVAILABLE", label: "Available" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "COMPLETED", label: "Completed" },
+const filters: Array<{ value: AchievementFilter; label: string; labelKey: "student.achievements.all" | "student.achievements.available" | "student.achievements.active" | "student.achievements.completed" }> = [
+  { value: "ALL", label: "All", labelKey: "student.achievements.all" },
+  { value: "AVAILABLE", label: "Available", labelKey: "student.achievements.available" },
+  { value: "ACTIVE", label: "Active", labelKey: "student.achievements.active" },
+  { value: "COMPLETED", label: "Completed", labelKey: "student.achievements.completed" },
 ];
 
 const rarityClass = {
@@ -60,42 +63,58 @@ export async function AchievementsPageContent({
   if (!authenticated) redirect(`/login?next=${encodeURIComponent(basePath)}`);
   const requestedFilter = (await searchParams).filter;
   const filter = filters.some((item) => item.value === requestedFilter) ? requestedFilter as AchievementFilter : "ALL";
-  const [achievements, questBooks, openedChests] = await Promise.all([
-    listUserAchievements(authenticated.user.id, filter),
+  const [allAchievements, questBooks, openedChests] = await Promise.all([
+    listUserAchievements(authenticated.user.id),
     listStreakQuestBooks(authenticated.user.id),
     listOpenedMilestoneChests(authenticated.user.id),
   ]);
-  const completedCount = achievements.filter((achievement) => achievement.completed).length;
-  const activeCount = achievements.filter((achievement) => achievement.activatedAt && !achievement.completed).length;
-  const availableCount = achievements.filter((achievement) => !achievement.activatedAt).length;
+  const completedCount = allAchievements.filter((achievement) => achievement.completed).length;
+  const activeCount = allAchievements.filter((achievement) => achievement.activatedAt && !achievement.completed).length;
+  const availableCount = allAchievements.filter((achievement) => !achievement.activatedAt && !achievement.completed).length;
+  const achievements = allAchievements.filter((achievement) => filter === "ALL"
+    || (filter === "AVAILABLE" && !achievement.activatedAt && !achievement.completed)
+    || (filter === "ACTIVE" && Boolean(achievement.activatedAt) && !achievement.completed)
+    || (filter === "COMPLETED" && achievement.completed));
 
   return <main className={styles.page}>
     <header className={styles.header}>
       <div>
-        <p className={styles.eyebrow}>Choose your next goal</p>
-        <h1>Quests</h1>
-        <p>Activate a quest before you start it. Only progress made after activation counts.</p>
+        <p className={styles.eyebrow}><LocalizedText id="student.achievements.eyebrow" fallback="Your learning rewards" /></p>
+        <h1><LocalizedText id="student.nav.achievements" fallback="Achievements" /></h1>
+        <p><LocalizedText id="student.achievements.intro" fallback="Goals, flower chests, books and collections are gathered here." /></p>
       </div>
       <dl className={styles.summary} aria-label="Quest overview">
-        <div><dt>Available</dt><dd>{availableCount}</dd></div>
-        <div><dt>Active</dt><dd>{activeCount}</dd></div>
-        <div><dt>Completed</dt><dd>{completedCount}</dd></div>
+        <div><dt><LocalizedText id="student.achievements.available" fallback="Available" /></dt><dd>{availableCount}</dd></div>
+        <div><dt><LocalizedText id="student.achievements.active" fallback="Active" /></dt><dd>{activeCount}</dd></div>
+        <div><dt><LocalizedText id="student.achievements.completed" fallback="Completed" /></dt><dd>{completedCount}</dd></div>
       </dl>
     </header>
 
-    <nav className={styles.filters} aria-label="Filter quests">
-      {filters.map((item) => <Link key={item.value} href={`${basePath}?filter=${item.value}`} aria-current={filter === item.value ? "page" : undefined} className={filter === item.value ? styles.filterActive : styles.filter}>{item.label}</Link>)}
+    <nav className={styles.hubNav} aria-label="Achievement sections">
+      <a href="#milestone-chests-title"><LocalizedText id="student.achievements.chests" fallback="Chests" /></a>
+      <a href="#flower-collection"><LocalizedText id="student.achievements.flowers" fallback="Flowers" /></a>
+      {questBooks.length ? <a href="#quest-books"><LocalizedText id="student.achievements.books" fallback="Books" /></a> : null}
+      <a href="#mistake-achievements-title"><LocalizedText id="student.achievements.corrections" fallback="Corrections" /></a>
+      <a href="#achievement-goals"><LocalizedText id="student.achievements.goals" fallback="Goals" /></a>
+      <a href="#opened-chests-title"><LocalizedText id="student.achievements.history" fallback="Collected" /></a>
     </nav>
 
-    <StreakQuestBooksPanel initialBooks={questBooks} />
-    <OpenedMilestoneChests chests={openedChests.map((chest) => ({ ...chest, openedAt: chest.openedAt.toISOString() }))} />
+    <MilestoneChestsPanel />
+    <section id="flower-collection" className={styles.flowerSection}><FlowerCollectionLink /></section>
+    {questBooks.length ? <StreakQuestBooksPanel initialBooks={questBooks} /> : null}
     <MistakeCorrectionAchievements />
 
-    {achievements.length ? <section className={styles.grid} aria-label="Quest collection">
-      {achievements.map((achievement) => {
+    <section id="achievement-goals" className={styles.goalsSection} aria-labelledby="achievement-goals-title">
+      <h2 id="achievement-goals-title"><LocalizedText id="student.achievements.goals" fallback="Goals" /></h2>
+      <nav className={styles.filters} aria-label="Filter achievement goals">
+        {filters.map((item) => <Link key={item.value} href={`${basePath}?filter=${item.value}#achievement-goals`} aria-current={filter === item.value ? "page" : undefined} className={filter === item.value ? styles.filterActive : styles.filter}><LocalizedText id={item.labelKey} fallback={item.label} /></Link>)}
+      </nav>
+
+      {achievements.length ? <section className={styles.grid} aria-label="Quest collection">
+        {achievements.map((achievement) => {
         const progress = Math.min(100, Math.round((achievement.progress / Math.max(achievement.target, 1)) * 100));
         const rarity = rarityClass[achievement.rarity as keyof typeof rarityClass] ?? styles.common;
-        const isAvailable = !achievement.activatedAt;
+        const isAvailable = !achievement.activatedAt && !achievement.completed;
         const unlockLabel = achievement.unlockShopItemId === "theme-aurora"
           ? "Unlocks Aurora theme"
           : achievement.unlockShopItemId ? "Unlocks a site item" : null;
@@ -113,7 +132,10 @@ export async function AchievementsPageContent({
             {achievement.completed ? <span className={styles.unlocked}>Completed {achievement.completedAt?.toLocaleDateString() ?? ""}</span> : isAvailable ? <QuestActivationButton questId={achievement.id} /> : <span className={styles.progressState}>Quest active</span>}
           </footer>
         </article>;
-      })}
-    </section> : <section className={styles.emptyState}><div aria-hidden="true">✦</div><h2>No quests in this view yet</h2><p>Choose a different filter or return after new quests are added.</p><Link href="/student/courses">Open my courses</Link></section>}
+        })}
+      </section> : <section className={styles.emptyState}><div aria-hidden="true">✦</div><h2>No goals in this view yet</h2><p>Choose a different filter or return after new goals are added.</p><Link href="/student/courses">Open my courses</Link></section>}
+    </section>
+
+    <OpenedMilestoneChests chests={openedChests.map((chest) => ({ ...chest, openedAt: chest.openedAt.toISOString() }))} />
   </main>;
 }

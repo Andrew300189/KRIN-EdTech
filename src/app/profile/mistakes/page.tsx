@@ -3,7 +3,6 @@ import { requireAuth } from "@/core/server/session";
 import { prisma } from "@/core/server/prisma";
 import { listUserMistakes } from "@/modules/courses/services/content.service";
 import { MistakesGrid, type MistakeCardItem } from "./MistakesGrid";
-import { MistakeCorrectionAchievements } from "@/modules/motivation/components/MistakeCorrectionAchievements";
 import styles from "./Mistakes.module.css";
 
 function singleValue(value: string | string[] | undefined) {
@@ -86,8 +85,6 @@ export default async function ProfileMistakesPage({
         </div>
         <span className={styles.counter}><strong>{mistakes.length}</strong> {mistakes.length === 1 ? "item to review" : "items to review"}</span>
       </header>
-
-      <MistakeCorrectionAchievements />
 
       {mistakes.length === 0 && !resolvedCard ? (
         <section className={styles.emptyState} aria-label="No mistakes to review">

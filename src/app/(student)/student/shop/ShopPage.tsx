@@ -26,13 +26,37 @@ const consumableCopy = {
   uk: { "water-lily": ["Латаття · відновлення", "Випадає з квіткою раз за цикл із 50 правильних відповідей або купується тут. Відновлює одну серію після уроку з відповіддю з першої спроби."], "xp-boost-15": ["Іскра знань · +15 XP", "Автоматично додасть 15 XP за наступний уперше завершений урок."], "xp-boost-40": ["Цвітіння знань · +40 XP", "Автоматично додасть 40 XP за наступний уперше завершений урок."] },
 } as const;
 
+const shopSections = ["recovery", "booster", "avatar", "theme", "discount"] as const;
+const sectionCopy = {
+  en: {
+    recovery: { title: "Water Lilies and recovery", description: "Keep an answer streak going when a mistake interrupts it." },
+    booster: { title: "XP boosts", description: "Earn extra XP on an upcoming lesson." },
+    avatar: { title: "Avatars", description: "Choose a new look for your profile." },
+    theme: { title: "Site palettes", description: "Change the colours of your learning space." },
+    discount: { title: "Discounts", description: "Offers for a subscription upgrade." },
+  },
+  ru: {
+    recovery: { title: "Кувшинки и восстановление", description: "Продолжайте серию ответов после ошибки." },
+    booster: { title: "Усилители XP", description: "Получайте больше XP за следующий урок." },
+    avatar: { title: "Аватары", description: "Выберите новый образ для профиля." },
+    theme: { title: "Палитры сайта", description: "Измените цвета учебного пространства." },
+    discount: { title: "Скидки", description: "Предложения для улучшения подписки." },
+  },
+  uk: {
+    recovery: { title: "Латаття та відновлення", description: "Продовжуйте серію відповідей після помилки." },
+    booster: { title: "Підсилювачі XP", description: "Отримуйте більше XP за наступний урок." },
+    avatar: { title: "Аватари", description: "Оберіть новий образ для профілю." },
+    theme: { title: "Палітри сайту", description: "Змініть кольори навчального простору." },
+    discount: { title: "Знижки", description: "Пропозиції для поліпшення підписки." },
+  },
+} as const;
+
 export function ShopPage() {
   const router = useRouter();
   const { locale } = useLocale();
   const text = copy[locale];
   const [shop, setShop] = useState<ShopState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | ShopItem["kind"]>("all");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/profile/shop", { cache: "no-store" });
@@ -79,13 +103,16 @@ export function ShopPage() {
   }
 
   if (!shop) return <section className={styles.loading}>{text.loading}</section>;
+  const visibleSections = shopSections.filter((kind) => shop.items.some((item) => item.kind === kind));
   return <section className={styles.page}>
     <header className={styles.hero}><div><p>{text.eyebrow}</p><h2>{text.title}</h2><span>{text.subtitle}</span></div><div className={styles.balance}><small>{text.balance}</small><strong>◉ {shop.balance.toFixed(2)}</strong></div></header>
     {shop.coupons.length ? <section className={styles.couponPanel}><div><span>✦</span><p>{text.coupon}</p></div>{shop.coupons.map((coupon) => <button key={coupon} type="button" onClick={() => { if (navigator.clipboard) void navigator.clipboard.writeText(coupon).then(() => toast.success(text.copied)).catch(() => undefined); }}>{coupon}</button>)}</section> : null}
-    <div className={styles.filters} role="group" aria-label={locale === "ru" ? "Категории магазина" : locale === "uk" ? "Категорії магазину" : "Shop categories"}>
-      {(["all", "recovery", "booster", "avatar", "theme", "discount"] as const).map((kind) => <button key={kind} type="button" aria-pressed={filter === kind} onClick={() => setFilter(kind)}>{locale === "ru" ? { all: "Всё", recovery: "Восстановление", booster: "Больше XP", avatar: "Аватары", theme: "Темы", discount: "Скидки" }[kind] : locale === "uk" ? { all: "Усе", recovery: "Відновлення", booster: "Більше XP", avatar: "Аватари", theme: "Теми", discount: "Знижки" }[kind] : { all: "All", recovery: "Recovery", booster: "More XP", avatar: "Avatars", theme: "Themes", discount: "Discounts" }[kind]}</button>)}
-    </div>
-    <div className={styles.grid}>{shop.items.filter((item) => filter === "all" || item.kind === filter).map((item) => {
+    <nav className={styles.categoryNav} aria-label={locale === "ru" ? "Разделы магазина" : locale === "uk" ? "Розділи магазину" : "Shop sections"}>
+      {visibleSections.map((kind) => <a key={kind} href={`#shop-${kind}`}>{sectionCopy[locale][kind].title}<span>{shop.items.filter((item) => item.kind === kind).length}</span></a>)}
+    </nav>
+    <div className={styles.sections}>{visibleSections.map((kind) => <section key={kind} id={`shop-${kind}`} className={styles.category} aria-labelledby={`shop-${kind}-title`}>
+      <header className={styles.categoryHeader}><div><h3 id={`shop-${kind}-title`}>{sectionCopy[locale][kind].title}</h3><p>{sectionCopy[locale][kind].description}</p></div><span>{shop.items.filter((item) => item.kind === kind).length}</span></header>
+      <div className={styles.grid}>{shop.items.filter((item) => item.kind === kind).map((item) => {
       const equipped = item.kind === "theme" ? shop.equippedTheme === item.id : item.kind === "avatar" ? shop.equippedAvatar === item.id : false;
       const avatar = item.kind === "avatar" ? shopAvatarDetails(item.id) : null;
       const localized = avatar?.localized?.[locale];
@@ -96,6 +123,7 @@ export function ShopPage() {
         <div className={styles.itemCopy}><h3>{localized?.label ?? consumable?.[0] ?? item.title}</h3><p>{localized?.description ?? consumable?.[1] ?? item.description}</p>{repeatable ? <span className={styles.quantity}>{text.inInventory}: {item.quantity}</span> : null}</div>
         <footer><strong>◉ {item.price.toFixed(2)}</strong>{repeatable || !item.owned ? <button type="button" disabled={busy === item.id || shop.balance < item.price} onClick={() => void purchase(item)}>{busy === item.id ? "…" : text.buy}</button> : item.kind === "discount" ? <span className={styles.owned}>{text.owned}</span> : <button type="button" disabled={busy === item.id || equipped} onClick={() => void equip(item)}>{equipped ? text.equipped : text.equip}</button>}</footer>
       </article>;
-    })}</div>
+      })}</div>
+    </section>)}</div>
   </section>;
 }

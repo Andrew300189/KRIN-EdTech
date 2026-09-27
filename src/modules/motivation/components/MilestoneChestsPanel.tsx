@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n/locale";
 import { notifyMotivationUpdated } from "../motivation-events";
@@ -130,7 +129,7 @@ export function MilestoneChestsPanel() {
   return <section className={styles.panel} aria-labelledby="milestone-chests-title">
     <header className={styles.heading}>
       <div><p>{text.eyebrow}</p><h2 id="milestone-chests-title">{text.title}</h2></div>
-      <div className={styles.headingActions}><strong>{interpolate(text.completed, { count: state.completedLessons })}</strong><Link href="/student/achievements">{text.achievements} →</Link></div>
+      <div className={styles.headingActions}><strong>{interpolate(text.completed, { count: state.completedLessons })}</strong></div>
     </header>
     <div className={styles.grid}>
       {state.chests.filter((chest) => !chest.claimed).map((chest) => {
