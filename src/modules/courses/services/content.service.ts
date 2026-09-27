@@ -865,7 +865,12 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
           exercises: {
             // Generated retrieval-practice questions belong only to the
             // learner's saved review run and are loaded by its protected API.
-            where: { contentStatus: "PUBLISHED", isGeneratedReview: false },
+            where: {
+              contentStatus: "PUBLISHED", isGeneratedReview: false,
+              // Retire script-added correction cards; manually authored
+              // correction exercises remain available for later use.
+              NOT: { engineKey: "find-and-correct", variantKey: "VERB_TO_BE_20_MIN_REINFORCEMENT_V1" },
+            },
             orderBy: { order: "asc" },
             select: {
               id: true,
@@ -1004,7 +1009,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
 }
 
 const getPublishedLessonBySlugCached = cachePublicContent(
-  ["published-lesson-by-slug"],
+  ["published-lesson-by-slug", "auto-corrections-retired-v1"],
   getPublishedLessonBySlugUncached,
 );
 
@@ -1012,7 +1017,7 @@ const getPublishedLessonBySlugCached = cachePublicContent(
 // was cached. Give just that lesson a new cache namespace so returning
 // learners see the restored steps immediately after deployment.
 const getToBeLessonOneWithTheory = cachePublicContent(
-  ["published-lesson-by-slug", "to-be-lesson-one-theory-v3"],
+  ["published-lesson-by-slug", "to-be-lesson-one-theory-v4"],
   getPublishedLessonBySlugUncached,
 );
 
@@ -2406,7 +2411,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       // a fully completed visible lesson persist as 75% when three hidden
       // draft blocks happened to exist in the CMS.
       where: { lessonId, contentStatus: "PUBLISHED" },
-      select: { id: true, type: true, settings: true, isRequired: true, exercises: { select: { id: true } } },
+      select: { id: true, type: true, settings: true, isRequired: true, exercises: {
+        where: { contentStatus: "PUBLISHED", isGeneratedReview: false, NOT: { engineKey: "find-and-correct", variantKey: "VERB_TO_BE_20_MIN_REINFORCEMENT_V1" } },
+        select: { id: true },
+      } },
     });
     const allowed = new Set(blocks.map((block) => block.id));
     if (value.completedBlockIds.some((blockId) => !allowed.has(blockId))) {

@@ -113,31 +113,12 @@ function textInput(item) {
   };
 }
 
-function correction(item, wrongForm) {
-  const [, , form, sentence] = item;
-  const incorrect = sentence.replace(form, wrongForm);
-  return {
-    type: "ERROR_CORRECTION", engineKey: "find-and-correct", variantKey: MARKER,
-    instruction: "Correct the full sentence.", question: `Correct: ${incorrect}`,
-    content: { ignorePunctuation: true }, correctAnswer: sentence,
-    explanation: `Use “${form}”: ${sentence}`,
-    hint: "Check which subject appears at the beginning of the sentence.",
-    hintsEnabled: true, difficulty: 2, basePoints: 2, timeLimitSeconds: 20,
-    solutionCost: 0, allowInstantCheck: true, allowExtraExercise: false,
-  };
-}
-
-function wrongForm(form) {
-  return ({ am: "is", is: "are", are: "is", "am not": "isn't", "isn't": "aren't", "aren't": "isn't", Am: "Is", Is: "Are", Are: "Is" })[form] || "is";
-}
-
 function reinforcementExercises(moduleOrder, lessonOrder) {
   const bank = banks[Math.max(0, Math.min(banks.length - 1, moduleOrder - 1))];
   const offset = (lessonOrder - 1) * 3;
   const exercises = Array.from({ length: 6 }, (_, index) => matching(bank, offset + index * 2));
   exercises.push(...rotated(bank, offset + 2, 4).map(sentenceBuilder));
   exercises.push(...rotated(bank, offset + 6, 6).map(textInput));
-  exercises.push(...rotated(bank, offset + 1, 2).map((item) => correction(item, wrongForm(item[2]))));
   return exercises;
 }
 

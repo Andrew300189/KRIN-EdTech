@@ -10,6 +10,9 @@ const copy = {
 export function LessonAnswerStreakStatus({ correctAnswersInRow, frozen = false, thawing = false, waterLilies = [] }: { correctAnswersInRow: number; frozen?: boolean; thawing?: boolean; waterLilies?: Array<{ capacity: number; quantity: number }> }) {
   const { locale } = useLocale();
   const text = copy[locale] ?? copy.en;
+  const availableLilies = waterLilies.filter((lily) => lily.quantity > 0);
+  const kindCount = new Set(availableLilies.map((lily) => lily.capacity)).size;
+  const lilyTitle = availableLilies.map((lily) => `×${lily.capacity}: ${lily.quantity}`).join(" · ");
 
   return (
     <div className={styles.status} aria-label={`${text}: ${correctAnswersInRow}`}>
@@ -19,7 +22,7 @@ export function LessonAnswerStreakStatus({ correctAnswersInRow, frozen = false, 
         {frozen ? <span className={styles.ice} aria-label="Saved streak">❄</span> : null}
         {thawing ? <span className={styles.shards} aria-hidden="true">❄</span> : null}
       </span>
-      {waterLilies.some((lily) => lily.quantity > 0) ? <span className={styles.lilies} role="list" aria-label="Water Lily levels">{waterLilies.filter((lily) => lily.quantity > 0).map((lily) => <span key={lily.capacity} role="listitem" title={`${lily.capacity} answers · ${lily.quantity} available`}>🪷{lily.capacity} ×{lily.quantity}</span>)}</span> : null}
+      {kindCount > 0 ? <span className={styles.lilies} title={lilyTitle} aria-label={`${locale === "uk" ? "Видів латаття" : locale === "ru" ? "Видов кувшинок" : "Water Lily types"}: ${kindCount}`}><span aria-hidden="true">🪷</span><strong>{kindCount}</strong></span> : null}
     </div>
   );
 }

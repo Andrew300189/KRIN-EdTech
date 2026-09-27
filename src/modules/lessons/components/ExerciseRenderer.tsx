@@ -17,6 +17,7 @@ import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hi
 import { primeLessonSuccessSound } from "@/modules/lessons/utils/success-sound";
 import { useLocale } from "@/core/i18n/locale";
 import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
+import { characterForWrongAnswerLayout, type AnswerInputLanguage } from "@/modules/lessons/utils/answer-keyboard-layout";
 
 type Feedback = { example: string | null; theoryHref: string | null; errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }> };
 type AttemptResult = {
@@ -266,6 +267,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
+  const inputLanguage: AnswerInputLanguage = content.inputLanguage === "ru" || content.inputLanguage === "uk" ? content.inputLanguage : "en";
   const context = useMemo(() => stepContext(exercise.content), [exercise.content]);
   const options = useMemo(() => asStringArray(content.options), [content]);
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
@@ -315,6 +317,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const [dynamicSending, setDynamicSending] = useState(false);
   const [dynamicXpFlash, setDynamicXpFlash] = useState(0);
   const submissionInFlightRef = useRef(false);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
   const translationRequestRef = useRef(0);
   const dynamicFinalizingRef = useRef(false);
   useEffect(() => {
@@ -481,8 +484,30 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     return hasAnswerValue(answer);
   })();
 
+  // After the final word is placed, Enter should activate the same visible
+  // Next button as a click. Native button keyboard behaviour then handles it.
+  useEffect(() => {
+    if (active && ordered && hasCompleteAnswer && !inputsLocked) nextButtonRef.current?.focus({ preventScroll: true });
+  }, [active, hasCompleteAnswer, inputsLocked, ordered]);
+
   function changeAnswer(next: ExerciseAnswer) {
     setAnswer(next); setResult(null);
+  }
+
+  function substituteWrongLayout<T extends HTMLInputElement | HTMLTextAreaElement>(event: KeyboardEvent<T>, onValue: (value: string) => void) {
+    if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+    const replacement = characterForWrongAnswerLayout(inputLanguage, event.key, event.code);
+    if (!replacement) return false;
+    event.preventDefault();
+    const field = event.currentTarget;
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? start;
+    onValue(`${field.value.slice(0, start)}${replacement}${field.value.slice(end)}`);
+    window.requestAnimationFrame(() => {
+      field.focus({ preventScroll: true });
+      field.setSelectionRange(start + replacement.length, start + replacement.length);
+    });
+    return true;
   }
 
   function compactMatchingSubmission(candidate: JsonObject) {
@@ -643,6 +668,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   }
 
   function submitSingleLineAnswerOnEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (substituteWrongLayout(event, changeAnswer)) return;
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     // Use the native field value so the final character is never missed by a
@@ -652,6 +678,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   }
 
   function submitCompactMatchingOnEnter(event: KeyboardEvent<HTMLInputElement>, leftItem: string) {
+    if (substituteWrongLayout(event, (value) => changeAnswer({ ...(answer as JsonObject), [leftItem]: value }))) return;
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     event.preventDefault();
     // The final keystroke can still be pending in React state. Construct the
@@ -666,6 +693,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   }
 
   function submitLongTextAnswerOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (substituteWrongLayout(event, changeAnswer)) return;
     // A plain Enter submits the response, while Shift+Enter remains available
     // for learners who need a new line in a longer written answer.
     if (event.key !== "Enter" || event.nativeEvent.isComposing || event.shiftKey) return;
@@ -927,7 +955,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
         const current = String((answer as JsonObject)[leftItem] ?? "");
         const answerLabel = locale === "uk" ? "Впишіть слово" : locale === "ru" ? "Впишите слово" : "Type the word";
         const placeholder = locale === "uk" ? "am, is або are" : locale === "ru" ? "am, is или are" : "am, is, or are";
-        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{renderAnswerGaps(leftItem, locale, true)}</span><span className="lesson-exercise-answer-label">{answerLabel}</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={placeholder} autoComplete="off" /></label>;
+        return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{renderAnswerGaps(leftItem, locale, true)}</span><span className="lesson-exercise-answer-label">{answerLabel}</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} lang={inputLanguage} autoCorrect="off" spellCheck={false} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={placeholder} autoComplete="off" /></label>;
       })}
       {matching && !compactToBeMatching && matchingLeft.map((leftItem) => {
         const storedValue = String((answer as JsonObject)[leftItem] ?? "");
@@ -967,12 +995,12 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
         <button type="button" disabled={inputsLocked || !(answer as string[]).length} onClick={() => changeAnswer([])} className={`${styles.tokenReset} lesson-exercise-reset`}>{sentenceBuilderCopy.reset}</button>
       </section> : null}
       {classification && classificationItems.map((item) => <label key={item} className="lesson-exercise-match-row grid gap-2 text-sm font-medium text-slate-800 sm:grid-cols-2 sm:items-center"><span>{item}</span><select disabled={inputsLocked} className="lesson-exercise-select rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60" value={String((answer as JsonObject)[item] ?? "")} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [item]: event.target.value })} onKeyDown={(event) => submitAssignedSelectOnEnter(event, item, false)} aria-keyshortcuts="Enter"><option value="">Choose a category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>)}
-      {!choice && !matching && !ordered && !classification ? <label className={`${styles.textAnswer} lesson-exercise-text-answer block`}>{correctedWordOnly ? <span className={`${styles.answerLabel} lesson-exercise-answer-label`}>{textAnswerLabel}</span> : null}{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitLongTextAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" rows={5} className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={renderer === "recording" ? "Write a transcript or response for review" : textAnswerPlaceholder} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={textAnswerPlaceholder} />}</label> : null}
+      {!choice && !matching && !ordered && !classification ? <label className={`${styles.textAnswer} lesson-exercise-text-answer block`}>{correctedWordOnly ? <span className={`${styles.answerLabel} lesson-exercise-answer-label`}>{textAnswerLabel}</span> : null}{longText ? <textarea disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitLongTextAnswerOnEnter} lang={inputLanguage} autoCorrect="off" spellCheck={false} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" rows={5} className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={renderer === "recording" ? "Write a transcript or response for review" : textAnswerPlaceholder} /> : <input disabled={inputsLocked} value={typeof answer === "string" ? answer : ""} onChange={(event) => changeAnswer(event.target.value)} onKeyDown={submitSingleLineAnswerOnEnter} lang={inputLanguage} autoCorrect="off" spellCheck={false} aria-label={textAnswerLabel} aria-keyshortcuts="Enter" className={`${styles.textInput} w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60`} placeholder={textAnswerPlaceholder} />}</label> : null}
     </div>
     {!result && !dynamicToBeMatching ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource || (exercise.hintsEnabled && visibleHint)) ? styles.actionRowWithTranslation : ""}`}>
       {exercise.hintsEnabled && visibleHint ? <button type="button" onClick={() => void revealHint()} disabled={hintOpen} aria-expanded={hintOpen} aria-label={hintInlineLabel.replace(/:$/, "")} title={hintInlineLabel.replace(/:$/, "")} className="lesson-exercise-hint-control"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M9 18h6M10 21h4M8.6 14.7A6.5 6.5 0 1 1 15.4 14.7c-.8.6-1.4 1.2-1.7 2.3H10.3c-.3-1.1-.9-1.7-1.7-2.3Z" /></svg><span className={styles.visuallyHidden}>{hintInlineLabel.replace(/:$/, "")}</span></button> : null}
       {(authoredTranslation || translationSource) ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} aria-label={translationSending ? translationOpeningLabel : translationLabel} title={translationSending ? translationOpeningLabel : translationLabel} className={`${styles.translationButton} lesson-exercise-translation-trigger`}><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 5.5h10A2.5 2.5 0 0 1 16.5 8v3A2.5 2.5 0 0 1 14 13.5H9l-3.5 3v-3.2A2.5 2.5 0 0 1 3 10.8V8A2.5 2.5 0 0 1 4 5.5ZM13 16h5a2.5 2.5 0 0 1 2.5 2.5v1.2l-2.4-1.7H13A2.5 2.5 0 0 1 10.5 16v-.5" /></svg><span className={styles.visuallyHidden}>{translationSending ? translationOpeningLabel : translationLabel}</span></button> : null}
-      <button type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>
+      <button ref={nextButtonRef} type="button" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.repeat) return; event.preventDefault(); void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer); }} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>
     </div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}

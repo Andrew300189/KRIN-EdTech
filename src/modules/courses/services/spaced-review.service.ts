@@ -102,12 +102,6 @@ const TO_BE_FACTS = [
   ["Our teacher", "is", "very kind"], ["These exercises", "are", "short and clear"], ["The museum", "is", "open today"], ["My parents", "are", "at work"],
 ] as const;
 
-function wrongToBeForm(answer: string) {
-  return ({
-    am: "is", is: "are", are: "is", "am not": "isn't", "isn't": "aren't", "aren't": "isn't", Am: "Is", Is: "Are", Are: "Is",
-  } as Record<string, string>)[answer] ?? "is";
-}
-
 function toBeDrafts(moduleOrder: number): ReviewExerciseDraft[] {
   const modes = moduleOrder === 1
     ? ["affirmative"] as const
@@ -121,7 +115,6 @@ function toBeDrafts(moduleOrder: number): ReviewExerciseDraft[] {
       const item = fact[mode];
       const forms = mode === "negative" ? ["am not", "isn't", "aren't"] : mode === "question" ? ["Am", "Is", "Are"] : ["am", "is", "are"];
       const tokens = item.sentence.replace(/[.?!]$/u, "").split(" ");
-      const wrongSentence = item.sentence.replace(item.answer, wrongToBeForm(item.answer));
       const baseSignature = `to-be:${mode}:${item.sentence}`;
       drafts.push(
         {
@@ -147,16 +140,6 @@ function toBeDrafts(moduleOrder: number): ReviewExerciseDraft[] {
           explanation: `Верный порядок: ${item.sentence}`, hint: mode === "question" ? "В вопросе форма to be стоит перед подлежащим." : "Начните с подлежащего.", hintsEnabled: true,
           difficulty: 2, timeLimitSeconds: 28, solutionCost: 2, allowInstantCheck: true, sourceExerciseId: null, signature: `${baseSignature}:order`,
         },
-        {
-          type: "ERROR_CORRECTION", engineKey: "find-and-correct", variantKey: "SPACED_REVIEW_TO_BE",
-          // Store the sentence separately as well as in the question. It
-          // makes the learner card resilient to older/localized prompt
-          // formats and ensures the task always shows what must be repaired.
-          instruction: "Исправьте форму to be в новом предложении.", question: wrongSentence,
-          content: { ignorePunctuation: true, sourceSentence: wrongSentence, answerMode: "FULL_SENTENCE" }, correctAnswer: item.sentence, alternativeAnswers: null,
-          explanation: `Правильно: ${item.sentence}`, hint: "Сверьте форму to be с подлежащим и типом фразы.", hintsEnabled: true,
-          difficulty: 2, timeLimitSeconds: 28, solutionCost: 2, allowInstantCheck: true, sourceExerciseId: null, signature: `${baseSignature}:correction`,
-        },
       );
     }
   }
@@ -164,6 +147,9 @@ function toBeDrafts(moduleOrder: number): ReviewExerciseDraft[] {
 }
 
 function genericDrafts(source: SourceExercise): ReviewExerciseDraft[] {
+  // Correction cards will be authored explicitly later. Do not multiply
+  // existing source corrections into automatic review sets.
+  if (source.engineKey === "find-and-correct") return [];
   const sourceContent = cloneJson(source.content);
   const sourceOptions = objectValue(source.content).options;
   const shuffledOptions = Array.isArray(sourceOptions)
@@ -230,7 +216,9 @@ function normaliseReviewRun(run: Awaited<ReturnType<typeof findSpacedReviewRun>>
     id: run.id,
     status: run.status,
     completedAt: run.completedAt,
-    questions: run.items.map((item) => item.exercise),
+    // Older persisted runs may already contain generated correction cards.
+    // Hide those without deleting attempts or changing a learner's history.
+    questions: run.items.filter((item) => item.exercise.engineKey !== "find-and-correct").map((item) => item.exercise),
   };
 }
 
@@ -399,16 +387,17 @@ export async function completeSpacedLessonReview(userId: string, lessonId: strin
   return prisma.$transaction(async (tx) => {
     const run = await tx.lessonSpacedReviewRun.findUnique({
       where: { userId_lessonId: { userId, lessonId } },
-      include: { items: { select: { exerciseId: true } } },
+      include: { items: { select: { exerciseId: true, exercise: { select: { engineKey: true } } } } },
     });
     if (!run) throw new Error("Start the review before completing it.");
     if (run.status === "COMPLETED") return { completed: true, alreadyCompleted: true };
+    const visibleExerciseIds = run.items.filter((item) => item.exercise.engineKey !== "find-and-correct").map((item) => item.exerciseId);
     const attempted = new Set((await tx.exerciseAttempt.findMany({
-      where: { userId, exerciseId: { in: run.items.map((item) => item.exerciseId) } },
+      where: { userId, exerciseId: { in: visibleExerciseIds } },
       select: { exerciseId: true },
     })).map((attempt) => attempt.exerciseId));
-    if (attempted.size < SPACED_REVIEW_QUESTION_COUNT) {
-      throw new Error(`Answer all ${SPACED_REVIEW_QUESTION_COUNT} review questions before continuing.`);
+    if (visibleExerciseIds.some((exerciseId) => !attempted.has(exerciseId))) {
+      throw new Error("Answer all remaining review questions before continuing.");
     }
     await tx.lessonSpacedReviewRun.update({
       where: { id: run.id },

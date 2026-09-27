@@ -27,10 +27,10 @@ type Props = {
 
 const reviewCopy = {
   ru: {
-    unavailable: "Не удалось подготовить повторение.", incomplete: "Ответьте на все вопросы повторения, прежде чем продолжить.", title: "Закрепим пройденное", reward: "1–3 XP за ответ + бонус серии", preview: "В опубликованном уроке здесь появятся 10 личных вопросов для повторения из предыдущих тем.", loading: "Подбираем 10 новых вопросов для повторения…", complete: "Повторение пройдено: все 10 ответов сохранены. Можно продолжать урок.",
+    unavailable: "Не удалось подготовить повторение.", incomplete: "Ответьте на все вопросы повторения, прежде чем продолжить.", title: "Закрепим пройденное", reward: "1–3 XP за ответ + бонус серии", preview: "В опубликованном уроке здесь появятся 10 личных вопросов для повторения из предыдущих тем.", loading: "Подбираем 10 новых вопросов для повторения…", complete: "Повторение пройдено: ответы сохранены. Можно продолжать урок.",
   },
   uk: {
-    unavailable: "Не вдалося підготувати повторення.", incomplete: "Дайте відповіді на всі запитання повторення, перш ніж продовжити.", title: "Закріпімо вивчене", reward: "1–3 XP за відповідь + бонус серії", preview: "В опублікованому уроці тут з’являться 10 особистих запитань для повторення з попередніх тем.", loading: "Добираємо 10 нових запитань для повторення…", complete: "Повторення завершено: усі 10 відповідей збережено. Можна продовжувати урок.",
+    unavailable: "Не вдалося підготувати повторення.", incomplete: "Дайте відповіді на всі запитання повторення, перш ніж продовжити.", title: "Закріпімо вивчене", reward: "1–3 XP за відповідь + бонус серії", preview: "В опублікованому уроці тут з’являться 10 особистих запитань для повторення з попередніх тем.", loading: "Добираємо 10 нових запитань для повторення…", complete: "Повторення завершено: відповіді збережено. Можна продовжувати урок.",
   },
 } as const;
 
@@ -63,6 +63,12 @@ export function SpacedReviewBlock({ lessonId, block, contentLocale, previewMode 
     notifiedComplete.current = true;
     onReviewComplete();
   }, [onReviewComplete, run?.status]);
+
+  useEffect(() => {
+    if (run?.status === "ACTIVE" && run.questions.length === 0) void completeReview();
+  // A legacy run can contain only retired generated correction cards.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.id, run?.questions.length, run?.status]);
 
   async function completeReview() {
     if (completing) return;
