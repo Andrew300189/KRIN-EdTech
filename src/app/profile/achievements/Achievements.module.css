@@ -1,16 +1,27 @@
-.page { display: grid; gap: 1rem; align-content: start; }
-.hubNav { display: flex; flex-wrap: wrap; gap: .45rem; }
-.hubNav a { display: inline-flex; min-height: 2.15rem; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface-elevated); padding: .4rem .75rem; color: var(--text-secondary); font-size: .76rem; font-weight: 800; text-decoration: none; }
-.hubNav a:hover { border-color: var(--primary); color: var(--primary); }
-.hubNav a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
-.flowerSection { min-width: 0; }
-.goalsSection { display: grid; gap: .7rem; scroll-margin-top: 1rem; }
+.page { display: grid; max-width: 78rem; gap: 1.1rem; align-content: start; }
+.sectionTabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.sectionTab { display: flex; min-width: 0; min-height: 5.2rem; align-items: center; gap: .75rem; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); padding: .85rem 1rem; color: var(--text-secondary); text-decoration: none; }
+.sectionTab:hover { border-color: var(--border-strong); background: var(--surface-secondary); }
+.sectionTabActive, .sectionTabActive:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, var(--surface-elevated)); box-shadow: 0 .55rem 1.25rem color-mix(in srgb, var(--primary) 11%, transparent); }
+.sectionTab:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
+.sectionTabIcon { display: grid; width: 2.6rem; height: 2.6rem; flex: 0 0 2.6rem; place-items: center; border-radius: .8rem; background: var(--surface-secondary); color: var(--primary); font-size: 1.35rem; }
+.sectionTabActive .sectionTabIcon { background: color-mix(in srgb, var(--primary) 16%, var(--surface-elevated)); }
+.sectionTabCopy { display: grid; min-width: 0; gap: .2rem; }
+.sectionTabCopy strong { color: var(--text-primary); font-size: .95rem; line-height: 1.2; }
+.sectionTabCopy small { color: var(--text-muted); font-size: .72rem; line-height: 1.3; }
+.sectionPanel { display: grid; min-width: 0; gap: 1rem; align-content: start; }
+.sectionPanel > a { margin: 0; }
+.collectionEmpty { display: flex; align-items: center; gap: .85rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-xl); background: var(--surface-elevated); padding: 1rem; }
+.collectionEmpty > span { display: grid; width: 3rem; height: 3rem; flex: 0 0 3rem; place-items: center; border-radius: .85rem; background: var(--surface-secondary); font-size: 1.35rem; }
+.collectionEmpty h2 { margin: 0; color: var(--text-primary); font-size: .96rem; }
+.collectionEmpty p { margin: .24rem 0 0; color: var(--text-secondary); font-size: .78rem; }
+.goalsSection { display: grid; gap: .7rem; }
 .goalsSection > h2 { margin: 0; color: var(--text-primary); font-size: 1.1rem; }
 .header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
 .eyebrow { margin: 0; color: var(--primary); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; line-height: 1.3; text-transform: uppercase; }
 .header h1 { margin: 0.25rem 0 0; color: var(--text-primary); font-size: clamp(1.65rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.12; }
 .header > div > p:not(.eyebrow) { max-width: 39rem; margin: 0.45rem 0 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
-.summary { display: grid; grid-template-columns: repeat(3, minmax(5.4rem, 1fr)); gap: 0.55rem; margin: 0; }
+.summary { display: grid; width: min(100%, 36rem); grid-template-columns: repeat(3, minmax(5.4rem, 1fr)); gap: 0.55rem; margin: 0; }
 .summary div { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-sm); padding: 0.75rem 0.82rem; }
 .summary dt { color: var(--text-muted); font-size: 0.68rem; font-weight: 750; white-space: nowrap; }
 .summary dd { margin: 0.18rem 0 0; color: var(--text-primary); font-size: 1.2rem; font-weight: 800; letter-spacing: -0.04em; }
@@ -20,7 +31,7 @@
 .filterActive { border-color: var(--primary); color: var(--primary-contrast); background: var(--primary); box-shadow: var(--shadow-sm); }
 .filter:focus-visible, .filterActive:focus-visible, .emptyState a:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 .grid { display: grid; gap: 0.85rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
-.card { position: relative; display: flex; min-width: 0; min-height: 17.5rem; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); padding: 1rem; }
+.card { position: relative; display: flex; min-width: 0; min-height: 16rem; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface-elevated); box-shadow: var(--shadow-sm); padding: 1rem; }
 .cardComplete { border-color: color-mix(in srgb, var(--primary) 36%, var(--border)); }
 .cardLocked { background: color-mix(in srgb, var(--surface-secondary) 74%, var(--surface-elevated)); }
 .cardTop { display: flex; align-items: start; justify-content: space-between; gap: 0.75rem; }
@@ -76,46 +87,7 @@
 .emptyState h2 { margin: 0.7rem 0 0; color: var(--text-primary); font-size: 1.15rem; }
 .emptyState p { margin: 0.4rem 0 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; }
 .emptyState a { display: inline-flex; min-height: 2.3rem; align-items: center; margin-top: 1rem; border-radius: var(--radius-md); padding: 0.5rem 0.75rem; background: var(--primary); color: var(--primary-contrast); font-size: 0.8rem; font-weight: 800; text-decoration: none; }
+@media (max-width: 700px) { .sectionTab { min-height: 4rem; flex-direction: column; justify-content: center; gap: .25rem; padding: .55rem .3rem; text-align: center; } .sectionTabIcon { width: 1.8rem; height: 1.8rem; flex-basis: 1.8rem; font-size: 1rem; } .sectionTabCopy strong { font-size: .76rem; } .sectionTabCopy small { display: none; } }
 @media (max-width: 560px) { .header { align-items: stretch; } .summary { width: 100%; } .summary div { padding: 0.68rem; } .summary dt { overflow: hidden; text-overflow: ellipsis; } .grid { gap: 0.7rem; } .card { min-height: 16rem; } }
-@media (min-width: 1024px) {
-  .page { gap: 0.85rem; }
-  .header { align-items: center; gap: 0.75rem; }
-  .eyebrow { font-size: 0.62rem; }
-  .header h1 { margin-top: 0.12rem; font-size: 1.42rem; }
-  .header > div > p:not(.eyebrow) { margin-top: 0.26rem; font-size: 0.75rem; line-height: 1.35; }
-  .summary { gap: 0.42rem; }
-  .summary div { padding: 0.52rem 0.64rem; }
-  .summary dt { font-size: 0.58rem; }
-  .summary dd { margin-top: 0.08rem; font-size: 0.95rem; }
-  .filters { gap: 0.34rem; }
-  .filter, .filterActive { min-height: 1.85rem; padding: 0.3rem 0.58rem; font-size: 0.68rem; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.62rem; }
-  .card { min-height: 12rem; border-radius: 1rem; padding: 0.7rem; }
-  .cardTop { gap: 0.45rem; }
-  .icon { width: 2.35rem; height: 2.35rem; border-radius: 0.76rem; font-size: 1.1rem; }
-  .cardMeta { gap: 0.22rem; }
-  .rarity, .trophy { padding: 0.16rem 0.3rem; font-size: 0.5rem; }
-  .card h2 { margin-top: 0.55rem; font-size: 0.8rem; }
-  .description { margin-top: 0.28rem; font-size: 0.65rem; line-height: 1.3; -webkit-line-clamp: 2; }
-  .progressHeader { margin-top: 0.5rem; font-size: 0.58rem; }
-  .progressTrack { height: 0.38rem; margin-top: 0.28rem; }
-  .cardFooter { gap: 0.22rem 0.4rem; margin-top: 0.45rem; padding-top: 0.42rem; }
-  .reward, .unlocked, .progressState { font-size: 0.56rem; }
-  .bookShelf { gap: .48rem; border-radius: 1rem; padding: .66rem; }
-  .bookShelfHeader h2 { font-size: .84rem; }
-  .bookShelfHeader p:not(.eyebrow) { margin-top: .16rem; font-size: .6rem; }
-  .bookGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
-  .bookCard { min-height: 0; padding: .56rem; }
-  .bookIcon { width: 1.8rem; height: 1.8rem; border-radius: .55rem; font-size: 1rem; }
-  .bookStatus { padding: .14rem .25rem; font-size: .46rem; }
-  .bookCard h3 { margin-top: .4rem; font-size: .68rem; }
-  .bookDescription { margin-top: .16rem; font-size: .54rem; }
-  .bookProgressHeader { margin-top: .35rem; font-size: .5rem; }
-  .bookProgress { height: .3rem; margin-top: .16rem; }
-  .bookRewards { margin-top: .36rem; font-size: .5rem; }
-  .bookUnlockButton, .bookTrainingLink { min-height: 1.65rem; margin-top: .4rem; padding: .22rem .38rem; font-size: .52rem; }
-  .bookCompleted { margin-top: .4rem; font-size: .52rem; }
-}
-@media (min-width: 1024px) and (max-width: 1179px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; } .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .progressFill { transition: none; } }
