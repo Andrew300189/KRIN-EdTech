@@ -82,6 +82,17 @@
 .vocabularyCard .instruction { line-height: 1.35; }
 .vocabularyCard .choiceGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .vocabularyCard .choiceGrid .promptRow { display: flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; }
+.vocabularyCard.assemblyCard { gap: .45rem; padding: .7rem; }
+.assemblyCard .word { font-size: clamp(1.2rem, 2.1vw, 1.65rem); text-align: left; }
+.assemblyAnswer { display: flex; align-items: center; width: 100%; font-weight: 750; overflow-wrap: anywhere; }
+.assemblyWords { justify-content: flex-start; gap: .45rem; }
+.wordTile { min-height: 2.45rem; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border)); border-radius: .7rem; padding: .4rem .7rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font: inherit; font-weight: 800; cursor: pointer; }
+.wordTile:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 14%, var(--surface)); }
+.assemblyControls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.clearButton { min-height: 2.55rem; border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border)); border-radius: 999px; padding: .48rem .95rem; background: var(--surface); color: var(--primary); font: inherit; font-weight: 850; cursor: pointer; }
+.clearButton:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.clearButton:disabled, .wordTile:disabled { cursor: not-allowed; opacity: .52; }
+.clearButton:focus-visible, .wordTile:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 32%, transparent); outline-offset: 2px; }
 @media (max-width: 680px) { .vocabularyCard .choiceGrid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 640px) { .introWords li { grid-template-columns: 1.55rem minmax(0, 1fr); } .introWords em { grid-column: 2; text-align: start; } .start { width: 100%; } .promptRow { grid-template-columns: 1fr; gap: .45rem; } .answerLabel { display: block; color: var(--text-secondary); font-size: .72rem; font-weight: 750; } .formActions { align-items: stretch; } .submit { width: 100%; } }
+@media (max-width: 640px) { .introWords li { grid-template-columns: 1.55rem minmax(0, 1fr); } .introWords em { grid-column: 2; text-align: start; } .start { width: 100%; } .promptRow { grid-template-columns: 1fr; gap: .45rem; } .answerLabel { display: block; color: var(--text-secondary); font-size: .72rem; font-weight: 750; } .formActions { align-items: stretch; } .submit { width: 100%; } .assemblyWords { align-items: center; } .assemblyControls > button { flex: 1 1 8rem; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .overallTrack span, .seriesTrack span, .submit { transition: none; } }

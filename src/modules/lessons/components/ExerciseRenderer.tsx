@@ -17,7 +17,7 @@ import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hi
 import { primeLessonSuccessSound } from "@/modules/lessons/utils/success-sound";
 import { useLocale } from "@/core/i18n/locale";
 import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
-import { characterForWrongAnswerLayout, type AnswerInputLanguage } from "@/modules/lessons/utils/answer-keyboard-layout";
+import { applyAnswerKeyboardLayout, type AnswerInputLanguage } from "@/modules/lessons/utils/answer-keyboard-layout";
 
 type Feedback = { example: string | null; theoryHref: string | null; errorDetails: Array<{ incorrect: string; correction: string; explanation: string | null }> };
 type AttemptResult = {
@@ -267,7 +267,11 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const { locale: selectedLocale } = useLocale();
   const locale = contentLocale ?? selectedLocale;
   const content = useMemo(() => asObject(exercise.content), [exercise.content]);
-  const inputLanguage: AnswerInputLanguage = content.inputLanguage === "ru" || content.inputLanguage === "uk" ? content.inputLanguage : "en";
+  const inputLanguage: AnswerInputLanguage = content.inputLanguage === "ru" || content.inputLanguage === "uk" || content.inputLanguage === "en"
+    ? content.inputLanguage
+    : typeof exercise.correctAnswer === "string" && /\p{Script=Cyrillic}/u.test(exercise.correctAnswer)
+      ? locale === "uk" ? "uk" : "ru"
+      : "en";
   const context = useMemo(() => stepContext(exercise.content), [exercise.content]);
   const options = useMemo(() => asStringArray(content.options), [content]);
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
@@ -495,19 +499,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   }
 
   function substituteWrongLayout<T extends HTMLInputElement | HTMLTextAreaElement>(event: KeyboardEvent<T>, onValue: (value: string) => void) {
-    if (event.nativeEvent.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
-    const replacement = characterForWrongAnswerLayout(inputLanguage, event.key, event.code);
-    if (!replacement) return false;
-    event.preventDefault();
-    const field = event.currentTarget;
-    const start = field.selectionStart ?? field.value.length;
-    const end = field.selectionEnd ?? start;
-    onValue(`${field.value.slice(0, start)}${replacement}${field.value.slice(end)}`);
-    window.requestAnimationFrame(() => {
-      field.focus({ preventScroll: true });
-      field.setSelectionRange(start + replacement.length, start + replacement.length);
-    });
-    return true;
+    return applyAnswerKeyboardLayout(event, inputLanguage, onValue);
   }
 
   function compactMatchingSubmission(candidate: JsonObject) {

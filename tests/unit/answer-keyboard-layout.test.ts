@@ -17,5 +17,11 @@ describe("answer field keyboard layout fallback", () => {
     expect(characterForWrongAnswerLayout("uk", "s", "KeyS")).toBe("і");
     expect(characterForWrongAnswerLayout("ru", "s", "KeyS")).toBe("ы");
     expect(characterForWrongAnswerLayout("uk", "g", "Backslash")).toBe("ґ");
+    expect(characterForWrongAnswerLayout("uk", "\\", "Backslash")).toBe("ґ");
+    expect(characterForWrongAnswerLayout("uk", "]", "BracketRight")).toBe("ї");
+    expect(characterForWrongAnswerLayout("uk", "ы", "KeyS")).toBe("і");
+    expect(characterForWrongAnswerLayout("ru", "і", "KeyS")).toBe("ы");
+    expect(characterForWrongAnswerLayout("uk", "G", "KeyG", true)).toBe("П");
+    expect(characterForWrongAnswerLayout("uk", "п", "KeyG")).toBeNull();
   });
 });
