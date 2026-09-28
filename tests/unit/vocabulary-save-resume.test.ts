@@ -8,7 +8,7 @@ import { buildBagStoryStages } from "@/modules/vocabulary/utils/a-bag-story-plan
 
 jest.mock("@/core/i18n/locale", () => ({ useLocale: () => ({ locale: "uk" }) }));
 jest.mock("@/modules/vocabulary/components/PronunciationCoach", () => ({
-  PronunciationCoach: () => React.createElement("div", null, "Pronunciation"),
+  PronunciationCoach: ({ onSkip }: { onSkip?: () => void }) => React.createElement("div", null, "Pronunciation", onSkip ? React.createElement("button", { type: "button", onClick: onSkip }, "Skip speech") : null),
 }));
 
 const originalFetch = global.fetch;
@@ -69,7 +69,7 @@ it("types the lesson's alphabet without changing the system layout", () => {
 
 it("keeps the assembly card compact and gives Clear a real secondary button", async () => {
   const words = [{ wordId: "word-1", word: { lemma: "a bag of rice", meanings: [{ translation: "пакет рису", definition: "пакет рису" }] } }];
-  const stageIndex = buildBagStoryStages(["a bag of rice"], ["a bag of rice"]).findIndex((stage) => stage.kind === "BAG_SENTENCE_ASSEMBLE");
+  const stageIndex = buildBagStoryStages(["a bag of rice"], ["a bag of rice"], 2).findIndex((stage) => stage.kind === "BAG_SENTENCE_ASSEMBLE");
   window.localStorage.setItem("krin:bag-story-guest:bag-assembly", JSON.stringify({ stageIndex, stepIndex: 0 }));
   render(React.createElement(BagStoryBlock, { lessonId: "bag-assembly", settings: { engine: "bag-story" }, introWords: words, contentLocale: "uk", canSaveProgress: false }));
   fireEvent.click(screen.getByRole("button", { name: "Почати" }));
@@ -119,4 +119,14 @@ it("returns directly to the saved vocabulary-mastery task", async () => {
   expect(answerInput).toHaveValue("п");
   expect(screen.queryByRole("button", { name: "Почати" })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("moves past an unrecognized vocabulary pronunciation without a reward", () => {
+  const words = [{ wordId: "word-1", word: { lemma: "a bottle of water", meanings: [{ translation: "пляшка води", definition: "пляшка води" }] } }];
+  render(React.createElement(CourseVocabularyMasteryBlock, { lessonId: "bottle-speech-guest", introWords: words, contentLocale: "uk", canSaveProgress: false }));
+  fireEvent.click(screen.getByRole("button", { name: "Почати" }));
+  expect(screen.getByText("Pronunciation")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Skip speech" }));
+  expect(screen.getByRole("region", { name: "Vocabulary mastery practice" })).toBeInTheDocument();
+  expect(screen.queryByText("Pronunciation")).not.toBeInTheDocument();
 });

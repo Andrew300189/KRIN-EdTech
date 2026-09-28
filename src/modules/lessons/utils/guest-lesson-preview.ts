@@ -1,5 +1,5 @@
 import { asVocabularyMasterySettings, vocabularyMasteryStageCount } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
-import { isBagStorySettings, bagStoryStageCount } from "@/modules/vocabulary/utils/a-bag-story-plan";
+import { BAG_STAGES_PER_BLOCK, BAG_STORY_PLAN_VERSION, isBagStorySettings, bagStoryStageCount } from "@/modules/vocabulary/utils/a-bag-story-plan";
 
 type PreviewBlock = {
   id: string;
@@ -19,7 +19,8 @@ function positiveInteger(value: unknown, fallback: number) {
  */
 export function guestPreviewUnitsForBlock(block: PreviewBlock) {
   if (block.type === "VOCABULARY" && isBagStorySettings(block.settings)) {
-    return block.settings.reviewAll === true ? 120 : bagStoryStageCount(positiveInteger(block.settings.newWordCount, 5));
+    if (Number(block.settings.version) >= BAG_STORY_PLAN_VERSION) return BAG_STAGES_PER_BLOCK;
+    return block.settings.reviewAll === true ? 120 : bagStoryStageCount(positiveInteger(block.settings.newWordCount, 5), 2);
   }
   const mastery = block.type === "VOCABULARY" ? asVocabularyMasterySettings(block.settings) : null;
   if (mastery) {

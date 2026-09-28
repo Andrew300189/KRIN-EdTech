@@ -28,6 +28,7 @@ import { isLessonProgressComplete, resolveLessonProgressStatus } from "@/modules
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { normalizeWord } from "@/modules/vocabulary/utils/normalize-word";
 import { isBagStorySettings } from "@/modules/vocabulary/utils/a-bag-story-plan";
+import { verifiedBagStoryBlockIds } from "@/modules/vocabulary/utils/bag-story-block-progress";
 import { calculateUserLevel, grantEconomyReward, recordExerciseResult, recordLessonCompletion } from "@/modules/motivation/services/motivation.service";
 import { recordMistakeReviewAnswer } from "@/modules/motivation/services/mistake-review-rewards.service";
 import { notificationService } from "@/modules/communications/services/notification.service";
@@ -2424,11 +2425,18 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     if (value.completedBlockIds.some((blockId) => !allowed.has(blockId))) {
       throw new Error("A completed block does not belong to this lesson");
     }
-    const bagBlockIds = new Set(blocks.filter((block) => isBagStorySettings(block.settings)).map((block) => block.id));
-    const bagSessionComplete = bagBlockIds.size === 0 || Boolean(await tx.vocabularyTrainingSession.findFirst({
-      where: { userId, lessonId, status: "COMPLETED", source: "USER_SELECTED", items: { some: { answerKey: { path: ["engine"], equals: "bag-story" } } } },
-      select: { id: true },
-    }));
+    const bagBlocks = blocks.filter((block) => isBagStorySettings(block.settings));
+    const bagBlockIds = new Set(bagBlocks.map((block) => block.id));
+    const revisedBagStory = blocks.some((block) => isBagStorySettings(block.settings) && Number(block.settings.version) >= 3);
+    const bagSession = bagBlockIds.size === 0 ? null : await tx.vocabularyTrainingSession.findFirst({
+      where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: revisedBagStory ? { path: ["planVersion"], equals: 3 } : { path: ["engine"], equals: "bag-story" } } } },
+      orderBy: { createdAt: "desc" },
+      select: { status: true, items: { take: 1, select: { payload: true } } },
+    });
+    const rawBagPayload = bagSession?.items[0]?.payload;
+    const rawBagState = rawBagPayload && typeof rawBagPayload === "object" && !Array.isArray(rawBagPayload) ? rawBagPayload.state : null;
+    const bagStageIndex = rawBagState && typeof rawBagState === "object" && !Array.isArray(rawBagState) && typeof rawBagState.stageIndex === "number" ? rawBagState.stageIndex : 0;
+    const verifiedBagBlockIds = new Set(verifiedBagStoryBlockIds(bagBlocks, bagStageIndex, bagSession?.status === "COMPLETED"));
     if (value.currentBlockId && !allowed.has(value.currentBlockId)) {
       throw new Error("The current block does not belong to this lesson");
     }
@@ -2470,10 +2478,10 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       .filter((block) => block.exercises.length > 0 && block.exercises.every((exercise) => attemptedExerciseIds.has(exercise.id)))
       .map((block) => block.id);
     const completedBlockIds = new Set([
-      ...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId) && (bagSessionComplete || !bagBlockIds.has(blockId))),
-      ...value.completedBlockIds.filter((blockId) => bagSessionComplete || !bagBlockIds.has(blockId)),
-      ...completedExerciseBlockIds.filter((blockId) => bagSessionComplete || !bagBlockIds.has(blockId)),
-      ...(bagSessionComplete ? [...bagBlockIds] : []),
+      ...stringIdsFromJson(previousProgress?.completedBlocks).filter((blockId) => allowed.has(blockId) && (!bagBlockIds.has(blockId) || verifiedBagBlockIds.has(blockId))),
+      ...value.completedBlockIds.filter((blockId) => !bagBlockIds.has(blockId) || verifiedBagBlockIds.has(blockId)),
+      ...completedExerciseBlockIds.filter((blockId) => !bagBlockIds.has(blockId) || verifiedBagBlockIds.has(blockId)),
+      ...verifiedBagBlockIds,
     ]);
     const requiredBlocks = blocks.filter((block) => block.isRequired);
     const allRequiredBlocksComplete = requiredBlocks.every((block) => completedBlockIds.has(block.id))

@@ -26,4 +26,12 @@ describe("guest lesson preview", () => {
     expect(guestPreviewUnitsForBlock(block)).toBe(20);
     expect(buildGuestLessonPreviewPlan([block]).allowedUnitsByBlockId.vocabulary).toBe(10);
   });
+
+  it("counts each short bag-story phrase block as five actions", () => {
+    const blocks = Array.from({ length: 5 }, (_, partIndex) => ({ id: `phrase-${partIndex}`, type: "VOCABULARY", exercises: Array.from({ length: 5 }), settings: { engine: "bag-story", version: 3, partIndex } }));
+    const plan = buildGuestLessonPreviewPlan(blocks);
+    expect(plan.totalUnits).toBe(25);
+    expect(plan.freeUnits).toBe(13);
+    expect(plan.allowedUnitsByBlockId).toEqual({ "phrase-0": 5, "phrase-1": 5, "phrase-2": 3, "phrase-3": 0, "phrase-4": 0 });
+  });
 });

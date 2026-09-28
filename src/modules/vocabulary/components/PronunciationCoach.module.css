@@ -27,5 +27,9 @@
 @keyframes story-wave { to { height: 100%; } }
 @media (prefers-reduced-motion: reduce) { .soundWave i { animation: none; height: 65%; } }
 .unsupported { background: var(--surface-secondary); color: var(--text-secondary); }
+.skipRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .55rem; border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: var(--radius-md); padding: .55rem .65rem; background: var(--surface); }
+.skipRow p { flex: 1 1 13rem; margin: 0; color: var(--text-secondary); font-size: .78rem; line-height: 1.35; }
+.skip { border: 1px solid color-mix(in srgb, var(--primary) 36%, var(--border)); background: var(--surface); color: var(--primary); box-shadow: none; }
+.skip:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
 @media (max-width: 460px) { .heading { align-items: flex-start; flex-direction: column; } .actions { align-items: stretch; } .button { flex: 1; } }
 @media (prefers-reduced-motion: reduce) { .button, .variant { transition: none; } }

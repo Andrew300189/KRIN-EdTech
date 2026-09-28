@@ -474,7 +474,11 @@ export function LessonPlayer({
     || (activeBlock?.type === "VOCABULARY" && (asVocabularyMasterySettings(activeBlock.settings) || isBagStorySettings(activeBlock.settings)))
     || (!previewMode && isSpacedReviewBlock(activeBlock)),
   );
-  const lessonIsCompleted = isLessonProgressComplete(storedProgress);
+  // A shorter bag-story revision replaces its old block IDs. Keep historic
+  // completion and XP, but do not let that old completion skip new blocks.
+  const hasRevisedBagStory = blocks.some((block) => isBagStorySettings(block.settings) && Number(block.settings.version) >= 3);
+  const lessonIsCompleted = isLessonProgressComplete(storedProgress)
+    && (!hasRevisedBagStory || blocks.every((block) => !block.isRequired || completedBlocks.includes(block.id)));
   const canAdvance = Boolean(activeBlock && (lessonIsCompleted || !isInteractiveStep || stepVerified || completedBlocks.includes(activeBlock.id)));
   const attemptedExerciseIds = useMemo(
     () => new Set(Object.keys(exerciseResults)),

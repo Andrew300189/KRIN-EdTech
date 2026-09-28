@@ -37,6 +37,7 @@ const masteryAttemptSchema = z.object({
   locale: z.enum(["ru", "uk"]).optional(),
   transcript: z.string().trim().max(240).optional(),
   answers: z.array(z.string().trim().max(240)).max(24).optional(),
+  skip: z.boolean().optional(),
 });
 
 const toJson = (value: unknown) => value as Prisma.InputJsonValue;
@@ -358,6 +359,14 @@ export async function submitCourseVocabularyMasteryAttempt(userId: string, lesso
     if (value.stageIndex !== current.stageIndex) throw new Error("This task has already changed. Please use the current card.");
     const stage = data.stages[current.stageIndex];
     if (!stage) throw new Error("Vocabulary mastery is already complete");
+    if (value.skip) {
+      if (stage.direction !== "SPEAK") throw new Error("Only pronunciation cards can be skipped");
+      const nextState = stateForStage(current.stageIndex + 1, data.stages);
+      const sessionCompleted = nextState.stageIndex >= data.stages.length;
+      const updatedSession = sessionCompleted ? await tx.vocabularyTrainingSession.update({ where: { id: session.id }, data: { status: "COMPLETED", completedItems: 1, completedAt: new Date() } }) : session;
+      await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { status: sessionCompleted ? "COMPLETED" : "PENDING", submittedAt: sessionCompleted ? new Date() : null, payload: toJson({ engine: "course-vocabulary-mastery", state: nextState }) } });
+      return { skipped: true, isCorrect: false, stageCompleted: true, sessionCompleted, state: publicState(updatedSession, nextState, data.stages, data.words, locale), motivationReward: null, exerciseId: null };
+    }
     const taskWords = current.selectedWordIds.map((wordId) => data.words.get(wordId)).filter((word): word is MasteryWord => Boolean(word));
     const isCorrect = taskWords.length === stage.promptCount && validatesStageAttempt(stage.direction, taskWords, value);
 

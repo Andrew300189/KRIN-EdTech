@@ -1,6 +1,9 @@
-/** 68 obligatory phrase drills; the ten S markers insert the story sequence
- * without counting sentence or chunk speaking as a phrase repetition. */
-export const BAG_CARD_ORDER = (
+/** One concise five-card block per phrase: say, recognize, write, use in a
+ * sentence, then translate back. The final review has one card per phrase. */
+export const BAG_CARD_ORDER = ["P", "CE", "TL", "S", "TE"] as const;
+export const BAG_STORY_PLAN_VERSION = 3;
+export const BAG_STAGES_PER_BLOCK = BAG_CARD_ORDER.length;
+const LEGACY_BAG_CARD_ORDER = (
   "P CE TL TE S CL TE P TL S TL P TE CE TE CL TL P S P TL CE TE S CL P TE TL TE CE P TL S TE TL P CL P TE TL CE S CL TL P TE TL CE TE P S TE P CL TL P CE TE TL S CL TE TL P TL P CE TE S TE TL CL P CE P TE TL S"
 ).split(" ") as Array<"P" | "CE" | "CL" | "TE" | "TL" | "S">;
 
@@ -22,7 +25,7 @@ export type BagStage = {
   wordId: string;
   wordOrdinal: number;
   cardNumber: number;
-  code: (typeof BAG_CARD_ORDER)[number] | "CHUNK" | "SENTENCE" | "RECALL";
+  code: (typeof BAG_CARD_ORDER)[number] | "CL" | "CHUNK" | "SENTENCE" | "RECALL";
   storyIndex: number | null;
   requiredSteps: number;
   choiceWordIds: string[];
@@ -31,13 +34,53 @@ export type BagStage = {
   sentenceMode?: "VISIBLE" | "HIDDEN";
 };
 
-export function buildBagStoryStages(wordIds: string[], phraseLemmas?: string[]): BagStage[] {
+export function buildBagStoryStages(wordIds: string[], phraseLemmas?: string[], planVersion = BAG_STORY_PLAN_VERSION): BagStage[] {
+  if (planVersion < BAG_STORY_PLAN_VERSION) return buildLegacyBagStoryStages(wordIds, phraseLemmas);
+  void phraseLemmas;
+  return wordIds.flatMap((wordId, wordOrdinal) =>
+    BAG_CARD_ORDER.map((code, index): BagStage => {
+      const base = { wordId, wordOrdinal, cardNumber: index + 1, choiceWordIds: wordIds };
+      const key = `bag-${wordOrdinal + 1}-${String(index + 1).padStart(2, "0")}`;
+      return code === "S"
+        ? { ...base, key, kind: "BAG_SENTENCE_ASSEMBLE", code: "SENTENCE", storyIndex: 1, requiredSteps: 1 }
+        : { ...base, key, kind: "BAG_PHRASE", code, storyIndex: null, requiredSteps: 1 };
+    }),
+  );
+}
+
+export function bagStoryStageCount(wordCount: number, planVersion = BAG_STORY_PLAN_VERSION) {
+  if (planVersion < BAG_STORY_PLAN_VERSION) return Math.max(0, Math.trunc(wordCount)) * 377;
+  return Math.max(0, Math.trunc(wordCount)) * BAG_STAGES_PER_BLOCK;
+}
+
+/** One mixed check per phrase, displayed in six five-card blocks. */
+export function buildBagReviewStages(wordIds: string[], planVersion = BAG_STORY_PLAN_VERSION): BagStage[] {
+  if (planVersion < BAG_STORY_PLAN_VERSION) return wordIds.flatMap((wordId, wordOrdinal) => (["TL", "TE", "P", "RECALL"] as const).map((code, index): BagStage => ({
+    key: `bag-review-${wordOrdinal + 1}-${index + 1}`,
+    kind: "BAG_REVIEW", wordId, wordOrdinal, cardNumber: index + 1, code,
+    storyIndex: code === "RECALL" ? 2 : null,
+    requiredSteps: code === "RECALL" ? 2 : 1,
+    choiceWordIds: wordIds,
+  })));
+  const reviewOrder = ["CE", "TL", "TE", "P", "TL"] as const;
+  return wordIds.map((wordId, wordOrdinal): BagStage => ({
+    key: `bag-review-${wordOrdinal + 1}`,
+    kind: "BAG_REVIEW",
+    wordId, wordOrdinal, cardNumber: 1, code: reviewOrder[wordOrdinal % reviewOrder.length]!,
+    storyIndex: null,
+    requiredSteps: 1,
+    choiceWordIds: wordIds,
+  }));
+}
+
+/** Old sessions stay readable until the published course is upgraded. */
+function buildLegacyBagStoryStages(wordIds: string[], phraseLemmas?: string[]): BagStage[] {
   return wordIds.flatMap((wordId, wordOrdinal) => {
     let storyIndex = 0;
     const chunkCounts = phraseLemmas?.[wordOrdinal]
       ? bagStory(phraseLemmas[wordOrdinal]!, "", "uk").map((line) => line.chunks.length)
       : BAG_STORY_CHUNK_COUNTS;
-    return BAG_CARD_ORDER.flatMap((code, index): BagStage[] => {
+    return LEGACY_BAG_CARD_ORDER.flatMap((code, index): BagStage[] => {
       const base = { wordId, wordOrdinal, cardNumber: index + 1, choiceWordIds: wordIds };
       const key = `bag-${wordOrdinal + 1}-${String(index + 1).padStart(2, "0")}`;
       if (code !== "S") return [{ ...base, key, kind: "BAG_PHRASE", code, storyIndex: null, requiredSteps: 1 }];
@@ -46,8 +89,6 @@ export function buildBagStoryStages(wordIds: string[], phraseLemmas?: string[]):
       for (let chunkIndex = 0; chunkIndex < chunkCounts[storyIndex - 1]!; chunkIndex += 1) {
         for (const [drillIndex, chunkCode] of BAG_CHUNK_ORDER.entries()) {
           storyStages.push({ ...base, key: `${key}-chunk-${chunkIndex}-${drillIndex}`, kind: "BAG_CHUNK", code: "CHUNK", storyIndex, chunkIndex, chunkCode, requiredSteps: 1 });
-          // The next retrieval of the same chunk is separated by a different
-          // phrase task, even where four ordinary tasks cannot fill a drill.
           storyStages.push({ ...base, key: `${key}-interleave-${chunkIndex}-${drillIndex}`, kind: "BAG_PHRASE", code: (["CE", "TL", "P", "TE"] as const)[drillIndex % 4]!, storyIndex: null, requiredSteps: 1 });
         }
       }
@@ -58,23 +99,6 @@ export function buildBagStoryStages(wordIds: string[], phraseLemmas?: string[]):
       return storyStages;
     });
   });
-}
-
-export function bagStoryStageCount(wordCount: number) {
-  return Math.max(0, Math.trunc(wordCount)) * (68 + BAG_STORY_CHUNK_COUNTS.reduce((sum, count) => sum + count, 0) * BAG_CHUNK_ORDER.length * 2 + 30 + 9);
-}
-
-/** Final lesson: written recall in both directions, a spoken phrase and a
- * two-line story for every one of the thirty previously learned expressions. */
-export function buildBagReviewStages(wordIds: string[]): BagStage[] {
-  return wordIds.flatMap((wordId, wordOrdinal) => (["TL", "TE", "P", "RECALL"] as const).map((code, index): BagStage => ({
-    key: `bag-review-${wordOrdinal + 1}-${index + 1}`,
-    kind: "BAG_REVIEW",
-    wordId, wordOrdinal, cardNumber: index + 1, code,
-    storyIndex: code === "RECALL" ? 2 : null,
-    requiredSteps: code === "RECALL" ? 2 : 1,
-    choiceWordIds: wordIds,
-  })));
 }
 
 export type BagStoryLine = { english: string; local: string; chunks: Array<{ english: string; local: string }> };

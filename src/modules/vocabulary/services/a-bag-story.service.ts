@@ -5,13 +5,13 @@ import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { recordExerciseResult } from "@/modules/motivation/services/motivation.service";
 import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds } from "@/modules/courses/utils/exercise-speed-reward";
-import { BAG_CHUNK_STAGE_SPAN, bagChunkKey, bagQuickCheckEligible, buildBagStoryStages, buildBagReviewStages, bagStageExperience, bagStory, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
+import { BAG_CHUNK_STAGE_SPAN, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagStoryStages, buildBagReviewStages, bagStageExperience, bagStory, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { vocabularyMasteryTranslation, type VocabularyMasteryLocale } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import { z } from "zod";
 
 type Word = { id: string; lemma: string; translation: string; britishAudioUrl: string | null; americanAudioUrl: string | null };
 type State = { stageIndex: number; stepIndex: number; hadMistake: boolean; failedLine: boolean; locale: VocabularyMasteryLocale; masteredChunks: string[]; relearningChunks: string[] };
-const attemptSchema = z.object({ stageIndex: z.number().int().min(0), stepIndex: z.number().int().min(0), locale: z.enum(["uk", "ru"]), answer: z.string().trim().min(1).max(500), speedWindowId: z.string().trim().min(1).max(80).optional() });
+const attemptSchema = z.object({ stageIndex: z.number().int().min(0), stepIndex: z.number().int().min(0), locale: z.enum(["uk", "ru"]), answer: z.string().trim().min(1).max(500), skip: z.boolean().optional(), speedWindowId: z.string().trim().min(1).max(80).optional() });
 const asRecord = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 const stateOf = (payload: unknown): State => {
@@ -22,17 +22,20 @@ const stateOf = (payload: unknown): State => {
 async function lessonData(lessonId: string, locale: VocabularyMasteryLocale) {
   const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, select: {
     id: true, module: { select: { courseId: true } },
-    blocks: { where: { type: "VOCABULARY" }, select: { id: true, settings: true, exercises: { orderBy: { order: "asc" }, select: { id: true, basePoints: true, difficulty: true } } } },
+    blocks: { where: { type: "VOCABULARY", archivedAt: null }, orderBy: { order: "asc" }, select: { id: true, settings: true, exercises: { where: { archivedAt: null }, orderBy: { order: "asc" }, select: { id: true, basePoints: true, difficulty: true } } } },
     vocabulary: { orderBy: { order: "asc" }, select: { word: { select: { id: true, lemma: true, britishAudioUrl: true, americanAudioUrl: true, meanings: { orderBy: { order: "asc" }, take: 1, select: { translation: true, definition: true } } } } } },
   } });
   if (!lesson) throw new Error("Lesson not found");
-  const block = lesson.blocks.find((candidate) => asRecord(candidate.settings).engine === "bag-story");
+  const blocks = lesson.blocks.filter((candidate) => asRecord(candidate.settings).engine === "bag-story");
+  const block = blocks[0];
   if (!block) throw new Error("Bag story is not configured for this lesson");
+  const planVersion = Number(asRecord(block.settings).version) >= BAG_STORY_PLAN_VERSION ? BAG_STORY_PLAN_VERSION : 2;
   const words: Word[] = lesson.vocabulary.map(({ word }) => ({ id: word.id, lemma: word.lemma, translation: vocabularyMasteryTranslation(block.settings, word.lemma, locale, word.meanings[0]?.translation ?? word.meanings[0]?.definition ?? word.lemma), britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }));
   const reviewAll = asRecord(block.settings).reviewAll === true;
-  const stages = reviewAll ? buildBagReviewStages(words.map((word) => word.id)) : buildBagStoryStages(words.map((word) => word.id), words.map((word) => word.lemma));
-  if ((reviewAll ? words.length !== 30 : words.length !== 5) || block.exercises.length !== stages.length) throw new Error("Bag story content is incomplete. Re-import the course.");
-  return { lesson, block, words, stages, reviewAll };
+  const stages = reviewAll ? buildBagReviewStages(words.map((word) => word.id), planVersion) : buildBagStoryStages(words.map((word) => word.id), words.map((word) => word.lemma), planVersion);
+  const exercises = blocks.flatMap((candidate) => candidate.exercises);
+  if ((reviewAll ? words.length !== 30 : words.length !== 5) || exercises.length !== stages.length) throw new Error("Bag story content is incomplete. Re-import the course.");
+  return { lesson, block, blocks, exercises, words, stages, reviewAll, planVersion };
 }
 
 function taskFor(state: State, stages: BagStage[], words: Word[], locale: VocabularyMasteryLocale) {
@@ -69,17 +72,18 @@ export async function getBagStoryState(userId: string, lessonId: string, locale:
   const initial: State = { stageIndex: 0, stepIndex: 0, hadMistake: false, failedLine: false, locale, masteredChunks: [], relearningChunks: [] };
   const session = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`bag-story-session:${userId}:${lessonId}`}))`);
-    const existing = await tx.vocabularyTrainingSession.findFirst({ where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: { path: ["engine"], equals: "bag-story" } } } }, orderBy: { createdAt: "desc" }, include: { items: true } });
+    const sessionKey = data.planVersion >= BAG_STORY_PLAN_VERSION ? { path: ["planVersion"], equals: BAG_STORY_PLAN_VERSION } : { path: ["engine"], equals: "bag-story" };
+    const existing = await tx.vocabularyTrainingSession.findFirst({ where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: sessionKey } } }, orderBy: { createdAt: "desc" }, include: { items: true } });
     if (existing) return existing;
     const siblingLessons = await tx.lesson.findMany({ where: { module: { courseId: data.lesson.module.courseId } }, select: { id: true } });
     const priorRuns = await tx.vocabularyTrainingSession.findMany({ where: { userId, lessonId: { in: siblingLessons.map((item) => item.id).filter((id) => id !== lessonId) }, source: "USER_SELECTED", status: "COMPLETED", items: { some: { answerKey: { path: ["engine"], equals: "bag-story" } } } }, select: { items: { select: { payload: true } } } });
     initial.masteredChunks = [...new Set(priorRuns.flatMap((run) => run.items.flatMap((item) => stateOf(item.payload).masteredChunks)))];
-    return tx.vocabularyTrainingSession.create({ data: { userId, lessonId, source: "USER_SELECTED", status: "IN_PROGRESS", totalItems: 1, startedAt: new Date(), items: { create: { exerciseType: "TEXT_INPUT", payload: json({ engine: "bag-story", state: initial }), answerKey: json({ engine: "bag-story" }), order: 1 } } }, include: { items: true } });
+    return tx.vocabularyTrainingSession.create({ data: { userId, lessonId, source: "USER_SELECTED", status: "IN_PROGRESS", totalItems: 1, startedAt: new Date(), items: { create: { exerciseType: "TEXT_INPUT", payload: json({ engine: "bag-story", state: initial }), answerKey: json({ engine: "bag-story", planVersion: data.planVersion }), order: 1 } } }, include: { items: true } });
   });
   const state = stateOf(session.items[0]!.payload);
   if (state.locale !== locale) throw new Error("This lesson run uses a different translation language");
   const result = publicState(session, state, data.stages, data.words, locale);
-  const exercise = data.block.exercises[state.stageIndex];
+  const exercise = data.exercises[state.stageIndex];
   if (!exercise || result.completed) return { ...result, speedWindow: null };
   const speedWindow = await prisma.exerciseSpeedWindow.upsert({ where: { activeKey: `${userId}:${exercise.id}` }, create: { userId, exerciseId: exercise.id, activeKey: `${userId}:${exercise.id}` }, update: {}, select: { id: true, openedAt: true } });
   return { ...result, speedWindow: { id: speedWindow.id, openedAt: speedWindow.openedAt.toISOString(), windowSeconds: exerciseSpeedWindowSeconds(null) } };
@@ -92,7 +96,8 @@ export async function submitBagStoryAttempt(userId: string, lessonId: string, in
   const data = await lessonData(lessonId, value.locale);
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`bag-story:${userId}:${lessonId}`}))`);
-    const session = await tx.vocabularyTrainingSession.findFirst({ where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: { path: ["engine"], equals: "bag-story" } } } }, orderBy: { createdAt: "desc" }, include: { items: true } });
+    const sessionKey = data.planVersion >= BAG_STORY_PLAN_VERSION ? { path: ["planVersion"], equals: BAG_STORY_PLAN_VERSION } : { path: ["engine"], equals: "bag-story" };
+    const session = await tx.vocabularyTrainingSession.findFirst({ where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: sessionKey } } }, orderBy: { createdAt: "desc" }, include: { items: true } });
     if (!session) throw new Error("Start the lesson before answering");
     const item = session.items[0]!;
     const state = stateOf(item.payload);
@@ -111,10 +116,21 @@ export async function submitBagStoryAttempt(userId: string, lessonId: string, in
     const choiceAnswer = chunk ? stage.chunkCode === "MEANING" ? chunk.local : chunk.english : word.id;
     const pronunciation = task.mode === "SPEAK" ? assessPronunciation(target, value.answer) : null;
     const correct = task.mode === "CHOICE" ? value.answer === choiceAnswer : task.mode === "SPEAK" ? Boolean(pronunciation && (pronunciation.verdict === "MATCH" || pronunciation.verdict === "CLOSE" && pronunciation.similarity >= .9)) : answerMatches(value.answer, target, [], { ignorePunctuation: true, ignoreExtraSpaces: true });
-    const exercise = data.block.exercises[state.stageIndex]!;
+    const exercise = data.exercises[state.stageIndex]!;
     const now = new Date();
     const speedWindow = value.speedWindowId ? await tx.exerciseSpeedWindow.findFirst({ where: { id: value.speedWindowId, userId, exerciseId: exercise.id, activeKey: `${userId}:${exercise.id}`, consumedAt: null }, select: { id: true, openedAt: true } }) : null;
     const speedExperience = experienceForExerciseSpeed(speedWindow ? Math.floor((now.getTime() - speedWindow.openedAt.getTime()) / 1000) : Number.POSITIVE_INFINITY, null);
+    if (value.skip) {
+      if (task.mode !== "SPEAK") throw new Error("Only pronunciation cards can be skipped");
+      if (speedWindow) await tx.exerciseSpeedWindow.update({ where: { id: speedWindow.id }, data: { activeKey: null, consumedAt: now } });
+      const nextStep = state.stepIndex + 1;
+      const stageCompleted = nextStep >= task.stepCount;
+      const next: State = { ...state, stageIndex: stageCompleted ? state.stageIndex + 1 : state.stageIndex, stepIndex: stageCompleted ? 0 : nextStep, hadMistake: false, failedLine: false };
+      const completed = next.stageIndex >= data.stages.length;
+      const updated = completed ? await tx.vocabularyTrainingSession.update({ where: { id: session.id }, data: { status: "COMPLETED", completedItems: 1, completedAt: now } }) : session;
+      await tx.vocabularyTrainingItem.update({ where: { id: item.id }, data: { payload: json({ engine: "bag-story", state: next }), ...(completed ? { status: "COMPLETED", submittedAt: now } : {}) } });
+      return { skipped: true, isCorrect: false, stageCompleted, state: publicState(updated, next, data.stages, data.words, value.locale), exerciseId: null, motivationReward: null };
+    }
     if (!correct) {
       if (speedWindow) await tx.exerciseSpeedWindow.update({ where: { id: speedWindow.id }, data: { activeKey: null, consumedAt: now } });
       if (chunk) {

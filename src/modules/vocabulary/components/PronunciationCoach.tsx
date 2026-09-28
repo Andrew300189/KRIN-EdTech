@@ -44,6 +44,9 @@ const coachCopy = {
     speak: "🎙 Повторить вслух",
     listening: "Слушаю…",
     unsupported: "В этом браузере нет распознавания голоса. Прослушивание слова всё равно доступно.",
+    skipWithoutXp: "Далее без XP",
+    skipNotice: "Три попытки распознавания не удались. Можно продолжить без XP, сохранив серию.",
+    skipUnsupported: "Распознавание недоступно. Можно продолжить без XP, сохранив серию.",
   },
   uk: {
     microphonePermission: "Надайте доступ до мікрофона, щоб потренувати вимову.",
@@ -66,6 +69,9 @@ const coachCopy = {
     speak: "🎙 Повторити вголос",
     listening: "Слухаю…",
     unsupported: "У цьому браузері немає розпізнавання голосу. Прослуховування слова все одно доступне.",
+    skipWithoutXp: "Далі без XP",
+    skipNotice: "Три спроби розпізнавання не вдалися. Можна продовжити без XP, зберігши серію.",
+    skipUnsupported: "Розпізнавання недоступне. Можна продовжити без XP, зберігши серію.",
   },
 } as const;
 
@@ -100,6 +106,7 @@ export function PronunciationCoach({
   allowListen = true,
   locale: interfaceLocale = "uk",
   onAssessment,
+  onSkip,
 }: {
   word: string;
   britishAudioUrl?: string | null;
@@ -111,6 +118,8 @@ export function PronunciationCoach({
   locale?: InterfaceLocale;
   /** Lets a structured lesson record a server-validated spoken attempt. */
   onAssessment?: (assessment: { value: PronunciationAssessment; transcript: string }) => void;
+  /** Only speech cards opt in; the owner advances without XP or streak loss. */
+  onSkip?: () => void | Promise<void>;
 }) {
   const [variant, setVariant] = useState<PronunciationVariant>("BRITISH");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -119,9 +128,13 @@ export function PronunciationCoach({
   const [liveTranscript, setLiveTranscript] = useState("");
   const [assessment, setAssessment] = useState<{ value: PronunciationAssessment; transcript: string } | null>(null);
   const [recognitionError, setRecognitionError] = useState<string | null>(null);
+  const [failedRecognitions, setFailedRecognitions] = useState(0);
+  const [skipBusy, setSkipBusy] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const listeningRef = useRef(false);
+  const attemptRecordedRef = useRef(false);
+  const manuallyStoppedRef = useRef(false);
 
   const speechLocale = variant === "BRITISH" ? "en-GB" : "en-US";
   const audioUrl = variant === "BRITISH" ? britishAudioUrl : americanAudioUrl;
@@ -172,6 +185,7 @@ export function PronunciationCoach({
   }
 
   function stopListening() {
+    manuallyStoppedRef.current = true;
     listeningRef.current = false;
     recognitionRef.current?.abort();
     setIsListening(false);
@@ -190,6 +204,8 @@ export function PronunciationCoach({
     setRecognitionError(null);
     setAssessment(null);
     setLiveTranscript("");
+    attemptRecordedRef.current = false;
+    manuallyStoppedRef.current = false;
     const recognition = new Recognition();
     recognition.lang = speechLocale;
     recognition.continuous = false;
@@ -205,16 +221,27 @@ export function PronunciationCoach({
       }
       setLiveTranscript(transcript.trim());
       if (finalTranscript.trim()) {
+        if (attemptRecordedRef.current) return;
+        attemptRecordedRef.current = true;
         const spoken = finalTranscript.trim();
         const nextAssessment = { value: assessPronunciation(word, spoken), transcript: spoken };
         setAssessment(nextAssessment);
+        if (nextAssessment.value.verdict !== "MATCH") setFailedRecognitions((current) => current + 1);
         onAssessment?.(nextAssessment);
       }
     };
     recognition.onerror = (event) => {
-      if (event.error !== "aborted") setRecognitionError(recognitionErrorMessage(event.error, interfaceLocale));
+      if (event.error !== "aborted") {
+        setRecognitionError(recognitionErrorMessage(event.error, interfaceLocale));
+        if (!attemptRecordedRef.current) { attemptRecordedRef.current = true; setFailedRecognitions((current) => current + 1); }
+      }
     };
     recognition.onend = () => {
+      if (!manuallyStoppedRef.current && !attemptRecordedRef.current) {
+        attemptRecordedRef.current = true;
+        setRecognitionError(copy.noSpeech);
+        setFailedRecognitions((current) => current + 1);
+      }
       listeningRef.current = false;
       setIsListening(false);
     };
@@ -227,7 +254,14 @@ export function PronunciationCoach({
       listeningRef.current = false;
       setIsListening(false);
       setRecognitionError(copy.microphoneStartFailed);
+      if (!attemptRecordedRef.current) { attemptRecordedRef.current = true; setFailedRecognitions((current) => current + 1); }
     }
+  }
+
+  async function skipWithoutXp() {
+    if (!onSkip || skipBusy) return;
+    setSkipBusy(true);
+    try { await onSkip(); } finally { setSkipBusy(false); }
   }
 
   return <section className={`${styles.coach} ${compact ? styles.compact : ""} ${largeTranscript ? styles.storySpeech : ""}`} aria-label={concealWord ? copy.title : copy.aria(word)}>
@@ -247,5 +281,6 @@ export function PronunciationCoach({
     {assessment && <p className={`${styles.result} ${assessment.value.verdict === "MATCH" ? styles.resultMatch : assessment.value.verdict === "CLOSE" ? styles.resultClose : styles.resultRetry}`} role="status">{resultMessage(assessment.value, assessment.transcript, interfaceLocale)}</p>}
     {recognitionError && <p className={`${styles.result} ${styles.resultRetry}`} role="alert">{recognitionError}</p>}
     {recognitionAvailable === false && <p className={styles.unsupported}>{copy.unsupported}</p>}
+    {onSkip && (failedRecognitions >= 3 || recognitionAvailable === false) ? <div className={styles.skipRow}><p>{recognitionAvailable === false ? copy.skipUnsupported : copy.skipNotice}</p><button type="button" className={`${styles.button} ${styles.skip}`} disabled={skipBusy} onClick={() => void skipWithoutXp()}>{copy.skipWithoutXp}</button></div> : null}
   </section>;
 }
