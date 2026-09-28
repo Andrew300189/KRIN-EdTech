@@ -72,4 +72,17 @@ describe("Bag story guest preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Почати" }));
     expect(onProgress).toHaveBeenCalledWith({ completedStages: 0, totalStages: 2 });
   });
+
+  it("shows a curated lesson as twelve small blocks with its thematic heading", () => {
+    const onProgress = jest.fn();
+    render(React.createElement(BagStoryBlock, { lessonId: "curated-lesson", settings: {
+      engine: "bag-story", version: 3, practiceKind: "CURATED_STORY", curatedLessonIndex: 0,
+      partIndex: 0, partCount: 12, stageStart: 0, stageCount: 9,
+      blockLabelUk: "Список покупок", blockLabelRu: "Список покупок",
+    }, introWords: introWords.slice(0, 3), contentLocale: "uk", canSaveProgress: false, onProgress }));
+    expect(screen.getByText("Блок 1 із 12")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Почати" }));
+    expect(screen.getByText("Список покупок")).toBeInTheDocument();
+    expect(onProgress).toHaveBeenCalledWith({ completedStages: 0, totalStages: 9 });
+  });
 });

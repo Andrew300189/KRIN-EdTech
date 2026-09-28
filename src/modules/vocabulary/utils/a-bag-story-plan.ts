@@ -5,6 +5,9 @@ export const BAG_STORY_PLAN_VERSION = 3;
 export const BAG_STAGES_PER_BLOCK = BAG_CARD_ORDER.length;
 export const BAG_LEGACY_PRACTICE_ROUNDS = 76;
 export const BAG_LEGACY_REVIEW_ROUNDS = 5;
+export const BAG_CURATED_LESSONS_PER_MODULE = 10;
+export const BAG_CURATED_BLOCKS_PER_LESSON = 12;
+export const BAG_CURATED_STAGES_PER_MODULE = 3 * (BAG_STAGES_PER_BLOCK + 377 + 4 + 1);
 const LEGACY_BAG_CARD_ORDER = (
   "P CE TL TE S CL TE P TL S TL P TE CE TE CL TL P S P TL CE TE S CL P TE TL TE CE P TL S TE TL P CL P TE TL CE S CL TL P TE TL CE TE P S TE P CL TL P CE TE TL S CL TE TL P TL P CE TE S TE TL CL P CE P TE TL S"
 ).split(" ") as Array<"P" | "CE" | "CL" | "TE" | "TL" | "S">;
@@ -83,6 +86,37 @@ export function buildBagLegacyPracticeStages(wordIds: string[], phraseLemmas: st
   const stages = buildBagStoryStages(wordIds, phraseLemmas, 2);
   const perWord = bagStoryStageCount(1, 2);
   return wordIds.flatMap((_, wordOrdinal) => stages.slice(wordOrdinal * perWord + round * BAG_STAGES_PER_BLOCK, Math.min((wordOrdinal + 1) * perWord, wordOrdinal * perWord + (round + 1) * BAG_STAGES_PER_BLOCK)));
+}
+
+/** The complete authored curriculum for three related phrases: every current
+ * card, every archived card, and both review sets appear exactly once. The
+ * three phrases alternate so no lesson becomes a long run of one expression. */
+export function buildBagCuratedLessonStages(wordIds: string[], phraseLemmas: string[], lessonIndex: number): BagStage[] {
+  if (wordIds.length !== 3 || phraseLemmas.length !== 3 || !Number.isInteger(lessonIndex) || lessonIndex < 0 || lessonIndex >= BAG_CURATED_LESSONS_PER_MODULE) return [];
+  const core = buildBagStoryStages(wordIds, phraseLemmas);
+  const legacy = buildBagStoryStages(wordIds, phraseLemmas, 2);
+  const legacyReview = buildBagReviewStages(wordIds, 2);
+  const currentReview = buildBagReviewStages(wordIds);
+  const byWord = wordIds.map((_, ordinal) => [
+    ...core.filter((stage) => stage.wordOrdinal === ordinal).map((stage) => ({ ...stage, key: `core-${stage.key}` })),
+    ...legacy.filter((stage) => stage.wordOrdinal === ordinal).map((stage) => ({ ...stage, key: `legacy-${stage.key}` })),
+    ...legacyReview.filter((stage) => stage.wordOrdinal === ordinal),
+    ...currentReview.filter((stage) => stage.wordOrdinal === ordinal).map((stage) => ({ ...stage, key: `current-${stage.key}` })),
+  ]);
+  const perWord = BAG_CURATED_STAGES_PER_MODULE / wordIds.length;
+  const stages: BagStage[] = [];
+  for (let card = 0; card < perWord; card += 1) {
+    for (const wordStages of byWord) stages.push(wordStages[card]!);
+  }
+  const start = Math.floor(stages.length * lessonIndex / BAG_CURATED_LESSONS_PER_MODULE);
+  const end = Math.floor(stages.length * (lessonIndex + 1) / BAG_CURATED_LESSONS_PER_MODULE);
+  return stages.slice(start, end);
+}
+
+export function bagCuratedBlockBounds(totalStages: number, partIndex: number) {
+  const start = Math.floor(totalStages * partIndex / BAG_CURATED_BLOCKS_PER_LESSON);
+  const end = Math.floor(totalStages * (partIndex + 1) / BAG_CURATED_BLOCKS_PER_LESSON);
+  return { start, end };
 }
 
 /** Old sessions stay readable until the published course is upgraded. */

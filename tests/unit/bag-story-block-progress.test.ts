@@ -22,3 +22,14 @@ it("verifies two-card blocks in the final phrase-practice round", () => {
   expect(verifiedBagStoryBlockIds(blocks, 2, false)).toEqual(["short-0"]);
   expect(verifiedBagStoryBlockIds(blocks, 10, true)).toEqual(blocks.map((block) => block.id));
 });
+
+it("verifies each curated block against its explicit server stage boundary", () => {
+  const blocks = [
+    { id: "first", settings: { engine: "bag-story", version: 3, practiceKind: "CURATED_STORY", stageStart: 0, stageCount: 9 } },
+    { id: "second", settings: { engine: "bag-story", version: 3, practiceKind: "CURATED_STORY", stageStart: 9, stageCount: 10 } },
+  ];
+  expect(verifiedBagStoryBlockIds(blocks, 8, false)).toEqual([]);
+  expect(verifiedBagStoryBlockIds(blocks, 9, false)).toEqual(["first"]);
+  expect(verifiedBagStoryBlockIds(blocks, 18, false)).toEqual(["first"]);
+  expect(verifiedBagStoryBlockIds(blocks, 19, false)).toEqual(["first", "second"]);
+});

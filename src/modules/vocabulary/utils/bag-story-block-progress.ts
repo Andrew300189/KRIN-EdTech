@@ -8,6 +8,11 @@ export function verifiedBagStoryBlockIds(blocks: Array<{ id: string; settings: u
   if (!revised) return sessionCompleted ? bagBlocks.map((block) => block.id) : [];
   return bagBlocks.filter((block) => {
     if (!isBagStorySettings(block.settings)) return false;
+    if (block.settings.practiceKind === "CURATED_STORY") {
+      const start = Number(block.settings.stageStart);
+      const count = Number(block.settings.stageCount);
+      return Number.isInteger(start) && start >= 0 && Number.isInteger(count) && count > 0 && stageIndex >= start + count;
+    }
     const partIndex = Number(block.settings.partIndex);
     const configuredSpan = Number(block.settings.stagesPerBlock);
     const stageSpan = Number.isInteger(configuredSpan) && configuredSpan >= 1 && configuredSpan <= BAG_STAGES_PER_BLOCK ? configuredSpan : BAG_STAGES_PER_BLOCK;

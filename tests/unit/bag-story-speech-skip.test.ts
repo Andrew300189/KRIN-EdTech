@@ -1,6 +1,7 @@
 import { prisma } from "@/core/server/prisma";
 import { recordExerciseResult } from "@/modules/motivation/services/motivation.service";
 import { submitBagStoryAttempt } from "@/modules/vocabulary/services/a-bag-story.service";
+import { bagCuratedBlockBounds } from "@/modules/vocabulary/utils/a-bag-story-plan";
 
 jest.mock("@/core/server/prisma", () => ({ prisma: { lesson: { findUnique: jest.fn() }, $transaction: jest.fn() } }));
 jest.mock("@/modules/courses/services/lesson-access.service", () => ({ canAccessLesson: jest.fn().mockResolvedValue({ allowed: true }) }));
@@ -56,6 +57,33 @@ it("accepts a two-card legacy-practice block without loading the old 1,885-card 
 
   const result = await submitBagStoryAttempt("learner", "short-lesson", { stageIndex: 0, stepIndex: 0, locale: "uk", answer: "skip", skip: true });
   expect(result).toMatchObject({ skipped: true, state: { progress: { completedStages: 1, totalStages: 10 } } });
+  expect(tx.exerciseAttempt.create).not.toHaveBeenCalled();
+  expect(recordExerciseResult).not.toHaveBeenCalled();
+});
+
+it("runs a curated 116-card lesson as one server session across twelve blocks", async () => {
+  const words = ["rice", "pasta", "potatoes"].map((food, index) => ({ word: {
+    id: `curated-word-${index}`, lemma: `a bag of ${food}`, britishAudioUrl: null, americanAudioUrl: null,
+    meanings: [{ translation: `пакет ${food}`, definition: `пакет ${food}` }],
+  } }));
+  const blocks = Array.from({ length: 12 }, (_, partIndex) => {
+    const { start, end } = bagCuratedBlockBounds(116, partIndex);
+    return { id: `curated-block-${partIndex}`, settings: { engine: "bag-story", version: 3, practiceKind: "CURATED_STORY", curatedLessonIndex: 0,
+      partIndex, partCount: 12, stageStart: start, stageCount: end - start },
+    exercises: Array.from({ length: end - start }, (_, index) => ({ id: `curated-exercise-${partIndex}-${index}`, basePoints: 1, difficulty: 1 })) };
+  });
+  jest.mocked(prisma.lesson.findUnique).mockResolvedValue({ id: "curated-lesson", module: { courseId: "course-1" }, blocks, vocabulary: words } as never);
+  const tx = {
+    $executeRaw: jest.fn().mockResolvedValue(0),
+    vocabularyTrainingSession: { findFirst: jest.fn().mockResolvedValue({ id: "session", status: "IN_PROGRESS", incorrectItems: 0,
+      items: [{ id: "item", payload: { state: { stageIndex: 0, stepIndex: 0, locale: "uk" } } }] }), update: jest.fn() },
+    vocabularyTrainingItem: { update: jest.fn().mockResolvedValue({}) },
+    exerciseAttempt: { create: jest.fn() },
+  };
+  jest.mocked(prisma.$transaction).mockImplementation(async (callback: unknown) => (callback as (value: typeof tx) => Promise<unknown>)(tx) as never);
+
+  const result = await submitBagStoryAttempt("learner", "curated-lesson", { stageIndex: 0, stepIndex: 0, locale: "uk", answer: "skip", skip: true });
+  expect(result).toMatchObject({ skipped: true, state: { progress: { completedStages: 1, totalStages: 116 } } });
   expect(tx.exerciseAttempt.create).not.toHaveBeenCalled();
   expect(recordExerciseResult).not.toHaveBeenCalled();
 });
