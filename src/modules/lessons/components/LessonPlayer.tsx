@@ -1298,6 +1298,7 @@ export function LessonPlayer({
                   individualExerciseStep={activeBlock.type === "EXERCISE"}
                   attemptedExerciseIds={isPracticeRunRef.current ? [] : activeAttemptedExerciseIds}
                   progressHydrated={progressHydrated}
+                  resumeVocabularyOnEntry={Boolean(canSaveProgress && !lessonIsCompleted && storedProgress?.currentBlockId === activeBlock.id)}
                   mistakeExerciseIds={activeBlock.exercises
                     .filter((exercise) => exerciseResults[exercise.id] === false)
                     .map((exercise) => exercise.id)}

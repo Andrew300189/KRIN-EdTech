@@ -41,8 +41,8 @@ function guestCard(stage: BagStage, stepIndex: number, words: Array<{ en: string
 
 const normalized = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
 
-export function BagStoryBlock({ lessonId, settings, introWords = [], contentLocale = "uk", canSaveProgress, guestStageLimit, onGuestLimitReached, onAttemptResolved, onProgress, onComplete }: {
-  lessonId: string; settings?: unknown; introWords?: IntroWord[]; contentLocale?: "uk" | "ru"; canSaveProgress: boolean;
+export function BagStoryBlock({ lessonId, settings, introWords = [], contentLocale = "uk", canSaveProgress, progressHydrated = true, resumeOnEntry = false, guestStageLimit, onGuestLimitReached, onAttemptResolved, onProgress, onComplete }: {
+  lessonId: string; settings?: unknown; introWords?: IntroWord[]; contentLocale?: "uk" | "ru"; canSaveProgress: boolean; progressHydrated?: boolean; resumeOnEntry?: boolean;
   guestStageLimit?: number;
   onGuestLimitReached?: (resumeIndex: number) => void;
   onAttemptResolved?: (result: { exerciseId: string; isCorrect: boolean; isFinalExercise: boolean; difficulty?: number; streakTone?: string | null; streakMilestone?: number | null; streakMilestones?: number[]; lessonAnswerStreak?: { current: number; recoverable: number } }) => void;
@@ -87,6 +87,9 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
       window.localStorage.removeItem(`krin:bag-story-guest:${lessonId}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load lesson"); }
   }, [lessonId, locale]);
+  // The lesson shell saves the active block on Save & exit. Reopening that
+  // block should restore the server's exact card/line, not repeat its intro.
+  useEffect(() => { if (canSaveProgress && progressHydrated && resumeOnEntry) setStarted(true); }, [canSaveProgress, progressHydrated, resumeOnEntry]);
   useEffect(() => { if (started && canSaveProgress) void load(); }, [started, canSaveProgress, load]);
   const guestStage = guestStages[guestPosition.stageIndex];
   const guestChunk = guestStage?.kind === "BAG_CHUNK" ? bagStory(words[guestStage.wordOrdinal]!.en, words[guestStage.wordOrdinal]!.local, locale)[guestStage.storyIndex! - 1]!.chunks[guestStage.chunkIndex!]! : null;
@@ -162,6 +165,7 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
     finally { submitLock.current = false; setBusy(false); }
   }
 
+  if (canSaveProgress && (!progressHydrated || resumeOnEntry && !started)) return <div className={styles.loading}>{locale === "uk" ? "Завантажуємо картку…" : "Загружаем карточку…"}</div>;
   if (!started) return <div className={styles.intro}>
     <h3>{locale === "uk" ? `${words.length} фраз цього уроку` : `${words.length} фраз этого урока`}</h3>
     <ul className={styles.introWords}>{words.map((word, index) => <li key={`${word.en}-${index}`}><span>{index + 1}</span><strong>{word.en}</strong><em>{word.local}</em></li>)}</ul>

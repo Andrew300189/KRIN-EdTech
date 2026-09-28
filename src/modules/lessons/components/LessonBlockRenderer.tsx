@@ -29,6 +29,7 @@ type LessonBlockRendererProps = {
   mistakeExerciseIds?: string[];
   attemptedExerciseIds?: string[];
   progressHydrated?: boolean;
+  resumeVocabularyOnEntry?: boolean;
   requireCorrectForNext?: boolean;
   reviewRunId?: string;
   restoredAnswer?: { exerciseId: string; answer: unknown; nonce: number } | null;
@@ -64,6 +65,7 @@ export function LessonBlockRenderer({
   mistakeExerciseIds,
   attemptedExerciseIds,
   progressHydrated,
+  resumeVocabularyOnEntry = false,
   requireCorrectForNext = false,
   reviewRunId,
   restoredAnswer,
@@ -106,9 +108,9 @@ export function LessonBlockRenderer({
       ) : isExercise ? (
         <ExerciseBlock block={block} contentLocale={contentLocale} persistentStreakTone={persistentStreakTone} previewMode={previewMode || !canSaveProgress} playerStyle={playerStyle} hidePlayerHeader={hideHeader} hideContext={hideExerciseContext} hideContextText={hideExerciseTheoryText} focusExerciseId={focusExerciseId} individualExerciseStep={individualExerciseStep} mistakeExerciseIds={mistakeExerciseIds} attemptedExerciseIds={attemptedExerciseIds} progressHydrated={progressHydrated} requireCorrectForNext={requireCorrectForNext} reviewRunId={reviewRunId} restoredAnswer={restoredAnswer} guestExerciseLimit={guestActionLimit} guestResumeExerciseIndex={guestResumeExerciseIndex} guestCompletedExerciseCount={guestCompletedExerciseCount} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onAttemptResolved={onAttemptResolved} onAttemptDeferred={onAttemptDeferred} />
       ) : isBagStory ? (
-        <BagStoryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onAttemptResolved={onAttemptResolved} onProgress={onBagStoryProgress} onComplete={onVocabularyMasteryComplete} />
+        <BagStoryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} progressHydrated={progressHydrated} resumeOnEntry={resumeVocabularyOnEntry} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onAttemptResolved={onAttemptResolved} onProgress={onBagStoryProgress} onComplete={onVocabularyMasteryComplete} />
       ) : isVocabularyMastery ? (
-        <CourseVocabularyMasteryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onStageComplete={onVocabularyMasteryStageComplete} onComplete={onVocabularyMasteryComplete} />
+        <CourseVocabularyMasteryBlock lessonId={lessonId} canSaveProgress={canSaveProgress && !previewMode} progressHydrated={progressHydrated} resumeOnEntry={resumeVocabularyOnEntry} contentLocale={contentLocale} settings={block.settings} introWords={vocabularyWords} guestStageLimit={guestActionLimit} onGuestLimitReached={(resumeIndex) => onGuestLimitReached?.(resumeIndex)} onStageComplete={onVocabularyMasteryStageComplete} onComplete={onVocabularyMasteryComplete} />
       ) : block.type === "HOMEWORK" ? (
         <HomeworkBlock block={block} canSaveProgress={canSaveProgress} />
       ) : isVocabulary ? (

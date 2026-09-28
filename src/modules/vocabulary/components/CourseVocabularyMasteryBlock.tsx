@@ -156,8 +156,8 @@ function selectGuestWordIds(stage: ReturnType<typeof buildVocabularyMasteryStage
   return selectedWordIds.length ? selectedWordIds : nextGuestWordIds(stage, correctInRow);
 }
 
-export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true, contentLocale, settings, introWords = [], guestStageLimit, onGuestLimitReached, onStageComplete, onComplete }: {
-  lessonId: string; canSaveProgress?: boolean; contentLocale?: "ru" | "uk"; settings?: unknown; introWords?: IntroWord[]; guestStageLimit?: number;
+export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true, progressHydrated = true, resumeOnEntry = false, contentLocale, settings, introWords = [], guestStageLimit, onGuestLimitReached, onStageComplete, onComplete }: {
+  lessonId: string; canSaveProgress?: boolean; progressHydrated?: boolean; resumeOnEntry?: boolean; contentLocale?: "ru" | "uk"; settings?: unknown; introWords?: IntroWord[]; guestStageLimit?: number;
   onGuestLimitReached?: (resumeStageIndex: number) => void;
   onStageComplete?: (result: { exerciseId: string; streakTone?: string | null; streakMilestone?: number | null }) => void; onComplete?: () => void;
 }) {
@@ -184,6 +184,8 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
       if (resumeStage) clearGuestResumeStage(lessonId);
     } catch (loadError) { setError(loadError instanceof Error ? loadError.message : text.unavailable); }
   }, [lessonId, locale, text.unavailable]);
+  useEffect(() => { if (canSaveProgress && progressHydrated && resumeOnEntry) setStarted(true); }, [canSaveProgress, progressHydrated, resumeOnEntry]);
+  useEffect(() => { if (started && canSaveProgress) void load(); }, [started, canSaveProgress, load]);
 
   const guestWords = useMemo(() => introWords.map((item) => ({
     id: item.wordId, lemma: item.word.lemma,
@@ -222,7 +224,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
     }, 1_450);
   }
 
-  function start() { setStarted(true); if (canSaveProgress) void load(); }
+  function start() { setStarted(true); }
   function submitGuest(payload: { transcript?: string; answers?: string[] }) {
     if (!task || !guestTask) return;
     const isCorrect = task.direction === "SPEAK"
@@ -304,6 +306,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
       ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{rewardCelebration.streak?.modeStart}</strong></div>
       : <><strong>{answerFeedback.xpAwarded(rewardCelebration.experience)}</strong>{rewardCelebration.levelUp ? <span>{text.levelUp}</span> : null}</>}
   </div> : null;
+  if (canSaveProgress && (!progressHydrated || resumeOnEntry && !started)) return <div className={styles.loading} aria-live="polite">{text.loading}</div>;
   if (!started) return <section className={styles.intro} aria-label={text.firstBlock}>
     {lessonMeta}
     <details className={styles.introDetails} open><summary className={styles.introPill}><span aria-hidden="true">✦</span>{text.firstBlock}<strong>{text.blockWords.replace("{count}", String(firstBlockWords.length))}</strong></summary><ul className={styles.introWords}>{firstBlockWords.map((word, index) => <li key={word.id}><span>{index + 1}</span><strong>{word.lemma}</strong><em>{word.translation}</em></li>)}</ul></details>
