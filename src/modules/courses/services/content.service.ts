@@ -2422,12 +2422,20 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       } },
     });
     const allowed = new Set(blocks.map((block) => block.id));
-    if (value.completedBlockIds.some((blockId) => !allowed.has(blockId))) {
-      throw new Error("A completed block does not belong to this lesson");
-    }
     const bagBlocks = blocks.filter((block) => isBagStorySettings(block.settings));
     const bagBlockIds = new Set(bagBlocks.map((block) => block.id));
     const revisedBagStory = blocks.some((block) => isBagStorySettings(block.settings) && Number(block.settings.version) >= 3);
+    // A learner can keep the old lesson tab open while its large v2 block is
+    // replaced by the short v3 blocks. Ignore only that lesson's archived v2
+    // IDs; unrelated or forged block IDs must still fail validation.
+    const unknownSubmittedIds = [...new Set([...value.completedBlockIds, value.currentBlockId].filter((id): id is string => typeof id === "string" && !allowed.has(id)))];
+    const retiredBagBlockIds = new Set(revisedBagStory && unknownSubmittedIds.length ? (await tx.lessonBlock.findMany({
+      where: { lessonId, id: { in: unknownSubmittedIds }, contentStatus: "ARCHIVED" },
+      select: { id: true, settings: true },
+    })).filter((block) => isBagStorySettings(block.settings) && Number(block.settings.version) < 3).map((block) => block.id) : []);
+    if (value.completedBlockIds.some((blockId) => !allowed.has(blockId) && !retiredBagBlockIds.has(blockId))) {
+      throw new Error("A completed block does not belong to this lesson");
+    }
     const bagSession = bagBlockIds.size === 0 ? null : await tx.vocabularyTrainingSession.findFirst({
       where: { userId, lessonId, source: "USER_SELECTED", items: { some: { answerKey: revisedBagStory ? { path: ["planVersion"], equals: 3 } : { path: ["engine"], equals: "bag-story" } } } },
       orderBy: { createdAt: "desc" },
@@ -2437,9 +2445,12 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
     const rawBagState = rawBagPayload && typeof rawBagPayload === "object" && !Array.isArray(rawBagPayload) ? rawBagPayload.state : null;
     const bagStageIndex = rawBagState && typeof rawBagState === "object" && !Array.isArray(rawBagState) && typeof rawBagState.stageIndex === "number" ? rawBagState.stageIndex : 0;
     const verifiedBagBlockIds = new Set(verifiedBagStoryBlockIds(bagBlocks, bagStageIndex, bagSession?.status === "COMPLETED"));
-    if (value.currentBlockId && !allowed.has(value.currentBlockId)) {
+    if (value.currentBlockId && !allowed.has(value.currentBlockId) && !retiredBagBlockIds.has(value.currentBlockId)) {
       throw new Error("The current block does not belong to this lesson");
     }
+    const currentBlockId = value.currentBlockId && allowed.has(value.currentBlockId) ? value.currentBlockId
+      : value.currentBlockId && retiredBagBlockIds.has(value.currentBlockId) ? blocks.find((block) => !verifiedBagBlockIds.has(block.id))?.id ?? blocks[0]?.id ?? null
+        : null;
     const spacedReviewBlock = blocks.find((block) => block.type === "REVIEW" && isSpacedReviewSettings(block.settings));
     const spacedReviewCompleted = !spacedReviewBlock || Boolean(await tx.lessonSpacedReviewRun.findFirst({
       where: { userId, lessonId, status: "COMPLETED" },
@@ -2514,7 +2525,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
         lessonId,
         status,
         completedBlocks: persistedCompletedBlockIds as Prisma.InputJsonValue,
-        currentBlockId: value.currentBlockId ?? null,
+        currentBlockId,
         completionPercent,
         score: result.score,
         grade: status === "COMPLETED" ? result.grade : null,
@@ -2530,7 +2541,7 @@ export async function saveLessonProgress(userId: string, lessonId: string, input
       update: {
         status,
         completedBlocks: persistedCompletedBlockIds as Prisma.InputJsonValue,
-        currentBlockId: value.currentBlockId ?? null,
+        currentBlockId,
         completionPercent,
         score: result.score,
         grade: status === "COMPLETED" ? result.grade : null,
