@@ -33,6 +33,14 @@ const copy = {
   uk: { title: "Квітка за стрік", streak: "Стрік", flowerChest: "Квітковий бутон", ready: "Квітка готова розквітнути!", description: "Відкрийте бутон: кожна квітка має власний набір навчальних нагород, а інколи — книгу-квест.", open: "Розкрити квітку", opening: "Розкриваємо…", continue: "Продовжити", album: "Відкрити альбом квітів", discovery: "Знайдено новий вид! Його додано до альбому.", hint: "XP для підказки", translation: "XP для перекладу", regular: "XP-нагорода", coin: "KRIN Coin", waterLily: "Латаття", waterLilyNote: "Збережіть його, щоб відновити серію відповідей в уроці після помилки.", questBook: "Книга-квест", kinds: "Можливі нагороди", already: "Цю квітку вже відкрито.", error: "Не вдалося відкрити квітку. Спробуйте ще раз.", close: "Закрити нагороду-квітку", bookFound: "Випала книга-квест!", bookDescription: "Розблокуйте її за {coins} KRIN Coins і правильно вивчіть {words} слів, щоб забрати всі нагороди.", openBook: "Відкрити книгу-квест", rarities: { COMMON: "Звичайна", UNCOMMON: "Незвичайна", RARE: "Рідкісна", EPIC: "Епічна", LEGENDARY: "Легендарна" } },
 } as const;
 
+const openFlowerCopy = {
+  en: { flower: "Flower reward", ready: "A flower for your streak!", description: "Collect your flower and reveal its learning reward — sometimes with a quest book.", open: "Collect flower", opening: "Collecting…" },
+  ru: { flower: "Цветок за стрик", ready: "Цветок за вашу серию!", description: "Получите цветок и узнайте его учебную награду — иногда вместе с книгой-квестом.", open: "Получить цветок", opening: "Получаем…" },
+  uk: { flower: "Квітка за стрік", ready: "Квітка за вашу серію!", description: "Отримайте квітку та дізнайтеся її навчальну нагороду — іноді разом із книгою-квестом.", open: "Отримати квітку", opening: "Отримуємо…" },
+} as const;
+
+const openFlowerPreviews = ["chamomile", "poppy", "cornflower", "oxeye-daisy"] as const;
+
 function rewardKind(reward: Reward) {
   if (reward.coins > 0) return "coin" as const;
   return "regular" as const;
@@ -79,6 +87,11 @@ export function StreakChestReward({ milestone, onDismiss, hasMorePending = false
 
   if (!milestone) return null;
   const chestLevel = streakChestLevel(milestone);
+  const isBud = milestone === 3 || milestone === 7;
+  const flowerCopy = openFlowerCopy[locale];
+  const actionLabel = isBud ? text.open : flowerCopy.open;
+  const previewFlower = openFlowerPreviews[Math.max(0, chestLevel - 3) % openFlowerPreviews.length];
+  const unopenedImage = isBud ? "/flower-chests/mystery-bud.png" : `/flower-chests/${previewFlower}.webp`;
   const flower = flowerChestById(reward?.flowerId);
   const flowerPhoto = flowerPhotoById(flower?.id);
   const chestStyle = { "--chest-hue": String(flower?.hue ?? 142) } as CSSProperties;
@@ -103,13 +116,13 @@ export function StreakChestReward({ milestone, onDismiss, hasMorePending = false
   >
     <section className={styles.card} style={chestStyle} aria-live="polite">
       <p className={styles.streak}>{text.streak} ×{milestone}</p>
-      <button type="button" className={`${styles.chest} ${opening ? styles.opening : ""} ${reward ? styles.opened : ""}`} onClick={() => void openChest()} disabled={opening || Boolean(reward)} aria-label={text.open}>
-        <img src={reward && flowerPhoto ? flowerPhoto.src : "/flower-chests/mystery-bud.png"} alt="" />
+      <button type="button" className={`${styles.chest} ${opening ? styles.opening : ""} ${reward ? styles.opened : ""}`} onClick={() => void openChest()} disabled={opening || Boolean(reward)} aria-label={actionLabel}>
+        <img src={reward && flowerPhoto ? flowerPhoto.src : unopenedImage} alt="" />
       </button>
-      <span className={`${styles.tierName} ${flower?.rarity === "LEGENDARY" ? styles.legendary : ""}`}>{flower ? `${flowerName} · ${text.rarities[flower.rarity]} · ${text.streak} ×${milestone}` : `${text.flowerChest} · ${text.streak} ×${milestone}`}</span>
+      <span className={`${styles.tierName} ${flower?.rarity === "LEGENDARY" ? styles.legendary : ""}`}>{flower ? `${flowerName} · ${text.rarities[flower.rarity]} · ${text.streak} ×${milestone}` : `${isBud ? text.flowerChest : flowerCopy.flower} · ${text.streak} ×${milestone}`}</span>
       {!reward ? <>
-        <h3>{text.ready}</h3>
-        <p>{text.description}</p>
+        <h3>{isBud ? text.ready : flowerCopy.ready}</h3>
+        <p>{isBud ? text.description : flowerCopy.description}</p>
         <div className={styles.kinds} aria-label={text.kinds}>
           <span className={styles.regular}>✦ XP</span>
           <span className={styles.bookKind}>📖 {text.questBook}</span>
@@ -117,7 +130,7 @@ export function StreakChestReward({ milestone, onDismiss, hasMorePending = false
           {earnsKrinCoin ? <span className={styles.coinKind}>● +1 {text.coin}</span> : null}
         </div>
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
-        <button type="button" className={styles.openButton} onClick={() => void openChest()} disabled={opening}>{opening ? text.opening : text.open}</button>
+        <button type="button" className={styles.openButton} onClick={() => void openChest()} disabled={opening}>{opening ? (isBud ? text.opening : flowerCopy.opening) : actionLabel}</button>
       </> : <>
         {reward.firstDiscovery ? <p className={styles.discovery} role="status">✦ {text.discovery}</p> : null}
         <section className={`${styles.reward} ${styles[kind!] ?? ""} ${flower?.rarity === "LEGENDARY" ? styles.legendaryReward : ""}`}>
@@ -125,7 +138,7 @@ export function StreakChestReward({ milestone, onDismiss, hasMorePending = false
           <div><strong>{flowerName ? `${flowerName} · ${text.rarities[flower!.rarity]}` : kindLabel}</strong><p>+{reward.experience} XP{reward.coins ? ` · +${reward.coins} KRIN Coin` : ""}</p></div>
         </section>
         {reward.waterLily ? <section className={styles.waterLily}><span aria-hidden="true">🪷</span><div><strong>+{reward.waterLily} {text.waterLily}</strong><p>{text.waterLilyNote}</p></div></section> : null}
-        <p className={styles.rewardNote}>{reward.alreadyOpened ? text.already : text.description}</p>
+        <p className={styles.rewardNote}>{reward.alreadyOpened ? text.already : isBud ? text.description : flowerCopy.description}</p>
         {reward.questBook ? <section className={styles.questBook}>
           <span aria-hidden="true">📖</span>
           <div><strong>{text.bookFound} · {text.streak} ×{reward.questBook.level}</strong><p>{text.bookDescription.replace("{coins}", String(reward.questBook.unlockCost)).replace("{words}", String(reward.questBook.target))}</p>{!hasMorePending ? <Link href="/student/achievements?section=COLLECTIONS#quest-books" onClick={onDismiss}>{text.openBook}</Link> : null}</div>

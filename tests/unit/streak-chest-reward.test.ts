@@ -97,6 +97,20 @@ describe("StreakChestReward", () => {
     expect(screen.getByRole("dialog").querySelector('img[src="/flower-chests/white-lily.webp"]')).toBeInTheDocument();
   });
 
+  it("shows buds only at streak 3 and 7, then rotates open flower previews", () => {
+    for (const [milestone, image, label] of [
+      [3, "/flower-chests/mystery-bud.png", "Let it bloom"],
+      [7, "/flower-chests/mystery-bud.png", "Let it bloom"],
+      [12, "/flower-chests/chamomile.webp", "Collect flower"],
+      [24, "/flower-chests/poppy.webp", "Collect flower"],
+      [48, "/flower-chests/cornflower.webp", "Collect flower"],
+    ] as const) {
+      const view = render(createElement(LocaleProvider, null, createElement(StreakChestReward, { milestone, onDismiss: jest.fn() })));
+      expect(screen.getAllByRole("button", { name: label })[0].querySelector("img")).toHaveAttribute("src", image);
+      view.unmount();
+    }
+  });
+
   it("keeps the learner in the lesson until all crossed chest milestones are opened", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
