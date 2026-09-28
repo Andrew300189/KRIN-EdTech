@@ -24,9 +24,9 @@ it("returns directly to the saved bag-story card after lesson progress hydrates"
       completed: false,
       progress: { completedStages: 8, totalStages: 78, incorrectAttempts: 0 },
       task: {
-        stageIndex: 8, stepIndex: 1, stageKey: "saved-stage", kind: "BAG_PHRASE", mode: "TYPE", code: "TL", cardNumber: 9,
+        stageIndex: 8, stepIndex: 1, stageKey: "saved-stage", kind: "BAG_PHRASE", mode: "CHOICE", code: "CE", cardNumber: 9,
         chunkCode: null, chunkLocal: null, sentenceMode: null, sentenceLocal: null, prompt: "Saved bag card",
-        speakTarget: null, audioTarget: null, options: [], assembleWords: [], storyLines: [], stepCount: 2, failedLine: false,
+        speakTarget: null, audioTarget: null, options: ["First choice", "Second choice", "Third choice", "Fourth choice"].map((label) => ({ id: label, label })), assembleWords: [], storyLines: [], stepCount: 2, failedLine: false,
         hintEnglish: null, reviewCheck: false,
       },
       speedWindow: null,
@@ -41,6 +41,8 @@ it("returns directly to the saved bag-story card after lesson progress hydrates"
 
   rerender(React.createElement(BagStoryBlock, { ...props, progressHydrated: true, resumeOnEntry: true }));
   await waitFor(() => expect(screen.getByText("Saved bag card")).toBeInTheDocument());
+  expect(screen.getByText("Saved bag card").closest(".vocabularyCard")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "First choice" }).parentElement).toHaveClass("choiceGrid");
   expect(screen.queryByRole("button", { name: "Почати" })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
@@ -68,6 +70,7 @@ it("returns directly to the saved vocabulary-mastery task", async () => {
 
   rerender(React.createElement(CourseVocabularyMasteryBlock, { ...props, progressHydrated: true, resumeOnEntry: true }));
   await waitFor(() => expect(screen.getByText("Saved bottle card")).toBeInTheDocument());
+  expect(screen.getByRole("region", { name: "Vocabulary mastery practice" })).toHaveClass("vocabularyCard");
   expect(screen.getByText("2 / 5")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Почати" })).not.toBeInTheDocument();
   expect(fetchMock).toHaveBeenCalledTimes(1);

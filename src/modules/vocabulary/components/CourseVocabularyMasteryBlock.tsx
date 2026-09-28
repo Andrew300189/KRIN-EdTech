@@ -318,7 +318,7 @@ export function CourseVocabularyMasteryBlock({ lessonId, canSaveProgress = true,
   const directionText = directionCopy(task.direction, locale);
   const seriesProgress = Math.min(100, Math.round((task.correctInRow / task.requiredConsecutive) * 100));
   const overallProgress = progress.totalStages ? Math.round((progress.completedStages / progress.totalStages) * 100) : 0;
-  return <section className={styles.mastery} aria-label="Vocabulary mastery practice">
+  return <section className={`${styles.mastery} ${styles.vocabularyCard}`} aria-label="Vocabulary mastery practice">
     {rewardCelebrationView}
     {lessonMeta}
     <header className={styles.header}><div><p className={styles.eyebrow}>{canSaveProgress ? directionText.eyebrow : `${text.guest} · ${directionText.eyebrow}`}</p><h3>{localizedTaskTitle(task, locale)}</h3></div><div className={styles.overall} aria-label={`${progress.completedStages} of ${progress.totalStages} stages complete`}><strong>{progress.completedStages}/{progress.totalStages}</strong><span>{text.stages}</span></div></header>

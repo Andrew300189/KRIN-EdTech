@@ -678,6 +678,11 @@
 }
 
 @media (max-width: 650px) {
+  .vocabularyNavigationAnchor { display: flex; flex-direction: column; }
+  .vocabularyNavigationAnchor .taskCard { order: 1; }
+  .vocabularyNavigationAnchor .sideNavigation { position: relative; inset: auto; order: 2; display: flex; justify-content: space-between; margin-top: .4rem; }
+  .vocabularyNavigationAnchor .sideNavigationButton { position: static; width: 3rem; height: 3rem; transform: none; }
+  .vocabularyNavigationAnchor .sideNavigationButton:hover:not(:disabled) { transform: translateY(-.12rem); }
   .frame { padding: .75rem; }
   .header { grid-template-columns: minmax(0, 1fr); gap: .55rem; border-radius: var(--radius-lg); padding: .55rem; }
   .headerNavigation { justify-content: space-between; }
@@ -843,6 +848,7 @@
 }
 
 .focusContent { padding: 20px 24px 24px; }
+.vocabularyTaskCard .focusContent { padding: clamp(.45rem, 1.2vw, .8rem); }
 
 /* Theory stays readable at every length. The lesson frame remains stable while
    the instructional text gains its own native, keyboard-scrollable area. */

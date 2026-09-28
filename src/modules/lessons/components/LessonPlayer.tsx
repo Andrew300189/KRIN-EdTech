@@ -1251,7 +1251,7 @@ export function LessonPlayer({
               </section>
             ) : null}
 
-            <div className={styles.taskCardNavigationAnchor}>
+            <div className={`${styles.taskCardNavigationAnchor} ${activeVocabularyMastery ? styles.vocabularyNavigationAnchor : ""}`}>
               {!isReviewSession ? (
                 <nav className={styles.sideNavigation} aria-label="Lesson step navigation">
                   <button
@@ -1277,7 +1277,7 @@ export function LessonPlayer({
                   </button>
                 </nav>
               ) : null}
-              <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
+              <article className={`${styles.taskCard} ${activeBlock.type === "EXERCISE" ? styles.exerciseTaskCard : ""} ${activeBlock.type !== "EXERCISE" ? styles.readingTaskCard : ""} ${activeVocabularyMastery ? styles.vocabularyTaskCard : ""} ${activeBlock.type === "THEORY" ? styles.theoryTaskCard : ""} ${isSpacedReviewBlock(activeBlock) ? styles.spacedReviewTaskCard : ""}`}>
               {!activeVocabularyMastery && !isSpacedReviewBlock(activeBlock) ? <div className={styles.lessonGoalTop}>
                 <span className={styles.lessonGoalTopLabel}>{activeBlockRule ? headerCopy.rule : headerCopy.goal}</span>
                 <p>{activeBlockRule ?? learnerGoalForBlock(activeBlock, locale) ?? objectiveItems[0] ?? chromeCopy.goalFallback}</p>
