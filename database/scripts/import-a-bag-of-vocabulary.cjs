@@ -148,7 +148,10 @@ async function upgradeShortCourse(prisma, existing, counts) {
       const oldBlock = lesson.blocks.find((block) => block.settings?.engine === "bag-story" && block.contentStatus === "PUBLISHED");
       const group = lessonIndex === 6 ? phrases : phrases.slice(lessonIndex * 5, lessonIndex * 5 + 5);
       await tx.exercise.updateMany({ where: { lessonBlockId: oldBlock.id, archivedAt: null }, data: { contentStatus: "ARCHIVED", archivedAt: now, publishedAt: null } });
-      await tx.lessonBlock.update({ where: { id: oldBlock.id }, data: { contentStatus: "ARCHIVED", archivedAt: now, publishedAt: null } });
+      // LessonBlock has a unique (lessonId, order) key even for archived rows.
+      // Move the retired block out of the new 1..6 range before inserting.
+      const archivedOrder = Math.max(100, ...lesson.blocks.map((block) => block.order)) + 1;
+      await tx.lessonBlock.update({ where: { id: oldBlock.id }, data: { order: archivedOrder, contentStatus: "ARCHIVED", archivedAt: now, publishedAt: null } });
       await createShortBlocks(tx, lesson.id, group, lessonIndex === 6, { contentStatus: "PUBLISHED", publishedAt: now, scheduledAt: null, archivedAt: null });
       await tx.lesson.update({ where: { id: lesson.id }, data: { estimatedDuration: lessonIndex === 6 ? 12 : 8, description: lessonIndex === 6 ? "Повторення всіх 30 фраз у шести коротких блоках." : "П'ять коротких блоків: по одній фразі та п'ять завдань у кожному." } });
       await tx.lessonTranslation.updateMany({ where: { lessonId: lesson.id, locale: "uk" }, data: { description: lessonIndex === 6 ? "Повторення всіх 30 фраз у шести коротких блоках." : "П'ять коротких блоків: по одній фразі та п'ять завдань у кожному." } });
@@ -183,7 +186,7 @@ async function main() {
         id: true, isPublished: true,
         modules: { select: { id: true, lessons: { select: {
           id: true, slug: true,
-          blocks: { select: { id: true, settings: true, contentStatus: true, _count: { select: { exercises: true } } } },
+          blocks: { select: { id: true, order: true, settings: true, contentStatus: true, _count: { select: { exercises: true } } } },
         } } } },
       },
     });
