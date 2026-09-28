@@ -58,5 +58,6 @@ describe("LessonRewardWheel", () => {
 
     await waitFor(() => expect(onCollected).toHaveBeenCalledTimes(1));
     expect(onMultiplierApplied).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/40 lesson XP \+ 40 bonus XP = 80 XP total/)).toBeInTheDocument();
   });
 });

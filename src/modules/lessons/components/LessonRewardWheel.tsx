@@ -24,19 +24,22 @@ const copy = {
   en: {
     title: "XP multiplier wheel", range: "Every value from ×1.0 to ×3.0 is equally likely", ready: "Your XP counter is ready — spin for the final total.",
     spin: "Spin for XP", preparing: "Preparing…", spinning: "Spinning…", complete: "Multiplier applied", restored: "Multiplier already applied",
-    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · ${total} XP total`,
+    result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} lesson XP + ${bonus} bonus XP = ${total} XP total`,
+    credited: (bonus: number) => `Wheel bonus: +${bonus} XP`,
     error: "Unable to spin the XP multiplier wheel.",
   },
   ru: {
     title: "Колесо множителя XP", range: "Каждое значение от ×1.0 до ×3.0 выпадает с одинаковой вероятностью", ready: "XP посчитаны — крутите колесо, чтобы узнать итог.",
     spin: "Крутить на XP", preparing: "Готовим…", spinning: "Крутим…", complete: "Множитель применён", restored: "Множитель уже применён",
-    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · всего ${total} XP`,
+    result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} XP за урок + ${bonus} XP бонус = ${total} XP итого`,
+    credited: (bonus: number) => `Бонус рулетки: +${bonus} XP`,
     error: "Не удалось запустить колесо множителя XP.",
   },
   uk: {
     title: "Колесо множника XP", range: "Кожне значення від ×1.0 до ×3.0 має однакову ймовірність", ready: "XP пораховано — крутіть колесо, щоб дізнатися підсумок.",
     spin: "Крутити на XP", preparing: "Готуємо…", spinning: "Крутимо…", complete: "Множник застосовано", restored: "Множник уже застосовано",
-    result: (multiplier: number, total: number) => `×${multiplier.toFixed(1)} · усього ${total} XP`,
+    result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} XP за урок + ${bonus} XP бонус = ${total} XP усього`,
+    credited: (bonus: number) => `Бонус колеса: +${bonus} XP`,
     error: "Не вдалося запустити колесо множника XP.",
   },
 } as const;
@@ -153,7 +156,7 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
       applyResolvedReward(result);
       if (result.spun) {
         notifyMotivationUpdated();
-        toast.success(text.result(result.multiplier ?? 1, result.totalExperience));
+        toast.success(text.credited(result.bonusExperience));
       }
     } catch (error) {
       // A failed request did not produce a server reward, so explicitly allow
@@ -180,7 +183,7 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
     </div>
     <div className={styles.copy}>
       <p>{text.title}</p>
-      <strong>{hasResult && resolvedReward.multiplier !== null ? text.result(resolvedReward.multiplier, resolvedReward.totalExperience) : text.ready}</strong>
+      <strong>{hasResult && resolvedReward.multiplier !== null ? text.result(resolvedReward.multiplier, resolvedReward.baseExperience, resolvedReward.bonusExperience, resolvedReward.totalExperience) : text.ready}</strong>
       <small>{hasResult && resolvedReward.alreadySpun ? text.restored : text.range}</small>
     </div>
     <button type="button" onClick={() => void spin()} disabled={loading || spinning || hasResult}>

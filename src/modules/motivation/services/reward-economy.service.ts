@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from "crypto";
 import { Prisma } from "@/generated/prisma-client-payments-runtime";
 import { prisma } from "@/core/server/prisma";
 import { grantEconomyReward } from "./motivation.service";
+import { creditedLessonWheelXp, lessonWheelXp } from "@/modules/motivation/utils/lesson-wheel-xp";
 import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-quest-book.service";
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
@@ -234,24 +235,21 @@ function selectLessonXpMultiplierStep() {
 function multiplierWheelResultFromTransaction(transaction: LessonXpMultiplierTransaction, currentBaseExperience: number): LessonXpMultiplierWheelResult {
   const step = Number(transaction.description?.match(/\bstep:(\d{2})\b/)?.[1]);
   const storedBase = Number(transaction.description?.match(/\bbase:(\d+)\b/)?.[1]);
-  const storedTotal = Number(transaction.description?.match(/\btotal:(\d+)\b/)?.[1]);
   const multiplierStep = Number.isInteger(step) && step >= LESSON_XP_MULTIPLIER_MIN_STEP && step <= LESSON_XP_MULTIPLIER_MAX_STEP
     ? step
     : LESSON_XP_MULTIPLIER_MIN_STEP;
   const baseExperience = Number.isSafeInteger(storedBase) && storedBase >= 0 ? storedBase : currentBaseExperience;
-  const totalExperience = Number.isSafeInteger(storedTotal) && storedTotal >= baseExperience
-    ? storedTotal
-    : Math.max(baseExperience, baseExperience + Math.max(0, transaction.amount));
+  const credited = creditedLessonWheelXp(baseExperience, transaction.amount);
 
   return {
     available: true,
     spun: false,
     alreadySpun: true,
-    baseExperience,
+    baseExperience: credited.baseExperience,
     multiplierStep,
     multiplier: multiplierStep / 10,
-    bonusExperience: Math.max(0, totalExperience - baseExperience),
-    totalExperience,
+    bonusExperience: credited.bonusExperience,
+    totalExperience: credited.totalExperience,
   };
 }
 
@@ -980,8 +978,7 @@ export async function spinLessonXpMultiplierWheel(userId: string, lessonId: stri
     }
 
     const multiplierStep = selectLessonXpMultiplierStep();
-    const totalExperience = Math.round(baseExperience * (multiplierStep / 10));
-    const bonusExperience = Math.max(0, totalExperience - baseExperience);
+    const { bonusExperience, totalExperience } = lessonWheelXp(baseExperience, multiplierStep);
     const awarded = await grantEconomyReward(tx, {
       userId,
       experience: bonusExperience,
@@ -997,8 +994,8 @@ export async function spinLessonXpMultiplierWheel(userId: string, lessonId: stri
       baseExperience,
       multiplierStep,
       multiplier: multiplierStep / 10,
-      bonusExperience,
-      totalExperience,
+      bonusExperience: awarded.experience,
+      totalExperience: baseExperience + awarded.experience,
     };
   }).catch(async (error: unknown) => {
     // A second concurrent POST loses the unique ledger race. Treat it as the

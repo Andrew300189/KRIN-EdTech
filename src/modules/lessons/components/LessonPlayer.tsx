@@ -10,7 +10,6 @@ import { RewardNotification, type RewardNotificationEvent } from "@/modules/moti
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LessonAnswerStreakStatus } from "@/modules/motivation/components/LessonAnswerStreakStatus";
 import { LessonStreakRecoveryCard } from "@/modules/motivation/components/LessonStreakRecoveryCard";
-import { LessonXpBadge } from "@/modules/motivation/components/LessonXpBadge";
 import { StreakChestReward } from "@/modules/motivation/components/StreakChestReward";
 import { ReviewStreakChestReward, type ReviewChest } from "@/modules/motivation/components/ReviewStreakChestReward";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
@@ -230,6 +229,10 @@ const lessonFeedbackCopy = {
     triumphDescription: "Every completed step is now part of your learning progress. Take a moment — you earned it.",
     savedDescription: "Finish the remaining required steps whenever you are ready.",
     reward: "Lesson reward",
+    totalReward: "Total for this lesson",
+    baseReward: "Lesson XP",
+    wheelBonus: "Wheel bonus",
+    levelIncluded: "including level bonus",
     backToCourse: "Back to course",
     nextCompletedLesson: "Next completed lesson",
     nextLesson: "Continue to next lesson",
@@ -244,6 +247,10 @@ const lessonFeedbackCopy = {
     triumphDescription: "Все пройденные шаги уже в вашем прогрессе. Остановитесь на секунду — вы это заслужили.",
     savedDescription: "Когда будете готовы, завершите оставшиеся обязательные шаги.",
     reward: "Награда за урок",
+    totalReward: "Итого за урок",
+    baseReward: "XP за урок",
+    wheelBonus: "Бонус рулетки",
+    levelIncluded: "в том числе бонус уровня",
     backToCourse: "Вернуться к курсу",
     nextCompletedLesson: "Следующий пройденный урок",
     nextLesson: "К следующему уроку",
@@ -258,6 +265,10 @@ const lessonFeedbackCopy = {
     triumphDescription: "Усі пройдені кроки вже у вашому прогресі. Зупиніться на мить — ви це заслужили.",
     savedDescription: "Коли будете готові, завершіть решту обов’язкових кроків.",
     reward: "Нагорода за урок",
+    totalReward: "Усього за урок",
+    baseReward: "XP за урок",
+    wheelBonus: "Бонус колеса",
+    levelIncluded: "зокрема бонус рівня",
     backToCourse: "Повернутися до курсу",
     nextCompletedLesson: "Наступний пройдений урок",
     nextLesson: "До наступного уроку",
@@ -792,8 +803,9 @@ export function LessonPlayer({
       if (complete) setLessonReward(payload.data.motivationReward ?? null);
       if (payload.data.motivationReward?.awarded) {
         const reward = payload.data.motivationReward;
-        const totalEarnedXp = Math.max(0, Math.round(payload.data.experienceEarned ?? reward.experience));
-        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${totalEarnedXp} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
+        // Individual answer XP was already announced and credited. This
+        // notification describes only the new completion credit.
+        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
         notifyMotivationUpdated();
       }
       if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
@@ -1076,16 +1088,18 @@ export function LessonPlayer({
   // (which may currently happen to be 50 XP).
   const totalEarnedXp = Math.max(0, Math.round(storedProgress?.experienceEarned ?? 0));
   const completionAnimationActive = finished && !hasUnfinishedRequiredBlocks;
-  // An existing spin can hydrate before the first count-up has completed
-  // (for example after a refresh). Always finish 0 → base XP first, then run
-  // the second base → multiplied-total animation.
-  const multiplierAnimationActive = Boolean(xpMultiplierReward) && baseXpAnimationComplete;
+  // A newly spun wheel animates from the already earned base to the final
+  // total. On reload the saved ledger already includes the wheel bonus, so
+  // replaying that second animation would misleadingly look like new XP.
+  const freshlySpunWheel = Boolean(xpMultiplierReward?.spun && !xpMultiplierReward.alreadySpun);
+  const multiplierAnimationActive = freshlySpunWheel && baseXpAnimationComplete;
   const completionXpTarget = multiplierAnimationActive ? xpMultiplierReward!.totalExperience : totalEarnedXp;
-  const completionXpStart = multiplierAnimationActive ? totalEarnedXp : 0;
+  const completionXpStart = multiplierAnimationActive ? xpMultiplierReward!.baseExperience : 0;
   const animatedCompletionXp = useAnimatedXpCounter(completionXpStart, completionXpTarget, completionAnimationActive);
   const multiplierWheelRequired = !previewMode && canSaveProgress && totalEarnedXp > 0;
-  const multiplierXpAnimationComplete = !xpMultiplierReward || (multiplierAnimationActive && animatedCompletionXp === xpMultiplierReward.totalExperience);
+  const multiplierXpAnimationComplete = !freshlySpunWheel || (multiplierAnimationActive && animatedCompletionXp === xpMultiplierReward!.totalExperience);
   const multiplierWheelResolved = !multiplierWheelRequired || (wheelCollected && multiplierXpAnimationComplete);
+  const lessonBaseXp = xpMultiplierReward?.baseExperience ?? totalEarnedXp;
 
   useEffect(() => {
     if (!completionAnimationActive) {
@@ -1202,9 +1216,9 @@ export function LessonPlayer({
             {!hasUnfinishedRequiredBlocks ? <p className={styles.taskType}>{feedbackCopy.complete}</p> : null}
             {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
             <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
-            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
+            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">{animatedCompletionXp} XP</span><span>{xpMultiplierReward ? feedbackCopy.totalReward : feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={completionXpTarget} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{completionXpTarget} XP{lessonReward.levelBonusExperience ? ` · Lv. ${lessonReward.rewardLevel}: +${lessonReward.levelBonusExperience} XP` : ""}{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><p>{feedbackCopy.baseReward}: {lessonBaseXp} XP{lessonReward.levelBonusExperience ? ` (${feedbackCopy.levelIncluded}: ${lessonReward.levelBonusExperience} XP)` : ""}{xpMultiplierReward ? ` · ${feedbackCopy.wheelBonus}: +${xpMultiplierReward.bonusExperience} XP` : ""}</p></div> : null}
             {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => setWheelCollected(true)} onMultiplierApplied={setXpMultiplierReward} /> : null}
             {!previewMode && !hasUnfinishedRequiredBlocks ? <LilyMascot context="COMPLETION" placement="inline" /> : null}
             {!previewMode && multiplierWheelRequired && baseXpAnimationComplete && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
