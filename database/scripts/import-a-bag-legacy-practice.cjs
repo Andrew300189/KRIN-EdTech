@@ -115,6 +115,7 @@ async function main() {
     const translations = sources[0].blocks.find((block) => block.settings?.engine === "bag-story").settings.localizedTranslations;
     assert(translations?.uk && translations?.ru, "Source vocabulary translations are missing.");
 
+    let previousModuleId = coreModule.id;
     for (let groupIndex = 0; groupIndex < 7; groupIndex += 1) {
       const review = groupIndex === 6;
       const order = groupIndex + 2;
@@ -123,6 +124,11 @@ async function main() {
       const expectedLessons = review ? REVIEW_ROUNDS : PHRASE_ROUNDS;
       if (existing) {
         assert(existing.title === titles.uk && existing.lessons.length === expectedLessons, `Module ${order} exists but is not the complete practice module.`);
+        await prisma.courseModule.update({ where: { id: existing.id }, data: {
+          unlockAfterModuleId: previousModuleId, isRequired: true,
+          requiresSequentialCompletion: true, requiredCompletionPercent: 100,
+        } });
+        previousModuleId = existing.id;
         console.log(JSON.stringify({ status: "already-current", moduleOrder: order, lessons: expectedLessons }));
         continue;
       }
@@ -133,7 +139,8 @@ async function main() {
       await prisma.$transaction(async (tx) => {
         await tx.courseModule.create({ data: { id: moduleId, courseId: course.id, title: titles.uk,
           description: review ? "Підсумкові короткі уроки." : `Архівні картки для групи фраз ${groupIndex + 1}, розкладені на короткі уроки.`,
-          order, isRequired: true, requiresSequentialCompletion: true, requiredCompletionPercent: 100,
+          order, unlockAfterModuleId: previousModuleId, isRequired: true,
+          requiresSequentialCompletion: true, requiredCompletionPercent: 100,
           isPublished: true, ...published(now) } });
         await tx.courseModuleTranslation.createMany({ data: [
           { moduleId, locale: "uk", title: titles.uk, description: "Короткі обов'язкові уроки практики.", ...published(now) },
@@ -148,6 +155,7 @@ async function main() {
           await tx.exercise.createMany({ data: rows.exerciseRows.slice(offset, offset + 400) });
         }
       }, { maxWait: 60_000, timeout: 600_000 });
+      previousModuleId = moduleId;
       console.log(JSON.stringify({ status: "published", moduleOrder: order, lessons: expectedLessons, exercises: rows.exerciseRows.length }));
     }
     const fullDescription = {
