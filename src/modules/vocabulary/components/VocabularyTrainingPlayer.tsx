@@ -38,6 +38,19 @@ export function VocabularyTrainingPlayer({ sessionId, compact = false, onComplet
 
   useEffect(() => { void refresh(); }, [refresh]);
   const item = session?.items.find((entry) => entry.status === "PENDING");
+  useEffect(() => {
+    if (item || !cycleLength || round >= cycleLength || sending) return;
+    const onEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest("button:not(:disabled), a, input, textarea, select")) return;
+      event.preventDefault();
+      void startNextRound();
+    };
+    window.addEventListener("keydown", onEnter);
+    return () => window.removeEventListener("keydown", onEnter);
+  // The listener is recreated with the current round and submission state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, cycleLength, round, sending]);
   useEffect(() => { setAnswer(""); setSelectedTiles([]); setFeedback(null); setErrorMessage(null); startedAt.current = Date.now(); }, [item?.id]);
   useEffect(() => {
     let live = true;

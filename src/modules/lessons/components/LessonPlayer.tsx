@@ -47,7 +47,7 @@ type StoredProgress = {
   totalSeconds: number;
   /** Immutable XP credited for this lesson's first-correct answers and completion. */
   experienceEarned?: number;
-  motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean } | null;
+  motivationReward?: { awarded: boolean; experience: number; coins: number; levelUp: boolean; levelBonusExperience?: number; rewardLevel?: number | null } | null;
   attemptAccuracy?: {
     correctAnswers: number;
     incorrectAnswers: number;
@@ -172,42 +172,6 @@ function validCurrentBlockId(value: unknown, blocks: LessonBlock[]) {
     : blocks[0]?.id ?? null;
 }
 
-function getBlockAttemptVisual(
-  block: LessonBlock,
-  exerciseResults: Record<string, boolean>,
-  fallbackToCompletedColour = false,
-) {
-  if (block.exercises.length === 0) return null;
-  let correct = 0;
-  let incorrect = 0;
-  const stops = block.exercises.map((exercise, index) => {
-    const result = exerciseResults[exercise.id];
-    if (result === true) correct += 1;
-    if (result === false) incorrect += 1;
-    const start = (index / block.exercises.length) * 100;
-    const end = ((index + 1) / block.exercises.length) * 100;
-    // A completed step may contain newly added prompts or an older attempt
-    // snapshot may not include every exercise yet. Those prompts are already
-    // part of a passed lesson, not unfinished work, so keep the completed
-    // green rather than drawing a misleading grey gap.
-    const colour = result === true
-      ? "#22c55e"
-      : result === false
-        ? "#fb7185"
-        : fallbackToCompletedColour
-          ? "#22c55e"
-          : "#e5e7eb";
-    return `${colour} ${start}% ${end}%`;
-  });
-  if (correct + incorrect === 0) return null;
-  return {
-    correct,
-    incorrect,
-    // The segment stays large, while its fill follows each answer in order.
-    style: { background: `linear-gradient(90deg, ${stops.join(", ")})` } as CSSProperties,
-  };
-}
-
 function getBlockProgressFraction(
   block: LessonBlock,
   completedBlockIds: readonly string[],
@@ -328,25 +292,6 @@ const lessonChromeCopy = {
     goalFallback: "Рухайтеся одним зрозумілим кроком за раз.", step: "крок",
   },
 } as const;
-
-const blockTypeCopy = {
-  THEORY: { en: "Theory", ru: "Теория", uk: "Теорія" },
-  INTRO: { en: "Introduction", ru: "Введение", uk: "Вступ" },
-  EXERCISE: { en: "Exercise", ru: "Задание", uk: "Завдання" },
-  REVIEW: { en: "Review", ru: "Повторение", uk: "Повторення" },
-  HOMEWORK: { en: "Homework", ru: "Домашнее задание", uk: "Домашнє завдання" },
-  VOCABULARY: { en: "Vocabulary", ru: "Словарь", uk: "Словник" },
-  PHRASE_OF_THE_DAY: { en: "Phrase of the day", ru: "Фраза дня", uk: "Фраза дня" },
-  VIDEO: { en: "Video", ru: "Видео", uk: "Відео" },
-  AUDIO: { en: "Audio", ru: "Аудио", uk: "Аудіо" },
-  IMAGE: { en: "Image", ru: "Изображение", uk: "Зображення" },
-  LISTENING: { en: "Listening", ru: "Аудирование", uk: "Аудіювання" },
-} as const;
-
-function localizedBlockType(type: string, locale: "en" | "ru" | "uk") {
-  const copy = blockTypeCopy[type as keyof typeof blockTypeCopy];
-  return copy ? copy[locale] : type.replace(/_/g, " ");
-}
 
 export function LessonPlayer({
   lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons, completedLessonSlugs = [],
@@ -1073,12 +1018,27 @@ export function LessonPlayer({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       if (guestRegistrationRequired) return;
       // A pending streak chest is deliberately non-dismissible. Do not let the
       // player-level keyboard shortcuts bypass that reward dialog.
       if (streakChestMilestone !== null) return;
       const target = event.target;
+      if (event.key === "Enter" && !event.repeat) {
+        // The visible card action takes priority over step navigation. Input
+        // handlers run before this listener and prevent default on submission.
+        if (target instanceof HTMLElement && target.closest("button, a, [role='button'], [contenteditable='true']")) return;
+        const scope = document.querySelector<HTMLElement>('[aria-modal="true"]') ?? document;
+        const buttons = [...scope.querySelectorAll<HTMLButtonElement>('[data-lesson-enter-next]')];
+        const next = ["task", "step", "lesson"]
+          .flatMap((priority) => buttons.filter((button) => button.dataset.lessonEnterNext === priority))
+          .find((button) => !button.disabled && !button.closest("[hidden], [aria-hidden='true']") && button.getClientRects().length > 0);
+        if (next) {
+          event.preventDefault();
+          next.click();
+          return;
+        }
+      }
       const isEditingText = target instanceof HTMLElement && Boolean(
         target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'),
       );
@@ -1163,58 +1123,9 @@ export function LessonPlayer({
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
-            <nav
-              className={styles.blockTimeline}
-              aria-label="Lesson steps. Select an available step to study or practise it."
-              style={{ gridTemplateColumns: `repeat(${Math.max(blocks.length, 1)}, minmax(0, 1fr))` }}
-            >
-              {blocks.map((block, index) => {
-                const isCompleted = completedBlocks.includes(block.id);
-                const isCurrent = block.id === activeBlock?.id;
-                const isReviewableAfterCompletion = Boolean(lessonIsCompleted);
-                // Returning learners can be partway through this lesson when
-                // its missing theory steps are restored. Let them read those
-                // steps without resetting their saved exercise progress.
-                const isAccessibleToBeTheory = courseSlug === "verb-to-be-masterclass" && isFirstCourseLesson && block.type === "THEORY" && index < activeIndex;
-                const canOpenBlock = isReviewableAfterCompletion || isCompleted || isCurrent || isAccessibleToBeTheory;
-                const state = isReviewableAfterCompletion || isCompleted ? "completed" : isCurrent ? "current" : isAccessibleToBeTheory ? "available" : "locked";
-                const label = block.title?.trim() || `${localizedBlockType(block.type, locale)} ${chromeCopy.step}`;
-                const bagProgress = isBagStorySettings(block.settings) && bagStoryProgress?.blockId === block.id ? bagStoryProgress : null;
-                const bagProgressPercent = bagProgress && bagProgress.totalStages > 0 ? Math.min(100, bagProgress.completedStages / bagProgress.totalStages * 100) : 0;
-                const attemptVisual = canOpenBlock
-                  ? bagProgress
-                    ? { correct: bagProgress.completedStages, incorrect: 0, style: { background: `linear-gradient(90deg, #22c55e 0 ${bagProgressPercent}%, #e5e7eb ${bagProgressPercent}% 100%)` } as CSSProperties }
-                    : getBlockAttemptVisual(block, exerciseResults, isReviewableAfterCompletion || isCompleted)
-                  : null;
-                const performance = bagProgress
-                  ? `${bagProgress.completedStages}/${bagProgress.totalStages} cards completed`
-                  : attemptVisual
-                  ? `${attemptVisual.correct} correct, ${attemptVisual.incorrect} incorrect`
-                  : "No checked exercise yet";
-
-                return (
-                  <button
-                    key={block.id}
-                    type="button"
-                    className={`${styles.blockSegment} ${isSpacedReviewBlock(block) ? styles.blockSegmentReview : ""} ${isReviewableAfterCompletion || isCompleted ? styles.blockSegmentCompleted : ""} ${isCurrent ? styles.blockSegmentCurrent : ""}`}
-                    aria-current={isCurrent ? "step" : undefined}
-                    aria-label={`Step ${index + 1}: ${label}. ${state}. Latest result: ${performance}.${canOpenBlock ? " Open this step." : " Complete the current step first."}`}
-                    style={attemptVisual?.style}
-                    title={`${index + 1}. ${label}`}
-                    disabled={!canOpenBlock}
-                    onClick={() => {
-                      if (!canOpenBlock) return;
-                      setAutoAdvanceRequested(false);
-                      setCurrentBlockId(block.id);
-                      pendingProgressRef.current = { completed: completedBlocks, current: block.id, activeSeconds: elapsedSeconds };
-                      setFinished(false);
-                    }}
-                  >
-                    <span className={styles.blockSegmentNumber}>{index + 1}</span>
-                  </button>
-                );
-              })}
-            </nav>
+            <div className={styles.blockTimeline} role="progressbar" aria-label={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+              <span className={styles.blockTimelineFill} style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
           <div className={styles.stepArea}>
             {!reviewSession ? <LessonAnswerStreakStatus correctAnswersInRow={correctAnswersInRow} frozen={streakFrozen} thawing={streakThawing} waterLilies={waterLilies} /> : null}
@@ -1223,7 +1134,7 @@ export function LessonPlayer({
           </div>
         </header>
 
-        <section className={styles.lessonContext} aria-labelledby="lesson-title">
+        <section className={styles.lessonContext} aria-labelledby="lesson-title" style={{ "--lesson-progress": `${progressPercent}%` } as CSSProperties}>
           <h1 id="lesson-title">{title}</h1>
         </section>
         {!previewMode && canSaveProgress && !reviewSession ? <LessonStreakRecoveryCard lessonId={lessonId} brokenStreak={brokenAnswerStreak} lilies={waterLilies} onResolved={(result) => {
@@ -1255,7 +1166,7 @@ export function LessonPlayer({
           <p>{reviewTransition.state === "WRAP" ? `There are still earlier mistakes. Start with “${reviewTransition.nextLessonTitle}” in ${reviewTransition.nextCourseTitle}?` : `Next: “${reviewTransition.nextLessonTitle}” in ${reviewTransition.nextCourseTitle}. ${reviewTransition.remainingLessons > 1 ? `${reviewTransition.remainingLessons} lessons still need a review.` : "This is the last lesson in your queue."}`}</p>
           <div className={styles.reviewDialogActions}>
             <button type="button" className={styles.showTheory} onClick={() => router.push("/student/mistakes")}>Back to mistakes</button>
-            <button type="button" className={styles.finishButton} onClick={() => router.push(reviewTransition.nextUrl)}>{reviewTransition.state === "WRAP" ? "Start from this lesson" : "Continue review"}</button>
+            <button type="button" data-lesson-enter-next="lesson" className={styles.finishButton} onClick={() => router.push(reviewTransition.nextUrl)}>{reviewTransition.state === "WRAP" ? "Start from this lesson" : "Continue review"}</button>
           </div>
         </section> : null}
 
@@ -1293,7 +1204,7 @@ export function LessonPlayer({
             <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
             {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span><span>{feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={completionXpTarget} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{completionXpTarget} XP{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
+            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><LessonXpBadge experience={completionXpTarget} correctAnswers={Object.values(exerciseResults).filter(Boolean).length} incorrectAnswers={Object.values(exerciseResults).filter((value) => !value).length} progressPercent={100} /><p>+{completionXpTarget} XP{lessonReward.levelBonusExperience ? ` · Lv. ${lessonReward.rewardLevel}: +${lessonReward.levelBonusExperience} XP` : ""}{lessonReward.coins ? ` · +${lessonReward.coins} coins` : ""}</p></div> : null}
             {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => setWheelCollected(true)} onMultiplierApplied={setXpMultiplierReward} /> : null}
             {!previewMode && !hasUnfinishedRequiredBlocks ? <LilyMascot context="COMPLETION" placement="inline" /> : null}
             {!previewMode && multiplierWheelRequired && baseXpAnimationComplete && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
@@ -1302,11 +1213,11 @@ export function LessonPlayer({
             {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
             {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
                 <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : `${styles.triumphPrimaryAction} ${styles.completionReadyButton}`}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
-                {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
+                {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
                 {/* This must also be available after reopening a completed lesson.
                     The wheel never advances the route itself; this handler runs
                     only after the learner explicitly clicks the button. */}
-                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
+                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
                 {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
               </div> : null}
           </section>
@@ -1341,6 +1252,7 @@ export function LessonPlayer({
                   </button>
                   <button
                     type="button"
+                    data-lesson-enter-next="step"
                     className={`${styles.sideNavigationButton} ${styles.sideNavigationNext} ${isFinalBlock ? styles.sideNavigationFinish : ""}`}
                     disabled={!canAdvance}
                     onClick={() => void advanceStep()}

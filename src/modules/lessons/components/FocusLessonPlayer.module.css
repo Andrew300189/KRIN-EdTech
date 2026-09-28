@@ -80,59 +80,19 @@
 }
 
 .blockTimeline {
-  display: grid;
+  overflow: hidden;
   width: min(100%, 34rem);
-  gap: .28rem;
-  min-height: .62rem;
-}
-
-.blockSegment {
-  min-width: 0;
-  min-height: .56rem;
-  border: 1px solid transparent;
+  height: .62rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-secondary));
-  /* Every timeline segment is a review link. Never signal that a completed
-     (or not-yet-opened) lesson step is forbidden when it can be opened. */
-  cursor: pointer;
-  padding: 0;
-  transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.blockSegment:disabled {
-  cursor: not-allowed;
-  opacity: .55;
-}
-
-.blockSegmentCompleted {
-  cursor: pointer;
-  background: #22c55e;
-}
-
-.blockSegmentCurrent {
-  cursor: pointer;
-  border-color: #94a3b8;
-  background: #f1f5f9;
-  box-shadow: 0 0 0 2px rgb(148 163 184 / 20%);
-}
-
-.blockSegment:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 3px rgb(34 197 94 / 16%);
-}
-
-.blockSegment:focus-visible {
-  outline: 2px solid #16a34a;
-  outline-offset: 2px;
-}
-
-.blockSegmentNumber {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+.blockTimelineFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4f46e5, #2563eb);
+  transition: width 350ms ease;
 }
 
 .stepArea {
@@ -737,7 +697,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .blockSegment,
+  .blockTimelineFill,
+  .lessonContext::after,
   .theoryPanel,
   .closeLink,
   .backToCourseLink,
@@ -792,12 +753,7 @@
   color: #312e81;
 }
 
-.blockTimeline { gap: .38rem; min-height: .7rem; }
-.blockSegment { min-height: .62rem; background: #e5e7eb; }
-.blockSegmentCompleted { background: #22c55e; }
-.blockSegmentCurrent { border-color: #94a3b8; background: #f1f5f9; }
-.blockSegmentReview:not(.blockSegmentCompleted) { background: #fdba74; }
-.blockSegmentReview.blockSegmentCurrent { border-color: #f97316; background: #ffedd5; box-shadow: 0 0 0 2px rgb(249 115 22 / 18%); }
+.blockTimeline { height: .7rem; background: #e5e7eb; }
 
 .lessonContext {
   position: relative;
@@ -810,8 +766,18 @@
   position: absolute;
   inset: 0 0 auto;
   height: 4px;
-  background: linear-gradient(90deg, #4f46e5 0%, #2563eb 100%);
+  background: #e5e7eb;
   content: "";
+}
+
+.lessonContext::after {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--lesson-progress, 0%);
+  height: 4px;
+  background: linear-gradient(90deg, #4f46e5, #2563eb);
+  content: "";
+  transition: width 350ms ease;
 }
 
 .lessonContext h1 { color: #1e293b; font-size: clamp(1.3rem, 4vw, 1.85rem); font-weight: 900; }
@@ -1782,8 +1748,7 @@
 
   .progress { gap: .22rem; }
   .progressMeta { font-size: .6rem; }
-  .blockTimeline { min-height: .52rem; }
-  .blockSegment { min-height: .48rem; }
+  .blockTimeline { height: .52rem; }
 
   .lessonContext {
     margin-top: .5rem;

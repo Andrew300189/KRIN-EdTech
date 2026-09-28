@@ -437,6 +437,19 @@ export function PlacementTest() {
   const handleDismiss = useCallback(() => dispatch({ type: "DISMISS_MODAL" }), []);
 
   useEffect(() => {
+    if (phase !== "test" || (!modal && (!feedback || answerIsCorrect))) return;
+    const onEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof HTMLElement && event.target.closest("button:not(:disabled), a, input, textarea, select")) return;
+      event.preventDefault();
+      if (modal) handleDismiss();
+      else dispatch({ type: "NEXT", wellDone: answerFeedback.wellDone });
+    };
+    window.addEventListener("keydown", onEnter);
+    return () => window.removeEventListener("keydown", onEnter);
+  }, [phase, modal, feedback, answerIsCorrect, handleDismiss, answerFeedback.wellDone]);
+
+  useEffect(() => {
     if (phase !== "result") return;
     let active = true;
 

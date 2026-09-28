@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
+import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 import { PronunciationCoach } from "./PronunciationCoach";
 import { vocabularyMasteryTranslation } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import { BAG_CHUNK_STAGE_SPAN, bagChunkKey, bagQuickCheckEligible, buildBagReviewStages, buildBagStoryStages, bagStory, isBagStorySettings, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
@@ -12,7 +13,7 @@ import styles from "./CourseVocabularyMasteryBlock.module.css";
 type IntroWord = { wordId: string; word: { lemma: string; meanings: Array<{ translation: string | null; definition: string }> } };
 type Task = { stageIndex: number; stepIndex: number; stageKey: string; kind: string; mode: "SPEAK" | "CHOICE" | "TYPE" | "ASSEMBLE"; code: string; cardNumber: number; chunkCode: string | null; chunkLocal: string | null; sentenceMode: string | null; sentenceLocal: string | null; prompt: string; speakTarget: string | null; audioTarget: string | null; options: Array<{ id: string; label: string }>; assembleWords: string[]; storyLines: string[]; stepCount: number; failedLine: boolean; hintEnglish: string | null; reviewCheck: boolean };
 type State = { completed: boolean; progress: { completedStages: number; totalStages: number; incorrectAttempts: number }; task: Task | null; speedWindow?: { id: string; openedAt: string; windowSeconds: number } | null };
-type Submission = { isCorrect: boolean; stageCompleted: boolean; state: State; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null; streakMilestones?: number[]; lessonAnswerStreak?: { current: number; recoverable: number } } | null };
+type Submission = { isCorrect: boolean; stageCompleted: boolean; state: State; exerciseId: string | null; motivationReward: { awarded: boolean; experience: number; levelUp?: boolean; streak?: { tone: string | null; activated: boolean; modeStart: number | null } | null; streakMilestones?: number[]; lessonAnswerStreak?: { current: number; recoverable: number } } | null };
 
 function speak(value: string, slow = false) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
@@ -55,6 +56,8 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   const [answer, setAnswer] = useState("");
   const [assembly, setAssembly] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [rewardExperience, setRewardExperience] = useState<number | null>(null);
+  const [rewardLevelUp, setRewardLevelUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
@@ -137,17 +140,19 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
       const result = await response.json() as { data?: Submission; error?: string };
       if (!response.ok || !result.data) throw new Error(result.error ?? "Unable to check answer");
       const next = result.data;
+      setRewardExperience(next.motivationReward?.awarded ? next.motivationReward.experience : null);
+      setRewardLevelUp(Boolean(next.motivationReward?.levelUp));
       if (!next.isCorrect) {
         setState({ ...next.state, speedWindow: null });
         setFeedback(next.state.task?.hintEnglish ? locale === "uk" ? "Спробуйте ще раз. Можна прослухати зразок." : "Попробуйте ещё раз. Можно прослушать образец." : locale === "uk" ? "Спробуйте ще раз." : "Попробуйте ещё раз.");
       } else if (next.stageCompleted) {
         setPending(next.state);
-        setFeedback(next.motivationReward?.awarded ? `+${next.motivationReward.experience} XP` : locale === "uk" ? "Правильно!" : "Правильно!");
+        setFeedback(next.motivationReward?.awarded ? null : locale === "uk" ? "Правильно!" : "Правильно!");
       } else {
         // A multi-line story stays on one card while the server persists the
         // current line. Only the active line advances.
         setState({ ...next.state, speedWindow: state?.speedWindow });
-        setFeedback(locale === "uk" ? "Рядок зараховано." : "Строка засчитана.");
+        setFeedback(next.motivationReward?.awarded ? null : locale === "uk" ? "Рядок зараховано." : "Строка засчитана.");
       }
       if (next.exerciseId && next.motivationReward) {
         onAttemptResolved?.({ exerciseId: next.exerciseId, isCorrect: next.isCorrect, isFinalExercise: false, difficulty: 1, streakTone: next.motivationReward.streak?.tone ?? null, streakMilestone: next.motivationReward.streak?.activated ? next.motivationReward.streak.modeStart : null, streakMilestones: next.motivationReward.streakMilestones, lessonAnswerStreak: next.motivationReward.lessonAnswerStreak });
@@ -164,13 +169,14 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   </div>;
   if (!canSaveProgress && !guestLoaded) return null;
   if (!displayState) return <div className={styles.mastery}>{error ? <p className={styles.error}>{error}</p> : <p className={styles.loading}>{locale === "uk" ? "Завантажуємо картку…" : "Загружаем карточку…"}</p>}<button className={styles.start} type="button" onClick={() => void load()}>{locale === "uk" ? "Повторити" : "Повторить"}</button></div>;
-  if (displayState.completed) return <div className={styles.completed}><span>✓</span><h3>{locale === "uk" ? "Урок завершено" : "Урок завершён"}</h3><button className={styles.submit} type="button" onClick={() => { if (completeSignalled.current) return; completeSignalled.current = true; onComplete?.(); }}>{locale === "uk" ? "Готово" : "Готово"}</button></div>;
+  if (displayState.completed) return <div className={styles.completed}><span>✓</span><h3>{locale === "uk" ? "Урок завершено" : "Урок завершён"}</h3><button className={styles.submit} data-lesson-enter-next="task" type="button" onClick={() => { if (completeSignalled.current) return; completeSignalled.current = true; onComplete?.(); }}>{locale === "uk" ? "Готово" : "Готово"}</button></div>;
   if (!task) return null;
   const hiddenSpeech = task.reviewCheck || task.kind === "BAG_RECALL" || task.kind === "BAG_REVIEW" && task.code === "RECALL" || task.code === "P" && task.cardNumber !== 1 || task.kind === "BAG_CHUNK" && ["RECALL_1", "RECALL_2", "RECALL_3"].includes(task.chunkCode ?? "") || task.kind === "BAG_SENTENCE" && task.sentenceMode === "HIDDEN";
   const elapsed = displayState.speedWindow ? Math.max(0, (clock - new Date(displayState.speedWindow.openedAt).getTime()) / 1000) : Number.POSITIVE_INFINITY;
   const speedPercent = remainingExerciseSpeedPercent(elapsed, displayState.speedWindow?.windowSeconds);
   const speedXp = experienceForExerciseSpeed(elapsed, displayState.speedWindow?.windowSeconds);
-  return <div className={styles.mastery}>
+  return <div className={`${styles.mastery} ${styles.bagStoryCard}`}>
+    {rewardExperience !== null ? <div className="lesson-correct-celebration" role="status" aria-live="polite"><strong>{learnerAnswerFeedback(locale).xpAwarded(rewardExperience)}</strong>{rewardLevelUp ? <span>Level up!</span> : null}</div> : null}
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${Math.max(2, displayState.progress.completedStages / displayState.progress.totalStages * 100)}%` }} /></div>
     {canSaveProgress ? <div className={styles.series}><div><strong>{locale === "uk" ? "Нагорода за швидкість" : "Награда за скорость"}</strong><span>+{speedXp} XP</span></div><div className={styles.seriesTrack}><span style={{ width: `${speedPercent}%` }} /></div></div> : null}
     {task.storyLines.length ? <ol className={styles.promptList}>{task.storyLines.map((line, index) => <li key={`${index}-${line}`} className={styles.promptRow} style={{ opacity: index > task.stepIndex ? .55 : 1 }}><span className={styles.prompt}>{index + 1}. {line}</span>{index < task.stepIndex ? <strong>✓</strong> : null}</li>)}</ol> : <p className={styles.word}>{task.prompt}</p>}
@@ -183,6 +189,6 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
     {task.hintEnglish || speechRetry && task.speakTarget ? <p className={styles.instruction}>{task.hintEnglish ?? task.speakTarget} <button type="button" onClick={() => speak(task.hintEnglish ?? task.speakTarget!)}>🔊</button><button type="button" onClick={() => speak(task.hintEnglish ?? task.speakTarget!, true)}>🐢</button></p> : null}
     {feedback ? <p className={styles.feedbackSuccess} role="status">{feedback}</p> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
-    {pending ? <button className={styles.submit} type="button" onClick={() => { setPending(null); if (canSaveProgress) void load(); else if (pendingGuestPosition.current) { setGuestPosition(pendingGuestPosition.current); pendingGuestPosition.current = null; } }}>{locale === "uk" ? "Далі →" : "Далее →"}</button> : null}
+    {pending ? <div className={styles.bagActionRow}><button className={`${styles.submit} ${styles.bagNextButton}`} data-lesson-enter-next="task" type="button" onClick={() => { setPending(null); setRewardExperience(null); if (canSaveProgress) void load(); else if (pendingGuestPosition.current) { setGuestPosition(pendingGuestPosition.current); pendingGuestPosition.current = null; } }}>{locale === "uk" ? "Далі →" : "Далее →"}</button></div> : null}
   </div>;
 }

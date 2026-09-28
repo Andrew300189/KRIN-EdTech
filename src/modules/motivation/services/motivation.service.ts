@@ -10,6 +10,7 @@ import { nextXpBooster, XP_BOOSTERS } from "@/modules/motivation/utils/shop-cons
 import { determineHeartbeatCredit } from "@/modules/motivation/utils/heartbeat-policy";
 import { correctAnswerStreak, streakChestMilestonesCrossed } from "@/modules/motivation/utils/correct-answer-streak";
 import { baseExperienceForExercise } from "@/modules/courses/utils/exercise-speed-reward";
+import { lessonLevelRewardBonus } from "@/modules/motivation/utils/lesson-level-reward";
 
 type Tx = Prisma.TransactionClient;
 type RewardEvent = "EXERCISE_CORRECT" | "LESSON_COMPLETED" | "HOMEWORK_COMPLETED" | "VOCABULARY_REVIEW" | "VOCABULARY_SESSION_COMPLETED" | "WARM_UP_COMPLETED" | "DAILY_GOAL" | "COURSE_COMPLETED";
@@ -763,12 +764,23 @@ async function applyPurchasedXpBooster(tx: Tx, userId: string, lessonId: string,
 }
 
 export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: string, courseId: string, firstCompletion: boolean) {
-  if (!firstCompletion) return { awarded: false, experience: 0, coins: 0, levelUp: false };
+  if (!firstCompletion) return { awarded: false, experience: 0, coins: 0, levelUp: false, levelBonusExperience: 0, rewardLevel: null };
   const context = await userContext(tx, userId);
+  const rewardLevel = (await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} })).level;
   await ensureDailyActivity(tx, userId, context.date);
   await tx.userDailyActivity.update({ where: { userId_date: { userId, date: context.date } }, data: { lessonsCompleted: { increment: 1 } } });
   await tx.learningActivity.create({ data: { userId, type: "LESSON_COMPLETED", courseId, lessonId } });
   const reward = await rewardForEvent(tx, userId, context.date, "LESSON_COMPLETED", lessonId, "Lesson completed");
+  const levelBonusAmount = lessonLevelRewardBonus(rewardLevel);
+  const levelBonus = levelBonusAmount > 0
+    ? await creditExperienceAndCoins(tx, {
+        userId, experienceAmount: levelBonusAmount, coinAmount: 0,
+        experienceType: "LESSON_COMPLETED", coinType: "LESSON_REWARD",
+        sourceType: "LESSON_LEVEL_BONUS", sourceId: lessonId,
+        idempotencyKey: `lesson-level-bonus:${userId}:${lessonId}`,
+        description: `Level ${rewardLevel} first-completion bonus`, date: context.date,
+      })
+    : { awarded: false, experience: 0, levelUp: false };
   const boost = await applyPurchasedXpBooster(tx, userId, lessonId, context.date);
   const [totalLessons, completedLessons] = await Promise.all([
     tx.lesson.count({ where: { module: { courseId, isPublished: true }, isPublished: true } }),
@@ -782,7 +794,7 @@ export async function recordLessonCompletion(tx: Tx, userId: string, lessonId: s
     ? await awardSpecialBadge(tx, userId, "NIGHT_WATCH")
     : null;
   await evaluateAchievements(tx, userId, context.date);
-  return { ...reward, experience: reward.experience + boost.experience, levelUp: reward.levelUp || boost.levelUp, boosterExperience: boost.experience, achievements: nightWatch ? [nightWatch.title] : [] };
+  return { ...reward, awarded: reward.awarded || levelBonus.awarded || boost.awarded, experience: reward.experience + levelBonus.experience + boost.experience, levelUp: reward.levelUp || levelBonus.levelUp || boost.levelUp, levelBonusExperience: levelBonus.experience, rewardLevel, boosterExperience: boost.experience, achievements: nightWatch ? [nightWatch.title] : [] };
 }
 
 /**

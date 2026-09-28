@@ -1,4 +1,9 @@
 .mastery { display: grid; gap: 1rem; margin-top: .35rem; color: var(--text-primary); }
+.bagStoryCard { border: 1px solid #d9defb; border-radius: 20px; background: linear-gradient(145deg, #fff 0%, #f8f9ff 100%); box-shadow: 0 14px 34px rgb(79 70 229 / 9%); padding: clamp(1rem, 2.4vw, 1.5rem); }
+.bagActionRow { display: flex; justify-content: flex-end; }
+.submit.bagNextButton { min-width: 8.75rem; background: linear-gradient(135deg, #5148e8, #2e65ec); box-shadow: 0 .55rem 1.1rem rgb(79 70 229 / 24%); }
+.submit.bagNextButton:hover:not(:disabled) { background: linear-gradient(135deg, #5148e8, #2e65ec); box-shadow: 0 .7rem 1.35rem rgb(79 70 229 / 31%); }
+.bagNextButton:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
 .intro { display: grid; gap: .85rem; margin-top: .25rem; }
 .lessonMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; min-height: 2.65rem; padding: .45rem .15rem; font-family: var(--font-lesson-meta); }
 .metaLabel { border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 999px; padding: .22rem .5rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-size: .9rem; font-style: italic; font-weight: 700; line-height: 1; white-space: nowrap; }
