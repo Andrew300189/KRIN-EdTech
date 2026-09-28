@@ -5,7 +5,7 @@ import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events"
 import { learnerAnswerFeedback } from "@/core/i18n/learner-answer-feedback";
 import { PronunciationCoach } from "./PronunciationCoach";
 import { vocabularyMasteryTranslation } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
-import { BAG_CHUNK_STAGE_SPAN, BAG_STAGES_PER_BLOCK, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagReviewStages, buildBagStoryStages, bagStory, isBagStorySettings, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
+import { BAG_CHUNK_STAGE_SPAN, BAG_STAGES_PER_BLOCK, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagLegacyPracticeStages, buildBagReviewStages, buildBagStoryStages, bagStory, isBagStorySettings, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import { experienceForExerciseSpeed, remainingExerciseSpeedPercent } from "@/modules/courses/utils/exercise-speed-reward";
 import { applyAnswerKeyboardLayout } from "@/modules/lessons/utils/answer-keyboard-layout";
@@ -74,12 +74,17 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   const planVersion = Number(configured?.version) >= BAG_STORY_PLAN_VERSION ? BAG_STORY_PLAN_VERSION : 2;
   const guestStorageKey = planVersion >= BAG_STORY_PLAN_VERSION ? `krin:bag-story-guest:v3:${lessonId}` : `krin:bag-story-guest:${lessonId}`;
   const reviewAll = configured?.reviewAll === true;
-  const blockCount = planVersion >= BAG_STORY_PLAN_VERSION ? reviewAll ? 6 : 5 : 1;
+  const practice = configured?.practiceKind === (reviewAll ? "LEGACY_REVIEW" : "LEGACY_PHRASE");
+  const practiceRound = Number(configured?.practiceRound);
+  const configuredPartCount = Number(configured?.partCount);
+  const blockCount = planVersion >= BAG_STORY_PLAN_VERSION ? Number.isInteger(configuredPartCount) && configuredPartCount >= 1 && configuredPartCount <= 6 ? configuredPartCount : reviewAll ? 6 : 5 : 1;
   const blockIndex = planVersion >= BAG_STORY_PLAN_VERSION && Number.isInteger(configured?.partIndex) ? Math.max(0, Math.min(blockCount - 1, Number(configured?.partIndex))) : 0;
-  const guestStages = useMemo(() => reviewAll ? buildBagReviewStages(words.map((word) => word.en), planVersion) : buildBagStoryStages(words.map((word) => word.en), words.map((word) => word.en), planVersion), [reviewAll, words, planVersion]);
-  const blockStart = blockIndex * BAG_STAGES_PER_BLOCK;
-  const blockEnd = planVersion >= BAG_STORY_PLAN_VERSION ? Math.min(guestStages.length, blockStart + BAG_STAGES_PER_BLOCK) : guestStages.length;
-  const blockWords = planVersion >= BAG_STORY_PLAN_VERSION ? reviewAll ? words.slice(blockIndex * 5, blockIndex * 5 + 5) : words.slice(blockIndex, blockIndex + 1) : words;
+  const configuredStageSpan = Number(configured?.stagesPerBlock);
+  const stagesPerBlock = practice && Number.isInteger(configuredStageSpan) && configuredStageSpan >= 1 && configuredStageSpan <= BAG_STAGES_PER_BLOCK ? configuredStageSpan : BAG_STAGES_PER_BLOCK;
+  const guestStages = useMemo(() => practice ? buildBagLegacyPracticeStages(words.map((word) => word.en), words.map((word) => word.en), practiceRound, reviewAll) : reviewAll ? buildBagReviewStages(words.map((word) => word.en), planVersion) : buildBagStoryStages(words.map((word) => word.en), words.map((word) => word.en), planVersion), [practice, practiceRound, reviewAll, words, planVersion]);
+  const blockStart = blockIndex * stagesPerBlock;
+  const blockEnd = planVersion >= BAG_STORY_PLAN_VERSION ? Math.min(guestStages.length, blockStart + stagesPerBlock) : guestStages.length;
+  const blockWords = planVersion >= BAG_STORY_PLAN_VERSION ? [...new Set(guestStages.slice(blockStart, blockEnd).map((stage) => stage.wordOrdinal))].map((ordinal) => words[ordinal]!).filter(Boolean) : words;
   useEffect(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem(guestStorageKey) ?? "null") as { stageIndex?: number; stepIndex?: number; masteredChunks?: string[]; relearningChunks?: string[] } | null;
@@ -104,7 +109,7 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   useEffect(() => { if (started && canSaveProgress) void load(); }, [started, canSaveProgress, load]);
   const guestStage = guestStages[guestPosition.stageIndex];
   const guestChunk = guestStage?.kind === "BAG_CHUNK" ? bagStory(words[guestStage.wordOrdinal]!.en, words[guestStage.wordOrdinal]!.local, locale)[guestStage.storyIndex! - 1]!.chunks[guestStage.chunkIndex!]! : null;
-  const guestReviewCheck = guestStage ? bagQuickCheckEligible(guestStage, guestChunk?.english ?? null, guestPosition.masteredChunks, guestPosition.relearningChunks) : false;
+  const guestReviewCheck = guestStage && !practice ? bagQuickCheckEligible(guestStage, guestChunk?.english ?? null, guestPosition.masteredChunks, guestPosition.relearningChunks) : false;
   const guestTask = guestStage ? { ...guestCard(guestStage, guestPosition.stepIndex, words, locale, guestReviewCheck, guestPosition.failedLine), stageIndex: guestPosition.stageIndex } : null;
   const guestState: State = { completed: guestPosition.stageIndex >= guestStages.length, progress: { completedStages: guestPosition.stageIndex, totalStages: guestStages.length, incorrectAttempts: guestPosition.incorrectAttempts }, task: guestTask, speedWindow: null };
   const displayState = canSaveProgress ? state : guestState;
@@ -184,7 +189,7 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   if (canSaveProgress && (!progressHydrated || resumeOnEntry && !started)) return <div className={styles.loading}>{locale === "uk" ? "Завантажуємо картку…" : "Загружаем карточку…"}</div>;
   if (!started) return <div className={styles.intro}>
     <h3>{planVersion >= BAG_STORY_PLAN_VERSION ? locale === "uk" ? `Блок ${blockIndex + 1} із ${blockCount}` : `Блок ${blockIndex + 1} из ${blockCount}` : locale === "uk" ? `${words.length} фраз цього уроку` : `${words.length} фраз этого урока`}</h3>
-    <ul className={styles.introWords}>{blockWords.map((word, index) => <li key={`${word.en}-${index}`}><span>{reviewAll ? blockIndex * 5 + index + 1 : blockIndex + index + 1}</span><strong>{word.en}</strong><em>{word.local}</em></li>)}</ul>
+    <ul className={styles.introWords}>{blockWords.map((word, index) => <li key={`${word.en}-${index}`}><span>{words.findIndex((item) => item.en === word.en) + 1}</span><strong>{word.en}</strong><em>{word.local}</em></li>)}</ul>
     <button className={styles.start} type="button" onClick={() => setStarted(true)}>{locale === "uk" ? "Почати" : "Начать"}</button>
   </div>;
   if (!canSaveProgress && !guestLoaded) return null;
@@ -197,7 +202,7 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   const speedXp = experienceForExerciseSpeed(elapsed, displayState.speedWindow?.windowSeconds);
   return <div className={`${styles.mastery} ${styles.vocabularyCard} ${styles.bagStoryCard} ${task.mode === "ASSEMBLE" ? styles.assemblyCard : ""}`}>
     {rewardExperience !== null ? <div className="lesson-correct-celebration" role="status" aria-live="polite"><strong>{learnerAnswerFeedback(locale).xpAwarded(rewardExperience)}</strong>{rewardLevelUp ? <span>Level up!</span> : null}</div> : null}
-    {planVersion >= BAG_STORY_PLAN_VERSION ? <div className={styles.bagBlockHeading}><span>{locale === "uk" ? `Блок ${blockIndex + 1} із ${blockCount}` : `Блок ${blockIndex + 1} из ${blockCount}`}</span><strong>{reviewAll ? locale === "uk" ? `Повторення: фрази ${blockIndex * 5 + 1}–${Math.min(words.length, (blockIndex + 1) * 5)}` : `Повторение: фразы ${blockIndex * 5 + 1}–${Math.min(words.length, (blockIndex + 1) * 5)}` : words[blockIndex]?.en}</strong></div> : null}
+    {planVersion >= BAG_STORY_PLAN_VERSION ? <div className={styles.bagBlockHeading}><span>{locale === "uk" ? `Блок ${blockIndex + 1} із ${blockCount}` : `Блок ${blockIndex + 1} из ${blockCount}`}</span><strong>{reviewAll ? locale === "uk" ? "Повторення фраз" : "Повторение фраз" : blockWords[0]?.en}</strong></div> : null}
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${Math.max(2, displayState.progress.completedStages / displayState.progress.totalStages * 100)}%` }} /></div>
     {canSaveProgress ? <div className={styles.series}><div><strong>{locale === "uk" ? "Нагорода за швидкість" : "Награда за скорость"}</strong><span>+{speedXp} XP</span></div><div className={styles.seriesTrack}><span style={{ width: `${speedPercent}%` }} /></div></div> : null}
     {task.storyLines.length ? <ol className={styles.promptList}>{task.storyLines.map((line, index) => <li key={`${index}-${line}`} className={styles.promptRow} style={{ opacity: index > task.stepIndex ? .55 : 1 }}><span className={styles.prompt}>{index + 1}. {line}</span>{index < task.stepIndex ? <strong>✓</strong> : null}</li>)}</ol> : <p className={styles.word}>{task.prompt}</p>}

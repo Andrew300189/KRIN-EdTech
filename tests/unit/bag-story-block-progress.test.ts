@@ -15,3 +15,10 @@ it("keeps old one-block lessons compatible without granting new blocks", () => {
   expect(verifiedBagStoryBlockIds(old, 1884, false)).toEqual([]);
   expect(verifiedBagStoryBlockIds(old, 1885, true)).toEqual(["legacy"]);
 });
+
+it("verifies two-card blocks in the final phrase-practice round", () => {
+  const blocks = Array.from({ length: 5 }, (_, partIndex) => ({ id: `short-${partIndex}`, settings: { engine: "bag-story", version: 3, partIndex, stagesPerBlock: 2 } }));
+  expect(verifiedBagStoryBlockIds(blocks, 1, false)).toEqual([]);
+  expect(verifiedBagStoryBlockIds(blocks, 2, false)).toEqual(["short-0"]);
+  expect(verifiedBagStoryBlockIds(blocks, 10, true)).toEqual(blocks.map((block) => block.id));
+});

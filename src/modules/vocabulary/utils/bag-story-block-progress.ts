@@ -9,6 +9,8 @@ export function verifiedBagStoryBlockIds(blocks: Array<{ id: string; settings: u
   return bagBlocks.filter((block) => {
     if (!isBagStorySettings(block.settings)) return false;
     const partIndex = Number(block.settings.partIndex);
-    return Number.isInteger(partIndex) && partIndex >= 0 && stageIndex >= (partIndex + 1) * BAG_STAGES_PER_BLOCK;
+    const configuredSpan = Number(block.settings.stagesPerBlock);
+    const stageSpan = Number.isInteger(configuredSpan) && configuredSpan >= 1 && configuredSpan <= BAG_STAGES_PER_BLOCK ? configuredSpan : BAG_STAGES_PER_BLOCK;
+    return Number.isInteger(partIndex) && partIndex >= 0 && stageIndex >= (partIndex + 1) * stageSpan;
   }).map((block) => block.id);
 }

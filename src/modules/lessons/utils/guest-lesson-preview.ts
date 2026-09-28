@@ -19,7 +19,7 @@ function positiveInteger(value: unknown, fallback: number) {
  */
 export function guestPreviewUnitsForBlock(block: PreviewBlock) {
   if (block.type === "VOCABULARY" && isBagStorySettings(block.settings)) {
-    if (Number(block.settings.version) >= BAG_STORY_PLAN_VERSION) return BAG_STAGES_PER_BLOCK;
+    if (Number(block.settings.version) >= BAG_STORY_PLAN_VERSION) return Math.min(BAG_STAGES_PER_BLOCK, Math.max(1, block.exercises.length));
     return block.settings.reviewAll === true ? 120 : bagStoryStageCount(positiveInteger(block.settings.newWordCount, 5), 2);
   }
   const mastery = block.type === "VOCABULARY" ? asVocabularyMasterySettings(block.settings) : null;

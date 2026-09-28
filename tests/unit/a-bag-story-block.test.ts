@@ -63,4 +63,13 @@ describe("Bag story guest preview", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Наступний блок →" }));
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
+
+  it("renders the final legacy practice round as five two-card blocks", () => {
+    const onProgress = jest.fn();
+    render(React.createElement(BagStoryBlock, { lessonId: "legacy-last-round", settings: { engine: "bag-story", version: 3, practiceKind: "LEGACY_PHRASE", practiceRound: 75, partIndex: 4, partCount: 5, stagesPerBlock: 2 }, introWords, contentLocale: "uk", canSaveProgress: false, onProgress }));
+    expect(screen.getByText("Блок 5 із 5")).toBeInTheDocument();
+    expect(screen.getByText("a bag of oranges", { selector: "strong" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Почати" }));
+    expect(onProgress).toHaveBeenCalledWith({ completedStages: 0, totalStages: 2 });
+  });
 });

@@ -3,6 +3,8 @@
 export const BAG_CARD_ORDER = ["P", "CE", "TL", "S", "TE"] as const;
 export const BAG_STORY_PLAN_VERSION = 3;
 export const BAG_STAGES_PER_BLOCK = BAG_CARD_ORDER.length;
+export const BAG_LEGACY_PRACTICE_ROUNDS = 76;
+export const BAG_LEGACY_REVIEW_ROUNDS = 5;
 const LEGACY_BAG_CARD_ORDER = (
   "P CE TL TE S CL TE P TL S TL P TE CE TE CL TL P S P TL CE TE S CL P TE TL TE CE P TL S TE TL P CL P TE TL CE S CL TL P TE TL CE TE P S TE P CL TL P CE TE TL S CL TE TL P TL P CE TE S TE TL CL P CE P TE TL S"
 ).split(" ") as Array<"P" | "CE" | "CL" | "TE" | "TL" | "S">;
@@ -71,6 +73,16 @@ export function buildBagReviewStages(wordIds: string[], planVersion = BAG_STORY_
     requiredSteps: 1,
     choiceWordIds: wordIds,
   }));
+}
+
+/** Distributes every old card into short lessons: five phrases alternate, with
+ * up to five legacy cards per phrase. No historic stage is dropped or doubled. */
+export function buildBagLegacyPracticeStages(wordIds: string[], phraseLemmas: string[], round: number, reviewAll = false): BagStage[] {
+  if (!Number.isInteger(round) || round < 0 || round >= (reviewAll ? BAG_LEGACY_REVIEW_ROUNDS : BAG_LEGACY_PRACTICE_ROUNDS)) return [];
+  if (reviewAll) return buildBagReviewStages(wordIds, 2).slice(round * 25, (round + 1) * 25);
+  const stages = buildBagStoryStages(wordIds, phraseLemmas, 2);
+  const perWord = bagStoryStageCount(1, 2);
+  return wordIds.flatMap((_, wordOrdinal) => stages.slice(wordOrdinal * perWord + round * BAG_STAGES_PER_BLOCK, Math.min((wordOrdinal + 1) * perWord, wordOrdinal * perWord + (round + 1) * BAG_STAGES_PER_BLOCK)));
 }
 
 /** Old sessions stay readable until the published course is upgraded. */
