@@ -80,9 +80,16 @@
 }
 
 .blockTimeline {
-  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(var(--lesson-block-count, 1), minmax(0, 1fr));
+  gap: .22rem;
   width: min(100%, 34rem);
   height: .62rem;
+}
+
+.blockTimelineSegment {
+  min-width: 0;
+  overflow: hidden;
   border-radius: 999px;
   background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-secondary));
 }
@@ -758,7 +765,8 @@
   color: #312e81;
 }
 
-.blockTimeline { height: .7rem; background: #e5e7eb; }
+.blockTimeline { height: .7rem; }
+.blockTimelineSegment { background: #e5e7eb; }
 
 .lessonContext {
   position: relative;

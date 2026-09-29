@@ -117,8 +117,10 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
   const guestTask = guestStage ? { ...guestCard(guestStage, guestPosition.stepIndex, words, locale, guestReviewCheck, guestPosition.failedLine), stageIndex: guestPosition.stageIndex } : null;
   const guestState: State = { completed: guestPosition.stageIndex >= guestStages.length, progress: { completedStages: guestPosition.stageIndex, totalStages: guestStages.length, incorrectAttempts: guestPosition.incorrectAttempts }, task: guestTask, speedWindow: null };
   const displayState = canSaveProgress ? state : guestState;
-  const completedStages = displayState?.progress.completedStages;
-  const totalStages = displayState?.progress.totalStages;
+  // A confirmed answer is held on its reward screen until "Next". Count it
+  // in the lesson header immediately instead of waiting for the next fetch.
+  const completedStages = pending?.progress.completedStages ?? displayState?.progress.completedStages;
+  const totalStages = pending?.progress.totalStages ?? displayState?.progress.totalStages;
   useEffect(() => {
     if (started && completedStages !== undefined && totalStages !== undefined) onProgress?.({ completedStages: Math.max(0, Math.min(blockEnd - blockStart, completedStages - blockStart)), totalStages: blockEnd - blockStart });
   }, [started, completedStages, totalStages, blockStart, blockEnd, onProgress]);

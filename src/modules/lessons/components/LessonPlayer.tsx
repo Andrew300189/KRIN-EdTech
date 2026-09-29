@@ -19,6 +19,7 @@ import { CourseCompletionReview } from "@/modules/courses/components/CourseCompl
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
 import { isLessonProgressComplete, lessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
+import { lessonBlockProgressFractions, lessonProgressPercent } from "@/modules/lessons/utils/lesson-block-progress";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonRewardWheel, type LessonXpMultiplierWheelResult } from "./LessonRewardWheel";
 import { LessonBlockRenderer } from "./LessonBlockRenderer";
@@ -169,19 +170,6 @@ function validCurrentBlockId(value: unknown, blocks: LessonBlock[]) {
   return typeof value === "string" && blocks.some((block) => block.id === value)
     ? value
     : blocks[0]?.id ?? null;
-}
-
-function getBlockProgressFraction(
-  block: LessonBlock,
-  completedBlockIds: readonly string[],
-  attemptedExerciseIds: ReadonlySet<string>,
-) {
-  // The lesson timeline measures work completed, including an answered card
-  // that needs later review. Accuracy remains visible in the coloured segment.
-  if (block.exercises.length > 0) {
-    return block.exercises.filter((exercise) => attemptedExerciseIds.has(exercise.id)).length / block.exercises.length;
-  }
-  return completedBlockIds.includes(block.id) ? 1 : 0;
 }
 
 /** Animate a completion reward from zero without changing the announced
@@ -484,25 +472,20 @@ export function LessonPlayer({
     () => new Set(Object.keys(exerciseResults)),
     [exerciseResults],
   );
-  const progressPercent = useMemo(() => {
-    if (blocks.length === 0) return 0;
-
-    // A completed lesson keeps its historical 100% status. A new or resumed
-    // lesson fills each large step according to its individual answers.
-    if (lessonIsCompleted && !isPracticeRunRef.current) return 100;
+  const blockFractions = useMemo(() => {
     const visitedBlocks = isPracticeRunRef.current ? practiceBlockIds : completedBlocks;
     const answeredThisVisit = isPracticeRunRef.current
       ? new Set(visitExerciseIds.filter((exerciseId) => attemptedExerciseIds.has(exerciseId)))
       : attemptedExerciseIds;
-    const completedFraction = blocks.reduce((total, block) => {
-      if (isBagStorySettings(block.settings)) {
-        if (visitedBlocks.includes(block.id)) return total + 1;
-        if (bagStoryProgress?.blockId === block.id && bagStoryProgress.totalStages > 0) return total + Math.min(1, bagStoryProgress.completedStages / bagStoryProgress.totalStages);
-      }
-      return total + getBlockProgressFraction(block, visitedBlocks, answeredThisVisit);
-    }, 0);
-    return Math.round((completedFraction / blocks.length) * 100);
+    return lessonBlockProgressFractions(
+      blocks.map((block) => ({ id: block.id, exerciseIds: block.exercises.map((exercise) => exercise.id), isBagStory: isBagStorySettings(block.settings) })),
+      visitedBlocks,
+      answeredThisVisit,
+      bagStoryProgress,
+      lessonIsCompleted && !isPracticeRunRef.current,
+    );
   }, [blocks, completedBlocks, attemptedExerciseIds, lessonIsCompleted, practiceBlockIds, visitExerciseIds, bagStoryProgress]);
+  const progressPercent = lessonProgressPercent(blockFractions);
   const progressLabel = lessonIsCompleted
     ? locale === "uk" ? `Практика · ${progressPercent}% повторено` : locale === "ru" ? `Практика · ${progressPercent}% повторено` : `Practice · ${progressPercent}% revisited`
     : locale === "uk" ? `${progressPercent}% завершено` : locale === "ru" ? `${progressPercent}% пройдено` : `${progressPercent}% complete`;
@@ -1141,8 +1124,12 @@ export function LessonPlayer({
           </div>
           <div className={styles.progress} aria-label={`Lesson progress: ${progressLabel}`}>
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
-            <div className={styles.blockTimeline} role="progressbar" aria-label={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-              <span className={styles.blockTimelineFill} style={{ width: `${progressPercent}%` }} />
+            <div className={styles.blockTimeline} style={{ "--lesson-block-count": Math.max(1, blockFractions.length) } as CSSProperties} role="progressbar" aria-label={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+              {(blockFractions.length ? blockFractions : [0]).map((fraction, index) => (
+                <span className={styles.blockTimelineSegment} key={blocks[index]?.id ?? "empty"} aria-hidden="true">
+                  <span className={styles.blockTimelineFill} style={{ width: `${fraction * 100}%` }} />
+                </span>
+              ))}
             </div>
           </div>
           <div className={styles.stepArea}>
@@ -1418,7 +1405,12 @@ export function LessonPlayer({
                     triggerSuccessEffect(shouldBurstLessonConfetti({ isCorrect: true, difficulty: 2 }));
                   }}
                   onBagStoryProgress={({ completedStages, totalStages }) => {
-                    setBagStoryProgress((current) => current?.blockId === activeBlock.id && current.completedStages === completedStages && current.totalStages === totalStages ? current : { blockId: activeBlock.id, completedStages, totalStages });
+                    setBagStoryProgress((current) => {
+                      // The previous card remains mounted while the next
+                      // server state loads. Never flash its segment backwards.
+                      if (current?.blockId === activeBlock.id && current.totalStages === totalStages && current.completedStages >= completedStages) return current;
+                      return { blockId: activeBlock.id, completedStages, totalStages };
+                    });
                   }}
                   onVocabularyMasteryComplete={() => {
                     setStepVerified(true);
