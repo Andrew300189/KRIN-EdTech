@@ -1091,8 +1091,9 @@ model LessonProgress {
   @@index([userId, lastSeenAt])
 }
 
-/// The answer streak shown inside one lesson. It survives Save & exit and is
-/// updated in the same transaction as each verified exercise attempt.
+/// The answer streak shown inside a lesson. It survives Save & exit, is
+/// updated with each verified attempt, and can be seeded into the next
+/// published lesson after a server-verified completion.
 model LessonAnswerStreak {
   id                String   @id @default(cuid())
   userId            String

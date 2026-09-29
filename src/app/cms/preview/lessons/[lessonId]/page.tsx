@@ -27,7 +27,7 @@ export default async function CmsLessonPreviewPage({ params }: { params: Promise
       estimatedDuration={lesson.estimatedDuration}
       objectives={lesson.learningObjectives}
       blocks={lesson.blocks}
-      lessons={[{ slug: lesson.slug, title: lesson.title, order: lesson.order }]}
+      lessons={[{ id: lesson.id, slug: lesson.slug, title: lesson.title, order: lesson.order }]}
       currentSlug={lesson.slug}
       canSaveProgress={false}
       previewMode

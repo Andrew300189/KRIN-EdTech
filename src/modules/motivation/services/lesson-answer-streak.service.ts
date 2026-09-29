@@ -29,6 +29,66 @@ export async function getLessonAnswerStreak(userId: string, lessonId: string) {
   return { current: streak?.current ?? 0, best: streak?.best ?? 0, recoverable: streak?.recoverable ?? 0, lilies };
 }
 
+/** Continue one verified answer run across the course's next published lesson.
+ * The destination is seeded only once, before it has its own answer history.
+ * Both rows use the same locks as exercise attempts and Water Lily recovery. */
+export async function carryLessonAnswerStreakToNextLesson(userId: string, lessonId: string, nextLessonId: string) {
+  if (lessonId === nextLessonId) throw new Error("The next lesson must be different.");
+  return prisma.$transaction(async (tx) => {
+    for (const id of [lessonId, nextLessonId].sort()) {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`lesson-answer-streak:${userId}:${id}`}))`);
+    }
+
+    const source = await tx.lesson.findUnique({
+      where: { id: lessonId },
+      select: {
+        isPublished: true,
+        module: { select: {
+          isPublished: true,
+          course: { select: {
+            isPublished: true,
+            modules: { where: { isPublished: true }, orderBy: { order: "asc" }, select: {
+              lessons: { where: { isPublished: true }, orderBy: { order: "asc" }, select: { id: true } },
+            } },
+          } },
+        } },
+      },
+    });
+    if (!source?.isPublished || !source.module.isPublished || !source.module.course.isPublished) {
+      throw new Error("The completed lesson is no longer published.");
+    }
+    const orderedLessonIds = source.module.course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id));
+    const sourceIndex = orderedLessonIds.indexOf(lessonId);
+    if (sourceIndex < 0 || orderedLessonIds[sourceIndex + 1] !== nextLessonId) {
+      throw new Error("The destination is not the next published lesson in this course.");
+    }
+
+    const progress = await tx.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId, lessonId } },
+      select: { status: true },
+    });
+    if (progress?.status !== "COMPLETED") throw new Error("Finish the lesson before continuing.");
+
+    const existing = await tx.lessonAnswerStreak.findUnique({
+      where: { userId_lessonId: { userId, lessonId: nextLessonId } },
+      select: { current: true, best: true, recoverable: true },
+    });
+    if (existing) return { ...existing, transferred: false };
+
+    const sourceStreak = await tx.lessonAnswerStreak.findUnique({
+      where: { userId_lessonId: { userId, lessonId } },
+      select: { current: true, best: true },
+    });
+    if (!sourceStreak?.current) return { current: 0, best: 0, recoverable: 0, transferred: false };
+
+    const carried = await tx.lessonAnswerStreak.create({
+      data: { userId, lessonId: nextLessonId, current: sourceStreak.current, best: sourceStreak.best, recoverable: 0 },
+      select: { current: true, best: true, recoverable: true },
+    });
+    return { ...carried, transferred: true };
+  });
+}
+
 /** A restore and a flower consumption are one server transaction. The
  * serialized inventory prevents two lessons from spending the same lily. */
 export async function resolveLessonAnswerStreak(userId: string, lessonId: string, action: "RESTORE" | "CONTINUE") {

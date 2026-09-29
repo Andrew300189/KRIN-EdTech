@@ -88,7 +88,7 @@ type Props = {
   estimatedDuration: number;
   objectives: unknown;
   blocks: LessonBlock[];
-  lessons: Array<{ slug: string; title: string; order: number }>;
+  lessons: Array<{ id: string; slug: string; title: string; order: number }>;
   completedLessonSlugs?: string[];
   currentSlug: string;
   canSaveProgress: boolean;
@@ -324,8 +324,8 @@ export function LessonPlayer({
   const [baseXpAnimationComplete, setBaseXpAnimationComplete] = useState(false);
   const [openingNextLesson, setOpeningNextLesson] = useState(false);
   const [exerciseResults, setExerciseResults] = useState<Record<string, boolean>>({});
-  // This is deliberately session-local. It represents the sequence of answers
-  // the learner is making right now, not a historic course statistic.
+  // The header hydrates the server-owned answer run, including a streak
+  // carried from the preceding lesson. Verified attempts remain authoritative.
   const [correctAnswersInRow, setCorrectAnswersInRow] = useState(0);
   const [brokenAnswerStreak, setBrokenAnswerStreak] = useState(0);
   const [streakFrozen, setStreakFrozen] = useState(false);
@@ -937,6 +937,15 @@ export function LessonPlayer({
         });
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         if (!response.ok) throw new Error(payload?.error ?? "Unable to save the lesson streak.");
+      }
+      if (canSaveProgress && !previewMode && !isReviewSession) {
+        const response = await fetch(`/api/learning/lessons/${lessonId}/answer-streak/advance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nextLessonId: nextLesson.id }),
+        });
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        if (!response.ok) throw new Error(payload?.error ?? "Unable to carry the answer streak into the next lesson.");
       }
       router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextLesson.slug}`);
     } catch (error) {

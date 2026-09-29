@@ -190,11 +190,12 @@ export default async function ModuleOrLessonPage({ params, searchParams }: {
   const initialReviewExerciseId = reviewRun && requestedReviewExerciseId && reviewRun.exerciseIds.includes(requestedReviewExerciseId)
     ? requestedReviewExerciseId
     : reviewRun?.exerciseIds[0];
+  const courseLessons = lesson.module.course.modules.flatMap((courseModule) => courseModule.lessons);
   const completedLessonIds = authenticated ? await prisma.lessonProgress.findMany({
-    where: { userId: authenticated.user.id, lesson: { moduleId: lesson.module.id, slug: { in: lesson.module.lessons.map((item) => item.slug) } }, OR: [{ status: "COMPLETED" }, { completionPercent: 100 }] },
-    select: { lesson: { select: { slug: true } } },
+    where: { userId: authenticated.user.id, lessonId: { in: courseLessons.map((item) => item.id) }, OR: [{ status: "COMPLETED" }, { completionPercent: 100 }] },
+    select: { lessonId: true },
   }) : [];
-  const completedSlugSet = new Set(completedLessonIds.map((item) => item.lesson.slug));
-  const completedLessonSlugs = lesson.module.lessons.filter((item) => completedSlugSet.has(item.slug)).map((item) => item.slug);
-  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={reviewBlocks} lessons={lesson.module.lessons} completedLessonSlugs={completedLessonSlugs} currentSlug={lesson.slug} canSaveProgress={Boolean(authenticated)} vocabulary={reviewRun ? [] : lesson.vocabulary} warmUpSessionId={reviewRun ? null : warmUp?.id} warmUpRequired={reviewRun ? false : (warmUpConfiguration?.isRequired ?? false)} autoUnlockNextLesson={reviewMistake || reviewRun ? false : lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} returnHref={reviewReturnHref} reviewMistake={reviewMistake?.exerciseId ? { exerciseId: reviewMistake.exerciseId, returnHref: reviewReturnHref! } : undefined} reviewSession={reviewRun ? { runId: reviewRun.runId, exerciseIds: reviewRun.exerciseIds, initialMistakeCount: reviewRun.initialMistakeCount, initialExerciseId: initialReviewExerciseId, correctStreak: reviewRun.correctStreak } : undefined} />;
+  const completedIdSet = new Set(completedLessonIds.map((item) => item.lessonId));
+  const completedLessonSlugs = courseLessons.filter((item) => completedIdSet.has(item.id)).map((item) => item.slug);
+  return <LessonPlayer lessonId={lesson.id} courseSlug={lesson.module.course.slug} moduleTitle={lesson.module.title} title={lesson.title} estimatedDuration={lesson.estimatedDuration} objectives={lesson.learningObjectives} blocks={reviewBlocks} lessons={courseLessons} completedLessonSlugs={completedLessonSlugs} currentSlug={lesson.slug} canSaveProgress={Boolean(authenticated)} vocabulary={reviewRun ? [] : lesson.vocabulary} warmUpSessionId={reviewRun ? null : warmUp?.id} warmUpRequired={reviewRun ? false : (warmUpConfiguration?.isRequired ?? false)} autoUnlockNextLesson={reviewMistake || reviewRun ? false : lesson.autoUnlockNextLesson} isFirstCourseLesson={isFirstCourseLesson} returnHref={reviewReturnHref} reviewMistake={reviewMistake?.exerciseId ? { exerciseId: reviewMistake.exerciseId, returnHref: reviewReturnHref! } : undefined} reviewSession={reviewRun ? { runId: reviewRun.runId, exerciseIds: reviewRun.exerciseIds, initialMistakeCount: reviewRun.initialMistakeCount, initialExerciseId: initialReviewExerciseId, correctStreak: reviewRun.correctStreak } : undefined} />;
 }
