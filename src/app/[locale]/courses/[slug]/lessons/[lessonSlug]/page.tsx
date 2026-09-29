@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
 import { prisma } from "@/core/server/prisma";
 import { defaultContentLocale, isTranslatableContentLocale, normalizeContentLocale } from "@/modules/courses/localization/content-locales";
 import { getPublishedLessonBySlug } from "@/modules/courses/services/content.service";
+import { replacementForArchivedBagLesson } from "@/modules/courses/services/archived-lesson-redirect.service";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { LessonPlayer } from "@/modules/lessons/components/LessonPlayer";
 import { createLessonWarmUp } from "@/modules/vocabulary/services/vocabulary.service";
@@ -61,6 +62,10 @@ export default async function LocalizedLessonPage({ params }: { params: Promise<
   const locale = normalizeContentLocale(inputLocale);
   if (!isTranslatableContentLocale(locale)) notFound();
   const lesson = await getPublishedLessonBySlug(slug, lessonSlug, locale);
+  if (!lesson) {
+    const replacement = await replacementForArchivedBagLesson(slug, lessonSlug);
+    if (replacement) redirect(`/${locale}/courses/${slug}/lessons/${replacement}`);
+  }
   if (!lesson || lesson.contentLocale !== locale || locale === defaultContentLocale) notFound();
   const authenticated = await requireAuth();
   const access = await canAccessLesson(authenticated?.user.id ?? null, lesson.id);

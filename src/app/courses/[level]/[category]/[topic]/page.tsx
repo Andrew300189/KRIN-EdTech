@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "@/core/server/session";
 import { getPublishedCurriculumTopicPage, getPublishedLessonBySlug, getPublishedModuleById } from "@/modules/courses/services/content.service";
+import { replacementForArchivedBagLesson } from "@/modules/courses/services/archived-lesson-redirect.service";
 import { canAccessLesson } from "@/modules/courses/services/lesson-access.service";
 import { LessonPlayer } from "@/modules/lessons/components/LessonPlayer";
 import { prisma } from "@/core/server/prisma";
@@ -141,6 +142,10 @@ export default async function ModuleOrLessonPage({ params, searchParams }: {
 
   if (category !== "lessons") notFound();
   const lesson = await getPublishedLessonBySlug(courseSlug, topic);
+  if (!lesson) {
+    const replacement = await replacementForArchivedBagLesson(courseSlug, topic);
+    if (replacement) redirect(`/courses/${courseSlug}/lessons/${replacement}`);
+  }
   if (!lesson) notFound();
   const lessonSearchParams = await searchParams;
   const reviewRunId = typeof lessonSearchParams.reviewRun === "string" ? lessonSearchParams.reviewRun : null;
