@@ -1126,7 +1126,7 @@ export function LessonPlayer({
             <div className={styles.progressMeta}><span>{progressLabel}</span><span>{previewMode ? chromeCopy.preview : `${chromeCopy.active} ${formattedTime}`}</span></div>
             <div className={styles.blockTimeline} style={{ "--lesson-block-count": Math.max(1, blockFractions.length) } as CSSProperties} role="progressbar" aria-label={progressLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
               {(blockFractions.length ? blockFractions : [0]).map((fraction, index) => (
-                <span className={styles.blockTimelineSegment} key={blocks[index]?.id ?? "empty"} aria-hidden="true">
+                <span className={`${styles.blockTimelineSegment} ${blocks.length > 0 && index === activeIndex ? styles.blockTimelineSegmentActive : ""}`} key={blocks[index]?.id ?? "empty"} aria-hidden="true">
                   <span className={styles.blockTimelineFill} style={{ width: `${fraction * 100}%` }} />
                 </span>
               ))}

@@ -94,6 +94,11 @@
   background: color-mix(in srgb, var(--text-muted) 16%, var(--surface-secondary));
 }
 
+.blockTimelineSegmentActive {
+  outline: 1px solid color-mix(in srgb, var(--primary) 55%, var(--border));
+  outline-offset: 1px;
+}
+
 .blockTimelineFill {
   display: block;
   height: 100%;
