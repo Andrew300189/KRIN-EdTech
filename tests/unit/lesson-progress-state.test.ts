@@ -1,4 +1,4 @@
-import { hasReachedLessonCompletion, isLessonProgressComplete, lessonEntryBlockId, resolveLessonProgressStatus } from "@/modules/lessons/utils/lesson-progress-state";
+import { firstIncompleteRequiredBlockId, hasReachedLessonCompletion, isLessonProgressComplete, lessonEntryBlockId, resolveLessonProgressStatus, unfinishedLessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
 
 describe("lesson completion state", () => {
   it("keeps a completed lesson completed during a later practice visit", () => {
@@ -16,6 +16,20 @@ describe("lesson completion state", () => {
   it("completes a new lesson only after the learner finishes required blocks", () => {
     expect(resolveLessonProgressStatus("STARTED", true, true)).toBe("COMPLETED");
     expect(resolveLessonProgressStatus("STARTED", true, false)).toBe("STARTED");
+  });
+
+  it("returns to a required block skipped before the saved final step", () => {
+    const blocks = [
+      { id: "theory", isRequired: true },
+      { id: "practice-one", isRequired: true },
+      { id: "practice-two", isRequired: true },
+      { id: "final", isRequired: true },
+    ];
+
+    expect(firstIncompleteRequiredBlockId(blocks, ["practice-one", "practice-two", "final"])).toBe("theory");
+    expect(unfinishedLessonEntryBlockId(blocks, ["practice-one", "practice-two", "final"], "final")).toBe("theory");
+    expect(unfinishedLessonEntryBlockId(blocks, ["theory"], "practice-one")).toBe("practice-one");
+    expect(firstIncompleteRequiredBlockId(blocks, blocks.map((block) => block.id))).toBeNull();
   });
 
   it("keeps a historical 100% lesson available even when its terminal status was not saved", () => {

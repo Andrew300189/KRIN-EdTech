@@ -18,7 +18,7 @@ import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events"
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
-import { isLessonProgressComplete, lessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
+import { firstIncompleteRequiredBlockId, isLessonProgressComplete, lessonEntryBlockId, unfinishedLessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
 import { lessonBlockProgressFractions, lessonProgressPercent } from "@/modules/lessons/utils/lesson-block-progress";
 import { LessonSuccessEffects, type LessonSuccessEffect } from "./LessonSuccessEffects";
 import { LessonRewardWheel, type LessonXpMultiplierWheelResult } from "./LessonRewardWheel";
@@ -637,7 +637,7 @@ export function LessonPlayer({
             ...new Set([...Object.keys(savedResults), ...current]),
           ]);
           setCompletedBlocks(restoredBlocks);
-          setCurrentBlockId(restoredCurrentBlock);
+          setCurrentBlockId(unfinishedLessonEntryBlockId(blocks, restoredBlocks, restoredCurrentBlock));
         }
         setElapsedSeconds(saved.activeSeconds ?? 0);
       })
@@ -844,7 +844,11 @@ export function LessonPlayer({
     if (isPracticeRunRef.current) {
       setPracticeBlockIds((current) => current.includes(activeBlock.id) ? current : [...current, activeBlock.id]);
     }
-    const nextBlock = blocks[activeIndex + 1] ?? null;
+    // If the learner returned to the last missing step, everything after it
+    // may already have been completed. In that case finish now instead of
+    // making them click through every previously completed card again.
+    const laterBlocksNeedVisit = blocks.slice(activeIndex + 1).some((block) => !nextCompleted.includes(block.id));
+    const nextBlock = isPracticeRunRef.current || laterBlocksNeedVisit ? blocks[activeIndex + 1] ?? null : null;
     setCompletedBlocks(nextCompleted);
     if (nextBlock) {
       const nextGuestActionLimit = guestPreviewPlan?.allowedUnitsByBlockId[nextBlock.id] ?? 0;
@@ -859,12 +863,13 @@ export function LessonPlayer({
       return;
     }
 
-    // Timeline navigation stays open: a learner may leave an incorrect or
-    // skipped task behind without being redirected to an unrelated block.
-    const firstIncompleteRequiredBlock = blocks.find((block) => block.isRequired && !nextCompleted.includes(block.id));
+    const firstIncompleteRequiredBlock = firstIncompleteRequiredBlockId(blocks, nextCompleted);
     if (firstIncompleteRequiredBlock) {
-      pendingProgressRef.current = { completed: nextCompleted, current: activeBlock.id, activeSeconds: elapsedSeconds };
-      setFinished(true);
+      // Never display the completion/reward screen while a required block is
+      // still missing. Its former "progress saved" branch trapped learners
+      // at 75% with no way to reach the wheel from inside the lesson.
+      setCurrentBlockId(firstIncompleteRequiredBlock);
+      pendingProgressRef.current = { completed: nextCompleted, current: firstIncompleteRequiredBlock, activeSeconds: elapsedSeconds };
       return;
     }
 

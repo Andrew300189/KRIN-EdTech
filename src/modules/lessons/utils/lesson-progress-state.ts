@@ -25,6 +25,29 @@ export function lessonEntryBlockId(
   return isLessonProgressComplete(progress) ? blockIds[0] ?? null : savedCurrentBlockId;
 }
 
+/** A saved cursor can point past an unfinished required step (for example,
+ * after navigating backward in an older lesson). Resume that step instead of
+ * sending the learner to an unreachable "progress saved" ending. */
+export function firstIncompleteRequiredBlockId(
+  blocks: readonly { id: string; isRequired: boolean }[],
+  completedBlockIds: readonly string[],
+) {
+  const completed = new Set(completedBlockIds);
+  return blocks.find((block) => block.isRequired && !completed.has(block.id))?.id ?? null;
+}
+
+export function unfinishedLessonEntryBlockId(
+  blocks: readonly { id: string; isRequired: boolean }[],
+  completedBlockIds: readonly string[],
+  savedCurrentBlockId: string | null,
+) {
+  const missingId = firstIncompleteRequiredBlockId(blocks, completedBlockIds);
+  if (!missingId) return savedCurrentBlockId;
+  const savedIndex = blocks.findIndex((block) => block.id === savedCurrentBlockId);
+  const missingIndex = blocks.findIndex((block) => block.id === missingId);
+  return savedIndex < 0 || missingIndex < savedIndex ? missingId : savedCurrentBlockId;
+}
+
 /** A prerequisite can deliberately open before 100% when CMS sets a lower threshold. */
 export function hasReachedLessonCompletion(progress: LessonProgressSnapshot | null | undefined, requiredPercent: number) {
   if (!progress) return false;
