@@ -115,6 +115,7 @@ export const publicUiTranslations: Record<PublicLocale, Record<string, string>> 
     "home.footer.refunds": "Refund policy",
     "home.footer.privacy": "Privacy",
     "home.footer.terms": "Terms",
+    "home.footer.credits": "Image credits and licenses",
     "home.footer.note": "Payment, access and support details are shown in the relevant product and account flows. Legal terms must be published by the platform operator before paid access is offered.",
   },
   uk: {
@@ -230,6 +231,7 @@ export const publicUiTranslations: Record<PublicLocale, Record<string, string>> 
     "home.footer.refunds": "Повернення коштів",
     "home.footer.privacy": "Конфіденційність",
     "home.footer.terms": "Умови",
+    "home.footer.credits": "Автори зображень і ліцензії",
     "home.footer.note": "Відомості про оплату, доступ і підтримку наведені у відповідних сторінках продукту та акаунта. Юридичні умови мають бути опубліковані оператором платформи до пропозиції платного доступу.",
   },
   ru: {
@@ -345,6 +347,7 @@ export const publicUiTranslations: Record<PublicLocale, Record<string, string>> 
     "home.footer.refunds": "Возврат средств",
     "home.footer.privacy": "Конфиденциальность",
     "home.footer.terms": "Условия",
+    "home.footer.credits": "Авторы изображений и лицензии",
     "home.footer.note": "Сведения об оплате, доступе и поддержке показаны на соответствующих страницах продукта и аккаунта. Юридические условия должны быть опубликованы оператором платформы до предложения платного доступа.",
   },
 };

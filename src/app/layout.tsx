@@ -7,6 +7,7 @@ import { ToastProvider } from "@/core/components/ToastProvider";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
 import { COLOR_THEMES } from "@/core/color-themes";
+import { SITE_URL } from "@/core/config/site-url";
 
 const themeBootstrap = `(() => {
   try {
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
     template: "%s | KRIN EdTech",
   },
   description: "Choose a published English course, review its lesson outline and try an available lesson before paying.",
-  metadataBase: new URL("https://krin-edtech.com"),
+  metadataBase: new URL(SITE_URL),
   applicationName: "KRIN EdTech",
   icons: {
     icon: "/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png",
@@ -80,16 +81,16 @@ const structuredData = JSON.stringify({
     {
       "@type": "Organization",
       name: "KRIN EdTech",
-      url: "https://krin-edtech.com",
-      logo: "https://krin-edtech.com/opengraph-image",
+      url: SITE_URL,
+      logo: `${SITE_URL}/logos/a-detailed-flat-vector-illustration-of-a-single-wh.png`,
     },
     {
       "@type": "WebSite",
       name: "KRIN EdTech",
-      url: "https://krin-edtech.com",
+      url: SITE_URL,
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://krin-edtech.com/search?q={search_term_string}",
+        target: `${SITE_URL}/search?q={search_term_string}`,
         "query-input": "required name=search_term_string",
       },
     },

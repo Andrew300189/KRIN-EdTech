@@ -19,6 +19,13 @@ const nextConfig = {
     // imports to the exact icons/chart modules used by each client route.
     optimizePackageImports: ["lucide-react", "recharts"],
   },
+  async redirects() {
+    return [
+      // The archived prototype contains placeholder statistics and testimonials.
+      // Keep its files for migration reference, but do not publish those claims.
+      { source: "/legacy/:path*", destination: "/", permanent: false },
+    ];
+  },
   async rewrites() {
     return {
       beforeFiles: [

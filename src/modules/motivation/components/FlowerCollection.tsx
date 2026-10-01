@@ -68,7 +68,7 @@ export function FlowerCollection({ initialCollection }: { initialCollection: Col
         </button>;
       })}
     </section>
-    <a className={styles.allCredits} href="/flower-chests/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">{text.credits} ↗</a>
+    <Link className={styles.allCredits} href="/credits">{text.credits} →</Link>
 
     <AppModal open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedId(null); }} title={selected && selected.count > 0 ? name(selected) : text.secret} closeLabel={text.close} size="small">
       {selected ? <div className={styles.detail} data-rarity={selected.rarity}>

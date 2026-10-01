@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/core/server/prisma";
+import { SITE_URL } from "@/core/config/site-url";
 
-const siteUrl = "https://krin-edtech.com";
+const siteUrl = SITE_URL;
 
 export const revalidate = 3600;
 
@@ -26,6 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/teachers`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${siteUrl}/about`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${siteUrl}/contact`, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${siteUrl}/credits`, changeFrequency: "monthly", priority: 0.3 },
     { url: `${siteUrl}/privacy`, changeFrequency: "monthly", priority: 0.3 },
     { url: `${siteUrl}/terms`, changeFrequency: "monthly", priority: 0.3 },
     { url: `${siteUrl}/refunds`, changeFrequency: "monthly", priority: 0.3 },

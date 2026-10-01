@@ -6,7 +6,6 @@ import { getPublishedCmsContentSlot } from "@/modules/cms/services/content-slot.
 import { PlacementTest } from "@/modules/courses/components/PlacementTest";
 import { HomeCounterBanner } from "./HomeCounterBanner";
 import { HomeCurriculumTabs } from "./HomeCurriculumTabs";
-import { HomeTestimonials } from "./HomeTestimonials";
 import { AnimationObserver } from "@/core/components/AnimationObserver";
 import { FunnelEventReporter } from "@/modules/analytics/components/FunnelEventReporter";
 import { getPublicLearningStatistics } from "@/modules/analytics/services/platform-statistics.service";
@@ -423,8 +422,6 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <HomeTestimonials />
-
       <section
         id="pricing"
         className={`${styles.section} ${styles.whiteSection} ${styles.anchorSection}`}
@@ -613,6 +610,9 @@ export default async function Home() {
               </li>
               <li>
                 <Link href="/terms"><LocalizedText id="home.footer.terms" fallback="Terms" /></Link>
+              </li>
+              <li>
+                <Link href="/credits"><LocalizedText id="home.footer.credits" fallback="Image credits and licenses" /></Link>
               </li>
             </ul>
           </div>
