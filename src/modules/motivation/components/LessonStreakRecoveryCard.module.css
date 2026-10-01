@@ -7,7 +7,7 @@
 .copy .cost { width: fit-content; border-radius: .55rem; background: #e0f2fe; padding: .3rem .55rem; color: #075985; font-weight: 800; }
 .actions { display: flex; flex-wrap: wrap; gap: .55rem; }
 .primary, .secondary { min-height: 2.65rem; border-radius: .75rem; padding: .5rem .85rem; font: inherit; font-size: .8rem; font-weight: 850; cursor: pointer; }
-.primary { border: 1px solid #0284c7; background: #0284c7; color: #fff; }
+.primary { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #0284c7; background: #0284c7; color: #fff; text-decoration: none; }
 .primary:disabled { cursor: wait; opacity: .64; }
 .secondary { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #7dd3fc; background: #fff; color: #075985; text-decoration: none; }
 .primary:focus-visible, .secondary:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }

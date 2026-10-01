@@ -9,7 +9,7 @@ import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerCh
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
-import { consumableQuantity, PURCHASABLE_WATER_LILY_TIERS, WATER_LILY_SHOP_ID, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, PURCHASABLE_WATER_LILY_TIERS, WATER_LILY_SHOP_ID, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { SHOP_POSTCARDS } from "@/modules/motivation/utils/shop-postcards";
 
 type ShopItemKind = "theme" | "avatar" | "discount" | "recovery" | "booster" | "collectible";
@@ -764,11 +764,18 @@ export async function getShopState(userId: string) {
     .filter((purchase) => purchase.sourceId === "premium-discount-10")
     .map((purchase) => couponFromDescription(purchase.description))
     .filter((code): code is string => Boolean(code));
+  // The shop offers only five tiers, but older earned lilies of other
+  // capacities still count toward a real lesson-streak restoration.
+  const recoveryInventory = WATER_LILY_TIERS.map((tier) => ({
+    id: tier.id, capacity: tier.capacity,
+    quantity: tier.id === WATER_LILY_SHOP_ID ? streak.waterLilyCount : consumableQuantity(purchases, tier.id),
+  }));
   return {
     balance: wallet.balance + wallet.fractionalBalance / 100,
+    recoveryInventory,
     items: SHOP_ITEMS.map((item) => {
       const quantity = item.kind === "recovery"
-        ? item.id === WATER_LILY_SHOP_ID ? streak.waterLilyCount : consumableQuantity(purchases, item.id)
+        ? recoveryInventory.find((tier) => tier.id === item.id)?.quantity ?? 0
         : item.kind === "booster" ? consumableQuantity(purchases, item.id) : 0;
       return { ...item, owned: item.kind === "recovery" || item.kind === "booster" ? quantity > 0 : owned.has(item.id), quantity };
     }),

@@ -15,6 +15,7 @@ import { ReviewStreakChestReward, type ReviewChest } from "@/modules/motivation/
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
 import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
+import { lessonRecoveryShopHref } from "@/modules/motivation/utils/recovery-shop-navigation";
 import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
@@ -1148,7 +1149,12 @@ export function LessonPlayer({
         <section className={styles.lessonContext} aria-labelledby="lesson-title" style={{ "--lesson-progress": `${progressPercent}%` } as CSSProperties}>
           <h1 id="lesson-title">{title}</h1>
         </section>
-        {!previewMode && canSaveProgress && !reviewSession ? <LessonStreakRecoveryCard lessonId={lessonId} brokenStreak={brokenAnswerStreak} lilies={waterLilies} onResolved={(result) => {
+        {!previewMode && canSaveProgress && !reviewSession ? <LessonStreakRecoveryCard lessonId={lessonId} brokenStreak={brokenAnswerStreak} lilies={waterLilies} onOpenShop={async () => {
+          const saved = await persistProgress(false);
+          if (!saved) return false;
+          router.push(lessonRecoveryShopHref(lessonPath, brokenAnswerStreak));
+          return true;
+        }} onResolved={(result) => {
           streakMutationRef.current = true;
           setCorrectAnswersInRow(result.current);
           setBrokenAnswerStreak(result.recoverable);

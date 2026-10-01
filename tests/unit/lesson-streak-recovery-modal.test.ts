@@ -12,7 +12,9 @@ describe("lesson Water Lily recovery prompt", () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { restored: true, current: 8, recoverable: 0, exerciseId: "exercise-1", correctAnswer: "am", experience: 3 } }) }) as never;
     render(createElement(LocaleProvider, null, createElement(LessonStreakRecoveryCard, { lessonId: "lesson-1", brokenStreak: 7, lilies: [{ id: "water-lily", capacity: 10, quantity: 1 }], onResolved })));
     expect(screen.getByRole("dialog", { name: /answer streak paused|серия ответов прервана|серію відповідей перервано/i })).toHaveAttribute("aria-modal", "true");
-    fireEvent.click(screen.getByRole("button", { name: /restore streak|восстановить серию|відновити серію/i }));
+    const restore = screen.getByRole("button", { name: /restore streak|восстановить серию|відновити серію/i });
+    expect(restore).toHaveAttribute("data-recovery-step", "restore");
+    fireEvent.click(restore);
     await waitFor(() => expect(onResolved).toHaveBeenCalledWith(expect.objectContaining({ current: 8, exerciseId: "exercise-1", correctAnswer: "am" })));
     expect(global.fetch).toHaveBeenCalledWith("/api/learning/lessons/lesson-1/answer-streak", expect.objectContaining({ method: "POST" }));
   });
@@ -24,5 +26,16 @@ describe("lesson Water Lily recovery prompt", () => {
     expect(screen.getByRole("button", { name: /restore streak|восстановить серию|відновити серію/i })).toBeEnabled();
     expect(screen.getByText(/2 × 10/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /get a water lily|купить кувшинку|купити латаття/i })).not.toBeInTheDocument();
+  });
+
+  it("guides the learner to the shop only when no lilies can restore the streak", async () => {
+    const onOpenShop = jest.fn().mockResolvedValue(true);
+    render(createElement(LocaleProvider, null, createElement(LessonStreakRecoveryCard, {
+      lessonId: "lesson-3", brokenStreak: 12, lilies: [], onResolved: jest.fn(), onOpenShop,
+    })));
+    const shop = screen.getByRole("button", { name: /get a water lily|купить кувшинку|купити латаття/i });
+    expect(shop).toHaveAttribute("data-recovery-step", "shop");
+    fireEvent.click(shop);
+    await waitFor(() => expect(onOpenShop).toHaveBeenCalledTimes(1));
   });
 });
