@@ -62,13 +62,10 @@ model User {
   placementTestedAt             DateTime?
   dailyIntensityMinutes         Int?
   dailyGoalMinutes              Int                          @default(15)
-  /// Learners opt in to the public leaderboard. Names, emails and other
-  /// private profile data are never exposed by leaderboard queries.
-  showInLeaderboard             Boolean                      @default(false)
-  /// A separate, explicit consent for the richer learner card. This is kept
-  /// independent from leaderboard participation so an existing opt-in never
-  /// unexpectedly reveals course progress or learning statistics.
-  showPublicProfile             Boolean                      @default(false)
+  /// Student leaderboard and limited public learning cards are visible by
+  /// default; learners can disable either in their motivation settings.
+  showInLeaderboard             Boolean                      @default(true)
+  showPublicProfile             Boolean                      @default(true)
   takePlacementTest             Boolean                      @default(false)
   onboardingCompletedAt         DateTime?
   welcomeBonusPoints            Int                          @default(0)

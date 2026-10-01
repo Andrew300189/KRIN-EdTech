@@ -26,6 +26,7 @@ export async function getPublicLearnerProfile(username: string, locale: PublicPr
   const learner = await prisma.user.findFirst({
     where: {
       username,
+      role: "STUDENT",
       showInLeaderboard: true,
       showPublicProfile: true,
       isBlocked: false,

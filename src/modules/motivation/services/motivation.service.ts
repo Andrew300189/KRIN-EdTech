@@ -1376,7 +1376,7 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
 /** Public ranking uses the same permanent earned-XP score as the dashboard. */
 export async function listPublicLeaderboard(limit = 20) {
   const rows = await prisma.userLevel.findMany({
-    where: { user: { showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
+    where: { user: { role: "STUDENT", showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
     orderBy: [{ leaderboardExperienceMinor: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
     take: Math.min(Math.max(limit, 1), 50),
     select: { level: true, leaderboardExperienceMinor: true, user: { select: { name: true, username: true, showPublicProfile: true } } },

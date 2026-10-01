@@ -210,9 +210,9 @@ export async function listOpenedMilestoneChests(userId: string): Promise<OpenedM
     return [{ kind, sourceId: claim.sourceId, experience: claim.amount, waterLilies: Number(claim.description?.match(/water-lily:(\d+)/)?.[1] ?? 0), openedAt: claim.createdAt }];
   });
 }
-/** The multiplier wheel deliberately contains every tenth between 1.0 and
+/** The multiplier wheel deliberately contains every tenth between 1.1 and
  * 3.0 exactly once. There are no hidden weights or "near miss" values. */
-export const LESSON_XP_MULTIPLIER_MIN_STEP = 10;
+export const LESSON_XP_MULTIPLIER_MIN_STEP = 11;
 export const LESSON_XP_MULTIPLIER_MAX_STEP = 30;
 export const LESSON_XP_MULTIPLIER_STEP_COUNT = LESSON_XP_MULTIPLIER_MAX_STEP - LESSON_XP_MULTIPLIER_MIN_STEP + 1;
 
@@ -238,7 +238,7 @@ function selectLessonXpMultiplierStep() {
 function multiplierWheelResultFromTransaction(transaction: LessonXpMultiplierTransaction, currentBaseExperience: number): LessonXpMultiplierWheelResult {
   const step = Number(transaction.description?.match(/\bstep:(\d{2})\b/)?.[1]);
   const storedBase = Number(transaction.description?.match(/\bbase:(\d+)\b/)?.[1]);
-  const multiplierStep = Number.isInteger(step) && step >= LESSON_XP_MULTIPLIER_MIN_STEP && step <= LESSON_XP_MULTIPLIER_MAX_STEP
+  const multiplierStep = Number.isInteger(step) && step >= 10 && step <= LESSON_XP_MULTIPLIER_MAX_STEP
     ? step
     : LESSON_XP_MULTIPLIER_MIN_STEP;
   const baseExperience = Number.isSafeInteger(storedBase) && storedBase >= 0 ? storedBase : currentBaseExperience;
@@ -937,9 +937,12 @@ export async function getLessonXpMultiplierWheelState(userId: string, lessonId: 
     const baseExperience = await assertCompletedLessonAndGetBaseExperience(tx, userId, lessonId);
     const existing = await tx.experienceTransaction.findUnique({
       where: { idempotencyKey },
-      select: { amount: true, description: true },
+      select: { id: true, amount: true, description: true },
     });
-    if (existing) return multiplierWheelResultFromTransaction(existing, baseExperience);
+    if (existing) {
+      const compensation = existing.amount === 0 ? await tx.experienceTransaction.findUnique({ where: { idempotencyKey: `wheel-zero-fix:${existing.id}` }, select: { amount: true } }) : null;
+      return multiplierWheelResultFromTransaction({ ...existing, amount: existing.amount + (compensation?.amount ?? 0) }, baseExperience);
+    }
     return {
       available: baseExperience > 0,
       spun: false,
@@ -964,9 +967,12 @@ export async function spinLessonXpMultiplierWheel(userId: string, lessonId: stri
     const baseExperience = await assertCompletedLessonAndGetBaseExperience(tx, userId, lessonId);
     const existing = await tx.experienceTransaction.findUnique({
       where: { idempotencyKey },
-      select: { amount: true, description: true },
+      select: { id: true, amount: true, description: true },
     });
-    if (existing) return multiplierWheelResultFromTransaction(existing, baseExperience);
+    if (existing) {
+      const compensation = existing.amount === 0 ? await tx.experienceTransaction.findUnique({ where: { idempotencyKey: `wheel-zero-fix:${existing.id}` }, select: { amount: true } }) : null;
+      return multiplierWheelResultFromTransaction({ ...existing, amount: existing.amount + (compensation?.amount ?? 0) }, baseExperience);
+    }
     if (baseExperience <= 0) {
       return {
         available: false,

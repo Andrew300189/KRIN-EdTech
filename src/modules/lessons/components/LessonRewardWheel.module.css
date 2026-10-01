@@ -22,7 +22,7 @@
   overflow: hidden;
   border: .24rem solid #fff;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #6366f1 0deg 17.142deg, #a78bfa 17.142deg 34.285deg, #38bdf8 34.285deg 51.428deg, #2dd4bf 51.428deg 68.571deg, #818cf8 68.571deg 85.714deg, #c084fc 85.714deg 102.857deg, #60a5fa 102.857deg 120deg, #5eead4 120deg 137.142deg, #818cf8 137.142deg 154.285deg, #a78bfa 154.285deg 171.428deg, #38bdf8 171.428deg 188.571deg, #2dd4bf 188.571deg 205.714deg, #6366f1 205.714deg 222.857deg, #c084fc 222.857deg 240deg, #60a5fa 240deg 257.142deg, #5eead4 257.142deg 274.285deg, #818cf8 274.285deg 291.428deg, #a78bfa 291.428deg 308.571deg, #38bdf8 308.571deg 325.714deg, #2dd4bf 325.714deg 342.857deg, #6366f1 342.857deg 360deg);
+  background: repeating-conic-gradient(from 0deg, #6366f1 0deg 18deg, #a78bfa 18deg 36deg, #38bdf8 36deg 54deg, #2dd4bf 54deg 72deg, #818cf8 72deg 90deg);
   box-shadow: 0 .45rem 1rem rgb(67 56 202 / 20%);
   transition: transform 1.4s cubic-bezier(.08,.72,.1,1);
 }

@@ -17,26 +17,26 @@ export type LessonXpMultiplierWheelResult = {
   totalExperience: number;
 };
 
-const MULTIPLIER_STEPS = Array.from({ length: 21 }, (_, index) => index + 10);
+const MULTIPLIER_STEPS = Array.from({ length: 20 }, (_, index) => index + 11);
 const SEGMENT_DEGREES = 360 / MULTIPLIER_STEPS.length;
 
 const copy = {
   en: {
-    title: "XP multiplier wheel", range: "Every value from ×1.0 to ×3.0 is equally likely", ready: "Your XP counter is ready — spin for the final total.",
+    title: "XP multiplier wheel", range: "Every value from ×1.1 to ×3.0 is equally likely; at least +1 XP", ready: "Your XP counter is ready — spin for the final total.",
     spin: "Spin for XP", preparing: "Preparing…", spinning: "Spinning…", complete: "Multiplier applied", restored: "Multiplier already applied",
     result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} lesson XP + ${bonus} bonus XP = ${total} XP total`,
     credited: (bonus: number) => `Wheel bonus: +${bonus} XP`,
     error: "Unable to spin the XP multiplier wheel.",
   },
   ru: {
-    title: "Колесо множителя XP", range: "Каждое значение от ×1.0 до ×3.0 выпадает с одинаковой вероятностью", ready: "XP посчитаны — крутите колесо, чтобы узнать итог.",
+    title: "Колесо множителя XP", range: "Каждое значение от ×1.1 до ×3.0 равновероятно; минимум +1 XP", ready: "XP посчитаны — крутите колесо, чтобы узнать итог.",
     spin: "Крутить на XP", preparing: "Готовим…", spinning: "Крутим…", complete: "Множитель применён", restored: "Множитель уже применён",
     result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} XP за урок + ${bonus} XP бонус = ${total} XP итого`,
     credited: (bonus: number) => `Бонус рулетки: +${bonus} XP`,
     error: "Не удалось запустить колесо множителя XP.",
   },
   uk: {
-    title: "Колесо множника XP", range: "Кожне значення від ×1.0 до ×3.0 має однакову ймовірність", ready: "XP пораховано — крутіть колесо, щоб дізнатися підсумок.",
+    title: "Колесо множника XP", range: "Кожне значення від ×1.1 до ×3.0 має однакову ймовірність; щонайменше +1 XP", ready: "XP пораховано — крутіть колесо, щоб дізнатися підсумок.",
     spin: "Крутити на XP", preparing: "Готуємо…", spinning: "Крутимо…", complete: "Множник застосовано", restored: "Множник уже застосовано",
     result: (multiplier: number, base: number, bonus: number, total: number) => `×${multiplier.toFixed(1)} · ${base} XP за урок + ${bonus} XP бонус = ${total} XP усього`,
     credited: (bonus: number) => `Бонус колеса: +${bonus} XP`,
@@ -125,7 +125,7 @@ export function LessonRewardWheel({ lessonId, baseExperience, ready, onCollected
         if (!response.ok || !isMultiplierResult(result)) return;
         setReward(result);
         if (result.alreadySpun) {
-          if (result.multiplierStep !== null) setTurn(landingTurn(result.multiplierStep, 0));
+          if (result.multiplierStep !== null && result.multiplierStep >= 11) setTurn(landingTurn(result.multiplierStep, 0));
           applyResolvedReward(result);
         }
       })
