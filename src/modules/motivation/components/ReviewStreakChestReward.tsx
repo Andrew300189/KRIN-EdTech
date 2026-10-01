@@ -24,7 +24,7 @@ export function ReviewStreakChestReward({ chest, onClose }: { chest: ReviewChest
   const next = locale === "uk" ? "Далі" : locale === "ru" ? "Далее" : "Continue";
   return <AppModal open onOpenChange={(value) => { if (!value) onClose(); }} title={title} description={`${chest.milestone} ✓`} size="small" closeLabel={next}>
     <div className={styles.reveal}>
-      <img key={revealed ? chest.flowerId : "bud"} src={revealed && photo ? photo.src : "/flower-chests/mystery-bud.png"} alt={revealed ? flower?.names[locale] ?? flower?.names.en ?? "Flower" : ""} />
+      <img key={revealed ? chest.flowerId : "bud"} className={!revealed ? styles.pending : ""} src={revealed && photo ? photo.src : "/flower-chests/mystery-bud.png"} alt={revealed ? flower?.names[locale] ?? flower?.names.en ?? "Flower" : ""} />
       {revealed ? <><strong>{flower?.names[locale] ?? flower?.names.en ?? chest.flowerId}</strong><p>+{chest.experience} XP · +{chest.waterLily} 🪷</p><Link href="/student/flowers">{locale === "uk" ? "Альбом квітів" : locale === "ru" ? "Альбом цветов" : "Flower album"}</Link><button type="button" onClick={onClose}>{next}</button></> : <button type="button" onClick={() => setRevealed(true)}>{open}</button>}
     </div>
   </AppModal>;

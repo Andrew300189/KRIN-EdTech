@@ -116,7 +116,7 @@ export function StreakChestReward({ milestone, onDismiss, hasMorePending = false
   >
     <section className={styles.card} style={chestStyle} aria-live="polite">
       <p className={styles.streak}>{text.streak} ×{milestone}</p>
-      <button type="button" className={`${styles.chest} ${opening ? styles.opening : ""} ${reward ? styles.opened : ""}`} onClick={() => void openChest()} disabled={opening || Boolean(reward)} aria-label={actionLabel}>
+      <button type="button" className={`${styles.chest} ${!opening && !reward ? styles.pending : ""} ${opening ? styles.opening : ""} ${reward ? styles.opened : ""}`} onClick={() => void openChest()} disabled={opening || Boolean(reward)} aria-label={actionLabel}>
         <img src={reward && flowerPhoto ? flowerPhoto.src : unopenedImage} alt="" />
       </button>
       <span className={`${styles.tierName} ${flower?.rarity === "LEGENDARY" ? styles.legendary : ""}`}>{flower ? `${flowerName} · ${text.rarities[flower.rarity]} · ${text.streak} ×${milestone}` : `${isBud ? text.flowerChest : flowerCopy.flower} · ${text.streak} ×${milestone}`}</span>

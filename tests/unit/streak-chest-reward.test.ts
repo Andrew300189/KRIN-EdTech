@@ -36,6 +36,7 @@ describe("StreakChestReward", () => {
 
     expect(onDismiss).not.toHaveBeenCalled();
     expect(screen.getAllByRole("button", { name: "Let it bloom" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Let it bloom" })[0]).toHaveClass("pending");
     screen.getAllByRole("button", { name: "Let it bloom" }).forEach((button) => {
       expect(button).toBeEnabled();
     });
@@ -93,6 +94,7 @@ describe("StreakChestReward", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Let it bloom" })[0]);
 
     await waitFor(() => expect(screen.getByText(/New flower discovered/)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Let it bloom" })).not.toHaveClass("pending");
     expect(screen.getByRole("link", { name: /Open flower album/ })).toHaveAttribute("href", "/student/flowers");
     expect(screen.getByRole("dialog").querySelector('img[src="/flower-chests/white-lily.webp"]')).toBeInTheDocument();
   });

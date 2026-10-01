@@ -139,7 +139,7 @@ export function MilestoneChestsPanel() {
           ? interpolate(text.readyPlural, { count: chest.availableCount })
           : text.ready;
         const status = chest.available ? availableLabel : chest.claimed ? text.claimed : progressText(chest, state, text);
-        return <article key={chest.kind} className={`${styles.chest} ${styles[chest.kind]} ${chest.available ? styles.available : ""}`}>
+        return <article key={chest.kind} className={`${styles.chest} ${styles[chest.kind]} ${chest.available && !opening ? styles.available : ""}`}>
           <span className={styles.icon} aria-hidden="true"><img src={`/flower-chests/${chestPhotos[chest.kind]}.webp`} alt="" /></span>
           <div className={styles.copy}><h3>{item.title}</h3><p>{item.detail}</p></div>
           <div className={styles.status}><span>{status}</span><i><b style={{ width: `${progress}%` }} /></i></div>

@@ -96,7 +96,7 @@ export function DailyChestHeaderButton() {
 
   return <button
     type="button"
-    className={`${styles.button} ${state.available ? styles.available : ""} ${opening ? styles.opening : ""}`}
+    className={`${styles.button} ${state.available && !opening ? styles.available : ""} ${opening ? styles.opening : ""}`}
     onClick={() => void openChest()}
     disabled={!state.available || opening}
     aria-label={opening ? text.opening : label}

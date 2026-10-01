@@ -91,7 +91,7 @@ export function DailyChestCard() {
   const remaining = state?.nextAt ? timeRemaining(state.nextAt) : "";
   // `clock` rerenders the countdown without changing server-owned state.
   void clock;
-  return <article className={`${styles.card} ${reward ? styles.opened : ""}`}>
+  return <article className={`${styles.card} ${reward ? styles.opened : ""} ${state?.available && !opening && !reward ? styles.available : ""}`}>
     <div className={styles.sparkles} aria-hidden="true">✦ ✧</div>
     <p>{text.eyebrow}</p>
     <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward) : text.title}</h3><small>{state?.lessonRequired ? text.lesson : state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>

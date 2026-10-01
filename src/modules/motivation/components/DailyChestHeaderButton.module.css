@@ -22,7 +22,7 @@
   border-color: #f9a8d4;
   background: radial-gradient(circle at 50% 28%, #fffde8 0 14%, #fff 62%);
   box-shadow: 0 0 0 4px rgb(250 204 21 / 12%), 0 7px 20px rgb(217 70 239 / 24%);
-  animation: chestGlow 2.6s ease-in-out infinite, chestWiggle 8s ease-in-out infinite;
+  animation: chestGlow 2.6s ease-in-out infinite;
 }
 
 .readyDot {
@@ -42,15 +42,6 @@
 @keyframes chestGlow {
   0%, 100% { box-shadow: 0 0 0 4px rgb(250 204 21 / 10%), 0 7px 20px rgb(217 70 239 / 20%); }
   50% { box-shadow: 0 0 0 7px rgb(250 204 21 / 20%), 0 9px 26px rgb(217 70 239 / 33%); }
-}
-
-/* The movement is brief, then rests for most of the interval. */
-@keyframes chestWiggle {
-  0%, 68%, 100% { transform: rotate(0); }
-  71% { transform: rotate(-7deg) translateY(-1px); }
-  74% { transform: rotate(7deg); }
-  77% { transform: rotate(-5deg); }
-  80% { transform: rotate(0); }
 }
 
 @keyframes chestOpening { to { transform: scale(1.12) rotate(5deg); } }

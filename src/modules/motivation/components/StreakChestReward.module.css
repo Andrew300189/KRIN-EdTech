@@ -4,6 +4,8 @@
 .chest { position: relative; display: grid; width: 8.3rem; height: 8.3rem; place-items: center; overflow: hidden; border: 5px solid hsl(var(--chest-hue) 62% 70%); border-radius: 50%; background: #f9f3e8; box-shadow: 0 0 0 5px #fff, 0 12px 25px hsl(var(--chest-hue) 56% 39% / 22%); cursor: pointer; transition: transform 250ms ease, box-shadow 250ms ease; }
 .chest img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .chest:hover:not(:disabled) { transform: translateY(-4px) scale(1.05); box-shadow: 0 0 0 5px #fff, 0 16px 30px hsl(var(--chest-hue) 56% 39% / 30%); }
+.chest.pending { animation: unopenedFlowerPulse 2.7s ease-in-out infinite; }
+@keyframes unopenedFlowerPulse { 0%, 100% { box-shadow: 0 0 0 5px #fff, 0 0 0 6px hsl(var(--chest-hue) 62% 70% / 0%), 0 12px 25px hsl(var(--chest-hue) 56% 39% / 22%); } 50% { box-shadow: 0 0 0 5px #fff, 0 0 0 12px hsl(var(--chest-hue) 62% 70% / 20%), 0 16px 30px hsl(var(--chest-hue) 56% 39% / 30%); } }
 .tierName { margin-top: -.38rem; color: hsl(var(--chest-hue) 72% 31%); font-size: .72rem; font-weight: 950; letter-spacing: .06em; text-transform: uppercase; }
 .tierName.legendary { color: #a16207; text-shadow: 0 1px 0 #fff; }
 .chest:focus-visible, .openButton:focus-visible, .continueButton:focus-visible { outline: 3px solid rgb(91 76 240 / 36%); outline-offset: 3px; }
@@ -73,4 +75,4 @@
   .openButton, .continueButton { width: min(100%, 18rem); }
 }
 
-@media (prefers-reduced-motion: reduce) { .chest.opening, .chest.opened { animation: none; } .chest, .chest:hover:not(:disabled) { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chest.pending, .chest.opening, .chest.opened { animation: none; } .chest, .chest:hover:not(:disabled) { transform: none; } }
