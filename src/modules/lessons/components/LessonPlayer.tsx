@@ -1121,7 +1121,6 @@ export function LessonPlayer({
         setReviewChest(null);
         if (reviewAdvanceAfterChest) { setReviewAdvanceAfterChest(false); void advanceReviewRun(); }
       }} />
-      {!progressHydrated && canSaveProgress && !previewMode ? <LilyMascot context="LOADING" placement="inline" /> : null}
       {leavingLesson ? <LilyMascot context="LEAVING" /> : null}
       <div className={styles.frame}>
         <header className={styles.header} aria-label="Lesson controls">
