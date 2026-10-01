@@ -36,6 +36,36 @@ describe("lesson card interactions", () => {
     expect(input).toHaveValue("i");
   });
 
+  it("uses the compact form field for negative matching cards in later To Be modules", async () => {
+    const onAttemptResolved = jest.fn();
+    render(createElement(LocaleProvider, null, createElement(ExerciseRenderer, {
+      exercise: {
+        ...baseExercise, id: "negative-matching", type: "MATCHING", engineKey: "matching",
+        question: "Take your time and match all ten pairs.",
+        content: { left: ["She · here"], right: ["AREN'T — We aren't late.", "ISN'T — She isn't here.", "AM NOT — I am not tired."] },
+        correctAnswer: { "She · here": "ISN'T — She isn't here." },
+      },
+      previewMode: true, onAttemptResolved,
+    })));
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "isn't" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(onAttemptResolved).toHaveBeenCalledWith(expect.objectContaining({ isCorrect: true })));
+  });
+
+  it("shows each matching choice once when several prompts share an answer", () => {
+    render(createElement(LocaleProvider, null, createElement(ExerciseRenderer, {
+      exercise: {
+        ...baseExercise, id: "shared-matching-option", type: "MATCHING", engineKey: "matching",
+        content: { left: ["Is she here?"], right: ["Yes, she is.", "Yes, she is.", "No, she isn't."] },
+        correctAnswer: { "Is she here?": "Yes, she is." },
+      },
+      previewMode: true,
+    })));
+    expect(screen.getAllByRole("option", { name: "Yes, she is." })).toHaveLength(1);
+  });
+
   it("shows one Water Lily icon and counts distinct owned capacities", () => {
     render(createElement(LocaleProvider, null, createElement(LessonAnswerStreakStatus, {
       correctAnswersInRow: 12,

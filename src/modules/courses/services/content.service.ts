@@ -1011,7 +1011,7 @@ async function getPublishedLessonBySlugUncached(courseSlug: string, lessonSlug: 
 }
 
 const getPublishedLessonBySlugCached = cachePublicContent(
-  ["published-lesson-by-slug", "auto-corrections-retired-v1"],
+  ["published-lesson-by-slug", "matching-localized-keys-v2"],
   getPublishedLessonBySlugUncached,
 );
 
@@ -1019,7 +1019,7 @@ const getPublishedLessonBySlugCached = cachePublicContent(
 // was cached. Give just that lesson a new cache namespace so returning
 // learners see the restored steps immediately after deployment.
 const getToBeLessonOneWithTheory = cachePublicContent(
-  ["published-lesson-by-slug", "to-be-lesson-one-theory-v4"],
+  ["published-lesson-by-slug", "to-be-lesson-one-theory-v5"],
   getPublishedLessonBySlugUncached,
 );
 

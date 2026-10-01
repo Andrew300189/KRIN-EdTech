@@ -1,4 +1,5 @@
 import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
+import { compactToBeMatchingForms } from "@/modules/courses/utils/to-be-matching-form";
 import { createCourseSchema, createExerciseSchema, saveLessonProgressSchema } from "@/modules/courses/schemas/content.schemas";
 
 describe("exercise evaluation", () => {
@@ -48,6 +49,20 @@ describe("exercise evaluation", () => {
     const correct = { "You · welcome": "ARE — You are welcome." };
     const submitted = normalizeCompactToBeMatchingAnswer({ "You · welcome": "is" }, correct, "matching");
     expect(answerMatches(submitted, correct, [], {})).toBe(false);
+  });
+
+  it("uses the same compact matching engine for negative forms", () => {
+    const options = ["AREN'T — We aren't late.", "ISN'T — She isn't here.", "AM NOT — I am not tired."];
+    expect(compactToBeMatchingForms(options)).toEqual(["aren't", "isn't", "am not"]);
+    const correct = { "She · here": "ISN'T — She isn't here." };
+    expect(answerMatches(normalizeCompactToBeMatchingAnswer({ "She · here": "isn't" }, correct, "matching"), correct, [], {})).toBe(true);
+    expect(answerMatches(normalizeCompactToBeMatchingAnswer({ "She · here": "aren't" }, correct, "matching"), correct, [], {})).toBe(false);
+  });
+
+  it("never accepts a different full matching option just because its verb form is the same", () => {
+    const correct = { "She · here": "ISN'T — She isn't here." };
+    const wrongSentence = { "She · here": "ISN'T — He isn't at work." };
+    expect(answerMatches(normalizeCompactToBeMatchingAnswer(wrongSentence, correct, "matching"), correct, [], {})).toBe(false);
   });
 });
 

@@ -9,7 +9,8 @@ import styles from "./ExerciseRenderer.module.css";
 import { asObject, asStringArray, displayAnswer, type JsonObject, type LessonExercise } from "./lesson-content";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
-import { answerMatches, contentWithOrderSensitiveAnswerValidation } from "@/modules/courses/utils/exercise-evaluation";
+import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
+import { compactToBeMatchingForms } from "@/modules/courses/utils/to-be-matching-form";
 import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds, remainingExerciseSpeedPercent } from "@/modules/courses/utils/exercise-speed-reward";
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
@@ -184,15 +185,6 @@ function displaySentenceBuilderToken(token: string) {
   return token.replace(/\.+$/u, "");
 }
 
-function toBeMatchingForm(value: string) {
-  const match = value.trim().match(/^(am|is|are)(?:\s*[—–-]\s*|$)/i);
-  return match?.[1]?.toLowerCase() ?? null;
-}
-
-function normalizeMatchingForm(value: string) {
-  return value.trim().toLowerCase().replace(/[.!?]+$/u, "");
-}
-
 type DynamicToBeMatchingPair = { id: string; left: string; right: "am" | "is" | "are" };
 
 /** Reads the server-authored dynamic To Be matcher without trusting arbitrary
@@ -277,12 +269,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const matchingLeft = useMemo(() => asStringArray(content.left), [content]);
   const matchingRight = useMemo(() => asStringArray(content.right), [content]);
   const dynamicToBePairs = useMemo(() => dynamicToBeMatchingPairs(content), [content]);
-  const compactToBeMatching = useMemo(() => {
-    const forms = matchingRight.map(toBeMatchingForm);
-    if (!forms.length || forms.some((form) => !form)) return null;
-    const available = new Set(forms as string[]);
-    return ["am", "is", "are"].filter((form) => available.has(form));
-  }, [matchingRight]);
+  const compactToBeMatching = useMemo(() => compactToBeMatchingForms(matchingRight), [matchingRight]);
   const categories = useMemo(() => asStringArray(content.categories), [content]);
   const classificationItems = useMemo(() => asStringArray(content.items).length ? asStringArray(content.items) : options, [content, options]);
   const engine = getExerciseEngine(exercise.engineKey);
@@ -354,7 +341,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   ), [choice, exercise.correctAnswer, exercise.id, options]);
   const matchingOptions = useMemo(() => (
     matching && !compactToBeMatching
-      ? shuffleTokens(matchingRight, `${exercise.id}:matching-options`, [])
+      ? shuffleTokens([...new Set(matchingRight)], `${exercise.id}:matching-options`, [])
       : matchingRight
   ), [compactToBeMatching, exercise.id, matching, matchingRight]);
   const dynamicPairById = useMemo(() => new Map(dynamicToBePairs.map((pair) => [pair.id, pair])), [dynamicToBePairs]);
@@ -502,20 +489,6 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     return applyAnswerKeyboardLayout(event, inputLanguage, onValue);
   }
 
-  function compactMatchingSubmission(candidate: JsonObject) {
-    if (!compactToBeMatching) return candidate;
-    const expectedAnswers = asObject(exercise.correctAnswer);
-    return Object.fromEntries(Object.entries(candidate).map(([leftItem, rawForm]) => {
-      const form = typeof rawForm === "string" ? normalizeMatchingForm(rawForm) : "";
-      const expected = expectedAnswers[leftItem];
-      const expectedValue = typeof expected === "string" ? expected : "";
-      const submittedValue = toBeMatchingForm(expectedValue) === form
-        ? expectedValue
-        : matchingRight.find((item) => toBeMatchingForm(item) === form) ?? form;
-      return [leftItem, submittedValue];
-    }));
-  }
-
   function restartExercise() {
     submissionInFlightRef.current = false;
     translationRequestRef.current += 1;
@@ -539,7 +512,8 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     submissionInFlightRef.current = true;
     setSending(true); setError(null);
     if (previewMode) {
-      const isCorrect = answerMatches(answerToCheck, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
+      const localAnswer = normalizeCompactToBeMatchingAnswer(answerToCheck, exercise.correctAnswer, exercise.engineKey);
+      const isCorrect = answerMatches(localAnswer, exercise.correctAnswer, Array.isArray(exercise.alternativeAnswers) ? exercise.alternativeAnswers : [], answerEvaluationContent);
       const scoreAwarded = isCorrect ? exercise.basePoints : -exercise.basePoints;
       setResult({ isCorrect, scoreAwarded, score: scoreAwarded, attemptNumber: 1, explanation: exercise.explanation, correctAnswer: exercise.correctAnswer ?? null, hint: exercise.hint });
       if (isCorrect) setHintOpen(false);
@@ -681,7 +655,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
       const value = candidate[item];
       return typeof value === "string" && value.trim().length > 0;
     });
-    if (isComplete) void checkAnswer(compactMatchingSubmission(candidate));
+    if (isComplete) void checkAnswer(candidate);
   }
 
   function submitLongTextAnswerOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -718,7 +692,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     // assigned. A subsequent Enter checks the completed answer.
     if (!isComplete) return;
     event.preventDefault();
-    void checkAnswer(isMatching ? compactMatchingSubmission(candidate) : candidate);
+    void checkAnswer(candidate);
   }
 
   function submitOrderedTokenOnEnter(event: KeyboardEvent<HTMLButtonElement>, option: string) {
@@ -812,10 +786,10 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const visibleFeedback = result;
   const visibleInstruction = compactToBeMatching
     ? locale === "uk"
-      ? "Впишіть правильну форму: am, is або are."
+      ? "Впишіть правильну форму to be."
       : locale === "ru"
-        ? "Впишите правильную форму: am, is или are."
-        : "Type the correct form: am, is, or are."
+        ? "Впишите правильную форму to be."
+        : "Type the correct form of to be."
     : exercise.instruction;
   const visibleQuestion = (exercise.engineKey === "find-and-correct"
     ? correctionPrompt(exercise.question, content)
@@ -946,7 +920,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
       {matching && compactToBeMatching && matchingLeft.map((leftItem) => {
         const current = String((answer as JsonObject)[leftItem] ?? "");
         const answerLabel = locale === "uk" ? "Впишіть слово" : locale === "ru" ? "Впишите слово" : "Type the word";
-        const placeholder = locale === "uk" ? "am, is або are" : locale === "ru" ? "am, is или are" : "am, is, or are";
+        const placeholder = compactToBeMatching.join(" / ");
         return <label key={leftItem} className="lesson-exercise-text-answer block"><span className="lesson-exercise-question mb-2 block text-slate-800">{renderAnswerGaps(leftItem, locale, true)}</span><span className="lesson-exercise-answer-label">{answerLabel}</span><input disabled={inputsLocked} value={current} onChange={(event) => changeAnswer({ ...(answer as JsonObject), [leftItem]: event.target.value })} onKeyDown={(event) => submitCompactMatchingOnEnter(event, leftItem)} lang={inputLanguage} autoCorrect="off" spellCheck={false} aria-keyshortcuts="Enter" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60" placeholder={placeholder} autoComplete="off" /></label>;
       })}
       {matching && !compactToBeMatching && matchingLeft.map((leftItem) => {
@@ -992,7 +966,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     {!result && !dynamicToBeMatching ? <div className={`${styles.actionRow} ${(authoredTranslation || translationSource || (exercise.hintsEnabled && visibleHint)) ? styles.actionRowWithTranslation : ""}`}>
       {exercise.hintsEnabled && visibleHint ? <button type="button" onClick={() => void revealHint()} disabled={hintOpen} aria-expanded={hintOpen} aria-label={hintInlineLabel.replace(/:$/, "")} title={hintInlineLabel.replace(/:$/, "")} className="lesson-exercise-hint-control"><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M9 18h6M10 21h4M8.6 14.7A6.5 6.5 0 1 1 15.4 14.7c-.8.6-1.4 1.2-1.7 2.3H10.3c-.3-1.1-.9-1.7-1.7-2.3Z" /></svg><span className={styles.visuallyHidden}>{hintInlineLabel.replace(/:$/, "")}</span></button> : null}
       {(authoredTranslation || translationSource) ? <button type="button" onClick={() => void toggleTranslation()} disabled={translationSending} aria-expanded={Boolean(translation)} aria-label={translationSending ? translationOpeningLabel : translationLabel} title={translationSending ? translationOpeningLabel : translationLabel} className={`${styles.translationButton} lesson-exercise-translation-trigger`}><svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 5.5h10A2.5 2.5 0 0 1 16.5 8v3A2.5 2.5 0 0 1 14 13.5H9l-3.5 3v-3.2A2.5 2.5 0 0 1 3 10.8V8A2.5 2.5 0 0 1 4 5.5ZM13 16h5a2.5 2.5 0 0 1 2.5 2.5v1.2l-2.4-1.7H13A2.5 2.5 0 0 1 10.5 16v-.5" /></svg><span className={styles.visuallyHidden}>{translationSending ? translationOpeningLabel : translationLabel}</span></button> : null}
-      <button ref={nextButtonRef} type="button" data-lesson-enter-next="task" onClick={() => void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.repeat) return; event.preventDefault(); void checkAnswer(matching ? compactMatchingSubmission(answer as JsonObject) : answer); }} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>
+      <button ref={nextButtonRef} type="button" data-lesson-enter-next="task" onClick={() => void checkAnswer(answer)} onKeyDown={(event) => { if (event.key !== "Enter" || event.nativeEvent.isComposing || event.repeat) return; event.preventDefault(); void checkAnswer(answer); }} disabled={inputsLocked || !hasCompleteAnswer} className={`${styles.nextButton} lesson-exercise-action lesson-exercise-action-primary inline-flex min-h-11 items-center justify-center rounded-full bg-indigo-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}>{sending ? "Checking…" : "Next →"}</button>
     </div> : null}
     {sending ? <p className="mt-4 text-sm font-medium text-blue-700" role="status">Checking…</p> : null}
     {translationError ? <p className="mt-2 text-sm text-amber-700" role="status">{translationError}</p> : null}

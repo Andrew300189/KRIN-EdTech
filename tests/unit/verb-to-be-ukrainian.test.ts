@@ -1,4 +1,5 @@
 import { translateVerbToBeJsonToUkrainian, translateVerbToBeTextToUkrainian } from "@/modules/courses/localization/verb-to-be-ukrainian";
+import { answerMatches, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 
 describe("legacy To Be Ukrainian learner copy", () => {
   it("translates feedback without changing the English answer", () => {
@@ -14,6 +15,21 @@ describe("legacy To Be Ukrainian learner copy", () => {
     expect(translateVerbToBeJsonToUkrainian({ prompt: "Впишите пропущенное слово: I ___ ready." })).toEqual({
       prompt: "Впишіть пропущене слово: I ___ ready.",
     });
+  });
+
+  it("keeps translated matching prompts and answer-map keys identical", () => {
+    const left = translateVerbToBeJsonToUkrainian(["не профессия", "не погода"]);
+    const answers = translateVerbToBeJsonToUkrainian({ "не профессия": "He isn't a doctor.", "не погода": "It isn't sunny." });
+    expect(Object.keys(answers)).toEqual(left);
+    expect(answers[left[0] as keyof typeof answers]).toBe("He isn't a doctor.");
+  });
+
+  it("validates a Ukrainian module-two matching answer through the shared server rule", () => {
+    const prompt = "не профессия";
+    const visiblePrompt = translateVerbToBeJsonToUkrainian([prompt])[0];
+    const correct = translateVerbToBeJsonToUkrainian({ [prompt]: "ISN'T — He isn't a doctor." });
+    const answer = normalizeCompactToBeMatchingAnswer({ [visiblePrompt]: "isn't" }, correct, "matching");
+    expect(answerMatches(answer, correct, [], {})).toBe(true);
   });
 
   it("translates the legacy course title and summary", () => {

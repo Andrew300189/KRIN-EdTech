@@ -1,3 +1,5 @@
+import { compactToBeMatchingInput, toBeMatchingForm } from "@/modules/courses/utils/to-be-matching-form";
+
 type JsonRecord = Record<string, unknown>;
 
 function getAnswerOptions(content: unknown): JsonRecord {
@@ -69,9 +71,8 @@ export function answerMatches(
 
 /**
  * Legacy matching records keep the full right-hand sentence as their answer,
- * while the current learner UI asks for just `am`, `is` or `are`. Convert only
- * an exact compact form back to the stored canonical value before evaluation.
- * Every other answer is left untouched and remains incorrect as it should.
+ * while the learner UI asks for only the to-be form. Convert ONLY an exact
+ * compact form, not a different full option sharing the same verb prefix.
  */
 export function normalizeCompactToBeMatchingAnswer(
   answer: unknown,
@@ -84,17 +85,11 @@ export function normalizeCompactToBeMatchingAnswer(
 
   const submitted = answer as JsonRecord;
   const expected = correctAnswer as JsonRecord;
-  const formFromValue = (value: unknown) => {
-    if (typeof value !== "string") return null;
-    const matched = value.trim().match(/^(am|is|are)(?:\s*[—–-]\s*|$)/i);
-    return matched?.[1]?.toLowerCase() ?? null;
-  };
-
   let changed = false;
   const normalized = Object.fromEntries(Object.entries(submitted).map(([key, submittedValue]) => {
     const expectedValue = expected[key];
-    const submittedForm = formFromValue(submittedValue);
-    const expectedForm = formFromValue(expectedValue);
+    const submittedForm = compactToBeMatchingInput(submittedValue);
+    const expectedForm = toBeMatchingForm(expectedValue);
     if (submittedForm && expectedForm && submittedForm === expectedForm) {
       changed = true;
       return [key, expectedValue];

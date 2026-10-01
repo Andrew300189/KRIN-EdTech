@@ -961,7 +961,9 @@ export function translateVerbToBeJsonToUkrainian<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => translateVerbToBeJsonToUkrainian(item)) as T;
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, translateVerbToBeJsonToUkrainian(item)]),
+      // Matching answers use learner-visible text as object keys. Translate
+      // those keys too, so they match the translated left-hand prompts.
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [translateVerbToBeTextToUkrainian(key), translateVerbToBeJsonToUkrainian(item)]),
     ) as T;
   }
   return value;
