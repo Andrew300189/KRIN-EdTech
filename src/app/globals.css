@@ -166,17 +166,27 @@ html {
 :root[data-color-theme] {
   --primary: var(--palette-primary, #5c51de);
   --primary-hover: color-mix(in srgb, var(--palette-primary, #5c51de) 80%, #172033);
+  --primary-active: color-mix(in srgb, var(--palette-primary, #5c51de) 70%, #172033);
   --focus-ring: color-mix(in srgb, var(--palette-primary, #5c51de) 58%, white);
   --background: color-mix(in srgb, var(--palette-primary, #5c51de) 4%, white);
+  --surface-secondary: color-mix(in srgb, var(--palette-primary, #5c51de) 6%, white);
+  --surface-interactive: color-mix(in srgb, var(--palette-primary, #5c51de) 9%, white);
   --surface-subtle: color-mix(in srgb, var(--palette-primary, #5c51de) 3%, white);
+  --border: color-mix(in srgb, var(--palette-primary, #5c51de) 17%, white);
+  --border-strong: color-mix(in srgb, var(--palette-primary, #5c51de) 32%, white);
 }
 
 :root[data-theme="dark"][data-color-theme] {
   --primary: color-mix(in srgb, var(--palette-primary, #5c51de) 62%, white);
   --primary-hover: color-mix(in srgb, var(--palette-primary, #5c51de) 46%, white);
+  --primary-active: color-mix(in srgb, var(--palette-primary, #5c51de) 70%, white);
   --focus-ring: color-mix(in srgb, var(--palette-primary, #5c51de) 36%, white);
   --background: color-mix(in srgb, var(--palette-primary, #5c51de) 8%, #0b1020);
+  --surface-secondary: color-mix(in srgb, var(--palette-primary, #5c51de) 9%, #172238);
+  --surface-interactive: color-mix(in srgb, var(--palette-primary, #5c51de) 13%, #202f50);
   --surface-subtle: color-mix(in srgb, var(--palette-primary, #5c51de) 10%, #0f1729);
+  --border: color-mix(in srgb, var(--palette-primary, #5c51de) 17%, #293750);
+  --border-strong: color-mix(in srgb, var(--palette-primary, #5c51de) 26%, #405270);
 }
 
 body {

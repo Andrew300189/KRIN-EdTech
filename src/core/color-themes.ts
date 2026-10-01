@@ -23,3 +23,22 @@ export const COLOR_THEMES = [
 ] as const;
 
 export type ColorTheme = (typeof COLOR_THEMES)[number]["id"];
+
+export const COLOR_THEME_STORAGE_KEY = "krin-color-theme";
+export const COLOR_THEME_CHANGE_EVENT = "krin:color-theme-change";
+
+export function resolveColorTheme(value: string | null | undefined): (typeof COLOR_THEMES)[number] {
+  return COLOR_THEMES.find((option) => option.id === value) ?? COLOR_THEMES[0];
+}
+
+export function applyColorTheme(theme: ColorTheme) {
+  const selected = resolveColorTheme(theme);
+  document.documentElement.dataset.colorTheme = selected.id;
+  document.documentElement.style.setProperty("--palette-primary", selected.swatch);
+  try {
+    window.localStorage.setItem(COLOR_THEME_STORAGE_KEY, selected.id);
+  } catch {
+    // Keep the current document themed when storage is unavailable.
+  }
+  window.dispatchEvent(new Event(COLOR_THEME_CHANGE_EVENT));
+}

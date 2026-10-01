@@ -6,7 +6,7 @@ import { SkipToMainContent } from "@/core/components/SkipToMainContent";
 import { ToastProvider } from "@/core/components/ToastProvider";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { WebVitalsReporter } from "@/modules/analytics/components/WebVitalsReporter";
-import { COLOR_THEMES } from "@/core/color-themes";
+import { COLOR_THEMES, COLOR_THEME_STORAGE_KEY } from "@/core/color-themes";
 import { SITE_URL } from "@/core/config/site-url";
 
 const themeBootstrap = `(() => {
@@ -22,7 +22,7 @@ const themeBootstrap = `(() => {
 
 const colorThemeBootstrap = `(() => {
   try {
-    const stored = window.localStorage.getItem("krin-color-theme");
+    const stored = window.localStorage.getItem("${COLOR_THEME_STORAGE_KEY}");
     const palettes = ${JSON.stringify(COLOR_THEMES.map(({ id, swatch }) => ({ id, swatch })))};
     const selected = palettes.find((palette) => palette.id === stored) || palettes[0];
     document.documentElement.dataset.colorTheme = selected.id;

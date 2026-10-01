@@ -1,51 +1,99 @@
 "use client";
 
 import { Palette } from "lucide-react";
-import { useEffect, useState } from "react";
-import { COLOR_THEMES, type ColorTheme } from "@/core/color-themes";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { applyColorTheme, COLOR_THEME_CHANGE_EVENT, COLOR_THEME_STORAGE_KEY, COLOR_THEMES, resolveColorTheme, type ColorTheme } from "@/core/color-themes";
+import { useLocale } from "@/core/i18n/locale";
 import styles from "./ColorThemePicker.module.css";
 
-const STORAGE_KEY = "krin-color-theme";
-
 function currentColorTheme(): ColorTheme {
-  const current = document.documentElement.dataset.colorTheme;
-  return COLOR_THEMES.find((option) => option.id === current)?.id ?? "violet";
+  return resolveColorTheme(document.documentElement.dataset.colorTheme).id;
 }
 
-/** A compact, shared palette switcher. It changes semantic colour tokens, so
- * the same choice works across public pages, learner pages and dark mode. */
+/** One palette control for the dashboard, lessons and the public site. */
 export function ColorThemePicker() {
+  const { locale } = useLocale();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<ColorTheme>("violet");
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const title = locale === "uk" ? "Кольори сайту" : locale === "ru" ? "Цвета сайта" : "Site colours";
+  const action = locale === "uk" ? "Змінити кольори сайту" : locale === "ru" ? "Изменить цвета сайта" : "Change site colours";
 
-  useEffect(() => setSelected(currentColorTheme()), []);
+  useEffect(() => {
+    const sync = () => setSelected(currentColorTheme());
+    sync();
+    window.addEventListener(COLOR_THEME_CHANGE_EVENT, sync);
+    const syncFromStorage = (event: StorageEvent) => {
+      if (event.key !== COLOR_THEME_STORAGE_KEY) return;
+      const theme = resolveColorTheme(event.newValue);
+      document.documentElement.dataset.colorTheme = theme.id;
+      document.documentElement.style.setProperty("--palette-primary", theme.swatch);
+      sync();
+    };
+    window.addEventListener("storage", syncFromStorage);
+    return () => {
+      window.removeEventListener(COLOR_THEME_CHANGE_EVENT, sync);
+      window.removeEventListener("storage", syncFromStorage);
+    };
+  }, []);
+
+  const placeMenu = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(208, window.innerWidth - 16);
+    const height = Math.min(window.innerHeight * .7, 400);
+    setPosition({
+      top: Math.max(8, Math.min(rect.bottom + 7, window.innerHeight - height - 8)),
+      left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    placeMenu();
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !triggerRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", placeMenu);
+    window.addEventListener("scroll", placeMenu, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", placeMenu);
+      window.removeEventListener("scroll", placeMenu, true);
+    };
+  }, [open, placeMenu]);
 
   function selectTheme(theme: ColorTheme) {
-    document.documentElement.dataset.colorTheme = theme;
-    document.documentElement.style.setProperty("--palette-primary", COLOR_THEMES.find((option) => option.id === theme)?.swatch ?? COLOR_THEMES[0].swatch);
+    applyColorTheme(theme);
     setSelected(theme);
     setOpen(false);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      // Storage is optional. The selected palette remains active in this tab.
-    }
+    triggerRef.current?.focus();
   }
 
   return <div className={styles.root}>
     <button
+      ref={triggerRef}
       type="button"
       className={styles.trigger}
-      aria-label="Change site colours"
+      aria-label={action}
       aria-expanded={open}
       aria-haspopup="menu"
-      title="Change site colours"
-      onClick={() => setOpen((value) => !value)}
+      title={action}
+      onClick={() => { placeMenu(); setOpen((value) => !value); }}
     >
       <Palette size={18} aria-hidden="true" />
     </button>
-    {open ? <div className={styles.menu} role="menu" aria-label="Site colours">
-      <p>Site colours</p>
+    {open ? createPortal(<div ref={menuRef} className={styles.menu} role="menu" aria-label={title} style={position}>
+      <p>{title}</p>
       {COLOR_THEMES.map((option) => <button
         key={option.id}
         type="button"
@@ -57,6 +105,6 @@ export function ColorThemePicker() {
         <span className={styles.swatch} style={{ backgroundColor: option.swatch }} aria-hidden="true" />
         {option.label}
       </button>)}
-    </div> : null}
+    </div>, document.body) : null}
   </div>;
 }

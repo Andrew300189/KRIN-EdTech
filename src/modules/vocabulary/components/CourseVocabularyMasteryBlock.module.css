@@ -1,14 +1,14 @@
 .mastery { display: grid; gap: 1rem; margin-top: .35rem; color: var(--text-primary); }
 .vocabularyCard { gap: clamp(.45rem, .8vw, .7rem); margin-top: 0; min-width: 0; }
-.bagStoryCard { border: 1px solid #d9defb; border-radius: 20px; background: linear-gradient(145deg, #fff 0%, #f8f9ff 100%); box-shadow: 0 14px 34px rgb(79 70 229 / 9%); padding: clamp(1rem, 2.4vw, 1.5rem); }
+.bagStoryCard { border: 1px solid var(--border); border-radius: 20px; background: linear-gradient(145deg, var(--surface-elevated), var(--surface-subtle)); box-shadow: 0 14px 34px color-mix(in srgb, var(--primary) 9%, transparent); padding: clamp(1rem, 2.4vw, 1.5rem); }
 .vocabularyCard.bagStoryCard { padding: clamp(.7rem, 1.6vw, 1rem); }
 .bagActionRow { display: flex; justify-content: flex-end; }
 .bagBlockHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .75rem; padding: .15rem .1rem; color: var(--text-primary); }
 .bagBlockHeading span { color: var(--primary); font-size: .76rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
 .bagBlockHeading strong { font-size: .9rem; overflow-wrap: anywhere; }
-.submit.bagNextButton { min-width: 8.75rem; background: linear-gradient(135deg, #5148e8, #2e65ec); box-shadow: 0 .55rem 1.1rem rgb(79 70 229 / 24%); }
-.submit.bagNextButton:hover:not(:disabled) { background: linear-gradient(135deg, #5148e8, #2e65ec); box-shadow: 0 .7rem 1.35rem rgb(79 70 229 / 31%); }
-.bagNextButton:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 3px; }
+.submit.bagNextButton { min-width: 8.75rem; background: linear-gradient(135deg, var(--primary), var(--primary-hover)); box-shadow: 0 .55rem 1.1rem color-mix(in srgb, var(--primary) 24%, transparent); }
+.submit.bagNextButton:hover:not(:disabled) { background: linear-gradient(135deg, var(--primary), var(--primary-hover)); box-shadow: 0 .7rem 1.35rem color-mix(in srgb, var(--primary) 31%, transparent); }
+.bagNextButton:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 .intro { display: grid; gap: .85rem; margin-top: .25rem; }
 .lessonMeta { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; min-height: 2.65rem; padding: .45rem .15rem; font-family: var(--font-lesson-meta); }
 .metaLabel { border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border)); border-radius: 999px; padding: .22rem .5rem; background: color-mix(in srgb, var(--primary) 7%, var(--surface)); color: var(--primary); font-size: .9rem; font-style: italic; font-weight: 700; line-height: 1; white-space: nowrap; }
@@ -39,7 +39,7 @@
 .overall span { color: var(--text-secondary); font-size: .66rem; font-weight: 750; }
 .overallTrack, .seriesTrack { height: .46rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--primary) 11%, var(--surface-secondary)); }
 .overallTrack span, .seriesTrack span { display: block; height: 100%; border-radius: inherit; transition: width 220ms ease; }
-.overallTrack span { background: linear-gradient(90deg, var(--primary), #7c6cff); }
+.overallTrack span { background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, white)); }
 .instruction { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .speakingCard { display: grid; gap: .8rem; padding: clamp(1rem, 3vw, 1.35rem); border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border)); border-radius: 1.25rem; background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--surface)), var(--surface)); }
 .word { margin: 0; color: var(--text-primary); font-size: clamp(1.75rem, 6vw, 2.8rem); font-weight: 900; letter-spacing: -.02em; text-align: center; }

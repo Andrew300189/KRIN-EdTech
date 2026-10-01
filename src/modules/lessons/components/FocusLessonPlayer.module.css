@@ -2,7 +2,7 @@
   min-height: 100dvh;
   background:
     radial-gradient(circle at 14% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 28rem),
-    var(--surface-page);
+    var(--background);
   color: var(--text-primary);
 }
 
@@ -103,7 +103,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #4f46e5, #2563eb);
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, white));
   transition: width 350ms ease;
 }
 
@@ -729,10 +729,10 @@
 /* Placement-test visual system applied to the learner-facing course player. */
 .player {
   background:
-    radial-gradient(circle at 8% 0%, rgb(79 70 229 / 12%), transparent 24rem),
-    radial-gradient(circle at 92% 8%, rgb(37 99 235 / 8%), transparent 22rem),
-    #f7f9ff;
-  color: #1e293b;
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 24rem),
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 22rem),
+    var(--background);
+  color: var(--text-primary);
 }
 
 .frame { width: min(100%, 56rem); padding: clamp(1rem, 3vw, 1.75rem); }
@@ -743,9 +743,9 @@
 .taskCard,
 .completion,
 .empty {
-  border-color: rgb(186 193 221 / 75%);
+  border-color: var(--border);
   border-radius: 28px;
-  background: rgb(255 255 255 / 94%);
+  background: var(--surface-elevated);
   box-shadow: 0 18px 42px rgb(27 42 86 / 10%);
 }
 
@@ -755,23 +755,23 @@
 .backToCourseLink,
 .hintButton,
 .showTheory {
-  border-color: #e2e8f0;
+  border-color: var(--border);
   border-radius: 999px;
-  background: #fff;
-  color: #475569;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
 }
 
 .closeLink:hover,
 .backToCourseLink:hover,
 .hintButton:hover,
 .showTheory:hover {
-  border-color: #a5b4fc;
-  background: #f8f7ff;
-  color: #312e81;
+  border-color: var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--primary);
 }
 
 .blockTimeline { height: .7rem; }
-.blockTimelineSegment { background: #e5e7eb; }
+.blockTimelineSegment { background: var(--surface-secondary); }
 
 .lessonContext {
   position: relative;
@@ -784,7 +784,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 4px;
-  background: #e5e7eb;
+  background: var(--surface-secondary);
   content: "";
 }
 
@@ -793,26 +793,26 @@
   inset: 0 auto auto 0;
   width: var(--lesson-progress, 0%);
   height: 4px;
-  background: linear-gradient(90deg, #4f46e5, #2563eb);
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, white));
   content: "";
   transition: width 350ms ease;
 }
 
-.lessonContext h1 { color: #1e293b; font-size: clamp(1.3rem, 4vw, 1.85rem); font-weight: 900; }
-.lessonContext p, .progressMeta { color: #64748b; }
+.lessonContext h1 { color: var(--text-primary); font-size: clamp(1.3rem, 4vw, 1.85rem); font-weight: 900; }
+.lessonContext p, .progressMeta { color: var(--text-muted); }
 
 .workspace { gap: .85rem; margin-top: 1rem; }
 
 .theory {
-  border-color: #c7d2fe;
-  background: linear-gradient(135deg, #f8f7ff 0%, #f4f7ff 100%);
-  box-shadow: 0 10px 26px rgb(79 70 229 / 8%);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: linear-gradient(135deg, var(--surface-interactive), var(--surface-subtle));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .theoryToggle { padding: 1rem 1.1rem; }
-.theoryEyebrow { color: #4f46e5; }
+.theoryEyebrow { color: var(--primary); }
 .theoryTitle { color: #263650; }
-.theoryInner { border-color: #e0e7ff; padding: 0 1.1rem 1.1rem; }
+.theoryInner { border-color: var(--border); padding: 0 1.1rem 1.1rem; }
 .theoryText { color: #475569; line-height: 1.65; }
 
 .taskCard {
@@ -839,10 +839,10 @@
   gap: 12px;
   margin: 0;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid #eef2ff;
+  border-bottom: 1px solid var(--border);
 }
 .taskType {
-  color: #5148db;
+  color: var(--primary);
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .075em;
@@ -1266,8 +1266,8 @@
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-action-primary) {
-  border-color: #4f46e5;
-  background: #4f46e5;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #fff;
 }
 
@@ -1278,20 +1278,20 @@
 }
 
 .focusContent :global(label.rounded-lg:hover) {
-  border-color: #a5b4fc;
-  background: #f8f7ff;
-  box-shadow: 0 5px 14px rgb(79 70 229 / 10%);
+  border-color: var(--border-strong);
+  background: var(--surface-interactive);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--primary) 10%, transparent);
   transform: translateX(2px);
 }
 
 .focusContent :global(label.rounded-lg:has(input:checked)) {
-  border-color: #4f46e5;
-  background: #eef2ff;
+  border-color: var(--primary);
+  background: var(--surface-interactive);
   color: #1e293b;
 }
 
 .focusContent :global(input[type="radio"]),
-.focusContent :global(input[type="checkbox"]) { accent-color: #4f46e5; }
+.focusContent :global(input[type="checkbox"]) { accent-color: var(--primary); }
 
 .focusContent :global(input:not([type])),
 .focusContent :global(textarea),
@@ -1305,28 +1305,28 @@
 
 .focusContent :global(button.bg-blue-700) {
   border-radius: 999px;
-  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
-  box-shadow: 0 7px 18px rgb(79 70 229 / 28%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 .focusContent :global(button.bg-blue-700:hover) {
-  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary-active));
   transform: translateY(-1px);
 }
 
-.footer { border-color: #eef2ff; }
+.footer { border-color: var(--border); }
 .footerNote { color: #64748b; }
 
 .finishButton {
   min-height: 2.7rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
-  box-shadow: 8px 8px 0 rgb(79 70 229 / 16%), 0 12px 24px rgb(79 70 229 / 30%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  box-shadow: 8px 8px 0 color-mix(in srgb, var(--primary) 16%, transparent), 0 12px 24px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .finishButton:hover {
-  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
-  box-shadow: 9px 9px 0 rgb(79 70 229 / 21%), 0 15px 28px rgb(79 70 229 / 38%);
+  background: linear-gradient(135deg, var(--primary-hover), var(--primary-active));
+  box-shadow: 9px 9px 0 color-mix(in srgb, var(--primary) 21%, transparent), 0 15px 28px color-mix(in srgb, var(--primary) 38%, transparent);
 }
 
 .hint { border-color: #fde68a; border-radius: 14px; background: #fffbeb; color: #854d0e; }
@@ -1336,10 +1336,10 @@
    only; CMS authoring controls keep their existing appearance. */
 .exerciseTaskCard .focusContent :global(.lesson-exercise-card) {
   margin: 0;
-  border: 1px solid #e0e7ff !important;
+  border: 1px solid var(--border) !important;
   border-radius: 20px !important;
-  background: linear-gradient(145deg, #ffffff 0%, #fafaff 100%) !important;
-  box-shadow: 0 10px 26px rgb(79 70 229 / 7%);
+  background: linear-gradient(145deg, var(--surface-elevated), var(--surface-subtle)) !important;
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--primary) 7%, transparent);
   padding: 20px !important;
 }
 
@@ -1371,10 +1371,10 @@
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-instruction) {
   width: min(100%, 46rem);
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%);
-  box-shadow: 0 .55rem 1.35rem rgb(79 70 229 / 10%);
+  background: linear-gradient(135deg, var(--surface-interactive), var(--surface-subtle));
+  box-shadow: 0 .55rem 1.35rem color-mix(in srgb, var(--primary) 10%, transparent);
   padding: .78rem 1rem .86rem;
   text-align: center;
 }
@@ -1384,7 +1384,7 @@
   align-items: center;
   min-height: 1.35rem;
   border-radius: 999px;
-  background: #4f46e5;
+  background: var(--primary);
   color: #fff;
   font-size: .62rem;
   font-weight: 850;
@@ -1396,7 +1396,7 @@
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-instruction p) {
   margin: .48rem 0 0;
-  color: #312e81 !important;
+  color: var(--text-primary) !important;
   font-family: var(--font-display, var(--font-sans));
   font-size: clamp(.98rem, 2vw, 1.14rem) !important;
   font-weight: 850 !important;
@@ -1491,9 +1491,9 @@
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-token-bank) {
-  border: 1px solid #e0e7ff;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: #f8f7ff;
+  background: var(--surface-subtle);
   padding: 11px;
 }
 
@@ -1507,19 +1507,19 @@
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-token) {
-  border: 1px solid #c7d2fe !important;
-  background: #fff !important;
-  color: #4338ca;
+  border: 1px solid var(--border) !important;
+  background: var(--surface-elevated) !important;
+  color: var(--primary);
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-token:hover:not(:disabled)) {
-  border-color: #818cf8 !important;
-  background: #eef2ff !important;
+  border-color: var(--border-strong) !important;
+  background: var(--surface-interactive) !important;
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-token-answer) {
   min-height: 58px;
-  border: 1.5px dashed #c7d2fe !important;
+  border: 1.5px dashed var(--border-strong) !important;
   border-radius: 14px !important;
   background: #fcfcff !important;
   list-style: none;
@@ -1527,15 +1527,15 @@
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-token-selected) {
-  background: #e0e7ff !important;
-  color: #3730a3;
+  background: var(--surface-interactive) !important;
+  color: var(--primary);
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-reset) {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
-  color: #4f46e5;
+  color: var(--primary);
   font-size: .78rem;
   font-weight: 800;
 }
@@ -1654,10 +1654,10 @@
   min-width: 2.75rem;
   aspect-ratio: 1;
   min-height: 34px;
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--surface-interactive);
+  color: var(--primary);
   font-size: .78rem;
   font-weight: 800;
   line-height: 1;
@@ -1667,13 +1667,13 @@
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:hover:not(:disabled)),
 .exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger[aria-expanded="true"]) {
-  border-color: #a5b4fc;
-  background: #e0e7ff;
-  color: #3730a3;
+  border-color: var(--border-strong);
+  background: var(--surface-secondary);
+  color: var(--primary);
 }
 
 .exerciseTaskCard .focusContent :global(.lesson-exercise-translation-trigger:focus-visible) {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -1686,11 +1686,11 @@
   display: inline-flex;
   max-width: 100%;
   align-items: center;
-  border: 1px solid #c7d2fe;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: linear-gradient(135deg, #f5f3ff 0%, #eef2ff 100%);
-  box-shadow: 0 .4rem 1rem rgb(79 70 229 / 11%);
-  color: #312e81;
+  background: linear-gradient(135deg, var(--surface-interactive), var(--surface-subtle));
+  box-shadow: 0 .4rem 1rem color-mix(in srgb, var(--primary) 11%, transparent);
+  color: var(--text-primary);
   font-family: var(--font-display, var(--font-sans));
   font-size: .95rem;
   font-weight: 800;
