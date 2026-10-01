@@ -59,21 +59,6 @@
   padding: .18rem .48rem;
 }
 
-.speedTrack {
-  height: .42rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e3e7f5;
-}
-
-.speedFill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #5c51df, #4f8df5);
-  transition: width 100ms linear;
-}
-
 .questionRow {
   display: grid;
   gap: .75rem;

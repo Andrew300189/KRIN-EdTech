@@ -8,6 +8,7 @@ import { vocabularyMasteryTranslation } from "@/modules/vocabulary/utils/course-
 import { BAG_CHUNK_STAGE_SPAN, BAG_STAGES_PER_BLOCK, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagCuratedLessonStages, buildBagLegacyPracticeStages, buildBagReviewStages, buildBagStoryStages, bagStory, isBagStorySettings, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import { experienceForExerciseSpeed, remainingExerciseSpeedPercent } from "@/modules/courses/utils/exercise-speed-reward";
+import { SpeedRewardBar } from "@/modules/lessons/components/SpeedRewardBar";
 import { applyAnswerKeyboardLayout } from "@/modules/lessons/utils/answer-keyboard-layout";
 import styles from "./CourseVocabularyMasteryBlock.module.css";
 
@@ -210,7 +211,7 @@ export function BagStoryBlock({ lessonId, settings, introWords = [], contentLoca
     {rewardExperience !== null ? <div className="lesson-correct-celebration" role="status" aria-live="polite"><strong>{learnerAnswerFeedback(locale).xpAwarded(rewardExperience)}</strong>{rewardLevelUp ? <span>Level up!</span> : null}</div> : null}
     {planVersion >= BAG_STORY_PLAN_VERSION ? <div className={styles.bagBlockHeading}><span>{locale === "uk" ? `Блок ${blockIndex + 1} із ${blockCount}` : `Блок ${blockIndex + 1} из ${blockCount}`}</span><strong>{curated ? String(locale === "uk" ? configured?.blockLabelUk ?? "Практика фраз" : configured?.blockLabelRu ?? "Практика фраз") : reviewAll ? locale === "uk" ? "Повторення фраз" : "Повторение фраз" : blockWords[0]?.en}</strong></div> : null}
     <div className={styles.overallTrack} aria-hidden="true"><span style={{ width: `${Math.max(2, displayState.progress.completedStages / displayState.progress.totalStages * 100)}%` }} /></div>
-    {canSaveProgress ? <div className={styles.series}><div><strong>{locale === "uk" ? "Нагорода за швидкість" : "Награда за скорость"}</strong><span>+{speedXp} XP</span></div><div className={styles.seriesTrack}><span style={{ width: `${speedPercent}%` }} /></div></div> : null}
+    {canSaveProgress ? <div className={styles.series}><div><strong>{locale === "uk" ? "Нагорода за швидкість" : "Награда за скорость"}</strong><span>+{speedXp} XP</span></div><SpeedRewardBar remainingPercent={speedPercent} compact /></div> : null}
     {task.storyLines.length ? <ol className={styles.promptList}>{task.storyLines.map((line, index) => <li key={`${index}-${line}`} className={styles.promptRow} style={{ opacity: index > task.stepIndex ? .55 : 1 }}><span className={styles.prompt}>{index + 1}. {line}</span>{index < task.stepIndex ? <strong>✓</strong> : null}</li>)}</ol> : <p className={styles.word}>{task.prompt}</p>}
     {task.chunkLocal || task.sentenceLocal ? <p className={styles.wordTranslation}>{task.chunkLocal ?? task.sentenceLocal}</p> : null}
     {task.audioTarget ? <button className={styles.submit} type="button" onClick={() => speak(task.audioTarget!)}>🔊 {locale === "uk" ? "Послухати" : "Послушать"}</button> : null}

@@ -12,6 +12,7 @@ import { getExerciseEngine } from "@/modules/cms/exercise-engines/registry";
 import { answerMatches, contentWithOrderSensitiveAnswerValidation, normalizeCompactToBeMatchingAnswer } from "@/modules/courses/utils/exercise-evaluation";
 import { compactToBeMatchingForms } from "@/modules/courses/utils/to-be-matching-form";
 import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds, remainingExerciseSpeedPercent } from "@/modules/courses/utils/exercise-speed-reward";
+import { SpeedRewardBar } from "./SpeedRewardBar";
 import { getAuthoredExerciseTranslation, getExerciseTranslationTarget } from "@/modules/courses/utils/exercise-translation-source";
 import { sanitizeLessonRichText } from "@/modules/lessons/utils/rich-text";
 import { learnerFriendlyHint } from "@/modules/lessons/utils/learner-friendly-hints";
@@ -871,7 +872,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
     <div className={`${styles.heading} lesson-exercise-heading`}><div className={`${styles.instruction} lesson-exercise-instruction`} role="note"><p>{visibleInstruction}</p></div></div>
     {!result && active ? <div className={styles.speedReward} aria-label={`${speedCopy.bar}: +${speedExperience} XP`}>
       <div className={styles.speedRewardHeader}><span>{speedCopy.label}</span><strong>+{speedExperience} XP</strong></div>
-      <div className={styles.speedTrack} aria-hidden="true"><span className={styles.speedFill} style={{ width: `${speedRemainingPercent}%` }} /></div>
+      <SpeedRewardBar remainingPercent={speedRemainingPercent} />
     </div> : null}
     {passage ? <article className="lesson-exercise-passage mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-800" aria-label="Reading passage">{passage}</article> : null}
     {audio ? <audio className="mt-3 w-full" controls preload="metadata" src={audio}>Your browser does not support audio playback.</audio> : null}

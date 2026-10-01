@@ -1,0 +1,14 @@
+.track { height: .42rem; overflow: hidden; border-radius: 999px; background: #e3e7f5; }
+.compact { height: .34rem; }
+.fill { display: block; height: 100%; border-radius: inherit; transition: width 100ms linear, background-color 280ms ease; }
+.critical { animation: redSpeedPulse 1.1s ease-in-out infinite; }
+
+@keyframes redSpeedPulse {
+  0%, 100% { background: #fee2e2; box-shadow: 0 0 0 0 rgb(220 38 38 / 0); }
+  50% { background: #fca5a5; box-shadow: 0 0 0 .26rem rgb(220 38 38 / 22%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+  .critical { animation: none; background: #fee2e2; outline: 2px solid #dc2626; outline-offset: 2px; }
+}

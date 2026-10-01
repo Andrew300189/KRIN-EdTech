@@ -3,6 +3,7 @@ import {
   experienceForExerciseSpeed,
   exerciseSpeedWindowSeconds,
   remainingExerciseSpeedPercent,
+  speedRewardVisualState,
 } from "@/modules/courses/utils/exercise-speed-reward";
 
 describe("exercise speed reward", () => {
@@ -31,5 +32,12 @@ describe("exercise speed reward", () => {
     expect(exerciseSpeedWindowSeconds(120)).toBe(90);
     expect(remainingExerciseSpeedPercent(22.5, 45)).toBe(50);
     expect(remainingExerciseSpeedPercent(90, 45)).toBe(0);
+  });
+
+  it("changes smoothly from green to red and alerts only in the red zone", () => {
+    expect(speedRewardVisualState(100)).toEqual({ percent: 100, color: "hsl(140 82% 40%)", critical: false });
+    expect(speedRewardVisualState(60)).toEqual({ percent: 60, color: "hsl(70 82% 40%)", critical: false });
+    expect(speedRewardVisualState(20)).toEqual({ percent: 20, color: "hsl(0 82% 40%)", critical: true });
+    expect(speedRewardVisualState(0)).toEqual({ percent: 0, color: "hsl(0 82% 40%)", critical: true });
   });
 });

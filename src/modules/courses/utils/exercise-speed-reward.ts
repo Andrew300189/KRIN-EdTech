@@ -46,3 +46,10 @@ export function remainingExerciseSpeedPercent(elapsedSeconds: number, configured
   const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : windowSeconds;
   return Math.max(0, Math.min(100, ((windowSeconds - elapsed) / windowSeconds) * 100));
 }
+
+/** Green at the start, continuously warming to red for the final fifth. */
+export function speedRewardVisualState(remainingPercent: number) {
+  const percent = Number.isFinite(remainingPercent) ? Math.max(0, Math.min(100, remainingPercent)) : 0;
+  const hue = Math.round(140 * Math.max(0, Math.min(1, (percent - 20) / 80)));
+  return { percent, color: `hsl(${hue} 82% 40%)`, critical: percent <= 20 };
+}
