@@ -5,7 +5,7 @@ import { answerMatches } from "@/modules/courses/utils/exercise-evaluation";
 import { recordExerciseResult } from "@/modules/motivation/services/motivation.service";
 import { assessPronunciation } from "@/modules/vocabulary/utils/pronunciation";
 import { experienceForExerciseSpeed, exerciseSpeedWindowSeconds } from "@/modules/courses/utils/exercise-speed-reward";
-import { BAG_CHUNK_STAGE_SPAN, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagCuratedLessonStages, buildBagLegacyPracticeStages, buildBagStoryStages, buildBagReviewStages, bagStageExperience, bagStory, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
+import { BAG_CHUNK_STAGE_SPAN, BAG_STORY_PLAN_VERSION, bagChunkKey, bagQuickCheckEligible, buildBagCompactLessonStages, buildBagCuratedLessonStages, buildBagLegacyPracticeStages, buildBagStoryStages, buildBagReviewStages, bagStageExperience, bagStory, type BagStage } from "@/modules/vocabulary/utils/a-bag-story-plan";
 import { vocabularyMasteryTranslation, type VocabularyMasteryLocale } from "@/modules/vocabulary/utils/course-vocabulary-mastery";
 import { z } from "zod";
 
@@ -33,14 +33,16 @@ async function lessonData(lessonId: string, locale: VocabularyMasteryLocale) {
   const words: Word[] = lesson.vocabulary.map(({ word }) => ({ id: word.id, lemma: word.lemma, translation: vocabularyMasteryTranslation(block.settings, word.lemma, locale, word.meanings[0]?.translation ?? word.meanings[0]?.definition ?? word.lemma), britishAudioUrl: word.britishAudioUrl, americanAudioUrl: word.americanAudioUrl }));
   const reviewAll = asRecord(block.settings).reviewAll === true;
   const curated = asRecord(block.settings).practiceKind === "CURATED_STORY";
-  const practice = curated || asRecord(block.settings).practiceKind === (reviewAll ? "LEGACY_REVIEW" : "LEGACY_PHRASE");
+  const compact = asRecord(block.settings).practiceKind === "COMPACT_MISSION";
+  const practice = curated || compact || asRecord(block.settings).practiceKind === (reviewAll ? "LEGACY_REVIEW" : "LEGACY_PHRASE");
   const practiceRound = Number(asRecord(block.settings).practiceRound);
-  const stages = curated ? buildBagCuratedLessonStages(words.map((word) => word.id), words.map((word) => word.lemma), Number(asRecord(block.settings).curatedLessonIndex))
+  const stages = compact ? buildBagCompactLessonStages(words.map((word) => word.id), words.map((word) => word.lemma), Number(asRecord(block.settings).compactLessonIndex))
+    : curated ? buildBagCuratedLessonStages(words.map((word) => word.id), words.map((word) => word.lemma), Number(asRecord(block.settings).curatedLessonIndex))
     : practice ? buildBagLegacyPracticeStages(words.map((word) => word.id), words.map((word) => word.lemma), practiceRound, reviewAll)
     : reviewAll ? buildBagReviewStages(words.map((word) => word.id), planVersion) : buildBagStoryStages(words.map((word) => word.id), words.map((word) => word.lemma), planVersion);
   const exercises = blocks.flatMap((candidate) => candidate.exercises);
-  if ((curated ? words.length !== 3 : reviewAll ? words.length !== 30 : words.length !== 5) || !stages.length || exercises.length !== stages.length) throw new Error("Bag story content is incomplete. Re-import the course.");
-  return { lesson, block, blocks, exercises, words, stages, reviewAll, planVersion, practice, curated };
+  if ((curated || compact ? words.length !== 3 : reviewAll ? words.length !== 30 : words.length !== 5) || !stages.length || exercises.length !== stages.length) throw new Error("Bag story content is incomplete. Re-import the course.");
+  return { lesson, block, blocks, exercises, words, stages, reviewAll, planVersion, practice, curated, compact };
 }
 
 function taskFor(state: State, stages: BagStage[], words: Word[], locale: VocabularyMasteryLocale, practice = false) {
@@ -134,7 +136,7 @@ export async function submitBagStoryAttempt(userId: string, lessonId: string, in
       const stageCompleted = nextStep >= task.stepCount;
       const next: State = { ...state, stageIndex: stageCompleted ? state.stageIndex + 1 : state.stageIndex, stepIndex: stageCompleted ? 0 : nextStep, hadMistake: false, failedLine: false };
       const completed = next.stageIndex >= data.stages.length;
-      if (completed && (data.reviewAll && !data.practice || data.curated && Number(asRecord(data.block.settings).curatedLessonIndex) === 9)) {
+      if (completed && (data.reviewAll && !data.practice || data.curated && Number(asRecord(data.block.settings).curatedLessonIndex) === 9 || data.compact && Number(asRecord(data.block.settings).compactLessonIndex) === 1)) {
         const nextReviewAt = new Date(now.getTime() + 86_400_000);
         await tx.userWord.createMany({ data: data.words.map((word) => ({ userId, wordId: word.id, sourceLessonId: lessonId, status: "REVIEW", nextReviewAt, addedAt: now })), skipDuplicates: true });
       }
@@ -176,7 +178,7 @@ export async function submitBagStoryAttempt(userId: string, lessonId: string, in
     const masteredChunks = chunkKey && stage.chunkCode === "RECALL_3" && !state.masteredChunks.includes(chunkKey) ? [...state.masteredChunks, chunkKey] : state.masteredChunks;
     const next: State = { stageIndex: state.stageIndex + (reviewCheck ? BAG_CHUNK_STAGE_SPAN : 1), stepIndex: 0, hadMistake: false, failedLine: false, locale: state.locale, masteredChunks, relearningChunks: chunkKey && stage.chunkCode === "RECALL_3" ? state.relearningChunks.filter((key) => key !== stage.key.replace(/-8$/, "-0")) : state.relearningChunks };
     const completed = next.stageIndex >= data.stages.length;
-    if (completed && (data.reviewAll && !data.practice || data.curated && Number(asRecord(data.block.settings).curatedLessonIndex) === 9)) {
+    if (completed && (data.reviewAll && !data.practice || data.curated && Number(asRecord(data.block.settings).curatedLessonIndex) === 9 || data.compact && Number(asRecord(data.block.settings).compactLessonIndex) === 1)) {
       const nextReviewAt = new Date(now.getTime() + 86_400_000);
       await tx.userWord.createMany({ data: data.words.map((item) => ({ userId, wordId: item.id, sourceLessonId: lessonId, status: "REVIEW", nextReviewAt, addedAt: now })), skipDuplicates: true });
     }

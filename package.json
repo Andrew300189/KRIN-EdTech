@@ -38,6 +38,7 @@
     "content:publish:future-simple": "node database/scripts/import-future-simple-full-mastery.cjs --publish",
     "content:validate:a-bag-of": "node database/scripts/import-a-bag-of-vocabulary.cjs --validate",
     "content:import:a-bag-of": "node database/scripts/import-a-bag-of-vocabulary.cjs --publish",
+    "content:publish:a-bag-compact": "node database/scripts/rebuild-a-bag-curated-course.cjs --publish",
     "content:validate:a-bottle-of": "node database/scripts/import-a-bottle-of-vocabulary.cjs --validate",
     "content:import:a-bottle-of": "node database/scripts/import-a-bottle-of-vocabulary.cjs --publish",
     "content:validate:a-can-of": "node database/scripts/import-a-can-of-vocabulary.cjs --validate",

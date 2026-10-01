@@ -22,6 +22,8 @@ type Props = {
   className?: string;
   /** Useful for the brief saving state before route navigation. */
   active?: boolean;
+  /** Facts are opt-in; only an explicit caller may request an automatic card. */
+  autoOpen?: boolean;
 };
 
 const copy = {
@@ -31,10 +33,10 @@ const copy = {
 } as const;
 
 /**
- * A calm, persistent guide. Every fresh mount and eligible click receives a
- * different recently-unseen card from the server catalogue.
+ * A calm, persistent guide. A click receives a recently-unseen server fact;
+ * simply opening the dashboard or lesson never covers the learning content.
  */
-export function LilyMascot({ context, placement = "fixed", className = "", active = true }: Props) {
+export function LilyMascot({ context, placement = "fixed", className = "", active = true, autoOpen = false }: Props) {
   const { locale } = useLocale();
   const text = copy[locale] ?? copy.en;
   const [fact, setFact] = useState<Fact | null>(null);
@@ -79,10 +81,10 @@ export function LilyMascot({ context, placement = "fixed", className = "", activ
   }, []);
 
   useEffect(() => {
-    if (!active || loadedContextRef.current === context) return;
+    if (!active || !autoOpen || loadedContextRef.current === context) return;
     loadedContextRef.current = context;
     void requestFact(context);
-  }, [active, context, requestFact]);
+  }, [active, autoOpen, context, requestFact]);
 
   function onCharacterClick() {
     if (pendingClickRef.current || requestInFlightRef.current) return;

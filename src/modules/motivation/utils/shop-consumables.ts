@@ -6,6 +6,11 @@ export const WATER_LILY_TIERS = WATER_LILY_CAPACITIES.map((capacity) => ({
   capacity,
   price: Number((WATER_LILY_PRICE_COINS * Math.max(1, capacity / 10)).toFixed(2)),
 }));
+/** Keep the historic capacities redeemable, but offer only five clear choices. */
+export const PURCHASABLE_WATER_LILY_CAPACITIES = [10, 25, 50, 100, 250] as const;
+export const PURCHASABLE_WATER_LILY_TIERS = WATER_LILY_TIERS.filter((tier) =>
+  (PURCHASABLE_WATER_LILY_CAPACITIES as readonly number[]).includes(tier.capacity),
+).map((tier, index) => ({ ...tier, rarity: (["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const)[index] }));
 
 export type WaterLilyInventoryEntry = { id: string; capacity: number; quantity: number };
 

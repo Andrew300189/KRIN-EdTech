@@ -225,7 +225,6 @@ const lessonFeedbackCopy = {
     nextCompletedLesson: "Next completed lesson",
     nextLesson: "Continue to next lesson",
     openNextLesson: "Open next lesson",
-    wheelRequired: "Spin the XP multiplier wheel to unlock the next lesson.",
   },
   ru: {
     complete: "Урок завершён",
@@ -243,7 +242,6 @@ const lessonFeedbackCopy = {
     nextCompletedLesson: "Следующий пройденный урок",
     nextLesson: "К следующему уроку",
     openNextLesson: "Открыть следующий урок",
-    wheelRequired: "Прокрутите колесо множителя XP, чтобы открыть следующий урок.",
   },
   uk: {
     complete: "Урок завершено",
@@ -261,7 +259,6 @@ const lessonFeedbackCopy = {
     nextCompletedLesson: "Наступний пройдений урок",
     nextLesson: "До наступного уроку",
     openNextLesson: "Відкрити наступний урок",
-    wheelRequired: "Прокрутіть колесо множника XP, щоб відкрити продовження уроків.",
   },
 } as const;
 
@@ -319,7 +316,6 @@ export function LessonPlayer({
   const [finished, setFinished] = useState(false);
   const [guestRegistrationRequired, setGuestRegistrationRequired] = useState(false);
   const [guestExerciseResume, setGuestExerciseResume] = useState<GuestExerciseResume | null>(null);
-  const [wheelCollected, setWheelCollected] = useState(false);
   const [xpMultiplierReward, setXpMultiplierReward] = useState<LessonXpMultiplierWheelResult | null>(null);
   const [baseXpAnimationComplete, setBaseXpAnimationComplete] = useState(false);
   const [openingNextLesson, setOpeningNextLesson] = useState(false);
@@ -1097,9 +1093,6 @@ export function LessonPlayer({
   const completionXpTarget = multiplierAnimationActive ? xpMultiplierReward!.totalExperience : totalEarnedXp;
   const completionXpStart = multiplierAnimationActive ? xpMultiplierReward!.baseExperience : 0;
   const animatedCompletionXp = useAnimatedXpCounter(completionXpStart, completionXpTarget, completionAnimationActive);
-  const multiplierWheelRequired = !previewMode && canSaveProgress && totalEarnedXp > 0;
-  const multiplierXpAnimationComplete = !freshlySpunWheel || (multiplierAnimationActive && animatedCompletionXp === xpMultiplierReward!.totalExperience);
-  const multiplierWheelResolved = !multiplierWheelRequired || (wheelCollected && multiplierXpAnimationComplete);
   const lessonBaseXp = xpMultiplierReward?.baseExperience ?? totalEarnedXp;
 
   useEffect(() => {
@@ -1223,13 +1216,12 @@ export function LessonPlayer({
             {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">{animatedCompletionXp} XP</span><span>{xpMultiplierReward ? feedbackCopy.totalReward : feedbackCopy.reward}</span></p> : null}
             <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
             {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><p>{feedbackCopy.baseReward}: {lessonBaseXp} XP{lessonReward.levelBonusExperience ? ` (${feedbackCopy.levelIncluded}: ${lessonReward.levelBonusExperience} XP)` : ""}{xpMultiplierReward ? ` · ${feedbackCopy.wheelBonus}: +${xpMultiplierReward.bonusExperience} XP` : ""}</p></div> : null}
-            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => setWheelCollected(true)} onMultiplierApplied={setXpMultiplierReward} /> : null}
+            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => undefined} onMultiplierApplied={setXpMultiplierReward} /> : null}
             {!previewMode && !hasUnfinishedRequiredBlocks ? <LilyMascot context="COMPLETION" placement="inline" /> : null}
-            {!previewMode && multiplierWheelRequired && baseXpAnimationComplete && !wheelCollected ? <p className={styles.lessonReward}>{feedbackCopy.wheelRequired}</p> : null}
             {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
             {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
-            {!previewMode && canSaveProgress && (!finished || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
-            {(!canSaveProgress || previewMode || hasUnfinishedRequiredBlocks || multiplierWheelResolved) ? <div className={styles.completionActions}>
+            {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
+            <div className={styles.completionActions}>
                 <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : `${styles.triumphPrimaryAction} ${styles.completionReadyButton}`}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
                 {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
                 {/* This must also be available after reopening a completed lesson.
@@ -1237,7 +1229,7 @@ export function LessonPlayer({
                     only after the learner explicitly clicks the button. */}
                 {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
                 {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
-              </div> : null}
+              </div>
           </section>
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>{chromeCopy.noStepsTitle}</h2><p>{chromeCopy.noStepsDescription}</p></section>

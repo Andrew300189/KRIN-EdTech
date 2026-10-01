@@ -88,7 +88,7 @@ export default async function StudentHomePage({
         </div>
         <div className={styles.heroActions}>
           <ColorThemePicker />
-          <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link>
+          {!interruptedLesson ? <Link href={next ? courseHref(next) : "/student/catalog"} className={styles.primaryAction}><LocalizedText id={next ? "student.home.continue" : "student.home.chooseCourse"} fallback={next ? "Continue learning" : "Choose a course"} /></Link> : null}
           <Link href="/profile/support" className={styles.secondaryAction}><LocalizedText id="student.home.help" fallback="Help" /></Link>
         </div>
       </header>
@@ -116,7 +116,7 @@ export default async function StudentHomePage({
         </article>
         <article className={styles.statCard}><p><LocalizedText id="student.home.overallProgress" fallback="Overall progress" /></p><strong>{overallProgress}%</strong><span><LocalizedText id="student.home.lessonsOf" fallback={`${completedLessons} of ${totalLessons} lessons`} values={{ completed: completedLessons, total: totalLessons }} /></span></article>
         <article className={styles.statCard}><p><LocalizedText id="student.home.todayPace" fallback="Today's pace" /></p><strong><LocalizedText id="student.home.minutes" fallback={`${completedMinutes}/${dailyGoal} min`} values={{ completed: completedMinutes, goal: dailyGoal }} /></strong><span><LocalizedText id="student.home.goalProgress" fallback={`${dailyProgress}% of your goal`} values={{ progress: dailyProgress }} /></span></article>
-        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span>Coins are for purchases and do not affect the XP ranking.</span></article>
+        <article className={`${styles.statCard} ${styles.coinCard}`}><p>KRIN Coins</p><strong>{(motivation.wallet.balance + motivation.wallet.fractionalBalance / 100).toFixed(2)}</strong><span><LocalizedText id="student.home.coinsRanking" fallback="Coins are for purchases and do not affect the XP ranking." /></span></article>
       </section>
 
       <section className={styles.dashboardGrid}>
@@ -135,13 +135,11 @@ export default async function StudentHomePage({
                   <Link href="/student/homework"><LocalizedText id={assignmentCount ? "student.home.homeworkItems" : "student.home.homework"} fallback={assignmentCount ? `${assignmentCount} homework items` : "Homework"} values={{ count: assignmentCount }} /></Link>
                   <Link href="/profile/settings/motivation"><LocalizedText id="student.home.studyPace" fallback="Study pace" /></Link>
                 </div>
-                <Link href={courseHref(next)} className={styles.primaryAction}><LocalizedText id="student.home.startLesson" fallback="Start lesson" /></Link>
               </div>
             </>
           ) : (
             <>
               <p className={styles.cardText}><LocalizedText id="student.home.noCourseCopy" fallback="Choose a published course to get a simple next-lesson plan. You can try a free lesson before paying." /></p>
-              <Link href="/student/catalog" className={`${styles.primaryAction} ${styles.inlineAction}`}><LocalizedText id="student.home.browseCourses" fallback="Browse courses" /></Link>
             </>
           )}
         </article>

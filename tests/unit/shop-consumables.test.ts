@@ -1,11 +1,13 @@
-import { consumableQuantity, nextXpBooster, planWaterLilyRestore, WATER_LILY_CAPACITIES, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, nextXpBooster, planWaterLilyRestore, PURCHASABLE_WATER_LILY_TIERS, WATER_LILY_CAPACITIES, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { SHOP_ITEMS } from "@/modules/motivation/services/reward-economy.service";
 
 describe("purchased XP booster inventory", () => {
-  it("offers all 30 Water Lily capacities and both server-priced boosters", () => {
+  it("offers five distinct rarities while retaining all historic lilies for redemption", () => {
     const lilies = SHOP_ITEMS.filter((item) => item.kind === "recovery");
-    expect(lilies).toHaveLength(WATER_LILY_CAPACITIES.length);
-    expect(lilies.map((item) => [item.id, item.price])).toEqual(WATER_LILY_TIERS.map((tier) => [tier.id, tier.price]));
+    expect(WATER_LILY_CAPACITIES).toHaveLength(30);
+    expect(WATER_LILY_TIERS).toHaveLength(30);
+    expect(lilies).toHaveLength(5);
+    expect(lilies.map((item) => [item.id, item.price, item.rarity])).toEqual(PURCHASABLE_WATER_LILY_TIERS.map((tier) => [tier.id, tier.price, tier.rarity]));
     expect(SHOP_ITEMS.filter((item) => item.kind === "booster").map((item) => [item.id, item.price])).toEqual([
       ["xp-boost-40", 0.1], ["xp-boost-15", 0.05],
     ]);

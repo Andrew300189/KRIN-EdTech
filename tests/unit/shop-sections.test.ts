@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { createElement } from "react";
 import { LocaleProvider } from "@/core/i18n/locale";
@@ -24,5 +24,17 @@ describe("shop sections", () => {
       expect(screen.getByRole("heading", { name: `Test ${kind}` })).toBeInTheDocument();
     }
     expect(screen.getAllByRole("button", { name: "Buy" })).toHaveLength(kinds.length);
+  });
+
+  it("keeps purchased scene postcards in a readable collection", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      balance: 4, equippedTheme: null, equippedAvatar: null, coupons: [],
+      items: [{ id: "postcard-market", kind: "collectible", price: 1, title: "At the market", description: "I need a bag of rice.", owned: true, quantity: 0 }],
+    } }) }) as never;
+    render(createElement(LocaleProvider, null, createElement(ShopPage)));
+    const album = await screen.findByRole("region", { name: "My scene album" });
+    fireEvent.click(screen.getByRole("button", { name: "Open: At the market" }));
+    expect(album).toBeInTheDocument();
+    expect(screen.getAllByText("I need a bag of rice.")).toHaveLength(2);
   });
 });

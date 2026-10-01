@@ -8,6 +8,9 @@ export const BAG_LEGACY_REVIEW_ROUNDS = 5;
 export const BAG_CURATED_LESSONS_PER_MODULE = 10;
 export const BAG_CURATED_BLOCKS_PER_LESSON = 12;
 export const BAG_CURATED_STAGES_PER_MODULE = 3 * (BAG_STAGES_PER_BLOCK + 377 + 4 + 1);
+export const BAG_COMPACT_LESSONS_PER_MODULE = 2;
+export const BAG_COMPACT_BLOCKS_PER_LESSON = 3;
+export const BAG_COMPACT_STAGES_PER_MODULE = 27;
 const LEGACY_BAG_CARD_ORDER = (
   "P CE TL TE S CL TE P TL S TL P TE CE TE CL TL P S P TL CE TE S CL P TE TL TE CE P TL S TE TL P CL P TE TL CE S CL TL P TE TL CE TE P S TE P CL TL P CE TE TL S CL TE TL P TL P CE TE S TE TL CL P CE P TE TL S"
 ).split(" ") as Array<"P" | "CE" | "CL" | "TE" | "TL" | "S">;
@@ -111,6 +114,29 @@ export function buildBagCuratedLessonStages(wordIds: string[], phraseLemmas: str
   const start = Math.floor(stages.length * lessonIndex / BAG_CURATED_LESSONS_PER_MODULE);
   const end = Math.floor(stages.length * (lessonIndex + 1) / BAG_CURATED_LESSONS_PER_MODULE);
   return stages.slice(start, end);
+}
+
+/** Two short missions per scene. First recognise, say and write three phrases;
+ * then use each in a sentence and recall it without a prompt. The oversized
+ * legacy sequence stays archived for existing attempts, not in the route. */
+export function buildBagCompactLessonStages(wordIds: string[], phraseLemmas: string[], lessonIndex: number): BagStage[] {
+  if (wordIds.length !== 3 || phraseLemmas.length !== 3 || !Number.isInteger(lessonIndex) || lessonIndex < 0 || lessonIndex >= BAG_COMPACT_LESSONS_PER_MODULE) return [];
+  if (lessonIndex === 0) {
+    const core = buildBagStoryStages(wordIds, phraseLemmas);
+    return Array.from({ length: BAG_STAGES_PER_BLOCK }, (_, card) => wordIds.map((_, ordinal) => ({
+      ...core[ordinal * BAG_STAGES_PER_BLOCK + card]!, key: `compact-intro-${ordinal}-${card}`,
+    }))).flat();
+  }
+  const stages: BagStage[] = [];
+  for (let round = 0; round < 4; round += 1) {
+    for (const [wordOrdinal, wordId] of wordIds.entries()) {
+      const kind = round === 0 ? "BAG_SENTENCE_ASSEMBLE" : round === 1 ? "BAG_SENTENCE" : round === 2 ? "BAG_REVIEW" : "BAG_SENTENCE";
+      stages.push({ key: `compact-use-${wordOrdinal}-${round}`, kind, wordId, wordOrdinal,
+        cardNumber: round + 1, code: round === 2 ? "TE" : "SENTENCE", storyIndex: round === 0 || round === 1 ? 1 : round === 3 ? 2 : null,
+        sentenceMode: round === 3 ? "HIDDEN" : "VISIBLE", requiredSteps: 1, choiceWordIds: wordIds });
+    }
+  }
+  return stages;
 }
 
 export function bagCuratedBlockBounds(totalStages: number, partIndex: number) {

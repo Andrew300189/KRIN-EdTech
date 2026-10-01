@@ -9,9 +9,10 @@ import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerCh
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
 import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
-import { consumableQuantity, WATER_LILY_SHOP_ID, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { consumableQuantity, PURCHASABLE_WATER_LILY_TIERS, WATER_LILY_SHOP_ID, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
+import { SHOP_POSTCARDS } from "@/modules/motivation/utils/shop-postcards";
 
-type ShopItemKind = "theme" | "avatar" | "discount" | "recovery" | "booster";
+type ShopItemKind = "theme" | "avatar" | "discount" | "recovery" | "booster" | "collectible";
 
 export type ShopItem = {
   id: string;
@@ -20,11 +21,12 @@ export type ShopItem = {
   title: string;
   description: string;
   value?: number;
+  rarity?: "COMMON" | "UNCOMMON" | "RARE" | "EPIC" | "LEGENDARY";
 };
 
 /** All prices and effects live on the server. Never accept them from a form. */
 export const SHOP_ITEMS: readonly ShopItem[] = [
-  ...WATER_LILY_TIERS.map((lily) => ({ id: lily.id, kind: "recovery" as const, price: lily.price, title: `Water Lily · ×${lily.capacity}`, description: `Restores an interrupted lesson answer streak of up to ${lily.capacity} verified correct answers.`, value: lily.capacity })),
+  ...PURCHASABLE_WATER_LILY_TIERS.map((lily) => ({ id: lily.id, kind: "recovery" as const, price: lily.price, title: `Water Lily · ×${lily.capacity}`, description: `Restores an interrupted lesson answer streak of up to ${lily.capacity} verified correct answers.`, value: lily.capacity, rarity: lily.rarity })),
   ...XP_BOOSTERS.map((booster) => ({
     id: booster.id,
     kind: "booster" as const,
@@ -44,6 +46,7 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
     title: avatar.label.en,
     description: avatar.description.en,
   })),
+  ...SHOP_POSTCARDS.map((postcard) => ({ id: postcard.id, kind: "collectible" as const, price: 1, title: postcard.en, description: postcard.phrase })),
   { id: "premium-discount-10", kind: "discount", price: 12, title: "10% Premium or Pro discount", description: "One personal code for a future Premium or Pro checkout.", value: 10 },
 ] as const;
 
