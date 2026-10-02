@@ -104,11 +104,26 @@
 .mistakeCount { min-width: 1.8rem; text-align: center; }
 .mistakeList { display: grid; max-height: 7.6rem; grid-template-columns: repeat(auto-fill, 3.3rem); gap: .55rem; margin: .65rem 0 0; overflow: auto; padding: .2rem; list-style: none; }
 .mistakeList li { width: 3.3rem; height: 3.3rem; }
-.fixButton { display: grid; width: 3.3rem; height: 3.3rem; place-items: center; border: 1px solid #7db9b0; border-radius: .82rem; background: #edf8f6; color: #117568; cursor: pointer; font-size: .86rem; font-weight: 900; box-shadow: 0 0 0 0 rgb(61 155 142 / 25%); animation: fixPulse 2.1s ease-in-out infinite; }
-.fixButton:hover, .fixButton:focus-visible { border-color: #248f81; background: #dbf2ed; color: #075b52; outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.mistakeList li:nth-child(6n + 1) { --fix-bg: #e8f6f2; --fix-border: #79b7ad; --fix-ink: #075c50; --fix-glow: 59 155 142; }
+.mistakeList li:nth-child(6n + 2) { --fix-bg: #f0edff; --fix-border: #aaa1ed; --fix-ink: #3d2e97; --fix-glow: 112 95 197; }
+.mistakeList li:nth-child(6n + 3) { --fix-bg: #fff4df; --fix-border: #d5ad62; --fix-ink: #855109; --fix-glow: 186 127 34; }
+.mistakeList li:nth-child(6n + 4) { --fix-bg: #fff0f7; --fix-border: #e8a3c1; --fix-ink: #92365f; --fix-glow: 189 91 135; }
+.mistakeList li:nth-child(6n + 5) { --fix-bg: #edf5ff; --fix-border: #88b7e8; --fix-ink: #1f548f; --fix-glow: 75 132 194; }
+.mistakeList li:nth-child(6n) { --fix-bg: #fff0e5; --fix-border: #dba27d; --fix-ink: #824422; --fix-glow: 197 115 67; }
+.fixButton { display: grid; width: 3.3rem; height: 3.3rem; place-items: center; border: 1px solid var(--fix-border); border-radius: .82rem; background: var(--fix-bg); color: var(--fix-ink); cursor: pointer; font-size: .86rem; font-weight: 900; transform-origin: 50% 80%; animation: fixWiggle 8s ease-in-out infinite; }
+.mistakeList li:nth-child(6n + 2) .fixButton { animation-delay: -1.2s; }
+.mistakeList li:nth-child(6n + 3) .fixButton { animation-delay: -2.4s; }
+.mistakeList li:nth-child(6n + 4) .fixButton { animation-delay: -3.6s; }
+.mistakeList li:nth-child(6n + 5) .fixButton { animation-delay: -4.8s; }
+.mistakeList li:nth-child(6n) .fixButton { animation-delay: -6s; }
+.fixButton:hover, .fixButton:focus-visible { filter: brightness(.95); animation-play-state: paused; outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .fixButton:disabled { cursor: wait; opacity: .65; animation: none; }
 .mistakeError { margin: .3rem 0 0; color: #b42345; font-size: .7rem; }
-@keyframes fixPulse { 50% { box-shadow: 0 0 0 5px rgb(61 155 142 / 13%); } }
+@keyframes fixWiggle {
+  0%, 72%, 88%, 100% { transform: translateY(0) rotate(0); box-shadow: 0 0 0 0 rgb(var(--fix-glow) / 0%); }
+  75%, 83% { transform: translateY(-2px) rotate(-6deg); box-shadow: 0 0 0 4px rgb(var(--fix-glow) / 15%); }
+  79% { transform: translateY(-3px) rotate(6deg); box-shadow: 0 0 0 5px rgb(var(--fix-glow) / 19%); }
+}
 .textLink { display: inline-flex; margin-top: auto; padding-top: 0.65rem; }
 .primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .refreshLeaderboardButton, .refreshLeaderboardButton:hover:not(:disabled) { transition: none; transform: none; } .refreshingLeaderboard svg, .fixButton { animation: none; } }

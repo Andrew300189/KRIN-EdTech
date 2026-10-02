@@ -40,7 +40,8 @@ export default async function StudentHomePage({
     getPublishedCmsContentSlot("student.welcome"),
     getMotivationOverview(guard.user.id),
     prisma.userMistake.findMany({
-      where: { userId: guard.user.id, resolvedAt: null },
+      // Every dashboard Fix tile must be able to start a review run.
+      where: { userId: guard.user.id, resolvedAt: null, exerciseId: { not: null }, lesson: { isNot: null } },
       orderBy: { lastOccurredAt: "desc" },
       select: {
         id: true,
