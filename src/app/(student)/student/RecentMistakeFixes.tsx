@@ -7,9 +7,7 @@ import styles from "./StudentHome.module.css";
 
 export type RecentMistake = {
   id: string;
-  occurrenceCount: number;
-  explanation: string | null;
-  lesson: { title: string; courseSlug: string } | null;
+  lesson: { courseSlug: string } | null;
 };
 
 export function RecentMistakeFixes({ mistakes }: { mistakes: RecentMistake[] }) {
@@ -20,7 +18,8 @@ export function RecentMistakeFixes({ mistakes }: { mistakes: RecentMistake[] }) 
   const fallback = locale === "uk" ? "Виправити помилку не вдалося." : locale === "ru" ? "Не удалось открыть исправление." : "Could not open this correction.";
 
   async function fix(mistake: RecentMistake) {
-    if (!mistake.lesson || loadingId) return;
+    if (loadingId) return;
+    if (!mistake.lesson) { router.push("/student/mistakes"); return; }
     setLoadingId(mistake.id);
     setError(null);
     try {
@@ -39,9 +38,8 @@ export function RecentMistakeFixes({ mistakes }: { mistakes: RecentMistake[] }) 
   }
 
   return <>
-    <ul className={styles.mistakeList}>{mistakes.map((mistake) => <li key={mistake.id}>
-      <span className={styles.mistakeCopy}><strong>{mistake.lesson?.title ?? (locale === "uk" ? "Помилка" : locale === "ru" ? "Ошибка" : "Mistake")}</strong><small>{mistake.explanation ?? (locale === "uk" ? `Спроб: ${mistake.occurrenceCount}` : locale === "ru" ? `Попыток: ${mistake.occurrenceCount}` : `${mistake.occurrenceCount} attempts`)}</small></span>
-      {mistake.lesson ? <button type="button" className={styles.fixButton} aria-label={`Fix: ${mistake.lesson.title}`} disabled={Boolean(loadingId)} onClick={() => void fix(mistake)}>{loadingId === mistake.id ? "…" : "Fix"}</button> : null}
+    <ul className={styles.mistakeList}>{mistakes.map((mistake, index) => <li key={mistake.id}>
+      <button type="button" className={styles.fixButton} aria-label={`Fix mistake ${index + 1}`} disabled={Boolean(loadingId)} onClick={() => void fix(mistake)}>{loadingId === mistake.id ? "…" : "Fix"}</button>
     </li>)}</ul>
     {error ? <p className={styles.mistakeError} role="alert">{error}</p> : null}
   </>;

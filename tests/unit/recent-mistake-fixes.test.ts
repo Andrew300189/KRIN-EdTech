@@ -12,17 +12,21 @@ jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 describe("dashboard Fix shortcuts", () => {
   beforeEach(() => { mockPush.mockReset(); window.localStorage.setItem("krin.locale", "en"); });
 
-  it("starts correction at the selected mistake and opens its returned lesson", async () => {
+  it("shows only Fix squares and starts correction for the selected mistake", async () => {
     const mockFetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { nextUrl: "/courses/to-be/lessons/one?reviewRun=run-1" } }) });
     global.fetch = mockFetch as unknown as typeof fetch;
-    render(createElement(LocaleProvider, null, createElement(RecentMistakeFixes, { mistakes: [
-      { id: "mistake-1", occurrenceCount: 2, explanation: "Use is", lesson: { title: "Lesson one", courseSlug: "to-be" } },
+    const { container } = render(createElement(LocaleProvider, null, createElement(RecentMistakeFixes, { mistakes: [
+      { id: "mistake-1", lesson: { courseSlug: "to-be" } },
+      { id: "mistake-2", lesson: { courseSlug: "to-be" } },
     ] })));
 
-    fireEvent.click(screen.getByRole("button", { name: "Fix: Lesson one" }));
+    expect(screen.getAllByText("Fix")).toHaveLength(2);
+    expect(container.querySelectorAll("li > button")).toHaveLength(2);
+    expect(container.querySelectorAll("li span, li strong, li small")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Fix mistake 2" }));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/courses/to-be/lessons/one?reviewRun=run-1"));
     expect(mockFetch).toHaveBeenCalledWith("/api/profile/mistakes/review-runs", expect.objectContaining({
-      method: "POST", body: JSON.stringify({ scope: "COURSE", courseSlug: "to-be", startMistakeId: "mistake-1" }),
+      method: "POST", body: JSON.stringify({ scope: "COURSE", courseSlug: "to-be", startMistakeId: "mistake-2" }),
     }));
   });
 });

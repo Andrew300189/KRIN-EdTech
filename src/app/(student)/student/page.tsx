@@ -42,12 +42,9 @@ export default async function StudentHomePage({
     prisma.userMistake.findMany({
       where: { userId: guard.user.id, resolvedAt: null },
       orderBy: { lastOccurredAt: "desc" },
-      take: 2,
       select: {
         id: true,
-        occurrenceCount: true,
-        explanation: true,
-        lesson: { select: { title: true, slug: true, module: { select: { course: { select: { slug: true } } } } } },
+        lesson: { select: { module: { select: { course: { select: { slug: true } } } } } },
       },
     }),
     getPlacementDashboardResult(guard.user.id),
@@ -153,8 +150,7 @@ export default async function StudentHomePage({
           </article>
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
-            {recentMistakes.length ? <RecentMistakeFixes mistakes={recentMistakes.map((mistake) => ({ id: mistake.id, occurrenceCount: mistake.occurrenceCount, explanation: mistake.explanation, lesson: mistake.lesson ? { title: mistake.lesson.title, courseSlug: mistake.lesson.module.course.slug } : null }))} /> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}
-            <Link href="/student/mistakes" className={styles.textLink}><LocalizedText id="student.home.openMistakes" fallback="Open mistakes" /></Link>
+            {recentMistakes.length ? <RecentMistakeFixes mistakes={recentMistakes.map((mistake) => ({ id: mistake.id, lesson: mistake.lesson ? { courseSlug: mistake.lesson.module.course.slug } : null }))} /> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}
           </article>
         </div>
       </section>

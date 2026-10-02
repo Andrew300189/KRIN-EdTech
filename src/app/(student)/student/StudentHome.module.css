@@ -102,16 +102,13 @@
 .ownRank { margin: 0.5rem 0 0; color: var(--text-secondary); font-size: 0.69rem; line-height: 1.32; }
 .ownRank strong { color: var(--primary); }
 .mistakeCount { min-width: 1.8rem; text-align: center; }
-.mistakeList { display: grid; gap: 0.35rem; margin: 0.58rem 0 0; padding: 0; list-style: none; }
-.mistakeList li { display: flex; align-items: center; justify-content: space-between; gap: .45rem; overflow: hidden; padding: 0.4rem 0.45rem; border-radius: var(--radius-md); background: var(--surface-secondary); color: var(--text-muted); font-size: 0.73rem; line-height: 1.32; }
-.mistakeList strong { overflow: hidden; color: var(--text-secondary); font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
-.mistakeCopy { display: grid; min-width: 0; gap: .1rem; }
-.mistakeCopy small { overflow: hidden; font-size: .67rem; text-overflow: ellipsis; white-space: nowrap; }
-.fixButton { display: grid; width: 2.65rem; height: 2.65rem; flex: 0 0 2.65rem; place-items: center; border: 1px solid color-mix(in srgb, var(--primary) 48%, var(--border)); border-radius: .72rem; background: color-mix(in srgb, var(--primary) 10%, var(--surface-elevated)); color: var(--primary); cursor: pointer; font-size: .76rem; font-weight: 900; box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 32%, transparent); animation: fixPulse 2.1s ease-in-out infinite; }
-.fixButton:hover, .fixButton:focus-visible { background: var(--primary); color: var(--primary-contrast); outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.mistakeList { display: grid; max-height: 7.6rem; grid-template-columns: repeat(auto-fill, 3.3rem); gap: .55rem; margin: .65rem 0 0; overflow: auto; padding: .2rem; list-style: none; }
+.mistakeList li { width: 3.3rem; height: 3.3rem; }
+.fixButton { display: grid; width: 3.3rem; height: 3.3rem; place-items: center; border: 1px solid #7db9b0; border-radius: .82rem; background: #edf8f6; color: #117568; cursor: pointer; font-size: .86rem; font-weight: 900; box-shadow: 0 0 0 0 rgb(61 155 142 / 25%); animation: fixPulse 2.1s ease-in-out infinite; }
+.fixButton:hover, .fixButton:focus-visible { border-color: #248f81; background: #dbf2ed; color: #075b52; outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .fixButton:disabled { cursor: wait; opacity: .65; animation: none; }
 .mistakeError { margin: .3rem 0 0; color: #b42345; font-size: .7rem; }
-@keyframes fixPulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 12%, transparent); } }
+@keyframes fixPulse { 50% { box-shadow: 0 0 0 5px rgb(61 155 142 / 13%); } }
 .textLink { display: inline-flex; margin-top: auto; padding-top: 0.65rem; }
 .primaryAction:focus-visible, .secondaryAction:focus-visible, .quickLinks a:focus-visible, .textLink:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .refreshLeaderboardButton, .refreshLeaderboardButton:hover:not(:disabled) { transition: none; transform: none; } .refreshingLeaderboard svg, .fixButton { animation: none; } }
@@ -129,7 +126,5 @@
   .focusPanel { height: 100%; overflow: hidden; padding: 0.95rem 1rem; }
   .sideStack { height: 100%; grid-template-rows: repeat(2, minmax(0, 1fr)); }
   .sideStack .panel { overflow: hidden; padding: 0.78rem 0.9rem; }
-  .mistakeList { max-height: 7rem; overflow: auto; }
-  .mistakeList li { padding-block: 0.32rem; }
 }
 @media (prefers-reduced-motion: no-preference) { .primaryAction, .secondaryAction, .quickLinks a, .textLink { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; } }
