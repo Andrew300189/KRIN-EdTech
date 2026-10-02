@@ -6,12 +6,12 @@ import { getDashboardLeaderboard, listPublicLeaderboard } from "@/modules/motiva
 jest.mock("@/core/server/prisma", () => ({ prisma: { user: { findMany: jest.fn() } } }));
 
 const learners = [
-  { id: "learner-a", name: "Avery", firstName: null, username: "avery", showInLeaderboard: true, showPublicProfile: true, createdAt: new Date("2026-01-01"), userLevelProgress: { level: 5, lifetimeExperience: 20, fractionalExperience: 0, leaderboardExperienceMinor: 500000 } },
+  { id: "learner-a", name: "Avery", firstName: null, username: "avery", showInLeaderboard: true, showPublicProfile: true, createdAt: new Date("2026-01-01"), userLevelProgress: { level: 5, lifetimeExperience: 1733, fractionalExperience: 0, leaderboardExperienceMinor: 524700 } },
   { id: "learner-b", name: "Blair", firstName: null, username: "blair", showInLeaderboard: false, showPublicProfile: false, createdAt: new Date("2026-01-02"), userLevelProgress: { level: 6, lifetimeExperience: 10, fractionalExperience: 0, leaderboardExperienceMinor: 700000 } },
-  { id: "learner-c", name: "Casey", firstName: null, username: "casey", showInLeaderboard: true, showPublicProfile: true, createdAt: new Date("2026-01-03"), userLevelProgress: { level: 4, lifetimeExperience: 30, fractionalExperience: 0, leaderboardExperienceMinor: 200000 } },
+  { id: "learner-c", name: "Casey", firstName: null, username: "casey", showInLeaderboard: true, showPublicProfile: true, createdAt: new Date("2026-01-03"), userLevelProgress: { level: 4, lifetimeExperience: 9349, fractionalExperience: 0, leaderboardExperienceMinor: 934900 } },
 ];
 
-describe("verified learning leaderboard", () => {
+describe("all awarded XP leaderboard", () => {
   beforeEach(() => (prisma.user.findMany as jest.Mock).mockResolvedValue(learners));
 
   it("uses the same student-only ranks on the dashboard and public page", async () => {
@@ -19,21 +19,19 @@ describe("verified learning leaderboard", () => {
     const publicRows = await listPublicLeaderboard(3);
 
     expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ role: "STUDENT", isBlocked: false, deletedAt: null }) }));
-    expect(dashboard.current).toMatchObject({ rank: 2, totalMinor: 500000, experienceMinor: 2000 });
-    expect(dashboard.entries[0]).toMatchObject({ rank: 1, displayName: null, totalMinor: null });
-    expect(publicRows).toMatchObject([{ rank: 2, displayName: "Avery", experience: 5000 }, { rank: 3, displayName: "Casey", experience: 2000 }]);
+    expect(dashboard.current).toMatchObject({ rank: 3, totalMinor: 524700, experienceMinor: 173300 });
+    expect(dashboard.entries[1]).toMatchObject({ rank: 2, displayName: null, totalMinor: null });
+    expect(publicRows).toMatchObject([{ rank: 1, displayName: "Casey", experience: 9349 }, { rank: 3, displayName: "Avery", experience: 5247 }]);
   });
 
-  it("repairs old scores and ranks matching exercises without counting purchases", () => {
-    const sql = readFileSync(join(process.cwd(), "database/prisma/migrations/20261002130000_rebuild_verified_learning_ranking/migration.sql"), "utf8");
+  it("restores every positive XP source, including chests, wheels and boosts, without counting coins or XP spent", () => {
+    const sql = readFileSync(join(process.cwd(), "database/prisma/migrations/20261002180000_rank_all_awarded_xp/migration.sql"), "utf8");
     const [rebuild, trigger] = sql.split('CREATE OR REPLACE FUNCTION "incrementLeaderboardExperienceOnReward"()');
-    for (const section of [rebuild, trigger]) {
-      expect(section).toContain("'DYNAMIC_MATCHING_PAIR'");
-      expect(section).toContain("'STREAK_QUEST_BOOK'");
-      expect(section).not.toContain("'SHOP_XP_BOOST'");
-      expect(section).not.toContain("'LESSON_XP_MULTIPLIER'");
-    }
+    expect(rebuild).toContain('SUM(GREATEST(0::bigint, COALESCE(xp."amountMinor"::bigint, xp."amount"::bigint * 100)))');
     expect(rebuild).toContain('LEFT JOIN "ExperienceTransaction" AS xp');
-    expect(rebuild).not.toContain('level."leaderboardExperienceMinor"::bigint -');
+    expect(rebuild).not.toContain('xp."sourceType"');
+    expect(trigger).toContain('IF earned_minor > 0 THEN');
+    expect(trigger).not.toContain('NEW."sourceType"');
+    expect(sql).not.toContain('FROM "CoinTransaction"');
   });
 });

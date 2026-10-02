@@ -26,7 +26,7 @@ const copy = {
   en: {
     eyebrow: "Community ranking",
     title: "Top learners",
-    formula: "Learning XP only. Coins, chests and wheels do not affect rank; spending XP does not lower it.",
+    formula: "Every awarded XP counts, including chests, wheels and boosts. Coins never count.",
     you: "You",
     yourPlace: "Your place",
     among: "among {count} learners",
@@ -39,7 +39,7 @@ const copy = {
   uk: {
     eyebrow: "Рейтинг спільноти",
     title: "Найкращі учні",
-    formula: "Лише XP за навчання. Монети, скрині й колесо не впливають на рейтинг; витрати XP його не знижують.",
+    formula: "Усі нараховані XP враховуються, зокрема скрині, колесо й підсилювачі. Монети не враховуються.",
     you: "Ви",
     yourPlace: "Ваше місце",
     among: "серед {count} учнів",
@@ -52,7 +52,7 @@ const copy = {
   ru: {
     eyebrow: "Рейтинг сообщества",
     title: "Лучшие ученики",
-    formula: "Только XP за учёбу. Монеты, сундуки и колесо не влияют на рейтинг; траты XP его не снижают.",
+    formula: "Считаются все начисленные XP, включая сундуки, колесо и усилители. Монеты не учитываются.",
     you: "Вы",
     yourPlace: "Ваше место",
     among: "среди {count} учеников",
