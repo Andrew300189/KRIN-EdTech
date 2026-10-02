@@ -7,6 +7,7 @@ import styles from "./ExperienceStatus.module.css";
 
 type MotivationOverview = {
   level: { level: number; lifetimeExperience: number; fractionalExperience?: number; leaderboardExperienceMinor?: number };
+  earnedExperienceMinor?: number;
   wallet: { balance: number; fractionalBalance?: number };
 };
 
@@ -32,8 +33,8 @@ function experienceLabel(level: MotivationOverview["level"]) {
   return hundredths ? `${level.lifetimeExperience}.${String(hundredths).padStart(2, "0")}` : String(level.lifetimeExperience);
 }
 
-function earnedExperienceLabel(level: MotivationOverview["level"]) {
-  const minor = Math.max(0, level.leaderboardExperienceMinor ?? level.lifetimeExperience * 100 + (level.fractionalExperience ?? 0));
+function earnedExperienceLabel(overview: MotivationOverview) {
+  const minor = Math.max(0, overview.earnedExperienceMinor ?? overview.level.leaderboardExperienceMinor ?? overview.level.lifetimeExperience * 100 + (overview.level.fractionalExperience ?? 0));
   const whole = Math.floor(minor / 100);
   return minor % 100 ? `${whole}.${String(minor % 100).padStart(2, "0")}` : String(whole);
 }
@@ -134,7 +135,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
     </div>
     {open ? <div id={popoverId} className={styles.popover} role="dialog" aria-label={text.title}>
       <div className={styles.popoverHeading}><div><strong>{text.title}</strong><span>{text.rate}</span></div><button type="button" onClick={() => setOpen(false)} aria-label={text.close}>×</button></div>
-      <p className={styles.earned}>{text.earned}: <strong>{earnedExperienceLabel(overview.level)} XP</strong></p>
+      <p className={styles.earned}>{text.earned}: <strong>{earnedExperienceLabel(overview)} XP</strong></p>
       <p className={styles.available}>{text.available}: <strong>{experienceText} XP</strong></p>
       <section className={styles.exchangeSection} aria-labelledby={`${popoverId}-krin`}>
         <strong id={`${popoverId}-krin`}>{text.xpToKrin}</strong>

@@ -13,6 +13,7 @@ type OverviewResponse = {
   json: () => Promise<{
     data: {
       level: { level: number; lifetimeExperience: number; leaderboardExperienceMinor?: number };
+      earnedExperienceMinor?: number;
       wallet: { balance: number };
     };
   }>;
@@ -26,12 +27,13 @@ function overview(experience: number) {
 }
 
 describe("ExperienceStatus reward refresh", () => {
-  it("shows permanent earned XP above spendable XP in the exchange dialog", async () => {
+  it("shows all credited XP above spendable XP, not the smaller ranking score", async () => {
     global.fetch = jest.fn(async () => ({
       ok: true,
       json: async () => ({
         data: {
-          level: { level: 2, lifetimeExperience: 4475, leaderboardExperienceMinor: 625000 },
+          level: { level: 2, lifetimeExperience: 4475, leaderboardExperienceMinor: 320000 },
+          earnedExperienceMinor: 625000,
           wallet: { balance: 0 },
         },
       }),

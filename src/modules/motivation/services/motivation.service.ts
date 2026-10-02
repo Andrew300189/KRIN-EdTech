@@ -853,12 +853,16 @@ export async function recordWordAdded(userId: string, wordId: string) {
 export async function getMotivationOverview(userId: string) {
   return prisma.$transaction(async (tx) => {
     const context = await userContext(tx, userId);
-    const [daily, level, wallet, savedStreak, learningBonuses] = await Promise.all([
+    const [daily, level, wallet, savedStreak, learningBonuses, earnedRows] = await Promise.all([
       ensureDailyActivity(tx, userId, context.date),
       tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userWallet.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userStreak.upsert({ where: { userId }, create: { userId }, update: {} }),
       tx.userLearningBonusBalance.upsert({ where: { userId }, create: { userId }, update: {} }),
+      tx.$queryRaw<{ earned_minor: bigint }[]>(Prisma.sql`
+        SELECT COALESCE(SUM(GREATEST(0::bigint, COALESCE("amountMinor"::bigint, "amount"::bigint * 100))), 0::numeric)::bigint AS earned_minor
+        FROM "ExperienceTransaction" WHERE "userId" = ${userId}
+      `),
     ]);
     const streak = await reconcileBurnedStreak(tx, userId, context.date, context.timeZone, savedStreak);
     const waterLilyReady = streak.recoverableStreak > 0 && streak.waterLilyCount > 0
@@ -873,6 +877,9 @@ export async function getMotivationOverview(userId: string) {
       dailyGoalMinutes: context.dailyGoalMinutes,
       daily,
       level,
+      // All positive XP ever credited, including game rewards, is distinct
+      // from the verified-learning ranking and the spendable XP balance.
+      earnedExperienceMinor: Math.max(Number(earnedRows[0]?.earned_minor ?? 0n), motivationMinor(level.lifetimeExperience, level.fractionalExperience)),
       wallet: { balance: wallet.balance, fractionalBalance: wallet.fractionalBalance },
       streak,
       streakRecovery: {
@@ -1375,27 +1382,25 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
 
 /** Public ranking uses the same permanent earned-XP score as the dashboard. */
 export async function listPublicLeaderboard(limit = 20) {
-  const rows = await prisma.userLevel.findMany({
-    where: { user: { role: "STUDENT", showInLeaderboard: true, isBlocked: false, deletedAt: null, ...excludeSystemAccounts() } },
-    orderBy: [{ leaderboardExperienceMinor: "desc" }, { level: "desc" }, { updatedAt: "asc" }],
-    take: Math.min(Math.max(limit, 1), 50),
-    select: { level: true, leaderboardExperienceMinor: true, user: { select: { name: true, username: true, showPublicProfile: true } } },
+  const rows = await leaderboardSources({
+    role: "STUDENT", isBlocked: false, deletedAt: null, ...excludeSystemAccounts(),
   });
-  return rows.map((row, index) => ({
-    rank: index + 1,
-    displayName: row.user.name.trim().split(/\s+/)[0] || "Learner",
-    level: row.level,
-    experience: Math.floor(Math.max(0, row.leaderboardExperienceMinor) / 100),
-    publicProfileUsername: row.user.showPublicProfile ? row.user.username : null,
+  return rankLearners(rows).filter((entry) => entry.isProfileVisible).slice(0, Math.min(Math.max(limit, 1), 50)).map((entry) => ({
+    rank: entry.rank,
+    displayName: entry.displayName,
+    level: entry.level,
+    experience: Math.floor(entry.totalMinor / 100),
+    publicProfileUsername: entry.publicProfileUsername,
   }));
 }
 
 /**
- * Every active registered account takes a place in the student ranking. People
- * who opted out of publishing remain anonymous to everyone except themselves.
+ * Every active student takes a place in the student ranking. People who opted
+ * out of publishing remain anonymous to everyone except themselves.
  */
 export async function getDashboardLeaderboard(userId: string, limit = 3) {
   const rows = await leaderboardSources({
+    role: "STUDENT",
     isBlocked: false,
     deletedAt: null,
     ...excludeSystemAccounts(),

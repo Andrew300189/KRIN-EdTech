@@ -1704,9 +1704,9 @@ model UserLevel {
   /// Fractional XP balance in hundredths (0-99), so a 1.5 XP review reward
   /// remains real value instead of being rounded away.
   fractionalExperience  Int      @default(0)
-  /// Permanent, server-owned rank score in XP hundredths. It starts from a
-  /// one-time legacy snapshot and grows only when new XP is earned; spending
-  /// or exchanging XP can never lower a learner's leaderboard position.
+  /// Permanent, server-owned verified-learning score in XP hundredths. It is
+  /// rebuilt from the XP ledger and grows only on eligible learning rewards;
+  /// spending or exchanging XP cannot lower a learner's ranking score.
   leaderboardExperienceMinor Int @default(0)
   experienceToNextLevel Int      @default(100)
   currentCorrectStreak  Int      @default(0)

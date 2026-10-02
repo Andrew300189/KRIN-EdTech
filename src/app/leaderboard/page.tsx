@@ -2,7 +2,8 @@ import Link from "next/link";
 import { listPublicLeaderboard } from "@/modules/motivation/services/motivation.service";
 import { LocalizedText } from "@/core/i18n/LocalizedText";
 
-export const revalidate = 300;
+// A cached leaderboard can hide newly earned XP for five minutes.
+export const dynamic = "force-dynamic";
 
 export default async function LeaderboardPage() {
   const learners = await listPublicLeaderboard();
