@@ -1,12 +1,11 @@
 .page { max-width: 78rem; margin: 0 auto; padding: clamp(1rem, 3vw, 2.5rem); }
-.dashboardLink { display: flex; align-items: center; gap: 1rem; margin: 1.1rem 0; border: 1px solid #e1d6a7; border-radius: 1.25rem; background: linear-gradient(100deg, #fffaf0, #f5f4ff); padding: .7rem 1rem; color: #22304f; text-decoration: none; box-shadow: 0 .45rem 1rem rgb(70 55 130 / 6%); }
+.dashboardLink { display: flex; width: min(100%, 35rem); min-height: 7.5rem; align-items: center; gap: 1rem; margin: 0; border: 1px solid #e1d6a7; border-radius: 1.25rem; background: linear-gradient(100deg, #fffaf0, #f5f4ff); padding: .7rem 1rem; color: #22304f; text-decoration: none; box-shadow: 0 .45rem 1rem rgb(70 55 130 / 6%); }
 .dashboardLink:hover { border-color: #bda456; box-shadow: 0 .65rem 1.4rem rgb(70 55 130 / 12%); }
 .dashboardLink:focus-visible { outline: 3px solid #8479f2; outline-offset: 3px; }
 .dashboardLink img { width: 4.5rem; height: 4.5rem; flex: 0 0 auto; border: 2px solid #e3c980; border-radius: 50%; object-fit: cover; }
 .dashboardLink span { display: grid; gap: .2rem; }
 .dashboardLink strong { font-size: 1.04rem; }
 .dashboardLink small { color: #64718d; line-height: 1.35; }
-.dashboardLink b { margin-left: auto; color: #5143bd; font-size: .85rem; white-space: nowrap; }
 .hero { position: relative; overflow: hidden; border: 1px solid #d8ddf3; border-radius: 1.8rem; background: radial-gradient(circle at 94% 12%, #fff4c7, transparent 36%), linear-gradient(135deg, #fdfaf2, #f3f6ff); padding: clamp(1.3rem, 4vw, 3rem); }
 .back { display: inline-flex; color: #4553a0; font-size: .84rem; font-weight: 800; text-decoration: none; }
 .back:hover { text-decoration: underline; }
@@ -47,5 +46,5 @@
 .credit { max-width: 27rem; color: #64748b; font-size: .74rem; overflow-wrap: anywhere; }
 .credit a { color: #4e46b9; }
 .allCredits { display: inline-block; margin-top: 1.2rem; color: #5143bd; font-size: .78rem; font-weight: 750; }
-@media (max-width: 600px) { .dashboardLink { flex-wrap: wrap; } .dashboardLink b { width: 100%; margin-left: 5.5rem; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; } .tile { padding: .48rem; } .hero { border-radius: 1.2rem; } }
+@media (max-width: 600px) { .dashboardLink { min-height: 6.5rem; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; } .tile { padding: .48rem; } .hero { border-radius: 1.2rem; } }
 @media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }

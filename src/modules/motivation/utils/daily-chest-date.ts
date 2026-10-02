@@ -33,3 +33,16 @@ export function nextDailyChestAt(timeZone: string | null | undefined, now = new 
   }
   return new Date(after);
 }
+
+/** First instant of the current local day, even on 23- or 25-hour DST days. */
+export function startDailyChestAt(timeZone: string | null | undefined, now = new Date()) {
+  const today = userLocalDate(timeZone, now);
+  let before = now.getTime() - 48 * 60 * 60 * 1000;
+  let after = now.getTime();
+  while (after - before > 1) {
+    const middle = before + Math.floor((after - before) / 2);
+    if (userLocalDate(timeZone, new Date(middle)) === today) after = middle;
+    else before = middle;
+  }
+  return new Date(after);
+}

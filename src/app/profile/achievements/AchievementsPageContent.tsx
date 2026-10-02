@@ -8,7 +8,6 @@ import { listStreakQuestBooks } from "@/modules/motivation/services/streak-quest
 import { listOpenedMilestoneChests } from "@/modules/motivation/services/reward-economy.service";
 import { OpenedMilestoneChests } from "@/modules/motivation/components/OpenedMilestoneChests";
 import { MistakeCorrectionAchievements } from "@/modules/motivation/components/MistakeCorrectionAchievements";
-import { StreakQuestBooksPanel } from "@/modules/motivation/components/StreakQuestBooksPanel";
 import { MilestoneChestsPanel } from "@/modules/motivation/components/MilestoneChestsPanel";
 import { FlowerCollectionLink } from "@/modules/motivation/components/FlowerCollection";
 import { QuestActivationButton } from "./QuestActivationButton";
@@ -106,12 +105,12 @@ export async function AchievementsPageContent({
       <OpenedMilestoneChests chests={openedChests.map((chest) => ({ ...chest, openedAt: chest.openedAt.toISOString() }))} />
     </div> : null}
 
-    {section === "COLLECTIONS" ? <div className={styles.sectionPanel}>
+    {section === "COLLECTIONS" ? <div className={styles.collectionLinks}>
       <FlowerCollectionLink />
-      {questBooks.length ? <StreakQuestBooksPanel initialBooks={questBooks} /> : <section className={styles.collectionEmpty}>
-        <span aria-hidden="true">📖</span>
-        <div><h2><LocalizedText id="student.achievements.books" fallback="Quest books" /></h2><p><LocalizedText id="student.achievements.booksEmpty" fallback="Quest books you discover while learning will appear here." /></p></div>
-      </section>}
+      <Link href="/student/quests" className={styles.questCollectionLink}>
+        <span className={styles.questCollectionIcon} aria-hidden="true">📖</span>
+        <span><strong><LocalizedText id="student.achievements.quests" fallback="Quests" /></strong><small>{questBooks.length}</small></span>
+      </Link>
     </div> : null}
 
     {section === "GOALS" ? <div className={styles.sectionPanel}>

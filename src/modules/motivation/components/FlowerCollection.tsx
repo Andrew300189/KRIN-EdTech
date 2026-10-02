@@ -25,7 +25,6 @@ export function FlowerCollectionLink() {
   return <Link href="/student/flowers" className={styles.dashboardLink}>
     <img src="/flower-chests/mystery-bud.png" alt="" />
     <span><strong>{text.title}</strong><small>{text.dashboard}</small></span>
-    <b>{text.albumAction} →</b>
   </Link>;
 }
 

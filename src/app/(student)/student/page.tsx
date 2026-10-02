@@ -13,6 +13,7 @@ import { PlacementResultSync } from "./PlacementResultSync";
 import { PlacementRecommendationPanel } from "./PlacementRecommendationPanel";
 import { ColorThemePicker } from "@/core/components/ColorThemePicker";
 import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
+import { RecentMistakeFixes } from "./RecentMistakeFixes";
 import styles from "./StudentHome.module.css";
 
 function courseHref(course: { slug: string; nextLesson: { slug: string } | null }) {
@@ -152,7 +153,7 @@ export default async function StudentHomePage({
           </article>
           <article className={`${styles.panel} ${styles.mistakesPanel}`}>
             <div className={styles.cardHeading}><h3><LocalizedText id={recentMistakes.length ? "student.home.reviewImprove" : "student.home.allCaughtUp"} fallback={recentMistakes.length ? "Review and improve" : "You are all caught up"} /></h3><span className={styles.mistakeCount}>{recentMistakes.length}</span></div>
-            {recentMistakes.length ? <ul className={styles.mistakeList}>{recentMistakes.map((mistake) => <li key={mistake.id}><strong>{mistake.lesson?.title ?? <LocalizedText id="student.home.practiceItem" fallback="Practice item" />}</strong><span>{mistake.explanation ?? <LocalizedText id="student.home.reviewAfterAttempts" fallback={`Review after ${mistake.occurrenceCount} attempts.`} values={{ count: mistake.occurrenceCount }} />}</span></li>)}</ul> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}
+            {recentMistakes.length ? <RecentMistakeFixes mistakes={recentMistakes.map((mistake) => ({ id: mistake.id, occurrenceCount: mistake.occurrenceCount, explanation: mistake.explanation, lesson: mistake.lesson ? { title: mistake.lesson.title, courseSlug: mistake.lesson.module.course.slug } : null }))} /> : <p className={styles.helperText}><LocalizedText id="student.home.mistakesEmpty" fallback="New mistakes will appear here with their explanations." /></p>}
             <Link href="/student/mistakes" className={styles.textLink}><LocalizedText id="student.home.openMistakes" fallback="Open mistakes" /></Link>
           </article>
         </div>

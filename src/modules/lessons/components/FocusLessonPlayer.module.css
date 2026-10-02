@@ -443,13 +443,14 @@
 
 .triumphScreen {
   position: relative;
-  overflow: hidden;
-  border-color: #a7f3d0;
-  background:
-    radial-gradient(circle at 50% 0%, rgb(251 191 36 / 19%), transparent 19rem),
-    linear-gradient(145deg, #f0fdf4 0%, #eff6ff 57%, #faf5ff 100%);
-  box-shadow: 0 24px 58px rgb(22 163 74 / 16%);
+  min-height: min(21rem, 48dvh);
+  overflow: visible;
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
 }
+.triumphScreen > section { width: min(100%, 38rem); margin-top: .35rem; }
+.triumphScreen h2 { color: var(--text-primary); font-size: clamp(1.45rem, 3vw, 2.15rem); }
 
 .triumphIcon {
   display: grid;
@@ -468,9 +469,8 @@
 .triumphReward {
   display: inline-flex;
   align-items: baseline;
-  gap: .5rem;
   margin-top: .15rem !important;
-  color: #047857 !important;
+  color: #0f766e !important;
   font-size: clamp(2rem, 6vw, 3.55rem);
   font-weight: 950;
   letter-spacing: -.06em;
@@ -493,6 +493,39 @@
   letter-spacing: inherit !important;
   line-height: inherit;
   text-transform: none !important;
+}
+
+.completionNextSide {
+  position: absolute;
+  top: 50%;
+  right: calc(-6.4rem - .85rem);
+  display: grid;
+  width: 6.4rem;
+  height: 6.4rem;
+  place-items: center;
+  border: 2px solid color-mix(in srgb, var(--primary) 65%, var(--border));
+  border-radius: 50%;
+  background: var(--surface-elevated);
+  color: var(--primary);
+  cursor: pointer;
+  font-size: .77rem;
+  font-weight: 900;
+  line-height: 1.2;
+  padding: .5rem;
+  text-align: center;
+  transform: translateY(-50%);
+}
+.completionNextSide:disabled { cursor: default; opacity: .35; }
+.completionNextSide:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 10%, var(--surface-elevated)); }
+.completionNextSide:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .completionNextReady { animation: completionNextPulse 2s ease-in-out infinite; }
+  @keyframes completionNextPulse {
+    50% { border-color: var(--primary); box-shadow: 0 0 0 .62rem color-mix(in srgb, var(--primary) 13%, transparent), 0 .7rem 1.6rem color-mix(in srgb, var(--primary) 22%, transparent); }
+  }
+}
+@media (max-width: 1100px) {
+  .completionNextSide { position: static; width: min(100%, 16rem); height: auto; min-height: 3.2rem; border-radius: 999px; transform: none; }
 }
 
 .triumphPrimaryAction {
@@ -661,10 +694,15 @@
 .player :global(.lesson-streak-celebration) {
   display: grid;
   justify-items: center;
-  gap: .26rem;
+  gap: .18rem;
   color: inherit;
 }
-.player :global(.lesson-streak-celebration strong) { text-align: center; }
+.player :global(.lesson-streak-celebration span:first-child) { color: #f59e0b; font-size: .7rem; letter-spacing: .9rem; animation: streakStars 1s ease-in-out infinite alternate; }
+.player :global(.lesson-streak-celebration span:nth-child(2)) { font-size: .72rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+.player :global(.lesson-streak-celebration strong) { color: var(--streak-ink, #7c3aed); font-size: clamp(2.4rem, 8vw, 4rem); line-height: 1; text-align: center; text-shadow: 0 0 18px color-mix(in srgb, var(--streak-border, #a78bfa) 45%, transparent); }
+.player :global(.lesson-correct-celebration:has(.lesson-streak-celebration)) { min-width: min(78vw, 17rem); border-radius: 1.35rem; padding: 1.15rem 1.8rem; }
+@keyframes streakStars { to { opacity: .45; transform: scale(.92); } }
+@media (prefers-reduced-motion: reduce) { .player :global(.lesson-streak-celebration span:first-child) { animation: none; } }
 .player :global(.focus-answer-incorrect) { animation: errorShake 330ms ease-in-out; }
 
 @keyframes stepIn {

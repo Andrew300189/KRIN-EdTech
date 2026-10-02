@@ -44,7 +44,9 @@ describe("achievement page sections", () => {
 
     const collections = await renderSection({ section: "COLLECTIONS" });
     expect(collections).toContain("flower-collection-link");
-    expect(collections).toContain("Quest books you discover while learning will appear here.");
+    expect(collections).toContain('href="/student/quests"');
+    expect(collections).toContain("Quests");
+    expect(collections).not.toContain("quest-books-panel");
     expect(collections).not.toContain("reward-chests-panel");
 
     const goals = await renderSection({ section: "GOALS", filter: "AVAILABLE" });

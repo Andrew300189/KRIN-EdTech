@@ -58,7 +58,15 @@ export function DailyChestHeaderButton() {
   useEffect(() => {
     void loadState();
     window.addEventListener(MOTIVATION_UPDATED_EVENT, loadState);
-    return () => window.removeEventListener(MOTIVATION_UPDATED_EVENT, loadState);
+    // A tab may sleep through midnight or another tab may finish a lesson.
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") void loadState(); };
+    window.addEventListener("focus", loadState);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener(MOTIVATION_UPDATED_EVENT, loadState);
+      window.removeEventListener("focus", loadState);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [loadState]);
 
   useEffect(() => {
@@ -96,7 +104,7 @@ export function DailyChestHeaderButton() {
 
   return <button
     type="button"
-    className={`${styles.button} ${state.available && !opening ? styles.available : ""} ${opening ? styles.opening : ""}`}
+    className={`${styles.button} ${state.available && !opening ? styles.available : ""} ${state.lessonRequired ? styles.lessonRequired : ""} ${opening ? styles.opening : ""}`}
     onClick={() => void openChest()}
     disabled={!state.available || opening}
     aria-label={opening ? text.opening : label}

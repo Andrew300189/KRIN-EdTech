@@ -833,6 +833,7 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
   const activeStreakTone = result?.isCorrect ? streakTone : result ? null : persistentStreakTone;
   const activeStreakClass = activeStreakTone && /^[a-z-]+$/.test(activeStreakTone) ? ` lesson-exercise-streak-${activeStreakTone}` : "";
   const streakActivated = Boolean(result?.motivationReward?.awarded && streak?.activated && streakTone);
+  const streakCelebrationLabel = locale === "uk" ? "Нова серія!" : locale === "ru" ? "Новая серия!" : "Streak milestone!";
   const speedElapsedSeconds = Math.max(0, (speedClock - speedWindowStartedAt) / 1000);
   // Until the server confirms this visible task's window, only the guaranteed
   // base XP is shown. A slow/failed timer request must never promise 3 XP
@@ -863,9 +864,9 @@ export function ExerciseRenderer({ exercise, active = true, contentLocale, persi
 
   return <section className={`${styles.card} lesson-exercise-card rounded-xl border border-slate-200 bg-slate-50 p-5 ${result?.isCorrect ? "focus-answer-correct" : result ? "focus-answer-incorrect" : ""}${activeStreakClass}`} aria-label={visibleInstruction}>
     {result?.isCorrect ? <div className="lesson-correct-celebration" role="status" aria-live="polite">
-      {streakActivated ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><strong>×{streak?.modeStart}</strong></div> : null}
+      {streakActivated ? <div className={`lesson-streak-celebration lesson-exercise-streak-${streakTone}`}><span aria-hidden="true">✦ ✦ ✦</span><span>{streakCelebrationLabel}</span><strong>×{streak?.modeStart}</strong></div> : null}
       {result.motivationReward?.awarded
-        ? <><strong>{answerFeedback.xpAwarded(result.motivationReward.experience)}</strong>{xpBreakdown ? <span className={styles.xpBreakdown}>{xpBreakdown}</span> : null}{result.motivationReward.levelUp ? <span>Level up!</span> : null}</>
+        ? <><strong>{answerFeedback.xpAwarded(result.motivationReward.experience)}</strong>{xpBreakdown ? <span className={styles.xpBreakdown}>{xpBreakdown}</span> : null}</>
         : <strong>{answerFeedback.wellDone}</strong>}
     </div> : null}
     {!hideContext && context.visible && ((context.text && !hideContextText) || context.audioUrl || context.imageUrl || context.videoUrl) ? <section className="lesson-exercise-context mb-4 rounded-xl border border-blue-100 bg-white p-4"><p className="text-xs font-bold uppercase tracking-wide text-blue-700">Before you answer</p>{context.text && !hideContextText ? <div className="lesson-rich-content mt-2 text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeLessonRichText(context.text) }} /> : null}{context.imageUrl ? <img src={context.imageUrl} alt="Lesson theory illustration" className="mt-3 max-h-64 rounded-lg object-cover" /> : null}{context.audioUrl ? <audio className="mt-3 w-full" controls preload="metadata" src={context.audioUrl}>Your browser does not support audio playback.</audio> : null}{context.videoUrl ? <video className="mt-3 max-h-80 w-full rounded-lg" controls preload="metadata" src={context.videoUrl}>Your browser does not support audio playback.</video> : null}</section> : null}

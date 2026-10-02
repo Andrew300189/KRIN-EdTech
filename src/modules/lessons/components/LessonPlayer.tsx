@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { LessonVocabularyPanel } from "@/modules/vocabulary/components/LessonVocabularyPanel";
 import { LessonWordHoverDictionary } from "@/modules/vocabulary/components/LessonWordHoverDictionary";
 import { VocabularyTrainingPlayer } from "@/modules/vocabulary/components/VocabularyTrainingPlayer";
-import { RewardNotification, type RewardNotificationEvent } from "@/modules/motivation/components/RewardNotification";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { LessonAnswerStreakStatus } from "@/modules/motivation/components/LessonAnswerStreakStatus";
 import { LessonStreakRecoveryCard } from "@/modules/motivation/components/LessonStreakRecoveryCard";
@@ -16,7 +15,6 @@ import { LilyMascot } from "@/modules/motivation/components/LilyMascot";
 import { LeaderboardRiseNotifier } from "@/modules/motivation/components/LeaderboardRiseNotifier";
 import { notifyMotivationUpdated } from "@/modules/motivation/motivation-events";
 import { lessonRecoveryShopHref } from "@/modules/motivation/utils/recovery-shop-navigation";
-import { CourseCompletionReview } from "@/modules/courses/components/CourseCompletionReview";
 import { CourseLocaleSync } from "@/modules/courses/components/CourseLocaleSync";
 import { courseContentHref } from "@/modules/lessons/utils/course-content-navigation";
 import { firstIncompleteRequiredBlockId, isLessonProgressComplete, lessonEntryBlockId, unfinishedLessonEntryBlockId } from "@/modules/lessons/utils/lesson-progress-state";
@@ -291,9 +289,9 @@ const lessonChromeCopy = {
 } as const;
 
 export function LessonPlayer({
-  lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons, completedLessonSlugs = [],
+  lessonId, courseSlug, moduleTitle, title, estimatedDuration, objectives, blocks, lessons,
   currentSlug, canSaveProgress, vocabulary = [], warmUpSessionId, warmUpRequired = false,
-  autoUnlockNextLesson = true, isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
+  isFirstCourseLesson = false, previewMode = false, returnHref, lessonHrefPrefix,
   reviewMistake, reviewSession, contentLocale, routeLocale,
 }: Props) {
   const { locale: selectedLocale } = useLocale();
@@ -308,8 +306,6 @@ export function LessonPlayer({
   const [progressHydrated, setProgressHydrated] = useState(previewMode || !canSaveProgress || Boolean(reviewSession));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [leavingLesson, setLeavingLesson] = useState(false);
-  const [rewardEvents, setRewardEvents] = useState<RewardNotificationEvent[]>([]);
-  const [lessonReward, setLessonReward] = useState<NonNullable<StoredProgress["motivationReward"]> | null>(null);
   const [warmUpDone, setWarmUpDone] = useState(!warmUpSessionId);
   const [skippingWarmUp, setSkippingWarmUp] = useState(false);
   const [theoryCollapsed, setTheoryCollapsed] = useState(false);
@@ -339,8 +335,6 @@ export function LessonPlayer({
   const [reviewTransition, setReviewTransition] = useState<null | { state: "NEXT" | "WRAP"; nextUrl: string; nextLessonTitle: string; nextCourseTitle: string; remainingLessons: number }>(null);
   const [reviewComplete, setReviewComplete] = useState<null | { experience: number; coins: number; firstFocusedRun: boolean; achievements: string[] }>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  const [startingAllMistakesReview, setStartingAllMistakesReview] = useState(false);
-  const [hasUnresolvedMistakes, setHasUnresolvedMistakes] = useState(false);
   const [practiceBlockIds, setPracticeBlockIds] = useState<string[]>([]);
   const [persistentStreakTone, setPersistentStreakTone] = useState<string | null>(null);
   const [bagStoryProgress, setBagStoryProgress] = useState<{ blockId: string; completedStages: number; totalStages: number } | null>(null);
@@ -421,10 +415,6 @@ export function LessonPlayer({
 
   const currentIndex = lessons.findIndex((lesson) => lesson.slug === currentSlug);
   const nextLesson = currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
-  const completedLessonSet = new Set(completedLessonSlugs);
-  const nextCompletedLesson = currentIndex >= 0
-    ? lessons.slice(currentIndex + 1).find((lesson) => completedLessonSet.has(lesson.slug))
-    : null;
   const objectiveItems = asStringArray(objectives);
   const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === currentBlockId));
   const activeBlock = blocks[activeIndex] ?? null;
@@ -512,29 +502,6 @@ export function LessonPlayer({
     }
     reportFunnelEvent("PREVIEW_LESSON_START");
   }, [canSaveProgress, isFirstCourseLesson, previewMode]);
-
-  useEffect(() => {
-    if (previewMode || !canSaveProgress) {
-      setHasUnresolvedMistakes(false);
-      return;
-    }
-
-    let current = true;
-    const reviewAvailabilityUrl = new URL("/api/profile/mistakes/review-runs", window.location.origin);
-    reviewAvailabilityUrl.searchParams.set("courseSlug", courseSlug);
-    reviewAvailabilityUrl.searchParams.set("lessonSlug", currentSlug);
-
-    void fetch(reviewAvailabilityUrl, { cache: "no-store" })
-      .then(async (response) => response.ok ? await response.json() as { data?: { hasUnresolvedMistakes?: boolean } } : null)
-      .then((payload) => {
-        if (current) setHasUnresolvedMistakes(Boolean(payload?.data?.hasUnresolvedMistakes));
-      })
-      .catch(() => {
-        if (current) setHasUnresolvedMistakes(false);
-      });
-
-    return () => { current = false; };
-  }, [canSaveProgress, courseSlug, currentSlug, finished, previewMode]);
 
   useEffect(() => {
     if (previewMode || !canSaveProgress || isReviewSession) return;
@@ -784,14 +751,10 @@ export function LessonPlayer({
       }
       persistedProgressSignatureRef.current = progressSnapshotSignature(savedSnapshot);
       setStoredProgress(payload.data);
-      if (complete) setLessonReward(payload.data.motivationReward ?? null);
-      if (payload.data.motivationReward?.awarded) {
-        const reward = payload.data.motivationReward;
-        // Individual answer XP was already announced and credited. This
-        // notification describes only the new completion credit.
-        setRewardEvents([{ type: reward.levelUp ? "LEVEL_UP" : "XP_GAINED", title: reward.levelUp ? "Level up!" : "Lesson reward", detail: `+${reward.experience} XP${reward.coins ? ` · +${reward.coins} coins` : ""}` }]);
-        notifyMotivationUpdated();
-      }
+      // Refresh the header chest even when this completion grants no new XP
+      // (for example a replay). A completion banner is rendered below, so the
+      // old generic "Level up!" toast must not cover it.
+      if (complete && payload.data.status === "COMPLETED") notifyMotivationUpdated();
       if (complete && learningSessionId.current) void fetch(`/api/learning/sessions/${learningSessionId.current}/complete`, { method: "POST" }).catch(() => undefined);
       if (complete && payload.data.status === "COMPLETED" && isFirstCourseLesson) reportFunnelEvent("FIRST_LESSON_COMPLETE");
       return payload.data;
@@ -973,48 +936,6 @@ export function LessonPlayer({
     router.push(courseContentDestination);
   }
 
-  async function openNextCompletedLesson() {
-    if (!nextCompletedLesson || leavingLesson) return;
-    setLeavingLesson(true);
-    try {
-      if (canSaveProgress && !previewMode && !isReviewSession) {
-        await Promise.race([
-          persistProgress(false),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 4_000)),
-        ]);
-      }
-    } finally {
-      router.push(`${lessonHrefPrefix ?? `/courses/${courseSlug}/lessons`}/${nextCompletedLesson.slug}`);
-    }
-  }
-
-  async function startAllMistakesReview() {
-    if (startingAllMistakesReview || !canSaveProgress || previewMode) return;
-    setStartingAllMistakesReview(true);
-    setReviewError(null);
-    try {
-      const response = await fetch("/api/profile/mistakes/review-runs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope: "COURSE", courseSlug, lessonSlug: currentSlug }),
-      });
-      const payload = await response.json().catch(() => null) as {
-        data?: { nextUrl?: string } | null;
-        error?: string;
-      } | null;
-      if (!response.ok) throw new Error(payload?.error ?? "Unable to start your mistake review.");
-      if (!payload?.data?.nextUrl) {
-        setHasUnresolvedMistakes(false);
-        return;
-      }
-      router.push(payload.data.nextUrl);
-    } catch (error) {
-      setReviewError(error instanceof Error ? error.message : "Unable to start your mistake review.");
-    } finally {
-      setStartingAllMistakesReview(false);
-    }
-  }
-
   async function skipWarmUp() {
     if (!warmUpSessionId) return;
     setSkippingWarmUp(true);
@@ -1087,14 +1008,17 @@ export function LessonPlayer({
   const totalEarnedXp = Math.max(0, Math.round(storedProgress?.experienceEarned ?? 0));
   const completionAnimationActive = finished && !hasUnfinishedRequiredBlocks;
   // A newly spun wheel animates from the already earned base to the final
-  // total. On reload the saved ledger already includes the wheel bonus, so
-  // replaying that second animation would misleadingly look like new XP.
+  // total. On reload its persisted result still contributes to the displayed
+  // total, without replaying the second (bonus-only) animation.
   const freshlySpunWheel = Boolean(xpMultiplierReward?.spun && !xpMultiplierReward.alreadySpun);
   const multiplierAnimationActive = freshlySpunWheel && baseXpAnimationComplete;
-  const completionXpTarget = multiplierAnimationActive ? xpMultiplierReward!.totalExperience : totalEarnedXp;
+  const completionXpTarget = xpMultiplierReward ? xpMultiplierReward.totalExperience : totalEarnedXp;
   const completionXpStart = multiplierAnimationActive ? xpMultiplierReward!.baseExperience : 0;
   const animatedCompletionXp = useAnimatedXpCounter(completionXpStart, completionXpTarget, completionAnimationActive);
-  const lessonBaseXp = xpMultiplierReward?.baseExperience ?? totalEarnedXp;
+  const wheelRequired = !previewMode && canSaveProgress && totalEarnedXp > 0;
+  const wheelResolved = !wheelRequired || Boolean(xpMultiplierReward);
+  const resultTitle = locale === "uk" ? "Ваш результат" : locale === "ru" ? "Ваш результат" : "Your result";
+  const doneLabel = locale === "uk" ? "Готово" : locale === "ru" ? "Готово" : "Done";
 
   useEffect(() => {
     if (!completionAnimationActive) {
@@ -1107,7 +1031,6 @@ export function LessonPlayer({
   return (
     <main className={styles.player}>
       <CourseLocaleSync courseSlug={courseSlug} routeLocale={routeLocale} />
-      <RewardNotification events={rewardEvents} />
       {!previewMode && canSaveProgress ? <LeaderboardRiseNotifier /> : null}
       <LessonSuccessEffects effect={successEffect} />
       <StreakChestReward key={streakChestMilestone ?? "none"} milestone={streakChestMilestone} hasMorePending={streakChestQueue.length > 1} onDismiss={() => setStreakChestQueue((current) => current.slice(1))} />
@@ -1216,26 +1139,17 @@ export function LessonPlayer({
           </section>
         ) : finished ? (
           <section className={`${styles.completion} ${hasUnfinishedRequiredBlocks ? "" : styles.triumphScreen}`} aria-live="polite">
-            {!hasUnfinishedRequiredBlocks ? <p className={styles.taskType}>{feedbackCopy.complete}</p> : null}
-            {!hasUnfinishedRequiredBlocks ? <span className={styles.triumphIcon} aria-hidden="true">★</span> : null}
-            <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : feedbackCopy.triumph}</h2>
-            {!hasUnfinishedRequiredBlocks ? <p className={styles.triumphReward} aria-label={`${completionXpTarget} XP earned in this lesson`}><span className={styles.triumphRewardValue} aria-hidden="true">{animatedCompletionXp} XP</span><span>{xpMultiplierReward ? feedbackCopy.totalReward : feedbackCopy.reward}</span></p> : null}
-            <p>{previewMode ? "This was a protected preview. Return to the editor to continue creating the lesson." : hasUnfinishedRequiredBlocks ? feedbackCopy.savedDescription : feedbackCopy.triumphDescription}</p>
-            {!previewMode && lessonReward?.awarded ? <div className={styles.lessonReward}><p>{feedbackCopy.baseReward}: {lessonBaseXp} XP{lessonReward.levelBonusExperience ? ` (${feedbackCopy.levelIncluded}: ${lessonReward.levelBonusExperience} XP)` : ""}{xpMultiplierReward ? ` · ${feedbackCopy.wheelBonus}: +${xpMultiplierReward.bonusExperience} XP` : ""}</p></div> : null}
-            {!previewMode && canSaveProgress && !hasUnfinishedRequiredBlocks && totalEarnedXp > 0 ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onCollected={() => undefined} onMultiplierApplied={setXpMultiplierReward} /> : null}
-            {!previewMode && !hasUnfinishedRequiredBlocks ? <LilyMascot context="COMPLETION" placement="inline" /> : null}
-            {!previewMode && !lessonReward?.awarded && isPracticeRunRef.current ? <p className={styles.lessonReward}>Practice complete. XP is awarded only for the first completion.</p> : null}
-            {!previewMode && lessonReward && !lessonReward.awarded && !isPracticeRunRef.current ? <p className={styles.lessonReward}>Lesson complete. No XP was added under the current reward rule.</p> : null}
-            {!previewMode && canSaveProgress ? <CourseCompletionReview courseSlug={courseSlug} active={finished && !hasUnfinishedRequiredBlocks} /> : null}
-            <div className={styles.completionActions}>
-                <button type="button" className={`${styles.finishButton} ${hasUnfinishedRequiredBlocks ? "" : `${styles.triumphPrimaryAction} ${styles.completionReadyButton}`}`} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : hasUnfinishedRequiredBlocks ? chromeCopy.courseContents : feedbackCopy.backToCourse}</button>
-                {!previewMode && !isReviewSession && !reviewMistake && hasUnfinishedRequiredBlocks && nextCompletedLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={leavingLesson} onClick={() => void openNextCompletedLesson()}>{feedbackCopy.nextCompletedLesson}</button> : null}
-                {/* This must also be available after reopening a completed lesson.
-                    The wheel never advances the route itself; this handler runs
-                    only after the learner explicitly clicks the button. */}
-                {!previewMode && !hasUnfinishedRequiredBlocks && nextLesson ? <button type="button" data-lesson-enter-next="lesson" className={styles.nextLessonButton} disabled={openingNextLesson} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void openNextLesson(); }}>{openingNextLesson ? "…" : autoUnlockNextLesson ? feedbackCopy.nextLesson : feedbackCopy.openNextLesson}</button> : null}
-                {!previewMode && canSaveProgress && hasUnresolvedMistakes ? <button type="button" className={styles.reviewAllButton} disabled={startingAllMistakesReview} onClick={() => void startAllMistakesReview()}>{startingAllMistakesReview ? "Preparing review…" : "Fix all mistakes"}</button> : null}
-              </div>
+            <h2>{hasUnfinishedRequiredBlocks ? feedbackCopy.savedTitle : resultTitle}</h2>
+            {hasUnfinishedRequiredBlocks ? <p>{feedbackCopy.savedDescription}</p> : <p className={styles.triumphReward} aria-label={`+${completionXpTarget} XP`}><span className={styles.triumphRewardValue} aria-hidden="true">+{animatedCompletionXp} XP</span></p>}
+            {!previewMode && !hasUnfinishedRequiredBlocks && wheelRequired ? <LessonRewardWheel lessonId={lessonId} baseExperience={totalEarnedXp} ready={baseXpAnimationComplete} onMultiplierApplied={setXpMultiplierReward} /> : null}
+            {!previewMode && !isReviewSession && !reviewMistake && !hasUnfinishedRequiredBlocks ? <button
+              type="button"
+              data-lesson-enter-next="lesson"
+              className={`${styles.completionNextSide} ${wheelResolved ? styles.completionNextReady : ""}`}
+              disabled={!wheelResolved || openingNextLesson || leavingLesson}
+              onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (nextLesson) void openNextLesson(); else void leaveLesson(); }}
+            >{openingNextLesson || leavingLesson ? "…" : nextLesson ? feedbackCopy.nextLesson : doneLabel}</button> : null}
+            {previewMode || hasUnfinishedRequiredBlocks ? <button type="button" className={styles.finishButton} onClick={() => void (hasUnfinishedRequiredBlocks && !previewMode ? openCourseContent() : leaveLesson())}>{previewMode ? "Back to editor" : chromeCopy.courseContents}</button> : null}
           </section>
         ) : !activeBlock ? (
           <section className={styles.empty}><h2>{chromeCopy.noStepsTitle}</h2><p>{chromeCopy.noStepsDescription}</p></section>
