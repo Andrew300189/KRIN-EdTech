@@ -1705,7 +1705,7 @@ model UserLevel {
   /// remains real value instead of being rounded away.
   fractionalExperience  Int      @default(0)
   /// Historical total of positive XP grants in hundredths, rebuilt from the
-  /// XP ledger. The leaderboard ranks by spendable XP, not this history field.
+  /// XP ledger. This is the leaderboard score; spending XP never subtracts it.
   leaderboardExperienceMinor Int @default(0)
   experienceToNextLevel Int      @default(100)
   currentCorrectStreak  Int      @default(0)

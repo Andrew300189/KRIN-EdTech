@@ -11,7 +11,7 @@ const learners = [
   { id: "learner-c", name: "Casey", firstName: null, username: "casey", showInLeaderboard: true, showPublicProfile: true, createdAt: new Date("2026-01-03"), userLevelProgress: { level: 4, lifetimeExperience: 9349, fractionalExperience: 50, leaderboardExperienceMinor: 934950 } },
 ];
 
-describe("available XP leaderboard", () => {
+describe("all earned XP leaderboard", () => {
   beforeEach(() => (prisma.user.findMany as jest.Mock).mockResolvedValue(learners));
 
   it("uses the same student-only ranks on the dashboard and public page", async () => {
@@ -19,9 +19,20 @@ describe("available XP leaderboard", () => {
     const publicRows = await listPublicLeaderboard(3);
 
     expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ role: "STUDENT", isBlocked: false, deletedAt: null }) }));
-    expect(dashboard.current).toMatchObject({ rank: 2, totalMinor: 173300, experienceMinor: 524700 });
-    expect(dashboard.entries[2]).toMatchObject({ rank: 3, displayName: null, totalMinor: null });
-    expect(publicRows).toMatchObject([{ rank: 1, displayName: "Casey", experience: 9349.5 }, { rank: 2, displayName: "Avery", experience: 1733 }]);
+    expect(dashboard.current).toMatchObject({ rank: 3, totalMinor: 524700, experienceMinor: 173300 });
+    expect(dashboard.entries[1]).toMatchObject({ rank: 2, displayName: null, totalMinor: null });
+    expect(publicRows).toMatchObject([{ rank: 1, displayName: "Casey", experience: 9349.5 }, { rank: 3, displayName: "Avery", experience: 5247 }]);
+  });
+
+  it("keeps the earned-XP place when available XP is exchanged", async () => {
+    const before = await getDashboardLeaderboard("learner-a", 3);
+    (prisma.user.findMany as jest.Mock).mockResolvedValueOnce(learners.map((learner) => learner.id === "learner-a"
+      ? { ...learner, userLevelProgress: { ...learner.userLevelProgress, lifetimeExperience: 0 } }
+      : learner));
+    const after = await getDashboardLeaderboard("learner-a", 3);
+
+    expect(before.current).toMatchObject({ rank: 3, totalMinor: 524700, experienceMinor: 173300 });
+    expect(after.current).toMatchObject({ rank: 3, totalMinor: 524700, experienceMinor: 0 });
   });
 
   it("restores every positive XP source, including chests, wheels and boosts, without counting coins or XP spent", () => {

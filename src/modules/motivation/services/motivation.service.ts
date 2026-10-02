@@ -75,8 +75,8 @@ async function logSuspicious(tx: Tx, userId: string, type: "HEARTBEAT_FUTURE_TIM
 async function updateUserLevel(tx: Tx, userId: string, amount: number) {
   const current = await tx.userLevel.upsert({ where: { userId }, create: { userId }, update: {} });
   const next = calculateUserLevel(Math.max(0, current.lifetimeExperience + amount));
-  // `lifetimeExperience` is the spendable XP balance used for ranking, level
-  // and exchange. The separate historical earned total is updated by the
+  // `lifetimeExperience` is the spendable XP balance used for level and
+  // exchange. The separate earned XP ranking total is updated by the
   // positive ExperienceTransaction ledger trigger.
   const updated = await tx.userLevel.update({ where: { userId }, data: { ...next } });
   return { ...updated, levelUp: next.level > current.level };
@@ -874,8 +874,8 @@ export async function getMotivationOverview(userId: string) {
       dailyGoalMinutes: context.dailyGoalMinutes,
       daily,
       level,
-      // All positive XP ever credited, including game rewards, is distinct
-      // from the verified-learning ranking and the spendable XP balance.
+      // All positive XP ever credited, including game rewards, determines
+      // ranking independently of the spendable XP balance.
       earnedExperienceMinor: Math.max(Number(earnedRows[0]?.earned_minor ?? 0n), motivationMinor(level.lifetimeExperience, level.fractionalExperience)),
       wallet: { balance: wallet.balance, fractionalBalance: wallet.fractionalBalance },
       streak,
@@ -1133,8 +1133,8 @@ export async function claimWeeklyEasterEgg(userId: string) {
   });
 }
 
-/** Direct exchange of spendable XP into KRIN Coins. Ranking uses the resulting
- * available XP balance; the coins themselves never add ranking points. */
+/** Direct exchange of spendable XP into KRIN Coins. The earned XP ranking
+ * total is preserved; coins themselves never add ranking points. */
 export async function exchangeExperienceForKrinCoins(userId: string, requestedExperience: number, requestId: string = randomUUID()) {
   const exchangedExperience = Math.trunc(requestedExperience);
   if (!Number.isSafeInteger(exchangedExperience) || exchangedExperience < 10) {
@@ -1342,15 +1342,15 @@ function rankLearners(rows: LeaderboardSource[], currentUserId?: string): Learne
         userId: row.id,
         displayName: row.firstName?.trim() || row.name.trim().split(/\s+/)[0] || "Learner",
         level: row.level?.level ?? 1,
-        experienceMinor: Math.max(availableMinor, row.level?.leaderboardExperienceMinor ?? 0),
-        totalMinor: availableMinor,
+        experienceMinor: availableMinor,
+        totalMinor: Math.max(availableMinor, row.level?.leaderboardExperienceMinor ?? 0),
         isProfileVisible: row.showInLeaderboard,
         publicProfileUsername: row.showInLeaderboard && row.showPublicProfile ? row.username : null,
         createdAt: row.createdAt,
       };
     })
-    // Rank by the same available XP shown to the learner. Coins never enter
-    // this score. Stable ties avoid jumping places between refreshes.
+    // Rank by all earned XP, including rewards later exchanged or spent.
+    // Coins never enter this score. Stable ties avoid jumping on refresh.
     .sort((left, right) => right.totalMinor - left.totalMinor || left.createdAt.getTime() - right.createdAt.getTime() || left.userId.localeCompare(right.userId))
     .map(({ createdAt: _createdAt, ...entry }, index) => ({
       ...entry,
@@ -1376,7 +1376,7 @@ async function leaderboardSources(where: Prisma.UserWhereInput) {
   return rows.map(({ userLevelProgress, ...row }) => ({ ...row, level: userLevelProgress }));
 }
 
-/** Public ranking uses the same available-XP score as the dashboard. */
+/** Public ranking uses the same earned-XP score as the dashboard. */
 export async function listPublicLeaderboard(limit = 20) {
   const rows = await leaderboardSources({
     role: "STUDENT", isBlocked: false, deletedAt: null, ...excludeSystemAccounts(),
@@ -1403,8 +1403,8 @@ export async function getDashboardLeaderboard(userId: string, limit = 3) {
   });
   const ranked = rankLearners(rows, userId);
   const current = ranked.find((entry) => entry.userId === userId) ?? null;
-  // `totalMinor` is available XP. Spending or exchanging XP changes rank,
-  // while KRIN Coins themselves never contribute to it.
+  // `totalMinor` is all earned XP. Exchanging XP does not erase it, while
+  // KRIN Coins themselves never contribute to the ranking.
   const entries = ranked.slice(0, Math.max(limit, 1)).map((entry) => {
     const canShowProfile = entry.isProfileVisible || entry.isCurrentUser;
     return {

@@ -31,9 +31,9 @@ export type LeaderboardHeaderSummary = {
 };
 
 const copy = {
-  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "available XP", balances: "Total earned", xp: "XP", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", refreshing: "Refreshing…", close: "Close leaderboard" },
-  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "доступных XP", balances: "Всего заработано", xp: "XP", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", refreshing: "Обновляем…", close: "Закрыть рейтинг" },
-  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "доступних XP", balances: "Усього зароблено", xp: "XP", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", refreshing: "Оновлюємо…", close: "Закрити рейтинг" },
+  en: { title: "Leaderboard", place: "Your place", of: "of", all: "All learners", total: "total earned XP", balances: "Available for exchange", xp: "XP", anonymous: "Private learner", privateStats: "Profile hidden by the learner", loading: "Loading learners…", empty: "No registered learners yet.", error: "Could not refresh the leaderboard.", refreshing: "Refreshing…", close: "Close leaderboard" },
+  ru: { title: "Рейтинг", place: "Ваше место", of: "из", all: "Все ученики", total: "XP всего заработано", balances: "Доступно для обмена", xp: "XP", anonymous: "Скрытый профиль", privateStats: "Профиль скрыт по выбору ученика", loading: "Загружаем учеников…", empty: "Пока нет зарегистрированных учеников.", error: "Не удалось обновить рейтинг.", refreshing: "Обновляем…", close: "Закрыть рейтинг" },
+  uk: { title: "Рейтинг", place: "Ваше місце", of: "з", all: "Усі учні", total: "XP усього зароблено", balances: "Доступно для обміну", xp: "XP", anonymous: "Прихований профіль", privateStats: "Профіль прихований за вибором учня", loading: "Завантажуємо учнів…", empty: "Поки немає зареєстрованих учнів.", error: "Не вдалося оновити рейтинг.", refreshing: "Оновлюємо…", close: "Закрити рейтинг" },
 } as const;
 
 function placeClass(rank: number) {
