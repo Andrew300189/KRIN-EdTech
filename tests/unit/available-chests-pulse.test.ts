@@ -18,7 +18,7 @@ describe("unopened chest cues", () => {
       ok: true,
       json: async () => ({ data: options?.method === "POST"
         ? { opened: true, experience: 500, coins: 0, waterLily: 3, nextAt: null }
-        : { available: true, lessonRequired: false, nextAt: null } }),
+        : { available: true, nextAt: null } }),
     })) as never;
     render(createElement(LocaleProvider, null, createElement(DailyChestCard)));
     const open = await screen.findByRole("button", { name: "Open chest" });

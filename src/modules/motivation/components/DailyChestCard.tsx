@@ -6,13 +6,13 @@ import { useLocale } from "@/core/i18n/locale";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
 import styles from "./DailyChestCard.module.css";
 
-type ChestState = { available: boolean; lessonRequired?: boolean; nextAt: string | null };
+type ChestState = { available: boolean; nextAt: string | null };
 type ChestReward = { opened: boolean; experience: number; coins: number; waterLily?: number; nextAt: string | null };
 
 const copy = {
-  en: { eyebrow: "Daily chest", title: "A lesson reward is waiting", ready: "Open chest", opening: "Opening…", wait: "Next chest", available: "500 XP · 3 Water Lilies", lesson: "Complete one lesson today" },
-  ru: { eyebrow: "Ежедневный сундук", title: "Награда за урок", ready: "Открыть сундук", opening: "Открываем…", wait: "Следующий сундук", available: "500 XP · 3 кувшинки", lesson: "Пройдите один урок сегодня" },
-  uk: { eyebrow: "Щоденна скриня", title: "Нагорода за урок", ready: "Відкрити скриню", opening: "Відкриваємо…", wait: "Наступна скриня", available: "500 XP · 3 латаття", lesson: "Пройдіть один урок сьогодні" },
+  en: { eyebrow: "Daily chest", title: "Your daily reward is waiting", ready: "Open chest", opening: "Opening…", wait: "Next chest", available: "500 XP · 3 Water Lilies" },
+  ru: { eyebrow: "Ежедневный сундук", title: "Ежедневная награда ждёт вас", ready: "Открыть сундук", opening: "Открываем…", wait: "Следующий сундук", available: "500 XP · 3 кувшинки" },
+  uk: { eyebrow: "Щоденна скриня", title: "Щоденна нагорода чекає на вас", ready: "Відкрити скриню", opening: "Відкриваємо…", wait: "Наступна скриня", available: "500 XP · 3 латаття" },
 } as const;
 
 function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "waterLily">) {
@@ -48,7 +48,10 @@ export function DailyChestCard() {
     try {
       const response = await fetch(chestEndpoint(), { cache: "no-store" });
       const payload = await response.json().catch(() => null) as { data?: ChestState } | null;
-      if (response.ok && payload?.data) setState(payload.data);
+      if (response.ok && payload?.data) {
+        setState(payload.data);
+        if (payload.data.available) setReward(null);
+      }
     } catch {
       // A temporary refresh failure never blocks an already rendered dashboard.
     }
@@ -57,7 +60,8 @@ export function DailyChestCard() {
   useEffect(() => {
     void loadState();
     window.addEventListener(MOTIVATION_UPDATED_EVENT, loadState);
-    return () => window.removeEventListener(MOTIVATION_UPDATED_EVENT, loadState);
+    window.addEventListener("focus", loadState);
+    return () => { window.removeEventListener(MOTIVATION_UPDATED_EVENT, loadState); window.removeEventListener("focus", loadState); };
   }, [loadState]);
 
   useEffect(() => {
@@ -75,7 +79,7 @@ export function DailyChestCard() {
       const response = await fetch(chestEndpoint(), { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? "Unable to open the Daily Chest.");
-      setState({ available: false, lessonRequired: false, nextAt: payload.data.nextAt });
+      setState({ available: false, nextAt: payload.data.nextAt });
       if (payload.data.opened) {
         setReward(payload.data);
         notifyMotivationUpdated();
@@ -94,7 +98,7 @@ export function DailyChestCard() {
   return <article className={`${styles.card} ${reward ? styles.opened : ""} ${state?.available && !opening && !reward ? styles.available : ""}`}>
     <div className={styles.sparkles} aria-hidden="true">✦ ✧</div>
     <p>{text.eyebrow}</p>
-    <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward) : text.title}</h3><small>{state?.lessonRequired ? text.lesson : state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>
+    <div className={styles.content}><span className={styles.chest} aria-hidden="true">🎁</span><div><h3>{reward ? rewardText(reward) : text.title}</h3><small>{state?.available ? text.available : `${text.wait}: ${remaining}`}</small></div></div>
     <button type="button" onClick={() => void openChest()} disabled={!state?.available || opening}>{opening ? text.opening : state?.available ? text.ready : text.wait}</button>
   </article>;
 }

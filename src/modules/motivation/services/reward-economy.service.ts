@@ -7,7 +7,7 @@ import { getStreakQuestBookForSource, maybeDropStreakQuestBook } from "./streak-
 import { correctAnswerStreak, streakChestKrinCoinReward, streakChestLevel } from "@/modules/motivation/utils/correct-answer-streak";
 import { flowerRestoreCycle, isWhiteLily, selectRandomFlowerChest, type FlowerChestDefinition } from "@/modules/motivation/utils/flower-chests";
 import { userLocalDate } from "@/modules/motivation/utils/local-date";
-import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone, startDailyChestAt } from "@/modules/motivation/utils/daily-chest-date";
+import { browserChestTimeZone, dailyChestAvailable, nextDailyChestAt, selectedChestTimeZone } from "@/modules/motivation/utils/daily-chest-date";
 import { PURCHASABLE_AVATARS } from "@/modules/motivation/utils/shop-avatar-catalog";
 import { consumableQuantity, PURCHASABLE_WATER_LILY_TIERS, WATER_LILY_SHOP_ID, WATER_LILY_TIERS, XP_BOOSTERS } from "@/modules/motivation/utils/shop-consumables";
 import { SHOP_POSTCARDS } from "@/modules/motivation/utils/shop-postcards";
@@ -425,21 +425,12 @@ export async function getDailyChestState(userId: string, browserTimeZone?: strin
   }
   const now = new Date();
   const unclaimed = dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now);
-  if (!unclaimed) return { available: false, lessonRequired: false, nextAt: nextDailyChestAt(timeZone, now) };
-  const lessonToday = await prisma.userDailyActivity.findUnique({ where: { userId_date: { userId, date: userLocalDate(timeZone, now) } }, select: { lessonsCompleted: true } });
-  // Daily activity uses the profile zone, while a chest can be pinned to the
-  // learner's browser zone. A completion near midnight may be filed under a
-  // different activity date, so verify its actual timestamp in chest time.
-  const completedInChestDay = Boolean(lessonToday?.lessonsCompleted) || Boolean(await prisma.learningActivity.findFirst({
-    where: { userId, type: "LESSON_COMPLETED", occurredAt: { gte: startDailyChestAt(timeZone, now), lt: nextDailyChestAt(timeZone, now) } },
-    select: { id: true },
-  }));
-  return { available: completedInChestDay, lessonRequired: !completedInChestDay, nextAt: null };
+  return { available: unclaimed, nextAt: unclaimed ? null : nextDailyChestAt(timeZone, now) };
 }
 
 /** Claim state changes before reward creation inside one transaction. The
  * per-user transaction lock prevents two tabs from claiming the same local
- * calendar day. The chest time zone is pinned for later device changes. */
+ * calendar day. Opening never depends on lesson progress. */
 export async function openDailyChest(userId: string, browserTimeZone?: string | null) {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`daily-chest:${userId}`}))`);
@@ -451,12 +442,6 @@ export async function openDailyChest(userId: string, browserTimeZone?: string | 
     if (!dailyChestAvailable(user.dailyChestClaimedAt, timeZone, now)) {
       return { opened: false, experience: 0, coins: 0, waterLily: 0, hintCredits: 0, translationCredits: 0, nextAt };
     }
-    const activity = await tx.userDailyActivity.findUnique({ where: { userId_date: { userId, date: userLocalDate(timeZone, now) } }, select: { lessonsCompleted: true } });
-    const completedInChestDay = Boolean(activity?.lessonsCompleted) || Boolean(await tx.learningActivity.findFirst({
-      where: { userId, type: "LESSON_COMPLETED", occurredAt: { gte: startDailyChestAt(timeZone, now), lt: nextAt } },
-      select: { id: true },
-    }));
-    if (!completedInChestDay) throw new Error("Complete one lesson today to open the daily chest.");
     await tx.user.update({ where: { id: userId }, data: { dailyChestClaimedAt: now } });
     const reward = await grantEconomyReward(tx, {
       userId,

@@ -6,13 +6,13 @@ import { useLocale } from "@/core/i18n/locale";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
 import styles from "./DailyChestHeaderButton.module.css";
 
-type ChestState = { available: boolean; lessonRequired?: boolean; nextAt: string | null };
+type ChestState = { available: boolean; nextAt: string | null };
 type ChestReward = { opened: boolean; experience: number; coins: number; waterLily?: number; nextAt: string | null };
 
 const copy = {
-  en: { ready: "Open daily chest", opening: "Opening daily chest", next: "Next daily chest", lesson: "Complete one lesson to unlock today's chest" },
-  ru: { ready: "Открыть ежедневный сундук", opening: "Открываем ежедневный сундук", next: "Следующий ежедневный сундук", lesson: "Пройдите урок, чтобы открыть сегодняшний сундук" },
-  uk: { ready: "Відкрити щоденну скриню", opening: "Відкриваємо щоденну скриню", next: "Наступна щоденна скриня", lesson: "Пройдіть урок, щоб відкрити сьогоднішню скриню" },
+  en: { ready: "Open daily chest", opening: "Opening daily chest", next: "Next daily chest" },
+  ru: { ready: "Открыть ежедневный сундук", opening: "Открываем ежедневный сундук", next: "Следующий ежедневный сундук" },
+  uk: { ready: "Відкрити щоденну скриню", opening: "Відкриваємо щоденну скриню", next: "Наступна щоденна скриня" },
 } as const;
 
 function rewardText(reward: Pick<ChestReward, "experience" | "coins" | "waterLily">) {
@@ -58,7 +58,7 @@ export function DailyChestHeaderButton() {
   useEffect(() => {
     void loadState();
     window.addEventListener(MOTIVATION_UPDATED_EVENT, loadState);
-    // A tab may sleep through midnight or another tab may finish a lesson.
+    // A tab may sleep through midnight or another tab may claim the chest.
     const onVisibilityChange = () => { if (document.visibilityState === "visible") void loadState(); };
     window.addEventListener("focus", loadState);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -84,7 +84,7 @@ export function DailyChestHeaderButton() {
       const response = await fetch(chestEndpoint(), { method: "POST" });
       const payload = await response.json().catch(() => null) as { data?: ChestReward; error?: string } | null;
       if (!response.ok || !payload?.data) throw new Error(payload?.error ?? text.ready);
-      setState({ available: false, lessonRequired: false, nextAt: payload.data.nextAt });
+      setState({ available: false, nextAt: payload.data.nextAt });
       if (payload.data.opened) {
         toast.success(rewardText(payload.data));
         notifyMotivationUpdated();
@@ -99,12 +99,12 @@ export function DailyChestHeaderButton() {
   // Do not reserve header space for signed-out visitors or while the account
   // check is still in flight.
   if (!state) return null;
-  const label = state.lessonRequired ? text.lesson : state.available ? text.ready : `${text.next}: ${timeRemaining(state.nextAt)}`;
+  const label = state.available ? text.ready : `${text.next}: ${timeRemaining(state.nextAt)}`;
   void clock;
 
   return <button
     type="button"
-    className={`${styles.button} ${state.available && !opening ? styles.available : ""} ${state.lessonRequired ? styles.lessonRequired : ""} ${opening ? styles.opening : ""}`}
+    className={`${styles.button} ${state.available && !opening ? styles.available : ""} ${opening ? styles.opening : ""}`}
     onClick={() => void openChest()}
     disabled={!state.available || opening}
     aria-label={opening ? text.opening : label}

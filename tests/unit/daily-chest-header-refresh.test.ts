@@ -9,16 +9,16 @@ import { DailyChestHeaderButton } from "@/modules/motivation/components/DailyChe
 describe("daily chest header refresh", () => {
   beforeEach(() => { window.localStorage.setItem("krin.locale", "en"); });
 
-  it("updates an initially lesson-locked chest when the learner returns to the tab", async () => {
-    let completed = false;
-    const mockFetch = jest.fn().mockImplementation(async () => ({ ok: true, json: async () => ({ data: completed
-      ? { available: true, lessonRequired: false, nextAt: null }
-      : { available: false, lessonRequired: true, nextAt: null } }) }));
+  it("updates an already claimed chest after the next midnight when the learner returns", async () => {
+    let reset = false;
+    const mockFetch = jest.fn().mockImplementation(async () => ({ ok: true, json: async () => ({ data: reset
+      ? { available: true, nextAt: null }
+      : { available: false, nextAt: new Date(Date.now() + 60_000).toISOString() } }) }));
     global.fetch = mockFetch as unknown as typeof fetch;
     render(createElement(LocaleProvider, null, createElement(DailyChestHeaderButton)));
 
-    expect(await screen.findByRole("button", { name: "Complete one lesson to unlock today's chest" })).toBeDisabled();
-    completed = true;
+    expect(await screen.findByRole("button", { name: /Next daily chest/ })).toBeDisabled();
+    reset = true;
     fireEvent.focus(window);
     await waitFor(() => expect(screen.getByRole("button", { name: "Open daily chest" })).toBeEnabled());
     expect(mockFetch).toHaveBeenCalledTimes(2);
