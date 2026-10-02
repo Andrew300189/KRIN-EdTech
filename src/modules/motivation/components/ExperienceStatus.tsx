@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MOTIVATION_UPDATED_EVENT, notifyMotivationUpdated } from "../motivation-events";
 import { useLocale } from "@/core/i18n/locale";
 import styles from "./ExperienceStatus.module.css";
@@ -19,9 +20,9 @@ type ExchangeResult = {
 };
 
 const copy = {
-  en: { title: "XP exchange", earned: "Total earned", available: "Available", xpToKrin: "XP → KRIN Coins", rate: "1,000 XP = 1 KRIN Coin · rank XP stays unchanged", xpAmount: "XP to exchange", all: "All", receive: "You receive", exchange: "Exchange", exchanging: "Exchanging…", close: "Close", krinCoin: "KRIN Coins", done: "{xp} XP exchanged for {coins} KRIN Coins.", error: "Unable to exchange right now." },
-  uk: { title: "Обмін XP", earned: "Усього зароблено", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтингу не змінюється", xpAmount: "XP для обміну", all: "Усі", receive: "Ви отримаєте", exchange: "Обміняти", exchanging: "Обмінюємо…", close: "Закрити", krinCoin: "KRIN Coins", done: "{xp} XP обміняно на {coins} KRIN Coins.", error: "Не вдалося виконати обмін." },
-  ru: { title: "Обмен XP", earned: "Всего заработано", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · XP рейтинга не меняется", xpAmount: "XP для обмена", all: "Все", receive: "Вы получите", exchange: "Обменять", exchanging: "Обмениваем…", close: "Закрыть", krinCoin: "KRIN Coins", done: "{xp} XP обменяно на {coins} KRIN Coins.", error: "Не удалось выполнить обмен." },
+  en: { title: "XP exchange", earned: "Total earned", available: "Available", xpToKrin: "XP → KRIN Coins", rate: "1,000 XP = 1 KRIN Coin · exchanging XP can lower your rank", xpAmount: "XP to exchange", all: "All", receive: "You receive", exchange: "Exchange", exchanging: "Exchanging…", close: "Close", krinCoin: "KRIN Coins", done: "{xp} XP exchanged for {coins} KRIN Coins.", error: "Unable to exchange right now." },
+  uk: { title: "Обмін XP", earned: "Усього зароблено", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · обмін може знизити місце в рейтингу", xpAmount: "XP для обміну", all: "Усі", receive: "Ви отримаєте", exchange: "Обміняти", exchanging: "Обмінюємо…", close: "Закрити", krinCoin: "KRIN Coins", done: "{xp} XP обміняно на {coins} KRIN Coins.", error: "Не вдалося виконати обмін." },
+  ru: { title: "Обмен XP", earned: "Всего заработано", available: "Доступно", xpToKrin: "XP → KRIN Coins", rate: "1 000 XP = 1 KRIN Coin · обмен может снизить место в рейтинге", xpAmount: "XP для обмена", all: "Все", receive: "Вы получите", exchange: "Обменять", exchanging: "Обмениваем…", close: "Закрыть", krinCoin: "KRIN Coins", done: "{xp} XP обменяно на {coins} KRIN Coins.", error: "Не удалось выполнить обмен." },
 } as const;
 
 function regularCoinBalance(overview: MotivationOverview) {
@@ -48,8 +49,9 @@ function format(template: string, values: Record<string, string | number>) {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ""));
 }
 
-/** Shows spendable XP and KRIN Coins with a direct, rank-safe exchange. */
+/** Shows spendable XP and KRIN Coins with a direct exchange. */
 export function ExperienceStatus({ className = "" }: { className?: string }) {
+  const router = useRouter();
   const { locale } = useLocale();
   const text = copy[locale] ?? copy.en;
   const [overview, setOverview] = useState<MotivationOverview | null>(null);
@@ -119,6 +121,7 @@ export function ExperienceStatus({ className = "" }: { className?: string }) {
       setXpAmount("");
       setMessage(format(text.done, { xp: payload.data.exchangedExperience ?? requestedXp, coins: (payload.data.krinCoinsAdded ?? 0).toFixed(2) }));
       notifyMotivationUpdated();
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : text.error);
     } finally {

@@ -1,12 +1,13 @@
 /** @jest-environment jsdom */
 
 import { createElement } from "react";
-import { jest } from "@jest/globals";
 import "@testing-library/jest-dom";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LocaleProvider } from "@/core/i18n/locale";
 import { ExperienceStatus } from "@/modules/motivation/components/ExperienceStatus";
 import { MOTIVATION_UPDATED_EVENT } from "@/modules/motivation/motivation-events";
+
+jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh: jest.fn() }) }));
 
 type OverviewResponse = {
   ok: boolean;

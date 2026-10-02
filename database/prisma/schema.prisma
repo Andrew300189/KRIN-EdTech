@@ -1704,9 +1704,8 @@ model UserLevel {
   /// Fractional XP balance in hundredths (0-99), so a 1.5 XP review reward
   /// remains real value instead of being rounded away.
   fractionalExperience  Int      @default(0)
-  /// Permanent total of all positive XP grants in hundredths, rebuilt from
-  /// the XP ledger. Spending or exchanging XP cannot lower the ranking score;
-  /// KRIN Coins are never XP and do not contribute.
+  /// Historical total of positive XP grants in hundredths, rebuilt from the
+  /// XP ledger. The leaderboard ranks by spendable XP, not this history field.
   leaderboardExperienceMinor Int @default(0)
   experienceToNextLevel Int      @default(100)
   currentCorrectStreak  Int      @default(0)

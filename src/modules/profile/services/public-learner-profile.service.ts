@@ -40,7 +40,7 @@ export async function getPublicLearnerProfile(username: string, locale: PublicPr
       avatar: true,
       avatarDisplayMode: true,
       equippedShopAvatar: true,
-      userLevelProgress: { select: { level: true, leaderboardExperienceMinor: true } },
+      userLevelProgress: { select: { level: true, lifetimeExperience: true, fractionalExperience: true } },
       streak: { select: { currentStreak: true } },
       studentCourses: { where: { status: "ACTIVE" }, select: { courseId: true } },
       lessonProgress: {
@@ -137,7 +137,7 @@ export async function getPublicLearnerProfile(username: string, locale: PublicPr
       avatar: learner.avatarDisplayMode === "SHOP" ? null : learner.avatar,
       shopAvatarId: learner.avatarDisplayMode === "SHOP" ? learner.equippedShopAvatar : null,
       level: learner.userLevelProgress?.level ?? 1,
-      rankExperience: Math.floor(Math.max(0, learner.userLevelProgress?.leaderboardExperienceMinor ?? 0) / 100),
+      rankExperience: Math.max(0, ((learner.userLevelProgress?.lifetimeExperience ?? 0) * 100 + (learner.userLevelProgress?.fractionalExperience ?? 0)) / 100),
       currentStreak: learner.streak?.currentStreak ?? 0,
     },
     stats: {
